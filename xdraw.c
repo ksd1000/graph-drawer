@@ -15,7 +15,7 @@ static void setpixel_bold(struct graph *restrict gp,uint32_t color,int32_t x,int
 			if(px>=gp->width||px<0)continue;
 			for(int32_t py=y-bold;py<=y+bold;++py){
 				if(py>=gp->height||py<0)continue;
-				if(hypot(fabs((double)(px-x)),fabs((double)(py-y)))<=bold)
+				if((int32_t)hypot(fabs((double)(px-x)),fabs((double)(py-y)))<=bold)
 					setpixel(gp,color,px,py);
 			}
 		}
@@ -66,6 +66,11 @@ void graph_draw(struct graph *restrict gp,uint32_t color,int32_t bold,double (*x
 		graph_draw_point(gp,color,bold,x(from),y(from));
 	}
 }
+void graph_drawe(struct graph *restrict gp,uint32_t color,int32_t bold,struct expr *restrict xep,struct expr *restrict yep,double from,double to,double step){
+	for(;from<=to;from+=step){
+		graph_draw_point(gp,color,bold,expr_compute(xep,from),expr_compute(yep,from));
+	}
+}
 static void graph_draw_vline(struct graph *restrict gp,uint32_t color,int32_t bold,int32_t start,int32_t end,int32_t x){
 	for(;start<=end;++start)
 		setpixel_bold(gp,color,x,start,bold);
@@ -114,4 +119,34 @@ void graph_draw_axis(struct graph *restrict gp,uint32_t color,int32_t bold,doubl
 		setpixel_bold(gp,color,px,py,bold);
 	for(py=gp->height-1,px=ax;ax-px<=gapline_len;--px,--py)
 		setpixel_bold(gp,color,px,py,bold);
+}
+void graph_draw_grid(struct graph *restrict gp,uint32_t color,int32_t bold,double gapx,double gapy){
+	int32_t px,py,ax=xtop(0),ay=ytop(0);
+	double v;
+	graph_draw_hline(gp,color,bold,0,gp->width,ax);
+	graph_draw_vline(gp,color,bold,0,gp->height,ay);
+	for(v=gapx;;v+=gapx){
+		px=xtop(v);
+		if(px+bold>=gp->width)break;
+		graph_draw_vline(gp,color,bold,0,gp->height-1,px);
+
+	}
+	for(v=-gapx;;v-=gapx){
+		px=xtop(v);
+		if(px-bold<0)break;
+		graph_draw_vline(gp,color,bold,0,gp->height-1,px);
+
+	}
+	for(v=gapy;;v+=gapy){
+		py=ytop(v);
+		if(py+bold>=gp->height)break;
+		graph_draw_hline(gp,color,bold,0,gp->width-1,py);
+
+	}
+	for(v=-gapy;;v-=gapy){
+		py=ytop(v);
+		if(py-bold<0)break;
+		graph_draw_hline(gp,color,bold,0,gp->width-1,py);
+
+	}
 }

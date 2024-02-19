@@ -9,11 +9,8 @@
 #include <string.h>
 #include <assert.h>
 #include "expr.h"
-#define EXTEND_DATA if(ep->size>=ep->length){\
-	ep->data=realloc(ep->data,\
-		(ep->length+=16)*sizeof(struct expr_inst));\
-	}
-static const char *eerror[]={"Unknown error","Unknown symbol","Parentheses do not match","Function must be followed by a \'(\'","No value in parenthesis"};
+
+static const char *eerror[]={"Unknown error","Unknown symbol","Parentheses do not match","Function and keyword must be followed by a \'(\'","No value in parenthesis","No enough argument","Bad number"};
 #define REGSYM(s) {#s,s}
 static const struct {
 	const char *str;
@@ -57,26 +54,51 @@ static const struct {
 	REGSYM(y1),
 	{NULL,NULL}
 };
+static const struct {
+	const char *str;
+	double val;
+} csyms[]={
+	{"e",M_E},
+	{"log2e",M_LOG2E},
+	{"log10e",M_LOG10E},
+	{"ln2",M_LN2},
+	{"ln10",M_LN10},
+	{"pi",M_PI},
+	{"pi_2",M_PI_2},
+	{"pi_4",M_PI_4},
+	{"1_pi",M_1_PI},
+	{"2_pi",M_2_PI},
+	{"2_sqrtpi",M_2_SQRTPI},
+	{"sqrt2",M_SQRT2},
+	{"sqrt1_2",M_SQRT1_2},
+	{NULL,0.0}
+};
 static double (*expr_sym2addr(struct expr *restrict ep,const char *sym,size_t sz,int *type))(double){
 	size_t i;
-	if(sz>EXPR_SYMLEN)return NULL;
+	if(sz>=EXPR_SYMLEN)return NULL;
 	if(ep->sset)
 	for(i=0;i<ep->sset->size;++i){
-		if(!strncmp(ep->sset->syms[i].str,sym,sz)){
+		if(sz==strlen(ep->sset->syms[i].str)&&!memcmp(ep->sset->syms[i].str,sym,sz)){
 			if(type)*type=ep->sset->syms[i].type;
 			return ep->sset->syms[i].addr;
 		}
 	}
 	for(i=0;syms[i].str;++i){
-		if(!strncmp(syms[i].str,sym,sz)){
+		if(sz==strlen(syms[i].str)&&!memcmp(syms[i].str,sym,sz)){
 			if(type)*type=EXPR_FUNCTION;
 			return syms[i].addr;
+		}
+	}
+	for(i=0;csyms[i].str;++i){
+		if(sz==strlen(csyms[i].str)&&!memcmp(csyms[i].str,sym,sz)){
+			if(type)*type=EXPR_PARAMETER;
+			return (double (*)(double))&csyms[i].val;
 		}
 	}
 	return NULL;
 }
 const char *expr_error(int error){
-	if(error>4||error<0)return eerror[0];
+	if(error>6||error<0)return eerror[0];
 	else return eerror[error];
 }
 static void *xmalloc(size_t size){
@@ -84,12 +106,42 @@ static void *xmalloc(size_t size){
 	assert(r != NULL);
 	return r;
 }
+static void *xrealloc(void *old,size_t size){
+	void *r=realloc(old,size);
+	assert(r != NULL);
+	return r;
+}
 void expr_free(struct expr *restrict ep){
+	struct expr_inst *ip;
 	if(!ep)return;
-	if(ep->data)free(ep->data);
+	if(ep->data){
+		ip=ep->data;
+		while(ip->op!=EXPR_END){
+			switch(ip->op){
+				case EXPR_SUM:
+				case EXPR_INT:
+				case EXPR_PROD:
+					expr_free(ip->un.es->ep);
+					expr_free(ip->un.es->from);
+					expr_free(ip->un.es->to);
+					expr_free(ip->un.es->step);
+					expr_symset_free(ip->un.es->sset);
+					free(ip->un.es);
+					break;
+				default:
+					break;
+			}
+			++ip;
+		}
+		free(ep->data);
+	}
 	if(ep->vars)free(ep->vars);
 	free(ep);
 }
+#define EXTEND_DATA if(ep->size>=ep->length){\
+	ep->data=xrealloc(ep->data,\
+		(ep->length+=16)*sizeof(struct expr_inst));\
+	}
 __attribute__((noinline)) void expr_addcall(struct expr *restrict ep,double *dst,double (*func)(double)){
 	struct expr_inst *ip;
 	EXTEND_DATA
@@ -97,6 +149,14 @@ __attribute__((noinline)) void expr_addcall(struct expr *restrict ep,double *dst
 	ip->op=EXPR_CALL;
 	ip->dst=dst;
 	ip->un.func=func;
+}
+__attribute__((noinline)) void expr_addsumop(struct expr *restrict ep,double *dst,struct expr_suminfo *es,unsigned int op){
+	struct expr_inst *ip;
+	EXTEND_DATA
+	ip=ep->data+ep->size++;
+	ip->op=op;
+	ip->dst=dst;
+	ip->un.es=es;
 }
 __attribute__((noinline)) void expr_addop(struct expr *restrict ep,double *dst,double *src,unsigned int op){
 	struct expr_inst *ip;
@@ -108,7 +168,7 @@ __attribute__((noinline)) void expr_addop(struct expr *restrict ep,double *dst,d
 }
 static double *expr_newvar(struct expr *restrict ep){
 	if(ep->vsize>=ep->vlength){
-		ep->vars=realloc(ep->vars,
+		ep->vars=xrealloc(ep->vars,
 		(ep->vlength+=16)*sizeof(double));
 	}
 	return ep->vars+ep->vsize++;
@@ -118,7 +178,7 @@ void expr_symset_add(struct expr_symset *restrict ep,const char *sym,void *addr,
 	size_t len=strlen(sym);
 	if(len>EXPR_SYMLEN)return;
 	if(ep->size>=ep->length){
-		ep->syms=realloc(ep->syms,
+		ep->syms=xrealloc(ep->syms,
 		(ep->length+=16)*sizeof(double));
 	}
 	esp=ep->syms+ep->size++;
@@ -126,6 +186,16 @@ void expr_symset_add(struct expr_symset *restrict ep,const char *sym,void *addr,
 	if(len<EXPR_SYMLEN)esp->str[len]=0;
 	esp->addr=addr;
 	esp->type=type;
+}
+
+struct expr_symset *expr_symset_clone(struct expr_symset *restrict ep){
+	struct expr_symset *es=new_expr_symset();
+	if(ep)
+	for(size_t i=0;i<ep->size;++i){
+		expr_symset_add(es,ep->syms[i].str,
+		ep->syms[i].addr,ep->syms[i].type);
+	}
+	return es;
 }
 static const char *expr_findpair(const char *c){
 	size_t lv=0;
@@ -167,21 +237,116 @@ static const char *expr_unfindpair(const char *e,const char *c){
 err:
 	return NULL;
 }
-static const char special[]={"+-*/^ ()"};
+static const char special[]={"+-*/^ (),"};
 static const char *expr_getsym(const char *c){
 	while(*c&&!strchr(special,*c))
 		++c;
 	return c;
+}
+static int expr_atod2(const char *str,double *dst){
+	int ret;
+	ret=sscanf(str,"%lf",dst);
+	return ret;
 }
 static int expr_atod(const char *str,size_t sz,double *dst){
 	int ret;
 	char *p=xmalloc(sz+1);
 	p[sz]=0;
 	memcpy(p,str,sz);
-	ret=sscanf(p,"%lf",dst);
+	ret=expr_atod2(p,dst);
 	free(p);
 	return ret;
 }
+
+static char **expr_sep(char *e){
+	char *p,*p1,*p2,**p3=NULL;
+	size_t len=0,s;
+	for(;;){
+		while(*e==' ')++e;
+		if(*e!='(')break;
+		p1=(char *)expr_findpair(e);
+		if(p1){
+			p2=p1+1;
+			while(*p2==' ')++p2;
+
+			if(!*p2){
+				*p1=0;
+				++e;
+			}else break;
+		}else return NULL;
+	}
+	for(p=strtok_r(e,",",&p2);p;p=strtok_r(NULL,",",&p2)){
+		p1=xmalloc((s=strlen(p))+1);
+		p1[s]=0;
+		memcpy(p1,p,s);
+		p3=xrealloc(p3,(++len+1)*sizeof(char *));
+		p3[len-1]=p1;
+	}
+	p3[len]=NULL;
+	return p3;
+}
+static void expr_free2(char **buf){
+	char **p=buf;
+	while(*p){
+		free(*p);
+		++p;
+	}
+	free(buf);
+}
+static struct expr_suminfo *expr_getsuminfo(struct expr *restrict ep,char *e,const char *asym){
+	char **v=expr_sep(e);
+	char **p;
+	struct expr_suminfo *es;
+	int error;
+	if(!v){
+		ep->error=EXPR_EPT;
+		return NULL;
+	}
+	p=v;
+	while(*p){
+		//puts(*p);
+		++p;
+	}
+	if(p-v<5){
+		expr_free2(v);
+		ep->error=EXPR_ENEA;
+		return NULL;
+	}
+	es=xmalloc(sizeof(struct expr_suminfo));
+//	sum(sym_index,from,to,step,expression)
+	es->sset=expr_symset_clone(ep->sset);
+	expr_symset_add(es->sset,v[0],&es->index,EXPR_PARAMETER);
+	/*if(expr_atod2(v[1],&es->from)<1||expr_atod2(v[2],&es->to)<1||expr_atod2(v[3],&es->step)<1){
+		expr_free2(v);
+		ep->error=EXPR_ENUMBER;
+		return NULL;
+	}*/
+	es->from=new_expr(v[1],asym,ep->sset,&error);
+	if(!es->from)goto err1;
+	es->to=new_expr(v[2],asym,ep->sset,&error);
+	if(!es->to)goto err2;
+	es->step=new_expr(v[3],asym,ep->sset,&error);
+	if(!es->step)goto err3;
+	es->ep=new_expr(v[4],asym,es->sset,&error);
+	//assert(es->ep);
+	if(!es->ep)goto err4;
+	expr_free2(v);
+	//puts("getsi");
+	return es;
+err4:
+	expr_symset_free(es->sset);
+	free(es);
+	expr_free2(v);
+err3:
+	expr_free(es->step);
+err2:
+	expr_free(es->to);
+err1:
+	expr_free(es->from);
+	ep->error=error;
+	return NULL;
+}
+	
 static double *expr_scan(struct expr *restrict ep,const char *e,const char *asym);
 static double *expr_getval(struct expr *restrict ep,const char *e,const char **_p,const char *asym){
 	const char *p,*p2,*e0=e;
@@ -189,8 +354,9 @@ static double *expr_getval(struct expr *restrict ep,const char *e,const char **_
 	char *buf;
 	double *v0=NULL,*v1;
 	double v;
+	struct expr_suminfo *es;
 	int type;
-	//printf("getval %s\n",e);
+	//fprintf(stderr,"getval %s\n",e0);
 	for(;*e;++e){
 		if(*e==' ')continue;
 		if(*e=='('){
@@ -198,12 +364,14 @@ static double *expr_getval(struct expr *restrict ep,const char *e,const char **_
 			if(!p){
 pterr:
 				ep->error=EXPR_EPT;
+				//assert(0);
 				return NULL;
 			}
 			p2=e;
 			while(*p2=='('||*p2==' ')++p2;
 			if(*p2==')'){
 				ep->error=EXPR_ENVP;
+				//assert(0);
 				return NULL;
 			}
 			buf=xmalloc(p-e);
@@ -211,26 +379,61 @@ pterr:
 			memcpy(buf,e+1,p-e-1);
 			v0=expr_scan(ep,buf,asym);
 			free(buf);
+			//assert(v0);
 			if(!v0)return NULL;
 			e=p+1;
 			break;
 		}else if(*e=='+')continue;
 		else if(*e==')'&&!expr_unfindpair(e0,e))goto pterr;
 		p=expr_getsym(e);
-		if(!memcmp(e,asym,p-e)){
+		//fprintf(stderr,"unknown sym %ld %s\n",p-e,e);
+		type=-1;
+		if(p-e==3&&!memcmp(e,"sum",p-e))type=EXPR_SUM;
+		else if(p-e==3&&!memcmp(e,"int",p-e))type=EXPR_INT;
+		else if(
+			(p-e==3&&!memcmp(e,"pai",p-e))||
+			(p-e==4&&!memcmp(e,"prod",p-e))
+			)	type=EXPR_PROD;
+		//if(type==-1&&(!strncmp(e,"prod",p-e)||!strncmp(e,"pai",p-e)))type=EXPR_PROD;
+		if(type!=-1){
+			if(*p!='('){
+				ep->error=EXPR_EFP;
+				//assert(0);
+				return NULL;
+			}
+			e=p;
+			p=expr_findpair(e);
+			if(!p)goto pterr;
+			buf=xmalloc(p-e+2);
+			buf[p-e+1]=0;
+			memcpy(buf,e,p-e+1);
+			es=expr_getsuminfo(ep,buf,asym);
+			free(buf);
+			//assert(es);
+			if(!es)return NULL;
+			v0=expr_newvar(ep);
+			expr_addsumop(ep,v0,es,type);
+			e=p+1;
+			break;
+		}
+		if(p-e==strlen(asym)&&!memcmp(e,asym,p-e)){
 			v0=expr_newvar(ep);
 			expr_addcopy(ep,v0,NULL);
+			//fprintf(stderr,"asym %ld %s\n",p-e,e);
 			e=p;
 			break;
 		}
 		p1=expr_sym2addr(ep,e,p-e,&type);
+		//fprintf(stderr,"find sym %ld %s\n",p-e,e);
 		if(p1){
 			if(type==EXPR_FUNCTION){
 				if(*p!='('){
 					ep->error=EXPR_EFP;
+					//assert(0);
 					return NULL;
 				}
 				v0=expr_getval(ep,p,&e,asym);
+				//assert(v0);
 				if(!v0)return NULL;
 				expr_addcall(ep,v0,p1);
 			}else if(type==EXPR_PARAMETER){
@@ -270,13 +473,13 @@ static struct expr_vnode *expr_vn(double *v,int op){
 }
 static struct expr_vnode *expr_vnadd(struct expr_vnode *vp,double *v,int op){
 	struct expr_vnode *p;
-	//printf("vp %p\n",vp);
+	//fprintf(stderr,"vp %p\n",vp);
 	if(!vp)return expr_vn(v,op);
 	for(p=vp;p->next;p=p->next);
-//	printf("p %p\n",p);
-//	printf("p %p\n",p);
+//	fprintf(stderr,"p %p\n",p);
+//	fprintf(stderr,"p %p\n",p);
 	p->next=xmalloc(sizeof(struct expr_vnode));
-//	printf("p->next %p\n",p->next);
+//	fprintf(stderr,"p->next %p\n",p->next);
 	p->next->v=v;
 	p->next->op=op;
 	p->next->next=NULL;
@@ -302,7 +505,7 @@ static double *expr_scan(struct expr *restrict ep,const char *e,const char *asym
 	const char *e0=e;
 	int op,neg=0;
 	struct expr_vnode *ev=NULL,*p;
-//	printf("scan %s\n",e);
+	//fprintf(stderr,"scan %s\n",e);
 	if(*e=='-'){
 		neg=1;
 		++e;
@@ -346,10 +549,10 @@ more:
 		}
 	}
 end1:
-	ep->error=0;
 	v1=NULL;
 	if(op!=-1){
 		v1=expr_getval(ep,e,&e,asym);
+		//assert(!ep->error);
 		if(ep->error)goto err;
 		if(v1){
 			expr_vnadd(ev,v1,op);
@@ -392,6 +595,7 @@ struct expr *new_expr(const char *e,const char *asym,struct expr_symset *esp,int
 	ep->data=NULL;
 	ep->vars=NULL;
 	ep->sset=esp;
+	ep->error=0;
 	ep->length=ep->size=ep->vlength=ep->vsize=0;
 	if(e&&*e){
 		p=expr_scan(ep,e,asym);
@@ -408,6 +612,8 @@ struct expr *new_expr(const char *e,const char *asym,struct expr_symset *esp,int
 }
 double expr_compute(struct expr *restrict ep,double input){
 	struct expr_inst *ip=ep->data;
+	double step,sum,from,to;
+	int neg;
 	while(ip->op!=EXPR_END){
 		switch(ip->op){
 			case EXPR_COPY:
@@ -437,6 +643,63 @@ double expr_compute(struct expr *restrict ep,double input){
 			case EXPR_NEG:
 				*ip->dst=-*ip->dst;
 				break;
+			case EXPR_SUM:
+				from=expr_compute(ip->un.es->from,input);
+				to=expr_compute(ip->un.es->to,input);
+				if(from>to){
+					step=from;
+					from=to;
+					to=step;
+				}
+				step=expr_compute(ip->un.es->step,input);
+				if(step<0)step=-step;
+				sum=0;
+				for(ip->un.es->index=from;
+					ip->un.es->index<=to;
+					ip->un.es->index+=step){
+					sum+=expr_compute(ip->un.es->ep,input);
+				}
+				*ip->dst=sum;
+				break;
+			case EXPR_PROD:
+				from=expr_compute(ip->un.es->from,input);
+				to=expr_compute(ip->un.es->to,input);
+				if(from>to){
+					step=from;
+					from=to;
+					to=step;
+				}
+				step=expr_compute(ip->un.es->step,input);
+				if(step<0)step=-step;
+				sum=1;
+				for(ip->un.es->index=from;
+					ip->un.es->index<=to;
+					ip->un.es->index+=step){
+					sum*=expr_compute(ip->un.es->ep,input);
+				}
+				*ip->dst=sum;
+				break;
+			case EXPR_INT:
+				neg=0;
+				from=expr_compute(ip->un.es->from,input);
+				to=expr_compute(ip->un.es->to,input);
+				if(from>to){
+					step=from;
+					from=to;
+					to=step;
+					neg=1;
+				}
+				step=expr_compute(ip->un.es->step,input);
+				if(step<0)step=-step;
+				sum=0;
+				for(ip->un.es->index=from+step/2;
+					ip->un.es->index<=to;
+					ip->un.es->index+=step){
+					sum+=step*expr_compute(ip->un.es->ep,input);
+				}
+				*ip->dst=neg?-sum:sum;
+				break;
+
 			default:
 				break;
 		}

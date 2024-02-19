@@ -8,7 +8,7 @@
 #include <math.h>
 #include "xdraw.h"
 
-static __attribute__((always_inline)) void setpixel(struct graph *restrict gp,uint32_t color,int32_t x,int32_t y){
+static void setpixel(struct graph *restrict gp,uint32_t color,int32_t x,int32_t y){
 	if(x<gp->width&&x>=0&&y<gp->height&&y>=0)
 		memcpy(gp->buf+y*gp->byte_width+x*gp->bpp,&color,gp->bpp);
 }

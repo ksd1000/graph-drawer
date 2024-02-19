@@ -56,16 +56,21 @@ static const struct {
 	REGSYM(y1),
 	{NULL,NULL}
 };
-static double (*expr_sym2addr(struct expr *restrict ep,const char *sym,size_t sz))(double){
+static double (*expr_sym2addr(struct expr *restrict ep,const char *sym,size_t sz,int *type))(double){
 	size_t i;
 	if(sz>EXPR_SYMLEN)return NULL;
 	if(ep->sset)
 	for(i=0;i<ep->sset->size;++i){
-		if(!strncmp(ep->sset->syms[i].str,sym,sz))
+		if(!strncmp(ep->sset->syms[i].str,sym,sz)){
+			if(type)*type=ep->sset->syms[i].type;
 			return ep->sset->syms[i].addr;
+		}
 	}
 	for(i=0;syms[i].str;++i){
-		if(!strncmp(syms[i].str,sym,sz))return syms[i].addr;
+		if(!strncmp(syms[i].str,sym,sz)){
+			if(type)*type=EXPR_FUNCTION;
+			return syms[i].addr;
+		}
 	}
 	return NULL;
 }
@@ -107,7 +112,7 @@ static double *expr_newvar(struct expr *restrict ep){
 	}
 	return ep->vars+ep->vsize++;
 }
-void expr_symset_add(struct expr_symset *restrict ep,const char *sym,double (*addr)(double)){
+void expr_symset_add(struct expr_symset *restrict ep,const char *sym,void *addr,int type){
 	struct expr_symbol *esp;
 	size_t len=strlen(sym);
 	if(len>EXPR_SYMLEN)return;
@@ -119,6 +124,7 @@ void expr_symset_add(struct expr_symset *restrict ep,const char *sym,double (*ad
 	memcpy(esp->str,sym,len);
 	if(len<EXPR_SYMLEN)esp->str[len]=0;
 	esp->addr=addr;
+	esp->type=type;
 }
 static const char *expr_findpair(const char *c){
 	size_t lv=0;
@@ -182,6 +188,7 @@ static double *expr_getval(struct expr *restrict ep,const char *e,const char **_
 	char *buf;
 	double *v0=NULL,*v1;
 	double v;
+	int type;
 	//printf("getval %s\n",e);
 	for(;*e;++e){
 		if(*e==' ')continue;
@@ -215,15 +222,21 @@ pterr:
 			e=p;
 			break;
 		}
-		p1=expr_sym2addr(ep,e,p-e);
+		p1=expr_sym2addr(ep,e,p-e,&type);
 		if(p1){
-			if(*p!='('){
-				ep->error=EXPR_EFP;
-				return NULL;
-			}
-			v0=expr_getval(ep,p,&e,asym);
-			if(!v0)return NULL;
-			expr_addcall(ep,v0,p1);
+			if(type==EXPR_FUNCTION){
+				if(*p!='('){
+					ep->error=EXPR_EFP;
+					return NULL;
+				}
+				v0=expr_getval(ep,p,&e,asym);
+				if(!v0)return NULL;
+				expr_addcall(ep,v0,p1);
+			}else if(type==EXPR_PARAMETER){
+				v0=expr_newvar(ep);
+				expr_addcopy(ep,v0,(double *)p1);
+				e=p;
+			}else goto symerr;
 			break;
 		}
 		if(expr_atod(e,p-e,&v)==1){
@@ -234,6 +247,7 @@ pterr:
 			e=p;
 			break;
 		}
+symerr:
 		ep->error=EXPR_ESYMBOL;
 		return NULL;
 	}

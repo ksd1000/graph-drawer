@@ -19,8 +19,8 @@ int main(){
 	struct graph g;
 	int e;
 	struct expr_symset *esp=new_expr_symset();
-	expr_symset_add(esp,"a",rsin);
-	expr_symset_add(esp,"b",rcos);
+	expr_symset_add(esp,"a",rsin,EXPR_FUNCTION);
+	expr_symset_add(esp,"b",rcos,EXPR_FUNCTION);
 	struct expr *ep=new_expr("a(t)","t",esp,&e),*xep=new_expr("b(t)","t",esp,NULL);
 	if(!ep){
 		printf("expr error:%s\n",expr_error(e));

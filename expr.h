@@ -18,16 +18,19 @@
 #define EXPR_EPT 2
 #define EXPR_EFP 3
 #define EXPR_ENVP 4
+#define EXPR_FUNCTION 0
+#define EXPR_PARAMETER 1
 struct expr_inst {
 	double *dst;
 	union {
-		double *src;
+		volatile double *src;
 		double (*func)(double);
 	} un;
 	unsigned int op;
 };
 struct expr_symbol {
-	double (*addr)(double);
+	void *addr;
+	int type,unused;
 	char str[EXPR_SYMLEN];
 };
 struct expr_symset {
@@ -55,7 +58,7 @@ struct expr *new_expr(const char *e,const char *asym,struct expr_symset *esp,int
 double expr_compute(struct expr *restrict ep,double input);
 void expr_free(struct expr *restrict ep);
 const char *expr_error(int error);
-void expr_symset_add(struct expr_symset *restrict ep,const char *sym,double (*addr)(double));
+void expr_symset_add(struct expr_symset *restrict ep,const char *sym,void *addr,int type);
 struct expr_symset *new_expr_symset(void);
 void expr_symset_free(struct expr_symset *restrict esp);
 #endif

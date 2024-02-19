@@ -73,6 +73,45 @@ static const struct {
 	{"sqrt1_2",M_SQRT1_2},
 	{NULL,0.0}
 };
+double expr_max(size_t n,double *args){
+	double ret=DBL_MIN;
+	while(n>0){
+		//printf("%lf\n",*args);
+		if(*args>ret)ret=*args;
+		--n;
+		++args;
+	}
+	return ret;
+}
+double expr_min(size_t n,double *args){
+	double ret=DBL_MAX;
+	while(n>0){
+		//printf("%lf\n",*args);
+		if(*args<ret)ret=*args;
+		--n;
+		++args;
+	}
+	return ret;
+}
+double expr_hypot(size_t n,double *args){
+	double ret=0;
+	while(n>0){
+		//printf("%lf\n",*args);
+		ret+=*args**args;
+		--n;
+		++args;
+	}
+	return sqrt(ret);
+}
+static const struct {
+	const char *str;
+	double (*addr)(size_t,double *);
+} mdsyms[]={
+	{"min",expr_min},
+	{"max",expr_max},
+	{"hypot",expr_hypot},
+	{NULL,NULL}
+};
 static double (*expr_sym2addr(struct expr *restrict ep,const char *sym,size_t sz,int *type))(double){
 	size_t i;
 	if(sz>=EXPR_SYMLEN)return NULL;
@@ -93,6 +132,12 @@ static double (*expr_sym2addr(struct expr *restrict ep,const char *sym,size_t sz
 		if(sz==strlen(csyms[i].str)&&!memcmp(csyms[i].str,sym,sz)){
 			if(type)*type=EXPR_PARAMETER;
 			return (double (*)(double))&csyms[i].val;
+		}
+	}
+	for(i=0;mdsyms[i].str;++i){
+		if(sz==strlen(mdsyms[i].str)&&!memcmp(mdsyms[i].str,sym,sz)){
+			if(type)*type=EXPR_MDFUNCTION;
+			return (double (*)(double))mdsyms[i].addr;
 		}
 	}
 	return NULL;
@@ -128,6 +173,12 @@ void expr_free(struct expr *restrict ep){
 					expr_symset_free(ip->un.es->sset);
 					free(ip->un.es);
 					break;
+				case EXPR_CALLMD:
+					for(size_t i=0;i<ip->un.em->dim;++i)
+						expr_free(ip->un.em->eps[i]);
+					free(ip->un.em->eps);
+					free(ip->un.em->args);
+					free(ip->un.em);
 				default:
 					break;
 			}
@@ -149,6 +200,14 @@ __attribute__((noinline)) void expr_addcall(struct expr *restrict ep,double *dst
 	ip->op=EXPR_CALL;
 	ip->dst=dst;
 	ip->un.func=func;
+}
+__attribute__((noinline)) void expr_addcallmd(struct expr *restrict ep,double *dst,struct expr_mdinfo *em){
+	struct expr_inst *ip;
+	EXTEND_DATA
+	ip=ep->data+ep->size++;
+	ip->op=EXPR_CALLMD;
+	ip->dst=dst;
+	ip->un.em=em;
 }
 __attribute__((noinline)) void expr_addsumop(struct expr *restrict ep,double *dst,struct expr_suminfo *es,unsigned int op){
 	struct expr_inst *ip;
@@ -258,7 +317,7 @@ static int expr_atod(const char *str,size_t sz,double *dst){
 	return ret;
 }
 
-static char **expr_sep(char *e){
+static char **expr_sep(struct expr *restrict ep,char *e){
 	char *p,*p1,*p2,**p3=NULL;
 	size_t len=0,s;
 	for(;;){
@@ -273,7 +332,16 @@ static char **expr_sep(char *e){
 				*p1=0;
 				++e;
 			}else break;
-		}else return NULL;
+		}else {
+			ep->error=EXPR_EPT;
+			return NULL;
+		}
+	}
+
+	while(*e==' ')++e;
+	if(!*e){
+		ep->error=EXPR_ENVP;
+		return NULL;
 	}
 	for(p=strtok_r(e,",",&p2);p;p=strtok_r(NULL,",",&p2)){
 		p1=xmalloc((s=strlen(p))+1);
@@ -293,13 +361,48 @@ static void expr_free2(char **buf){
 	}
 	free(buf);
 }
+static struct expr_mdinfo *expr_getmdinfo(struct expr *restrict ep,char *e,const char *asym,double (*func)(size_t,double *)){
+	char **v=expr_sep(ep,e);
+	char **p;
+	size_t i;
+	struct expr_mdinfo *em;
+	int error;
+	if(!v){
+		return NULL;
+	}
+	p=v;
+	while(*p){
+		//puts(*p);
+		++p;
+	}
+	em=xmalloc(sizeof(struct expr_mdinfo));
+	em->dim=p-v;
+	em->func=func;
+	em->eps=xmalloc(em->dim*sizeof(struct expr *));
+	em->args=xmalloc(em->dim*sizeof(double));
+	for(i=0;i<em->dim;++i){
+		em->eps[i]=new_expr(v[i],asym,ep->sset,&error);
+		if(!em->eps[i]){
+			for(ssize_t k=i-1;k>=0;--k)
+				expr_free(em->eps[k]);
+			goto err2;
+		}
+	}
+	expr_free2(v);
+	return em;
+err2:
+	free(em->eps);
+	free(em->args);
+	ep->error=error;
+	expr_free2(v);
+	return NULL;
+}
 static struct expr_suminfo *expr_getsuminfo(struct expr *restrict ep,char *e,const char *asym){
-	char **v=expr_sep(e);
+	char **v=expr_sep(ep,e);
 	char **p;
 	struct expr_suminfo *es;
 	int error;
 	if(!v){
-		ep->error=EXPR_EPT;
 		return NULL;
 	}
 	p=v;
@@ -308,9 +411,8 @@ static struct expr_suminfo *expr_getsuminfo(struct expr *restrict ep,char *e,con
 		++p;
 	}
 	if(p-v<5){
-		expr_free2(v);
 		ep->error=EXPR_ENEA;
-		return NULL;
+		goto err0;
 	}
 	es=xmalloc(sizeof(struct expr_suminfo));
 //	sum(sym_index,from,to,step,expression)
@@ -344,6 +446,8 @@ err2:
 err1:
 	expr_free(es->from);
 	ep->error=error;
+err0:
+	expr_free2(v);
 	return NULL;
 }
 	
@@ -353,8 +457,11 @@ static double *expr_getval(struct expr *restrict ep,const char *e,const char **_
 	double (*p1)(double);
 	char *buf;
 	double *v0=NULL,*v1;
+	union {
 	double v;
 	struct expr_suminfo *es;
+	struct expr_mdinfo *em;
+	} un;
 	int type;
 	//fprintf(stderr,"getval %s\n",e0);
 	for(;*e;++e){
@@ -407,12 +514,12 @@ pterr:
 			buf=xmalloc(p-e+2);
 			buf[p-e+1]=0;
 			memcpy(buf,e,p-e+1);
-			es=expr_getsuminfo(ep,buf,asym);
+			un.es=expr_getsuminfo(ep,buf,asym);
 			free(buf);
 			//assert(es);
-			if(!es)return NULL;
+			if(!un.es)return NULL;
 			v0=expr_newvar(ep);
-			expr_addsumop(ep,v0,es,type);
+			expr_addsumop(ep,v0,un.es,type);
 			e=p+1;
 			break;
 		}
@@ -440,14 +547,34 @@ pterr:
 				v0=expr_newvar(ep);
 				expr_addcopy(ep,v0,(double *)p1);
 				e=p;
+			}else if(type==EXPR_MDFUNCTION){
+				if(*p!='('){
+					ep->error=EXPR_EFP;
+					//assert(0);
+					return NULL;
+				}
+				e=p;
+				p=expr_findpair(e);
+				if(!p)goto pterr;
+				buf=xmalloc(p-e+2);
+				buf[p-e+1]=0;
+				memcpy(buf,e,p-e+1);
+				un.em=expr_getmdinfo(ep,buf,asym,
+					(double (*)(size_t,double *))p1);
+				free(buf);
+				//assert(es);
+				if(!un.em)return NULL;
+				v0=expr_newvar(ep);
+				expr_addcallmd(ep,v0,un.em);
+				e=p+1;
 			}else goto symerr;
 			break;
 		}
-		if(expr_atod(e,p-e,&v)==1){
+		if(expr_atod(e,p-e,&un.v)==1){
 			v1=expr_newvar(ep);
 			v0=expr_newvar(ep);
 			expr_addcopy(ep,v0,v1);
-			*v1=v;
+			*v1=un.v;
 			e=p;
 			break;
 		}
@@ -695,11 +822,18 @@ double expr_compute(struct expr *restrict ep,double input){
 				for(ip->un.es->index=from+step/2;
 					ip->un.es->index<=to;
 					ip->un.es->index+=step){
-					sum+=step*expr_compute(ip->un.es->ep,input);
+					sum+=step*expr_compute(ip->un.es->ep,
+						input);
 				}
 				*ip->dst=neg?-sum:sum;
 				break;
-
+			case EXPR_CALLMD:
+				for(size_t i=0;i<ip->un.em->dim;++i)
+					ip->un.em->args[i]=
+						expr_compute(
+						ip->un.em->eps[i],input);
+				
+				*ip->dst=ip->un.em->func(ip->un.em->dim,ip->un.em->args);
 			default:
 				break;
 		}

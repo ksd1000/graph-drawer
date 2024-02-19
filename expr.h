@@ -15,6 +15,7 @@
 #define EXPR_SUM 8
 #define EXPR_INT 9
 #define EXPR_PROD 10
+#define EXPR_CALLMD 11
 #define EXPR_END 64
 #define EXPR_SYMLEN 256
 #define EXPR_ESYMBOL 1
@@ -25,6 +26,7 @@
 #define EXPR_ENUMBER 6
 #define EXPR_FUNCTION 0
 #define EXPR_PARAMETER 1
+#define EXPR_MDFUNCTION 2
 struct expr;
 struct expr_symset;
 struct expr_suminfo {
@@ -32,18 +34,25 @@ struct expr_suminfo {
 	struct expr_symset *sset;
 	double index;
 };
+struct expr_mdinfo {
+	struct expr **eps;
+	double *args;
+	double (*func)(size_t,double *);
+	size_t dim;
+};
 struct expr_inst {
 	double *dst;
 	union {
 		volatile double *src;
 		double (*func)(double);
 		struct expr_suminfo *es;
+		struct expr_mdinfo *em;
 	} un;
 	unsigned int op;
 };
 struct expr_symbol {
 	void *addr;
-	int type,unused;
+	int type,dim;
 	char str[EXPR_SYMLEN];
 };
 struct expr_symset {

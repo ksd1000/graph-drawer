@@ -14,6 +14,14 @@ static void setpixel(struct graph *restrict gp,uint32_t color,int32_t x,int32_t 
 }
 
 static void setpixel_bold(struct graph *restrict gp,uint32_t color,int32_t x,int32_t y,int32_t bold){
+	if(gp->drawing){
+		if(gp->lastx==x&&gp->lasty==y)
+			return;
+		else {
+			gp->lastx=x;
+			gp->lasty=y;
+		}
+	}
 	if(bold>0){
 		for(int32_t px=x-bold;px<=x+bold;++px){
 			if(px>=gp->width||px<0)continue;
@@ -46,6 +54,8 @@ int init_graph(struct graph *restrict gp,int32_t width,int32_t height,uint16_t b
 	gp->maxx=maxx;
 	gp->miny=miny;
 	gp->maxy=maxy;
+	gp->drawing=0;
+	//gp->lastx=gp->lasty=-1;
 	gp->bpp=bpp/8;
 	memset(gp->buf,0,54);
 	memcpy(gp->buf,"BM",2);
@@ -65,15 +75,22 @@ void graph_free(struct graph *restrict gp){
 }
 #define xtop(x) (((x)-gp->minx)/(gp->maxx-gp->minx)*gp->width)
 #define ytop(y) (((y)-gp->miny)/(gp->maxy-gp->miny)*gp->height)
+#define START_DRAWING gp->drawing=1;\
+	gp->lastx=gp->lasty=-1;
+#define END_DRAWING gp->drawing=0;
 void graph_draw(struct graph *restrict gp,uint32_t color,int32_t bold,double (*x)(double),double (*y)(double),double from,double to,double step){
+	START_DRAWING
 	for(;from<=to;from+=step){
 		graph_draw_point(gp,color,bold,x(from),y(from));
 	}
+	END_DRAWING
 }
 void graph_drawe(struct graph *restrict gp,uint32_t color,int32_t bold,struct expr *restrict xep,struct expr *restrict yep,double from,double to,double step){
+	START_DRAWING
 	for(;from<=to;from+=step){
 		graph_draw_point(gp,color,bold,expr_compute(xep,from),expr_compute(yep,from));
 	}
+	END_DRAWING
 }
 static void graph_draw_vline(struct graph *restrict gp,uint32_t color,int32_t bold,int32_t start,int32_t end,int32_t x){
 	for(;start<=end;++start)

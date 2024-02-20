@@ -9,13 +9,144 @@
 #include <string.h>
 #include <assert.h>
 #include "expr.h"
+#define printval(x) fprintf(stderr,#x ":%lu\n",x)
+#define printvald(x) fprintf(stderr,#x ":%lf\n",x)
+static const char *eerror[]={"Unknown error","Unknown symbol","Parentheses do not match","Function and keyword must be followed by a \'(\'","No value in parenthesis","No enough or too much argument","Bad number"};
+static const char spaces[]={" \t\r\f\n\v"};
+static const char special[]={"+-*/%^(),"};
+void expr_memrand(void *restrict m,size_t n){
+#if (RAND_MAX>=UINT32_MAX)
+	while(n>=4){
+		*(uint32_t *)m=(uint32_t)rand();
+		*(char *)&m+=4;
+		n-=4;
+	}
+#endif
+#if (RAND_MAX>=UINT16_MAX)
+	while(n>=2){
+		*(uint16_t *)m=(uint16_t)rand();
+		*(char *)&m+=2;
+		n-=2;
+	}
+#endif
+	while(n>0){
+		*(uint8_t *)m=(uint8_t)rand();
+		*(char *)&m+=1;
+		--n;
+	}
 
-static const char *eerror[]={"Unknown error","Unknown symbol","Parentheses do not match","Function and keyword must be followed by a \'(\'","No value in parenthesis","No enough argument","Bad number"};
+}
+
+double expr_and2(double a,double b){
+	uint64_t x2=EXPR_EDBASE(&b)|(1UL<<52UL);
+	uint64_t x1=EXPR_EDBASE(&a)|(1UL<<52UL);
+	int64_t expdiff=EXPR_EDEXP(&a)-EXPR_EDEXP(&b);
+	if(expdiff>64||expdiff<-64)goto zero;
+	else if(expdiff>0){
+		x2>>=(EXPR_EDEXP(&a)-EXPR_EDEXP(&b));
+	}else if(expdiff<0){
+		x2<<=(EXPR_EDEXP(&b)-EXPR_EDEXP(&a));
+	}
+	x1&=x2;
+	if(!x1)goto zero;
+	x2=63UL-__builtin_clzl(x1);
+	x1&=~(1UL<<x2);
+	x2=52UL-x2;
+	if(EXPR_EDEXP(&a)<x2)goto zero;
+	EXPR_EDBASE(&a)=x1<<x2;
+	EXPR_EDEXP(&a)-=x2;
+	EXPR_EDSIGN(&a)&=EXPR_EDSIGN(&b);
+	return a;
+zero:
+	return EXPR_EDSIGN(&a)&&EXPR_EDSIGN(&b)?-0.0:0.0;
+}
+double expr_rand12(void){
+	double ret;
+	expr_memrand(&ret,sizeof(double));
+	EXPR_EDEXP(&ret)=1023;
+	EXPR_EDSIGN(&ret)=0;
+	return ret;
+}
+static double expr_rand(size_t n,double *args){
+	//assert(n==2);
+	return args[0]+(args[1]-args[0])*(expr_rand12()-1.0);
+}
+static double expr_and(size_t n,double *args){
+	double ret=DBL_MAX;
+	int inited=0;
+	while(n>0){
+		if(inited)ret=expr_and2(ret,*args);
+		else {
+			ret=*args;
+			inited=1;
+		}
+		--n;
+		++args;
+	}
+	return ret;
+}
+static double expr_sign(double x){
+	if(x>DBL_EPSILON)return 1.0;
+	else if(x<-DBL_EPSILON)return -1.0;
+	else return 0.0;
+}
+static double expr_fact(double x){
+	double sum=1.0;
+	x=floor(x);
+	while(x>DBL_EPSILON){
+		sum*=x;
+		x-=1.0;
+	}
+	return sum;
+}
+static double expr_dfact(double x){
+	double sum=1.0;
+	x=floor(x);
+	while(x>DBL_EPSILON){
+		sum*=x;
+		x-=2.0;
+	}
+	return sum;
+}
+
+static double expr_max(size_t n,double *args){
+	double ret=DBL_MIN;
+	while(n>0){
+		//printf("%lf\n",*args);
+		if(*args>ret)ret=*args;
+		--n;
+		++args;
+	}
+	return ret;
+}
+static double expr_min(size_t n,double *args){
+	double ret=DBL_MAX;
+	while(n>0){
+		//printf("%lf\n",*args);
+		if(*args<ret)ret=*args;
+		--n;
+		++args;
+	}
+	return ret;
+}
+static double expr_hypot(size_t n,double *args){
+	double ret=0;
+	while(n>0){
+		//printf("%lf\n",*args);
+		ret+=*args**args;
+		--n;
+		++args;
+	}
+	return sqrt(ret);
+}
 #define REGSYM(s) {#s,s}
+#define REGSYMMD(s,n) {#s,s,n}
 static const struct {
 	const char *str;
 	double (*addr)(double);
 } syms[]={
+	{"!",expr_fact},
+	{"!!",expr_dfact},
 	REGSYM(acos),
 	REGSYM(acosh),
 	REGSYM(asin),
@@ -43,6 +174,7 @@ static const struct {
 	REGSYM(nearbyint),
 	REGSYM(rint),
 	REGSYM(round),
+	{"sign",expr_sign},
 	REGSYM(sin),
 	REGSYM(sinh),
 	REGSYM(sqrt),
@@ -73,52 +205,26 @@ static const struct {
 	{"sqrt1_2",M_SQRT1_2},
 	{NULL,0.0}
 };
-double expr_max(size_t n,double *args){
-	double ret=DBL_MIN;
-	while(n>0){
-		//printf("%lf\n",*args);
-		if(*args>ret)ret=*args;
-		--n;
-		++args;
-	}
-	return ret;
-}
-double expr_min(size_t n,double *args){
-	double ret=DBL_MAX;
-	while(n>0){
-		//printf("%lf\n",*args);
-		if(*args<ret)ret=*args;
-		--n;
-		++args;
-	}
-	return ret;
-}
-double expr_hypot(size_t n,double *args){
-	double ret=0;
-	while(n>0){
-		//printf("%lf\n",*args);
-		ret+=*args**args;
-		--n;
-		++args;
-	}
-	return sqrt(ret);
-}
 static const struct {
 	const char *str;
 	double (*addr)(size_t,double *);
+	unsigned int dim,unused;
 } mdsyms[]={
-	{"min",expr_min},
-	{"max",expr_max},
-	{"hypot",expr_hypot},
+	{"and",expr_and,0},
+	{"hypot",expr_hypot,0},
+	{"min",expr_min,0},
+	{"max",expr_max,0},
+	{"rand",expr_rand,2},
 	{NULL,NULL}
 };
-static double (*expr_sym2addr(struct expr *restrict ep,const char *sym,size_t sz,int *type))(double){
+static double (*expr_sym2addr(struct expr *restrict ep,const char *sym,size_t sz,int *type,unsigned int *dim))(double){
 	size_t i;
 	if(sz>=EXPR_SYMLEN)return NULL;
 	if(ep->sset)
 	for(i=0;i<ep->sset->size;++i){
 		if(sz==strlen(ep->sset->syms[i].str)&&!memcmp(ep->sset->syms[i].str,sym,sz)){
 			if(type)*type=ep->sset->syms[i].type;
+			if(dim)*dim=ep->sset->syms[i].dim;
 			return ep->sset->syms[i].addr;
 		}
 	}
@@ -137,6 +243,7 @@ static double (*expr_sym2addr(struct expr *restrict ep,const char *sym,size_t sz
 	for(i=0;mdsyms[i].str;++i){
 		if(sz==strlen(mdsyms[i].str)&&!memcmp(mdsyms[i].str,sym,sz)){
 			if(type)*type=EXPR_MDFUNCTION;
+			if(dim)*dim=mdsyms[i].dim;
 			return (double (*)(double))mdsyms[i].addr;
 		}
 	}
@@ -161,7 +268,7 @@ void expr_free(struct expr *restrict ep){
 	if(!ep)return;
 	if(ep->data){
 		ip=ep->data;
-		while(ip->op!=EXPR_END){
+		for(size_t i=ep->size;i>0;--i){
 			switch(ip->op){
 				case EXPR_SUM:
 				case EXPR_INT:
@@ -174,7 +281,7 @@ void expr_free(struct expr *restrict ep){
 					free(ip->un.es);
 					break;
 				case EXPR_CALLMD:
-					for(size_t i=0;i<ip->un.em->dim;++i)
+					for(unsigned int i=0;i<ip->un.em->dim;++i)
 						expr_free(ip->un.em->eps[i]);
 					free(ip->un.em->eps);
 					free(ip->un.em->args);
@@ -193,7 +300,8 @@ void expr_free(struct expr *restrict ep){
 	ep->data=xrealloc(ep->data,\
 		(ep->length+=16)*sizeof(struct expr_inst));\
 	}
-__attribute__((noinline)) void expr_addcall(struct expr *restrict ep,double *dst,double (*func)(double)){
+__attribute__((noinline))
+void expr_addcall(struct expr *restrict ep,double *dst,double (*func)(double)){
 	struct expr_inst *ip;
 	EXTEND_DATA
 	ip=ep->data+ep->size++;
@@ -201,7 +309,8 @@ __attribute__((noinline)) void expr_addcall(struct expr *restrict ep,double *dst
 	ip->dst=dst;
 	ip->un.func=func;
 }
-__attribute__((noinline)) void expr_addcallmd(struct expr *restrict ep,double *dst,struct expr_mdinfo *em){
+__attribute__((noinline))
+void expr_addcallmd(struct expr *restrict ep,double *dst,struct expr_mdinfo *em){
 	struct expr_inst *ip;
 	EXTEND_DATA
 	ip=ep->data+ep->size++;
@@ -209,7 +318,8 @@ __attribute__((noinline)) void expr_addcallmd(struct expr *restrict ep,double *d
 	ip->dst=dst;
 	ip->un.em=em;
 }
-__attribute__((noinline)) void expr_addsumop(struct expr *restrict ep,double *dst,struct expr_suminfo *es,unsigned int op){
+__attribute__((noinline))
+void expr_addsumop(struct expr *restrict ep,double *dst,struct expr_suminfo *es,unsigned int op){
 	struct expr_inst *ip;
 	EXTEND_DATA
 	ip=ep->data+ep->size++;
@@ -217,7 +327,8 @@ __attribute__((noinline)) void expr_addsumop(struct expr *restrict ep,double *ds
 	ip->dst=dst;
 	ip->un.es=es;
 }
-__attribute__((noinline)) void expr_addop(struct expr *restrict ep,double *dst,double *src,unsigned int op){
+__attribute__((noinline))
+void expr_addop(struct expr *restrict ep,double *dst,double *src,unsigned int op){
 	struct expr_inst *ip;
 	EXTEND_DATA
 	ip=ep->data+ep->size++;
@@ -225,14 +336,14 @@ __attribute__((noinline)) void expr_addop(struct expr *restrict ep,double *dst,d
 	ip->dst=dst;
 	ip->un.src=src;
 }
-static double *expr_newvar(struct expr *restrict ep){
+double *expr_newvar(struct expr *restrict ep){
 	if(ep->vsize>=ep->vlength){
 		ep->vars=xrealloc(ep->vars,
 		(ep->vlength+=16)*sizeof(double));
 	}
 	return ep->vars+ep->vsize++;
 }
-void expr_symset_add(struct expr_symset *restrict ep,const char *sym,void *addr,int type){
+void expr_symset_add4(struct expr_symset *restrict ep,const char *sym,void *addr,int type,int dim){
 	struct expr_symbol *esp;
 	size_t len=strlen(sym);
 	if(len>EXPR_SYMLEN)return;
@@ -245,8 +356,12 @@ void expr_symset_add(struct expr_symset *restrict ep,const char *sym,void *addr,
 	if(len<EXPR_SYMLEN)esp->str[len]=0;
 	esp->addr=addr;
 	esp->type=type;
+	esp->dim=dim;
 }
 
+void expr_symset_add(struct expr_symset *restrict ep,const char *sym,void *addr,int type){
+	expr_symset_add4(ep,sym,addr,type,0);
+}
 struct expr_symset *expr_symset_clone(struct expr_symset *restrict ep){
 	struct expr_symset *es=new_expr_symset();
 	if(ep)
@@ -296,7 +411,6 @@ static const char *expr_unfindpair(const char *e,const char *c){
 err:
 	return NULL;
 }
-static const char special[]={"+-*/^ (),"};
 static const char *expr_getsym(const char *c){
 	while(*c&&!strchr(special,*c))
 		++c;
@@ -316,17 +430,36 @@ static int expr_atod(const char *str,size_t sz,double *dst){
 	free(p);
 	return ret;
 }
-
+static char *expr_tok(char *restrict str,char **restrict saveptr){
+	if(str){
+		*saveptr=str;
+	}else if(!**saveptr)return NULL;
+	else {
+		str=*saveptr;
+	}
+	while(**saveptr){
+		if(**saveptr==','){
+			**saveptr=0;
+			++(*saveptr);
+			return str;
+		}
+		if(**saveptr=='('){
+			*saveptr=(char *)expr_findpair(*saveptr);
+			//puts(*saveptr);
+			if(!*saveptr)return NULL;
+		}
+		++(*saveptr);
+	}
+	return str;
+}
 static char **expr_sep(struct expr *restrict ep,char *e){
 	char *p,*p1,*p2,**p3=NULL;
 	size_t len=0,s;
 	for(;;){
-		while(*e==' ')++e;
 		if(*e!='(')break;
 		p1=(char *)expr_findpair(e);
 		if(p1){
 			p2=p1+1;
-			while(*p2==' ')++p2;
 
 			if(!*p2){
 				*p1=0;
@@ -338,15 +471,16 @@ static char **expr_sep(struct expr *restrict ep,char *e){
 		}
 	}
 
-	while(*e==' ')++e;
+	//puts(e);
 	if(!*e){
 		ep->error=EXPR_ENVP;
 		return NULL;
 	}
-	for(p=strtok_r(e,",",&p2);p;p=strtok_r(NULL,",",&p2)){
+	for(p=expr_tok(e,&p2);p;p=expr_tok(NULL,&p2)){
 		p1=xmalloc((s=strlen(p))+1);
 		p1[s]=0;
 		memcpy(p1,p,s);
+		//puts(p1);
 		p3=xrealloc(p3,(++len+1)*sizeof(char *));
 		p3[len-1]=p1;
 	}
@@ -361,7 +495,7 @@ static void expr_free2(char **buf){
 	}
 	free(buf);
 }
-static struct expr_mdinfo *expr_getmdinfo(struct expr *restrict ep,char *e,const char *asym,double (*func)(size_t,double *)){
+static struct expr_mdinfo *expr_getmdinfo(struct expr *restrict ep,char *e,const char *asym,double (*func)(size_t,double *),unsigned int dim){
 	char **v=expr_sep(ep,e);
 	char **p;
 	size_t i;
@@ -375,8 +509,14 @@ static struct expr_mdinfo *expr_getmdinfo(struct expr *restrict ep,char *e,const
 		//puts(*p);
 		++p;
 	}
+	i=p-v;
+	if(dim&&i!=dim){
+		ep->error=EXPR_ENEA;
+		goto err1;
+	}
 	em=xmalloc(sizeof(struct expr_mdinfo));
-	em->dim=p-v;
+	em->dim=i;
+
 	em->func=func;
 	em->eps=xmalloc(em->dim*sizeof(struct expr *));
 	em->args=xmalloc(em->dim*sizeof(double));
@@ -394,6 +534,7 @@ err2:
 	free(em->eps);
 	free(em->args);
 	ep->error=error;
+err1:
 	expr_free2(v);
 	return NULL;
 }
@@ -410,7 +551,7 @@ static struct expr_suminfo *expr_getsuminfo(struct expr *restrict ep,char *e,con
 		//puts(*p);
 		++p;
 	}
-	if(p-v<5){
+	if(p-v!=5){
 		ep->error=EXPR_ENEA;
 		goto err0;
 	}
@@ -418,11 +559,6 @@ static struct expr_suminfo *expr_getsuminfo(struct expr *restrict ep,char *e,con
 //	sum(sym_index,from,to,step,expression)
 	es->sset=expr_symset_clone(ep->sset);
 	expr_symset_add(es->sset,v[0],&es->index,EXPR_PARAMETER);
-	/*if(expr_atod2(v[1],&es->from)<1||expr_atod2(v[2],&es->to)<1||expr_atod2(v[3],&es->step)<1){
-		expr_free2(v);
-		ep->error=EXPR_ENUMBER;
-		return NULL;
-	}*/
 	es->from=new_expr(v[1],asym,ep->sset,&error);
 	if(!es->from)goto err1;
 	es->to=new_expr(v[2],asym,ep->sset,&error);
@@ -463,9 +599,9 @@ static double *expr_getval(struct expr *restrict ep,const char *e,const char **_
 	struct expr_mdinfo *em;
 	} un;
 	int type;
+	unsigned int dim;
 	//fprintf(stderr,"getval %s\n",e0);
 	for(;*e;++e){
-		if(*e==' ')continue;
 		if(*e=='('){
 			p=expr_findpair(e);
 			if(!p){
@@ -475,8 +611,7 @@ pterr:
 				return NULL;
 			}
 			p2=e;
-			while(*p2=='('||*p2==' ')++p2;
-			if(*p2==')'){
+			if(*(++p2)==')'){
 				ep->error=EXPR_ENVP;
 				//assert(0);
 				return NULL;
@@ -495,13 +630,13 @@ pterr:
 		p=expr_getsym(e);
 		//fprintf(stderr,"unknown sym %ld %s\n",p-e,e);
 		type=-1;
-		if(p-e==3&&!memcmp(e,"sum",p-e))type=EXPR_SUM;
-		else if(p-e==3&&!memcmp(e,"int",p-e))type=EXPR_INT;
-		else if(
-			(p-e==3&&!memcmp(e,"pai",p-e))||
-			(p-e==4&&!memcmp(e,"prod",p-e))
-			)	type=EXPR_PROD;
-		//if(type==-1&&(!strncmp(e,"prod",p-e)||!strncmp(e,"pai",p-e)))type=EXPR_PROD;
+#define KEYWORD_SET(key,val) if(p-e==sizeof( key )-1&&!memcmp(e,( key ),p-e))type=( val )
+		KEYWORD_SET("sum",EXPR_SUM);
+		else KEYWORD_SET("int",EXPR_INT);
+		else KEYWORD_SET("pai",EXPR_PROD);
+		else KEYWORD_SET("prod",EXPR_PROD);
+		else KEYWORD_SET("sup",EXPR_SUP);
+		else KEYWORD_SET("infi",EXPR_INF);
 		if(type!=-1){
 			if(*p!='('){
 				ep->error=EXPR_EFP;
@@ -530,7 +665,7 @@ pterr:
 			e=p;
 			break;
 		}
-		p1=expr_sym2addr(ep,e,p-e,&type);
+		p1=expr_sym2addr(ep,e,p-e,&type,&dim);
 		//fprintf(stderr,"find sym %ld %s\n",p-e,e);
 		if(p1){
 			if(type==EXPR_FUNCTION){
@@ -560,7 +695,8 @@ pterr:
 				buf[p-e+1]=0;
 				memcpy(buf,e,p-e+1);
 				un.em=expr_getmdinfo(ep,buf,asym,
-					(double (*)(size_t,double *))p1);
+					(double (*)(size_t,double *))p1
+					,dim);
 				free(buf);
 				//assert(es);
 				if(!un.em)return NULL;
@@ -603,10 +739,10 @@ static struct expr_vnode *expr_vnadd(struct expr_vnode *vp,double *v,int op){
 	//fprintf(stderr,"vp %p\n",vp);
 	if(!vp)return expr_vn(v,op);
 	for(p=vp;p->next;p=p->next);
-//	fprintf(stderr,"p %p\n",p);
-//	fprintf(stderr,"p %p\n",p);
+//	//fprintf(stderr,"p %p\n",p);
+//	//fprintf(stderr,"p %p\n",p);
 	p->next=xmalloc(sizeof(struct expr_vnode));
-//	fprintf(stderr,"p->next %p\n",p->next);
+//	//fprintf(stderr,"p->next %p\n",p->next);
 	p->next->v=v;
 	p->next->op=op;
 	p->next->next=NULL;
@@ -660,12 +796,17 @@ more:
 				op=EXPR_DIV;
 				++e;
 				goto end1;
+			case '%':
+				op=EXPR_MOD;
+				++e;
+				goto end1;
 			case '^':
 				op=EXPR_POW;
 				++e;
 				goto end1;
-			case ' ':
-				continue;
+			case ',':
+				ep->error=EXPR_ENEA;
+				goto err;
 			case ')':
 				if(!expr_unfindpair(e0,e)){
 					ep->error=EXPR_EPT;
@@ -692,7 +833,11 @@ end1:
 		}
 	}
 	for(p=ev;p;p=p->next){
-		while(p->next&&(p->next->op==EXPR_MUL||p->next->op==EXPR_DIV)){
+		while(p->next&&(
+			p->next->op==EXPR_MUL
+			||p->next->op==EXPR_DIV
+			||p->next->op==EXPR_MOD
+			)){
 			expr_vnunion(ep,p);
 		}
 	}
@@ -716,8 +861,16 @@ void expr_symset_free(struct expr_symset *restrict esp){
 	if(esp->syms)free(esp->syms);
 	free(esp);
 }
+static void expr_strcpy_nospace(char *restrict s1,const char *restrict s2){
+	for(;*s2;++s2){
+		if(strchr(spaces,*s2))continue;
+		*(s1++)=*s2;
+	}
+	*s1=0;
+}
 struct expr *new_expr(const char *e,const char *asym,struct expr_symset *esp,int *error){
 	double *p;
+	char *ebuf;
 	struct expr *ep=xmalloc(sizeof(struct expr));
 	ep->data=NULL;
 	ep->vars=NULL;
@@ -725,7 +878,10 @@ struct expr *new_expr(const char *e,const char *asym,struct expr_symset *esp,int
 	ep->error=0;
 	ep->length=ep->size=ep->vlength=ep->vsize=0;
 	if(e&&*e){
-		p=expr_scan(ep,e,asym);
+		ebuf=xmalloc(strlen(e)+1);
+		expr_strcpy_nospace(ebuf,e);
+		p=expr_scan(ep,ebuf,asym);
+		free(ebuf);
 		if(p)
 			expr_addend(ep,p);
 		else {
@@ -739,7 +895,7 @@ struct expr *new_expr(const char *e,const char *asym,struct expr_symset *esp,int
 }
 double expr_compute(struct expr *restrict ep,double input){
 	struct expr_inst *ip=ep->data;
-	double step,sum,from,to;
+	double step,sum,from,to,y;
 	int neg;
 	while(ip->op!=EXPR_END){
 		switch(ip->op){
@@ -764,71 +920,45 @@ double expr_compute(struct expr *restrict ep,double input){
 			case EXPR_DIV:
 				*ip->dst/=*ip->un.src;
 				break;
+			case EXPR_MOD:
+				*ip->dst=fmod(*ip->dst,*ip->un.src);
+				break;
 			case EXPR_POW:
 				*ip->dst=pow(*ip->dst,*ip->un.src);
 				break;
 			case EXPR_NEG:
 				*ip->dst=-*ip->dst;
 				break;
-			case EXPR_SUM:
-				from=expr_compute(ip->un.es->from,input);
-				to=expr_compute(ip->un.es->to,input);
-				if(from>to){
-					step=from;
-					from=to;
-					to=step;
-				}
-				step=expr_compute(ip->un.es->step,input);
-				if(step<0)step=-step;
-				sum=0;
-				for(ip->un.es->index=from;
-					ip->un.es->index<=to;
-					ip->un.es->index+=step){
-					sum+=expr_compute(ip->un.es->ep,input);
-				}
-				*ip->dst=sum;
-				break;
-			case EXPR_PROD:
-				from=expr_compute(ip->un.es->from,input);
-				to=expr_compute(ip->un.es->to,input);
-				if(from>to){
-					step=from;
-					from=to;
-					to=step;
-				}
-				step=expr_compute(ip->un.es->step,input);
-				if(step<0)step=-step;
-				sum=1;
-				for(ip->un.es->index=from;
-					ip->un.es->index<=to;
-					ip->un.es->index+=step){
-					sum*=expr_compute(ip->un.es->ep,input);
-				}
-				*ip->dst=sum;
-				break;
-			case EXPR_INT:
-				neg=0;
-				from=expr_compute(ip->un.es->from,input);
-				to=expr_compute(ip->un.es->to,input);
-				if(from>to){
-					step=from;
-					from=to;
-					to=step;
-					neg=1;
-				}
-				step=expr_compute(ip->un.es->step,input);
-				if(step<0)step=-step;
-				sum=0;
-				for(ip->un.es->index=from+step/2;
-					ip->un.es->index<=to;
-					ip->un.es->index+=step){
-					sum+=step*expr_compute(ip->un.es->ep,
-						input);
-				}
-				*ip->dst=neg?-sum:sum;
-				break;
+#define CALSUM(_op,_do,_init,_neg)\
+			case _op :\
+				neg=0;\
+				from=expr_compute(ip->un.es->from,input);\
+				to=expr_compute(ip->un.es->to,input);\
+				if(from>to){\
+					step=from;\
+					from=to;\
+					to=step;\
+					neg=1;\
+				}\
+				step=expr_compute(ip->un.es->step,input);\
+				if(step<0)step=-step;\
+				sum= _init ;\
+				for(ip->un.es->index=from;\
+					ip->un.es->index<=to;\
+					ip->un.es->index+=step){\
+					y=expr_compute(ip->un.es->ep,input) ;\
+					_do ;\
+				}\
+				if(neg)sum= _neg ;\
+				*ip->dst=sum;\
+				break
+			CALSUM(EXPR_SUM,sum+=y,0,-sum);
+			CALSUM(EXPR_INT,sum+=step*y,0,-sum);
+			CALSUM(EXPR_PROD,sum*=y,1,1/sum);
+			CALSUM(EXPR_SUP,if(y>sum)sum=y,DBL_MIN,sum);
+			CALSUM(EXPR_INF,if(y<sum)sum=y,DBL_MAX,sum);
 			case EXPR_CALLMD:
-				for(size_t i=0;i<ip->un.em->dim;++i)
+				for(unsigned int i=0;i<ip->un.em->dim;++i)
 					ip->un.em->args[i]=
 						expr_compute(
 						ip->un.em->eps[i],input);

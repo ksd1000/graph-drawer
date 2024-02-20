@@ -13,5 +13,6 @@ struct graph {
 	uint32_t byte_width;
 	uint16_t bpp;
 	char drawing,connect;
+	//connect decides if the continuous points will be connected
 };
 

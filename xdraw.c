@@ -17,26 +17,28 @@
 void graph_setpixel_bold(struct graph *restrict gp,uint32_t color,int32_t bold,int32_t x,int32_t y){
 	int32_t px,endx,py,endy;
 	px=x-bold;
-	if(px>=gp->width)return;
+//	if(px>=gp->width)return;
 	py=y-bold;
-	if(py>=gp->height)return;
+//	if(py>=gp->height)return;
 	endx=x+bold;
-	if(endx<0)return;
+//	if(endx<0)return;
 	endy=y+bold;
-	if(endy<0)return;
+//	if(endy<0)return;
+//	if(!inrange(px,py)||!inrange(endx,endy))return;
 	if(bold>0){
-		if(px<0)px=0;
-		if(py<0)py=0;
-		if(endx>=gp->width)endx=gp->width-1;
-		if(endy>=gp->height)endy=gp->height-1;
+//		if(px<0)px=0;
+//		if(py<0)py=0;
+//		if(endx>=gp->width)endx=gp->width-1;
+//		if(endy>=gp->height)endy=gp->height-1;
 		for(;px<=endx;++px){
 			for(;py<=endy;++py){
-				if((int32_t)hypot(fabs((double)(px-x)),fabs((double)(py-y)))<=bold)
-					setpixel(px,py);
+				if((int32_t)hypot(fabs((double)(px-x)),fabs((double)(py-y)))<=bold){
+					if(inrange(px,py))setpixel(px,py);
 					//graph_setpixel(gp,color,px,py);
+				}
 			}
 		}
-	}else
+	}else if(inrange(x,y))
 	setpixel(x,y);
 	//graph_setpixel(gp,color,x,y);
 }
@@ -103,10 +105,11 @@ void graph_draw_point(struct graph *restrict gp,uint32_t color,int32_t bold,doub
 			return;
 		}else {
 			if(gp->lastx!=-1&&gp->lasty!=-1&&gp->connect){
-				graph_connect_pixel(gp,color,bold,gp->lastx,gp->lasty,px,py);
-				gp->lastx=px;
-				gp->lasty=py;
-				return;
+				if(!graph_connect_pixel(gp,color,bold,gp->lastx,gp->lasty,px,py)){
+					gp->lastx=px;
+					gp->lasty=py;
+					return;
+				}
 			}
 			gp->lastx=px;
 			gp->lasty=py;
@@ -182,48 +185,49 @@ static void graph_connect_pixel_135(struct graph *restrict gp,uint32_t color,int
 	}
 }
 
-void graph_connect_pixel(struct graph *restrict gp,uint32_t color,int32_t bold,int32_t x1,int32_t y1,int32_t x2,int32_t y2){
+int graph_connect_pixel(struct graph *restrict gp,uint32_t color,int32_t bold,int32_t x1,int32_t y1,int32_t x2,int32_t y2){
 	//color=0;bold=0;
-	if(!inrange(x1,y1)||!inrange(x2,y2))return;
+	if(!inrange(x1,y1)||!inrange(x2,y2))return -1;
 	if(x1==x2&&y1==y2){
 		graph_setpixel_bold(gp,color,bold,x1,y1);
-		return;
+		return 0;
 	}
 	else if(x1==x2){
 		graph_draw_vline(gp,color,bold,min(y1,y2),max(y1,y2),x1);
-		return;
+		return 0;
 	}
 	else if(y1==y2){
 		graph_draw_hline(gp,color,bold,min(x1,x2),max(x1,x2),y1);
-		return;
+		return 0;
 	}
 	else if((x1-x2)==(y1-y2)){
 		if(x1<x2)
 		graph_connect_pixel_45(gp,color,bold,x1,y1,x2-x1);
 		else
 		graph_connect_pixel_45(gp,color,bold,x2,y2,x1-x2);
-		return;
+		return 0;
 	}
 	else if((x1-x2)==(y2-y1)){
 		if(x1<x2)
 		graph_connect_pixel_135(gp,color,bold,x1,y1,x2-x1);
 		else
 		graph_connect_pixel_135(gp,color,bold,x2,y2,x1-x2);
-		return;
+		return 0;
 	}
 	else if(abs(x1-x2)<abs(y1-y2)){
 		if(y1>y2)
 		graph_connect_pixel_y(gp,color,bold,x2,y2,x1,y1);
 		else
 		graph_connect_pixel_y(gp,color,bold,x1,y1,x2,y2);
-		return;
+		return 0;
 	}
 	else {
 		if(x1>x2)
 		graph_connect_pixel_x(gp,color,bold,x2,y2,x1,y1);
 		else
 		graph_connect_pixel_x(gp,color,bold,x1,y1,x2,y2);
-	}	
+	}
+	return 0;
 }
 void graph_connect(struct graph *restrict gp,uint32_t color,int32_t bold,double x1,double y1,double x2,double y2){
 //	printf("%lf,%lf %lf,%lf\n",x1,y1,x2,y2);
@@ -232,8 +236,8 @@ void graph_connect(struct graph *restrict gp,uint32_t color,int32_t bold,double 
 void graph_draw_axis(struct graph *restrict gp,uint32_t color,int32_t bold,double gapx,double gapy,uint32_t gapline_len){
 	int32_t px,py,ax=xtop(0),ay=ytop(0);
 	double v;
-	graph_draw_hline(gp,color,bold,0,gp->width,ax);
-	graph_draw_vline(gp,color,bold,0,gp->height,ay);
+	graph_draw_hline(gp,color,bold,0,gp->width,ay);
+	graph_draw_vline(gp,color,bold,0,gp->height,ax);
 	for(v=gapx;;v+=gapx){
 		px=xtop(v);
 		if(px+bold>=gp->width)break;
@@ -255,7 +259,7 @@ void graph_draw_axis(struct graph *restrict gp,uint32_t color,int32_t bold,doubl
 	for(v=-gapy;;v-=gapy){
 		py=ytop(v);
 		if(py-bold<0)break;
-		graph_draw_hline(gp,color,bold,ay-gapline_len,ay+gapline_len,py);
+		graph_draw_hline(gp,color,bold,ax-gapline_len,ax+gapline_len,py);
 
 	}
 	for(px=gp->width-1,py=ay;py-ay<=gapline_len;--px,++py)
@@ -270,8 +274,8 @@ void graph_draw_axis(struct graph *restrict gp,uint32_t color,int32_t bold,doubl
 void graph_draw_grid(struct graph *restrict gp,uint32_t color,int32_t bold,double gapx,double gapy){
 	int32_t px,py,ax=xtop(0),ay=ytop(0);
 	double v;
-	graph_draw_hline(gp,color,bold,0,gp->width,ax);
-	graph_draw_vline(gp,color,bold,0,gp->height,ay);
+	graph_draw_hline(gp,color,bold,0,gp->width,ay);
+	graph_draw_vline(gp,color,bold,0,gp->height,ax);
 	for(v=gapx;;v+=gapx){
 		px=xtop(v);
 		if(px+bold>=gp->width)break;

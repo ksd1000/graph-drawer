@@ -10,6 +10,7 @@
 #include <assert.h>
 #include "expr.h"
 #define printval(x) fprintf(stderr,#x ":%lu\n",x)
+#define printvall(x) fprintf(stderr,#x ":%ld\n",x)
 #define printvald(x) fprintf(stderr,#x ":%lf\n",x)
 static const char *eerror[]={"Unknown error","Unknown symbol","Parentheses do not match","Function and keyword must be followed by a \'(\'","No value in parenthesis","No enough or too much argument","Bad number"};
 static const char spaces[]={" \t\r\f\n\v"};
@@ -36,29 +37,39 @@ void expr_memrand(void *restrict m,size_t n){
 	}
 
 }
-
+#define CALLOGIC(_sign_cal,_sign_zero,_zero_val) \
+	uint64_t x2,x1;\
+	int64_t expdiff=EXPR_EDEXP(&a)-EXPR_EDEXP(&b);\
+	double swapbuf;\
+	if(expdiff<0L){\
+		swapbuf=a;\
+		a=b;\
+		b=swapbuf;\
+		expdiff=-expdiff;\
+	}\
+	if(expdiff>52L)goto zero;\
+	x2=(EXPR_EDBASE(&b)|(1UL<<52UL))>>expdiff;\
+	x1=EXPR_EDBASE(&a)|(1UL<<52UL);\
+	x1 _sign_cal x2;\
+	if(!x1)goto zero;\
+	x2=63UL-__builtin_clzl(x1);\
+	x1&=~(1UL<<x2);\
+	x2=52UL-x2;\
+	if(EXPR_EDEXP(&a)<x2)goto zero;\
+	EXPR_EDBASE(&a)=x1<<x2;\
+	EXPR_EDEXP(&a)-=x2;\
+	EXPR_EDSIGN(&a) _sign_cal EXPR_EDSIGN(&b);\
+	return a;\
+zero:\
+	return EXPR_EDSIGN(&a) _sign_zero EXPR_EDSIGN(&b)?-( _zero_val):(_zero_val)
 double expr_and2(double a,double b){
-	uint64_t x2=EXPR_EDBASE(&b)|(1UL<<52UL);
-	uint64_t x1=EXPR_EDBASE(&a)|(1UL<<52UL);
-	int64_t expdiff=EXPR_EDEXP(&a)-EXPR_EDEXP(&b);
-	if(expdiff>64||expdiff<-64)goto zero;
-	else if(expdiff>0){
-		x2>>=(EXPR_EDEXP(&a)-EXPR_EDEXP(&b));
-	}else if(expdiff<0){
-		x2<<=(EXPR_EDEXP(&b)-EXPR_EDEXP(&a));
-	}
-	x1&=x2;
-	if(!x1)goto zero;
-	x2=63UL-__builtin_clzl(x1);
-	x1&=~(1UL<<x2);
-	x2=52UL-x2;
-	if(EXPR_EDEXP(&a)<x2)goto zero;
-	EXPR_EDBASE(&a)=x1<<x2;
-	EXPR_EDEXP(&a)-=x2;
-	EXPR_EDSIGN(&a)&=EXPR_EDSIGN(&b);
-	return a;
-zero:
-	return EXPR_EDSIGN(&a)&&EXPR_EDSIGN(&b)?-0.0:0.0;
+	CALLOGIC(&=,&&,0.0);
+}
+double expr_or2(double a,double b){
+	CALLOGIC(|=,||,a>=0.0?a:-a);
+}
+double expr_xor2(double a,double b){
+	CALLOGIC(^=,^,a>=0.0?a:-a);
 }
 double expr_rand12(void){
 	double ret;
@@ -71,19 +82,21 @@ static double expr_rand(size_t n,double *args){
 	//assert(n==2);
 	return args[0]+(args[1]-args[0])*(expr_rand12()-1.0);
 }
+#define CALMDLOGIC(_symbol)\
+	double ret=*(args++);\
+	while(--n>0){\
+		ret= _symbol (ret,*args);\
+		++args;\
+	}\
+	return ret
 static double expr_and(size_t n,double *args){
-	double ret=DBL_MAX;
-	int inited=0;
-	while(n>0){
-		if(inited)ret=expr_and2(ret,*args);
-		else {
-			ret=*args;
-			inited=1;
-		}
-		--n;
-		++args;
-	}
-	return ret;
+	CALMDLOGIC(expr_and2);
+}
+static double expr_or(size_t n,double *args){
+	CALMDLOGIC(expr_or2);
+}
+static double expr_xor(size_t n,double *args){
+	CALMDLOGIC(expr_xor2);
 }
 static double expr_sign(double x){
 	if(x>DBL_EPSILON)return 1.0;
@@ -211,6 +224,8 @@ static const struct {
 	unsigned int dim,unused;
 } mdsyms[]={
 	{"and",expr_and,0},
+	{"or",expr_or,0},
+	{"xor",expr_xor,0},
 	{"hypot",expr_hypot,0},
 	{"min",expr_min,0},
 	{"max",expr_max,0},

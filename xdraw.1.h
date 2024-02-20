@@ -11,7 +11,7 @@ struct graph {
 	double minx,maxx,miny,maxy;
 	int32_t width,height,lastx,lasty;
 	uint32_t byte_width;
-	uint16_t bpp,drawing;
-
+	uint16_t bpp;
+	char drawing,connect;
 };
 

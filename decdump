@@ -1,5 +1,2 @@
 #! /bin/bash
-while read line
-do
-	echo $line | grep '){$' | grep '^if' -v | grep '^while' -v | grep '^for' -v | grep '^switch' -v | grep '^else' -v | grep '^static' -v | grep '^[a-zA-Z_]' | sed 's/{$/;/g'
-done
+grep '){$' | grep '^if' -v | grep '^while' -v | grep '^for' -v | grep '^switch' -v | grep '^else' -v | grep '^static' -v | grep '^[a-zA-Z_]' | sed 's/{$/;/g'

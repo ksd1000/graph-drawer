@@ -9,4 +9,5 @@
 #define expr_addsum(e,t,es) expr_addsumop(e,t,es,EXPR_SUM)
 #define expr_addint(e,t,es) expr_addsumop(e,t,es,EXPR_INT)
 #define expr_addend(e,t) expr_addop(e,t,NULL,EXPR_END)
+#define expr_addcallmd(e,t,em) expr_addcallmdop(e,t,em,EXPR_CALLMD)
 #endif

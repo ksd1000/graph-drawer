@@ -19,7 +19,21 @@ EXPR_INT,
 EXPR_PROD,
 EXPR_SUP,
 EXPR_INF,
+EXPR_AND,
+EXPR_OR,
+EXPR_XOR,
+EXPR_NEST,
 EXPR_CALLMD,
+EXPR_GT,
+EXPR_GE,
+EXPR_LT,
+EXPR_LE,
+EXPR_EQ,
+EXPR_NE,
+EXPR_ANDL,
+EXPR_ORL,
+EXPR_XORL,
+EXPR_ASSIGN,
 EXPR_END
 };
 #define EXPR_SYMLEN 256
@@ -29,6 +43,7 @@ EXPR_END
 #define EXPR_ENVP 4
 #define EXPR_ENEA 5
 #define EXPR_ENUMBER 6
+#define EXPR_ETNV 7
 
 #define EXPR_FUNCTION 0
 #define EXPR_PARAMETER 1
@@ -40,7 +55,6 @@ struct expr;
 struct expr_symset;
 struct expr_suminfo {
 	struct expr *ep,*from,*to,*step;
-	struct expr_symset *sset;
 	double index;
 };
 struct expr_mdinfo {
@@ -57,7 +71,7 @@ struct expr_inst {
 		struct expr_suminfo *es;
 		struct expr_mdinfo *em;
 	} un;
-	unsigned int op;
+	unsigned int op,assign_level;
 };
 struct expr_symbol {
 	void *addr;
@@ -68,13 +82,14 @@ struct expr_symbol {
 struct expr_symset {
 	struct expr_symbol *syms;
 	size_t size,length;
+	int freeable;
 };
 struct expr {
 	double *vars;;
 	struct expr_inst *data;
 	struct expr_symset *sset;
 	size_t size,length,vsize,vlength;
-	int error;
+	int error,freeable;
 };
 struct expr_rawdouble {
 	uint64_t base:52;

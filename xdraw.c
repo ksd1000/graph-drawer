@@ -9,16 +9,28 @@
 #include "xdraw.h"
 //void graph_setpixel(struct graph *restrict gp,uint32_t color,int32_t x,int32_t y){
 //}
-#define min(a,b) (a<b?a:b)
-#define max(a,b) (a>b?a:b)
+#define min(a,b) ((a)<(b)?(a):(b))
+#define max(a,b) ((a)>(b)?(a):(b))
+#define manhattan(x1,y1,x2,y2) (abs((x1)-(x2))+abs((y1)-(y2)))
+static int shouldconnect(int32_t x1,int32_t y1,int32_t x2,int32_t y2){
+	switch(manhattan(x1,y1,x2,y2)){
+		case 0:
+		case 1:
+			return 0;
+		case 2:
+			return (x1==y1||x2==y2);
+		default:
+			return 1;
+	}
+}
 #define inrange(x,y) ((x)>=0&&(x)<gp->width&&(y)>=0&&(y)<gp->height)
 #define setpixel(px,py)\
-	memcpy(gp->buf+py*gp->byte_width+px*gp->bpp,&color,gp->bpp)
+	memcpy(&graph_colorat(gp,px,py),&color,gp->bpp)
 void graph_setpixel_bold(struct graph *restrict gp,uint32_t color,int32_t bold,int32_t x,int32_t y){
-	int32_t px,endx,py,endy;
+	int32_t px,endx,py,py1,endy;
 	px=x-bold;
 //	if(px>=gp->width)return;
-	py=y-bold;
+	py1=y-bold;
 //	if(py>=gp->height)return;
 	endx=x+bold;
 //	if(endx<0)return;
@@ -31,8 +43,9 @@ void graph_setpixel_bold(struct graph *restrict gp,uint32_t color,int32_t bold,i
 //		if(endx>=gp->width)endx=gp->width-1;
 //		if(endy>=gp->height)endy=gp->height-1;
 		for(;px<=endx;++px){
-			for(;py<=endy;++py){
+			for(py=py1;py<=endy;++py){
 				if((int32_t)hypot(fabs((double)(px-x)),fabs((double)(py-y)))<=bold){
+					//printf("%d,%d,%d,%d,%d\n",px,py,endx,endy,inrange(px,py));
 					if(inrange(px,py))setpixel(px,py);
 					//graph_setpixel(gp,color,px,py);
 				}
@@ -54,7 +67,9 @@ void graph_fill(struct graph *restrict gp,uint32_t color){
 }
 int init_graph(struct graph *restrict gp,int32_t width,int32_t height,uint16_t bpp,double minx,double maxx,double miny,double maxy){
 	gp->byte_width=((width*bpp+31)>>5)<<2;
-	if((gp->buf=malloc(54+gp->byte_width*height))==NULL)return -1;
+	if(width<=0||height<=0||bpp<8||minx>=maxx||miny>=maxy)
+		return -1;
+	if((gp->buf=malloc(54+gp->byte_width*height))==NULL)return -2;
 	gp->width=width;
 	gp->height=height;
 	gp->minx=minx;
@@ -63,6 +78,7 @@ int init_graph(struct graph *restrict gp,int32_t width,int32_t height,uint16_t b
 	gp->maxy=maxy;
 	gp->drawing=0;
 	gp->connect=1;
+	gp->arrow=1;
 	//gp->lastx=gp->lasty=-1;
 	gp->bpp=bpp/8;
 	memset(gp->buf,0,54);
@@ -87,7 +103,6 @@ void graph_free(struct graph *restrict gp){
 	gp->lastx=gp->lasty=-1;
 #define END_DRAWING gp->drawing=0;
 static void graph_draw_vline(struct graph *restrict gp,uint32_t color,int32_t bold,int32_t start,int32_t end,int32_t x){
-	
 	//puts(__func__);
 	for(;start<=end;++start)
 		graph_setpixel_bold(gp,color,bold,x,start);
@@ -104,7 +119,8 @@ void graph_draw_point(struct graph *restrict gp,uint32_t color,int32_t bold,doub
 		if(gp->lastx==px&&gp->lasty==py){
 			return;
 		}else {
-			if(gp->lastx!=-1&&gp->lasty!=-1&&gp->connect){
+			if(gp->connect&&gp->lastx!=-1&&gp->lasty!=-1&&shouldconnect(gp->lastx,gp->lasty,px,py)){
+				//printf("at %d,%d to %d,%d\t%d\n",gp->lastx,gp->lasty,px,py,manhattan(gp->lastx,gp->lasty,px,py));
 				if(!graph_connect_pixel(gp,color,bold,gp->lastx,gp->lasty,px,py)){
 					gp->lastx=px;
 					gp->lasty=py;
@@ -120,15 +136,15 @@ void graph_draw_point(struct graph *restrict gp,uint32_t color,int32_t bold,doub
 }
 void graph_draw(struct graph *restrict gp,uint32_t color,int32_t bold,double (*x)(double),double (*y)(double),double from,double to,double step){
 	START_DRAWING
-	for(;from<=to;from+=step){
-		graph_draw_point(gp,color,bold,x(from),y(from));
+	for(gp->current=from;gp->current<=to;gp->current+=step){
+		graph_draw_point(gp,color,bold,x(gp->current),y(gp->current));
 	}
 	END_DRAWING
 }
 void graph_drawe(struct graph *restrict gp,uint32_t color,int32_t bold,struct expr *restrict xep,struct expr *restrict yep,double from,double to,double step){
 	START_DRAWING
-	for(;from<=to;from+=step){
-		graph_draw_point(gp,color,bold,expr_compute(xep,from),expr_compute(yep,from));
+	for(gp->current=from;gp->current<=to;gp->current+=step){
+		graph_draw_point(gp,color,bold,expr_compute(xep,gp->current),expr_compute(yep,gp->current));
 	}
 	END_DRAWING
 }
@@ -184,15 +200,168 @@ static void graph_connect_pixel_135(struct graph *restrict gp,uint32_t color,int
 		graph_setpixel_bold(gp,color,bold,x1,y1);
 	}
 }
+//#define setpoint(x,y) if(i1)
+int graph_raycast(struct graph *restrict gp,int32_t *restrict x1,int32_t *restrict y1,int32_t *restrict x2,int32_t *restrict y2){
+	char i1=inrange(*x1,*y1),i2=inrange(*x2,*y2);
+	int32_t iv,ix1=-1,iy1=-1,ix2=-1,iy2=-1,swapbuf;
+#define x1 (*x1)
+#define y1 (*y1)
+#define x2 (*x2)
+#define y2 (*y2)
+	if(i1&&i2)return 0;
+	if(!i1&&!i2&&(
+		((y1<0&&y2<0)||(y1>=gp->height&&y2>=gp->height)) ||
+		((x1<0&&x2<0)||(x1>=gp->width&&x2>=gp->width))
+		))return -1;
+	if(x1==x2){
+		//puts("vertical");
+		if(x1<0||x1>=gp->width)return -1;
 
+		if(y2>y1){
+			if(!i1)y1=0;
+			if(!i2)y2=gp->height-1;
+		}else {
+			if(!i1)y1=gp->height-1;
+			if(!i2)y2=0;
+		}
+		return 0;
+	}
+	else if(y1==y2){
+		//puts("horizonal");
+		if(y1<0||y1>=gp->height)return -1;
+
+		if(x2>x1){
+			if(!i1)x1=0;
+			if(!i2)x2=gp->width-1;
+		}else {
+			if(!i1)x1=gp->width-1;
+			if(!i2)x2=0;
+		}
+		return 0;
+	}
+	iv=y1+muldiv(y2-y1,-x1,x2-x1);
+	if(iv>=0&&iv<gp->height){
+		//puts("west");
+		ix1=0;
+		iy1=iv;
+	}
+	iv=y1+muldiv(y2-y1,gp->width-1-x1,x2-x1);
+	if(iv>=0&&iv<gp->height){
+		//puts("east");
+		if(ix1==-1){
+			ix1=gp->width-1;
+			iy1=iv;
+		}else {
+			ix2=gp->width-1;
+			iy2=iv;
+		}
+	}
+	iv=x1+muldiv(x2-x1,-y1,y2-y1);
+	if(iv>=0&&iv<gp->width){
+		//puts("south");
+		if(ix1==-1){
+			ix1=iv;
+			iy1=0;
+		}else {
+			ix2=iv;
+			iy2=0;
+		}
+	}
+	iv=x1+muldiv(x2-x1,gp->height-1-y1,y2-y1);
+	if(iv>=0&&iv<gp->width){
+		//puts("north");
+		if(ix1==-1){
+			ix1=iv;
+			iy1=gp->height-1;
+		}else {
+			ix2=iv;
+			iy2=gp->height-1;
+		}
+	}
+	if(ix1==-1)return -1;
+	if(ix2==-1){
+		x1=x2;
+		y1=y2;
+		//puts("rtangle");
+		return 0;
+	}
+	if(!i1&&!i2){
+		x1=ix1;
+		y1=iy1;
+		x2=ix2;
+		y2=iy2;
+		return 0;
+	}
+	if(i2){
+		swapbuf=x1;x1=x2;x2=swapbuf;
+		swapbuf=y1;y1=y2;y2=swapbuf;
+	}
+	//printf("%d,%d,%d,%d\n",ix1,iy1,ix2,iy2);
+	if(x2>x1){
+		if(ix2>=x1){
+			x2=ix2;
+			y2=iy2;
+			return 0;
+		}else if(ix1>=x1){
+			x2=ix1;
+			y2=iy1;
+			return 0;
+		}
+	}
+	if(x2<x1){
+		if(ix2<=x1){
+			x2=ix2;
+			y2=iy2;
+			return 0;
+		}else if(ix1<=x1){
+			x2=ix1;
+			y2=iy1;
+			return 0;
+		}
+	}
+	if(y2>y1){
+		if(iy2>=y1){
+			x2=ix2;
+			y2=iy2;
+			return 0;
+		}else if(iy1>=y1){
+			x2=ix1;
+			y2=iy1;
+			return 0;
+		}
+	}
+	if(y2<y1){
+		if(iy2<=y1){
+			x2=ix2;
+			y2=iy2;
+			return 0;
+		}else if(iy1<=y1){
+			x2=ix1;
+			y2=iy1;
+			return 0;
+		}
+	}
+
+	return -1;
+#undef x1
+#undef y1
+#undef x2
+#undef y2
+}
 int graph_connect_pixel(struct graph *restrict gp,uint32_t color,int32_t bold,int32_t x1,int32_t y1,int32_t x2,int32_t y2){
 	//color=0;bold=0;
-	if(!inrange(x1,y1)||!inrange(x2,y2))return -1;
+		//printf("bef %d,%d to %d,%d\n",x1,y1,x2,y2);
+	//printf("at %d,%d to %d,%d\t%d\n",x1,y1,x2,y2,abs(x1-x2)+abs(y1-y2));
+	//printf("from %d,%d to %d,%d %d\n",x1,y1,x2,y2,manhattan(x1,y1,x2,y2));
+	if(graph_raycast(gp,&x1,&y1,&x2,&y2)){
+		return -1;
+	}
+	//printf("to %d,%d to %d,%d %d\n",x1,y1,x2,y2,manhattan(x1,y1,x2,y2));
 	if(x1==x2&&y1==y2){
 		graph_setpixel_bold(gp,color,bold,x1,y1);
 		return 0;
 	}
-	else if(x1==x2){
+	if(x1==x2){
 		graph_draw_vline(gp,color,bold,min(y1,y2),max(y1,y2),x1);
 		return 0;
 	}
@@ -229,15 +398,16 @@ int graph_connect_pixel(struct graph *restrict gp,uint32_t color,int32_t bold,in
 	}
 	return 0;
 }
-void graph_connect(struct graph *restrict gp,uint32_t color,int32_t bold,double x1,double y1,double x2,double y2){
-//	printf("%lf,%lf %lf,%lf\n",x1,y1,x2,y2);
-	graph_connect_pixel(gp,color,bold,xtop(x1),ytop(y1),xtop(x2),ytop(y2));
+int graph_connect(struct graph *restrict gp,uint32_t color,int32_t bold,double x1,double y1,double x2,double y2){
+//	printf("at %lf,%lf %lf,%lf",x1,y1,x2,y2);
+	return graph_connect_pixel(gp,color,bold,xtop(x1),ytop(y1),xtop(x2),ytop(y2));
 }
 void graph_draw_axis(struct graph *restrict gp,uint32_t color,int32_t bold,double gapx,double gapy,uint32_t gapline_len){
 	int32_t px,py,ax=xtop(0),ay=ytop(0);
 	double v;
 	graph_draw_hline(gp,color,bold,0,gp->width,ay);
 	graph_draw_vline(gp,color,bold,0,gp->height,ax);
+	if(gapx>DBL_EPSILON){
 	for(v=gapx;;v+=gapx){
 		px=xtop(v);
 		if(px+bold>=gp->width)break;
@@ -250,6 +420,8 @@ void graph_draw_axis(struct graph *restrict gp,uint32_t color,int32_t bold,doubl
 		graph_draw_vline(gp,color,bold,ay-gapline_len,ay+gapline_len,px);
 
 	}
+	}
+	if(gapy>DBL_EPSILON){
 	for(v=gapy;;v+=gapy){
 		py=ytop(v);
 		if(py+bold>=gp->height)break;
@@ -262,20 +434,24 @@ void graph_draw_axis(struct graph *restrict gp,uint32_t color,int32_t bold,doubl
 		graph_draw_hline(gp,color,bold,ax-gapline_len,ax+gapline_len,py);
 
 	}
-	for(px=gp->width-1,py=ay;py-ay<=gapline_len;--px,++py)
-		graph_setpixel_bold(gp,color,bold,px,py);
-	for(px=gp->width-1,py=ay;ay-py<=gapline_len;--px,--py)
-		graph_setpixel_bold(gp,color,bold,px,py);
+	}
+	if(gp->arrow){
 	for(py=gp->height-1,px=ax;px-ax<=gapline_len;++px,--py)
 		graph_setpixel_bold(gp,color,bold,px,py);
 	for(py=gp->height-1,px=ax;ax-px<=gapline_len;--px,--py)
 		graph_setpixel_bold(gp,color,bold,px,py);
+	for(px=gp->width-1,py=ay;py-ay<=gapline_len;--px,++py)
+		graph_setpixel_bold(gp,color,bold,px,py);
+	for(px=gp->width-1,py=ay;ay-py<=gapline_len;--px,--py)
+		graph_setpixel_bold(gp,color,bold,px,py);
+	}
 }
 void graph_draw_grid(struct graph *restrict gp,uint32_t color,int32_t bold,double gapx,double gapy){
 	int32_t px,py,ax=xtop(0),ay=ytop(0);
 	double v;
 	graph_draw_hline(gp,color,bold,0,gp->width,ay);
 	graph_draw_vline(gp,color,bold,0,gp->height,ax);
+	if(gapx>DBL_EPSILON){
 	for(v=gapx;;v+=gapx){
 		px=xtop(v);
 		if(px+bold>=gp->width)break;
@@ -288,6 +464,8 @@ void graph_draw_grid(struct graph *restrict gp,uint32_t color,int32_t bold,doubl
 		graph_draw_vline(gp,color,bold,0,gp->height-1,px);
 
 	}
+	}
+	if(gapy>DBL_EPSILON){
 	for(v=gapy;;v+=gapy){
 		py=ytop(v);
 		if(py+bold>=gp->height)break;
@@ -299,5 +477,6 @@ void graph_draw_grid(struct graph *restrict gp,uint32_t color,int32_t bold,doubl
 		if(py-bold<0)break;
 		graph_draw_hline(gp,color,bold,0,gp->width-1,py);
 
+	}
 	}
 }

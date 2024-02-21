@@ -9,10 +9,13 @@
 struct graph {
 	char *buf;
 	double minx,maxx,miny,maxy;
+	volatile double current;
 	int32_t width,height,lastx,lasty;
 	uint32_t byte_width;
 	uint16_t bpp;
-	char drawing,connect;
+	char connect:1;
+	char drawing:1;
+	char arrow:1;
 	//connect decides if the continuous points will be connected
 };
 

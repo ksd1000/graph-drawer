@@ -1,0 +1,15 @@
+#! /bin/bash
+function link {
+echo '#'define TEXT_LEN $(./bmpass *.bmp)
+echo static const char texts[][TEXT_LEN]={
+for i in *.sbmp
+do
+	echo '{'
+	xxd -i < ${i}
+	echo -n '},'
+done
+echo '};'
+}
+echo creating text.c.h
+link | sed 's/,\};/};/g' > text.c.h
+echo '#define TEXT_SIZE (sizeof(texts)/sizeof(texts[0]))' >> text.c.h

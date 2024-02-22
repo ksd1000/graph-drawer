@@ -16,6 +16,7 @@ struct graph {
 	char connect:1;
 	char drawing:1;
 	char arrow:1;
+	char draw_value:1;
 	//connect decides if the continuous points will be connected
 };
 

@@ -5,9 +5,11 @@ LFLAG := -lc -lm
 text.o: text.h text.c.h
 	$(CC) $(CFLAG) text.c -c -o text.o
 text.h: bmpass
+	chmod +x ./gen ./genc
 	./gen
 	./genc
 text.c.h: bmpass
+	chmod +x ./gen ./genc
 	./gen
 	./genc
 sbmp.o: 

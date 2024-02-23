@@ -71,18 +71,20 @@ static int32_t graph_drawchar(struct graph *restrict gp,uint32_t color,int32_t b
 	//printf("%c\n",c);
 	//printf("at %d,%d height:%d text->height:%d\n",x,y,height,text->height);
 	if(!text)return 0;
+	if(!sbmp_decompress(text,(struct sbmp *)gp->textbuf))
+		text=(void *)gp->textbuf;
 	if(height>text->height){
 	for(int32_t xi=x;(md1=muldiv(xi-x,text->width,width))<text->width&&xi-x<width&&xi<gp->width;++xi){
 	for(int32_t yi=y;(md2=muldiv(yi-y,text->height,height))<text->height&&yi-y<height&&yi<gp->height;++yi){
 		//printf("at %d,%d\n",xi,yi);
-		if(!SBMP_TSTPIXEL(text,md1,md2))continue;
+		if(!sbmp_tstpixel(text,md1,md2))continue;
 		graph_setpixel_bold(gp,color,bold,xi,yi);
 	}
 	}
 	}else if(height<text->height){
 	for(int32_t xi=0;(md1=muldiv(xi,width,text->width))<gp->width&&xi<text->width&&md1-x<width;++xi){
 	for(int32_t yi=0;(md2=muldiv(yi,height,text->height))<gp->height&&yi<text->height&&md2-y<height;++yi){
-		if(!SBMP_TSTPIXEL(text,xi,yi))continue;
+		if(!sbmp_tstpixel(text,xi,yi))continue;
 		//printf("at %d,%d\n",xi,yi);
 		graph_setpixel_bold(gp,color,bold,x+md1,y+md2);
 	}
@@ -91,7 +93,7 @@ static int32_t graph_drawchar(struct graph *restrict gp,uint32_t color,int32_t b
 	for(int32_t xi=x;xi-x<width&&xi<gp->width;++xi){
 	for(int32_t yi=y;yi-y<height&&yi<gp->height;++yi){
 		//printf("at %d,%d\n",xi,yi);
-		if(!SBMP_TSTPIXEL(text,xi-x,yi-y))continue;
+		if(!sbmp_tstpixel(text,xi-x,yi-y))continue;
 		graph_setpixel_bold(gp,color,bold,xi,yi);
 	}
 	}
@@ -134,6 +136,10 @@ int init_graph(struct graph *restrict gp,int32_t width,int32_t height,uint16_t b
 	if(width<=0||height<=0||bpp<8||minx>=maxx||miny>=maxy)
 		return -1;
 	if((gp->buf=malloc(54+gp->byte_width*height))==NULL)return -2;
+	if((gp->textbuf=malloc(TEXT_MAXOSIZE))==NULL){
+		free(gp->buf);
+		return -2;
+	}
 	gp->width=width;
 	gp->height=height;
 	gp->minx=minx;
@@ -161,6 +167,7 @@ int init_graph(struct graph *restrict gp,int32_t width,int32_t height,uint16_t b
 }
 void graph_free(struct graph *restrict gp){
 	free(gp->buf-54);
+	free(gp->textbuf);
 }
 
 
@@ -201,15 +208,15 @@ void graph_draw_point(struct graph *restrict gp,uint32_t color,int32_t bold,doub
 }
 void graph_draw(struct graph *restrict gp,uint32_t color,int32_t bold,double (*x)(double),double (*y)(double),double from,double to,double step){
 	START_DRAWING
-	for(gp->current=from;gp->current<=to;gp->current+=step){
-		graph_draw_point(gp,color,bold,x(gp->current),y(gp->current));
+	for(;from<=to;from+=step){
+		graph_draw_point(gp,color,bold,x(from),y(from));
 	}
 	END_DRAWING
 }
 void graph_drawep(struct graph *restrict gp,uint32_t color,int32_t bold,struct expr *restrict xep,struct expr *restrict yep,double from,double to,double step){
 	START_DRAWING
-	for(gp->current=from;gp->current<=to;gp->current+=step){
-		graph_draw_point(gp,color,bold,expr_compute(xep,gp->current),expr_compute(yep,gp->current));
+	for(;from<=to;from+=step){
+		graph_draw_point(gp,color,bold,expr_compute(xep,from),expr_compute(yep,from));
 	}
 	END_DRAWING
 }

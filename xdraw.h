@@ -7,9 +7,8 @@
 #include <stdint.h>
 #include "expr.h"
 struct graph {
-	char *buf;
+	char *buf,*textbuf;
 	double minx,maxx,miny,maxy;
-	volatile double current;
 	int32_t width,height,lastx,lasty;
 	uint32_t byte_width;
 	uint16_t bpp;

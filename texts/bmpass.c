@@ -5,12 +5,10 @@
 #include <assert.h>
 #include <fcntl.h>
 #include <errno.h>
-#include "text.h"
+#include "sbmp.h"
 #define BUFSIZE 1024
-#define printval(x) fprintf(stderr,#x ":%lu\n",x)
-#define printvall(x) fprintf(stderr,#x ":%ld\n",x)
-#define printvald(x) fprintf(stderr,#x ":%lf\n",x)
 static size_t sbsize_max=0;
+static size_t sbosize_max=0;
 ssize_t readall(int fd,void **pbuf){
 	char *buf,*p;
 	size_t bufsiz,r1;
@@ -54,7 +52,7 @@ static int scanv(const char *data,int32_t x){
 	h=*(int32_t *)(data+22);
 	for(int32_t y=0;y<h;++y){
 		if(text[y*ow+x]==0x00){
-			//printf("found at x=%d\n",x);
+			//fprintf(stdout,"found at x=%d\n",x);
 			return 1;
 		}
 	}
@@ -67,7 +65,7 @@ static int scanh(const char *data,int32_t y){
 	int32_t ow=((w*8+31)>>5)<<2;
 	for(int32_t x=0;x<w;++x){
 		if(text[y*ow+x]==0x00){
-			//printf("found at y=%d\n",y);
+			//fprintf(stdout,"found at y=%d\n",y);
 			return 1;
 		}
 	}
@@ -75,7 +73,7 @@ static int scanh(const char *data,int32_t y){
 }
 static void correct(const char *data,int32_t *x1,int32_t *y1,int32_t *x2,int32_t *y2){
 	int32_t v,w=*(int32_t *)(data+18),h=*(int32_t *)(data+22);
-	//printf("from %d,%d %d,%d\n",*x1,*y1,*x2,*y2);
+	//fprintf(stdout,"from %d,%d %d,%d\n",*x1,*y1,*x2,*y2);
 	for(v=0;v<w;++v){
 		if(!scanv(data,v))continue;
 		if(v>*x1)*x1=v;
@@ -97,42 +95,55 @@ static void correct(const char *data,int32_t *x1,int32_t *y1,int32_t *x2,int32_t
 		if(v>*y2)*y2=v;
 		break;
 	}
-	//printf("to %d,%d %d,%d\n",*x1,*y1,*x2,*y2);
+	//fprintf(stdout,"to %d,%d %d,%d\n",*x1,*y1,*x2,*y2);
 	//*x1=0;*y1=0;*x2=w-1;*y2=h-1;
 }
 static void cut(const char *name,const char *data,int32_t x1,int32_t y1,int32_t x2,int32_t y2){
 	const char *text=data+*(int32_t *)(data+10);
 	char nbuf[16],c;
-	sscanf(name,"0x%hhx",&c);
+	if(y1==INT_MAX)y1=*(int32_t *)(data+18);
+	assert(sscanf(name,"0x%hhx.bmp",&c)==1);
 	if(c==' ')x2>>=2;
 	int32_t w=x2-x1,h=y2-y1;
 	int32_t ow=(((*(int32_t *)(data+18))*8+31)>>5)<<2;
 	size_t sbsize=(w*h+7)/8+sizeof(struct sbmp);
-	struct sbmp *buf=malloc(sbsize);
+	struct sbmp *buf=malloc(sbsize),*cbuf;
 	int fd;
 	memset(buf,0,sbsize);
-	//printf("%s cut to %dx%d\n",name,w,h);
+	//fprintf(stdout,"%s cut to %dx%d\n",name,w,h);
 	buf->width=w;buf->height=h;
 	buf->c=c;
+	buf->compressed=0;
+	buf->size=sbsize-sizeof(struct sbmp);
+	//fprintf(stdout,"%d\n",*(int32_t *)(data+10));
 	for(int32_t x=0;x<w;++x)
 	for(int32_t y=0;y<h;++y){
-		if(!text[(y+y1)*ow+(x+x1)])
-			TEXT_SETPIXEL(buf,x,y);
+			//fprintf(stdout,"index %d %d %d %d %d\n",y,y1,ow,x,x1);
+			fd=SBMP_INDEX(buf,x,y);
+		if(text[(y+y1)*ow+(x+x1)]<128){
+			//fprintf(stdout,"index in %d\n",fd);
+			SBMP_SETPIXEL(buf,fd);
+		}
 	}
-	sprintf(nbuf,"0x%hhx.sbmp",buf->c);
+	sprintf(nbuf,"0x%hhd.sbmp",c);
+	assert(cbuf=sbmp_compress(buf));
 	assert(fd=open(nbuf,O_WRONLY|O_CREAT,S_IRUSR|S_IWUSR));
-	pwrite(fd,buf,sbsize,0);
+	//fprintf(stdout,"size from %zu\n",sbsize);
+	if(sbsize>sbosize_max)sbosize_max=sbsize;
+	pwrite(fd,cbuf,sbsize=cbuf->size+sizeof(struct sbmp),0);
+	//fprintf(stdout,"size to %zu\n",sbsize);
 	if(sbsize>sbsize_max)sbsize_max=sbsize;
 	ftruncate(fd,sbsize);
 	close(fd);
 	free(buf);
+	free(cbuf);
 }
 int main(int argc,char **argv){
 	int *fds=malloc((argc-1)*sizeof(int));
 	int32_t *x1s=malloc((argc-1)*sizeof(int32_t));
 	int32_t *x2s=malloc((argc-1)*sizeof(int32_t));
 	char **datas=malloc((argc-1)*sizeof(char *));
-	int32_t y1=INT32_MAX,y2=INT32_MIN;
+	int32_t y1=INT32_MAX,y2=0;
 
 	for(int i=1;i<argc;++i){
 		x1s[i]=0;
@@ -141,19 +152,24 @@ int main(int argc,char **argv){
 		assert(readall(fds[i],(void **)datas+i)>0);
 		x1s[i]=0;
 		x2s[i]=*(int32_t *)(datas[i]+18);
-		//printf("reading %s\n",argv[i]);
+		//fprintf(stdout,"reading %s\n",argv[i]);
+		fprintf(stderr," assimilating %s\r",argv[i]);
 		correct(datas[i],x1s+i,&y1,x2s+i,&y2);
 	}
+	fprintf(stderr,"\n");
 	for(int i=1;i<argc;++i){
 		if(fds[i]<0)continue;
+		fprintf(stderr," cuting %s\r",argv[i]);
 		cut(argv[i],datas[i],x1s[i],y1,x2s[i],y2);
 		close(fds[i]);
 		free(datas[i]);
 	}
+	fprintf(stderr,"\n");
 	free(fds);
 	free(x1s);
 	free(x2s);
 	free(datas);
-	printf("%zu\n",sbsize_max);
+	fprintf(stdout,"#define TEXT_MAXSIZE %zu\n"
+		"#define TEXT_MAXOSIZE %zu\n",sbsize_max,sbosize_max);
 	return 0;
 }

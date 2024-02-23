@@ -1,7 +1,6 @@
 #! /bin/bash
 function link {
-echo '#'define TEXT_LEN $(./bmpass *.bmp)
-echo static const char texts[][TEXT_LEN]={
+echo static const char texts[][TEXT_MAXSIZE]={
 for i in *.sbmp
 do
 	echo '{'
@@ -10,6 +9,10 @@ do
 done
 echo '};'
 }
-echo creating text.c.h
-link | sed 's/,\};/};/g' > text.c.h
+echo ' creating text.h'
+cat text.1.h >text.h
+./bmpass *.bmp >> text.h
+echo ' creating text.c.h'
+echo '#include "text.h"' >text.c.h
+link | sed 's/,\};/};/g' >> text.c.h
 echo '#define TEXT_SIZE (sizeof(texts)/sizeof(texts[0]))' >> text.c.h

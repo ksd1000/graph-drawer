@@ -1,6 +1,5 @@
 #include "text.c.h"
-#include <stdlib.h>
-#include "sbmp.h"
+//#include <stdlib.h>
 const struct sbmp *text_getsbmp(char c){
 	struct sbmp *sp;
 	for(int i=0;i<TEXT_SIZE;++i){

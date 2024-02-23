@@ -4,10 +4,12 @@ LFLAG := -lc -lm
 #kernel := $(shell uname -r)
 text.o: text.h text.c.h
 	$(CC) $(CFLAG) text.c -c -o text.o
-text.h: bmpass
+text.h: bmpass gen genc
+	chmod +x ./gen ./genc
 	./gen
 	./genc
-text.c.h: bmpass
+text.c.h: bmpass gen genc
+	chmod +x ./gen ./genc
 	./gen
 	./genc
 sbmp.o: 

@@ -1,1 +1,7 @@
-![test image](https://raw.githubusercontent.com/xbound/xgraph/main/test.bmp)
+Dependences:
+ImageMagick
+FFmpeg
+libc
+libm
+libpthread
+make

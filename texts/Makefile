@@ -19,8 +19,8 @@ bmpass: sbmp.o
 .PHONY:
 clean:
 	rm -f text.o
-	rm -f text.h
-	rm -f text.c.h
+#	rm -f text.h
+#	rm -f text.c.h
 	rm -f sbmp.o
 	rm -f bmpass
 	rm -f *.bmp *.sbmp

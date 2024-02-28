@@ -2,8 +2,10 @@ CC := gcc
 CFLAG := -Wall -Ofast
 LFLAG := -lc -lm
 #kernel := $(shell uname -r)
-text.o: text.h text.c.h
+all: text.o sbmp.o
+text.o: 
 	$(CC) $(CFLAG) text.c -c -o text.o
+data: text.h text.c.h
 text.h: bmpass gen genc text.1.h
 	chmod +x ./gen ./genc
 	./gen

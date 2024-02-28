@@ -74,10 +74,14 @@ void graph_setpixel_bold(struct graph *restrict gp,uint32_t color,int32_t bold,i
 static int32_t graph_drawchar(struct graph *restrict gp,uint32_t color,int32_t bold,int c,int32_t height,int32_t x,int32_t y){
 	const struct sbmp *text=text_getsbmp(c);
 	int32_t md1,md2;
-	int32_t width=muldiv(text->width,height,text->height);
+	int32_t width;
 	//printf("%c\n",c);
 	//printf("at %d,%d height:%d text->height:%d\n",x,y,height,text->height);
-	if(!text)return 0;
+	if(!text){
+		return 0;
+	}
+	width=muldiv(text->width,height,text->height);
+
 	if(!sbmp_decompress(text,(struct sbmp *)gp->textbuf))
 		text=(void *)gp->textbuf;
 	if(height>text->height){
@@ -116,6 +120,9 @@ int32_t graph_draw_text_pixel(struct graph *restrict gp,uint32_t color,int32_t b
 		x+=graph_drawchar(gp,color,bold,*s,height,x,y)+gap;
 	}
 	return x-gap;
+}
+int32_t graph_text_height(void){
+	return TEXT_HEIGHT;
 }
 int32_t graph_draw_text(struct graph *restrict gp,uint32_t color,int32_t bold,const char *s,int32_t gap,int32_t height,double x,double y){
 	return graph_draw_text_pixel(gp,color,bold,s,gap,height,xtop(x),ytop(y));

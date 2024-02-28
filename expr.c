@@ -250,6 +250,24 @@ static double expr_hypot(size_t n,double *args){
 #define REGMDEPSYM2(s,sym,d) {.str=s,.un={.mdepfunc=sym},.type=EXPR_MDEPFUNCTION,.dim=d}
 #define REGCSYM2(s,val) {.str=s,.un={.value=val},.type=EXPR_CONSTANT,.dim=0}
 //#define REGSYMMD(s,n) {#s,s,n}
+const struct expr_builtin_keyword expr_keywords[]={
+	{"sum",EXPR_SUM,5,"index_name,start_index,end_index,index_step,addend"},
+	{"int",EXPR_INT,5,"integral_var_name,upper_limit,lower_limit,epsilon,integrand"},
+	{"prod",EXPR_PROD,5,"index_name,start_index,end_index,index_step,factor"},
+	{"pai",EXPR_PROD,5,"index_name,start_index,end_index,index_step,factor"},
+	{"sup",EXPR_SUP,5,"index_name,start_index,end_index,index_step,element"},
+	{"infi",EXPR_INF,5,"index_name,start_index,end_index,index_step,element"},
+	{"AND",EXPR_AND,5,"index_name,start_index,end_index,index_step,element"},
+	{"OR",EXPR_OR,5,"index_name,start_index,end_index,index_step,element"},
+	{"XOR",EXPR_XOR,5,"index_name,start_index,end_index,index_step,element"},
+	{"GCD",EXPR_GCD,5,"index_name,start_index,end_index,index_step,element"},
+	{"LCM",EXPR_LCM,5,"index_name,start_index,end_index,index_step,element"},
+	{"for",EXPR_FOR,5,"var_name,start_var,cond,body,value"},
+	{"loop",EXPR_LOOP,5,"var_name,start_var,count,body,value"},
+	{"while",EXPR_WHILE,3,"cond,body,value"},
+	{"if",EXPR_IF,3,"cond,if_value,else_value"},
+	{NULL}
+};
 const struct expr_builtin_symbol expr_bsyms[]={
 	REGFSYM(acos),
 	REGFSYM(acosh),
@@ -952,6 +970,7 @@ pterr:
 	//	fprintf(stderr,"unknown sym %ld %s\n",p-e,e);
 		if(p==e)goto symerr;
 		type=-1;
+/*
 #define KEYWORD_SET(key,val) if(p-e==sizeof( key )-1&&!memcmp(e,( key ),p-e))type=( val )
 		KEYWORD_SET("sum",EXPR_SUM);
 		else KEYWORD_SET("int",EXPR_INT);
@@ -967,7 +986,12 @@ pterr:
 		else KEYWORD_SET("for",EXPR_FOR);
 		else KEYWORD_SET("loop",EXPR_LOOP);
 		else KEYWORD_SET("while",EXPR_WHILE);
-		else KEYWORD_SET("if",EXPR_IF);
+		else KEYWORD_SET("if",EXPR_IF);*/
+		for(const struct expr_builtin_keyword *kp=expr_keywords;kp->str;++kp){
+			if(p-e==strlen(kp->str)&&!memcmp(e,kp->str,p-e)){
+				type=kp->op;
+			}
+		}
 		if(type!=-1){
 			if(*p!='('){
 				ep->error=EXPR_EFP;

@@ -115,6 +115,12 @@ struct expr_builtin_symbol {
 	int type;
 	unsigned int dim;
 };
+struct expr_builtin_keyword {
+	const char *str;
+	int op;
+	unsigned dim;
+	const char *desc;
+};
 struct expr_symset {
 	struct expr_symbol *syms;
 	//size_t size,length;
@@ -139,6 +145,7 @@ union expr_double {
 	struct expr_rawdouble rd;
 };
 extern const struct expr_builtin_symbol expr_bsyms[];
+extern const struct expr_builtin_keyword expr_keywords[];
 const char *expr_error(int error);
 uint64_t expr_gcd64(uint64_t x,uint64_t y);
 void expr_memrand(void *restrict m,size_t n);

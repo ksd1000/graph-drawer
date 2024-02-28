@@ -7,6 +7,8 @@
 #include <string.h>
 #include <math.h>
 #include <assert.h>
+#include <alloca.h>
+#include <pthread.h>
 #include "xdraw.h"
 #include "texts/text.h"
 static int32_t muldiv(int32_t m1,int32_t m2,int32_t f){
@@ -19,7 +21,9 @@ static int32_t muldiv_up(int32_t m1,int32_t m2,int32_t f){
 #define min(a,b) ((a)<(b)?(a):(b))
 #define max(a,b) ((a)>(b)?(a):(b))
 #define manhattan(x1,y1,x2,y2) (abs((x1)-(x2))+abs((y1)-(y2)))
-static int shouldconnect(int32_t x1,int32_t y1,int32_t x2,int32_t y2){
+//#define free(v)
+static int shouldconnect(const struct graph *restrict gp,int32_t x1,int32_t y1,int32_t x2,int32_t y2){
+	int32_t max;
 	switch(manhattan(x1,y1,x2,y2)){
 		case 0:
 		case 1:
@@ -27,6 +31,9 @@ static int shouldconnect(int32_t x1,int32_t y1,int32_t x2,int32_t y2){
 		case 2:
 			return (x1==y1||x2==y2);
 		default:
+			max=gp->width*gp->height;
+			if(abs(x2-x1)>=max||abs(y2-y1)>=max)
+				return 0;
 			return 1;
 	}
 }
@@ -114,10 +121,10 @@ int32_t graph_draw_text(struct graph *restrict gp,uint32_t color,int32_t bold,co
 	return graph_draw_text_pixel(gp,color,bold,s,gap,height,xtop(x),ytop(y));
 }
 
-int32_t graph_xtop(struct graph *restrict gp,double x){
+int32_t graph_xtop(const struct graph *restrict gp,double x){
 	return xtop(x);
 }
-int32_t graph_ytop(struct graph *restrict gp,double y){
+int32_t graph_ytop(const struct graph *restrict gp,double y){
 	return ytop(y);
 }
 void graph_fill(struct graph *restrict gp,uint32_t color){
@@ -130,12 +137,43 @@ void graph_fill(struct graph *restrict gp,uint32_t color){
 		}
 	}
 }
-
+int init_graph_frombmp(struct graph *restrict gp,void *bmp,size_t size,double minx,double maxx,double miny,double maxy){
+	int32_t width,height,byte_width,hsize;
+	uint16_t bpp;
+	int r;
+	if(size<54)return -1;
+	if(memcmp((char *)bmp,"BM",2))return -1;
+	bpp=*(uint16_t *)((char *)bmp+28);
+	switch(bpp){
+		case 8:
+		case 16:
+		case 24:
+		case 32:
+			break;
+		default:
+			return -1;
+	}
+	width=*(uint32_t *)((char *)bmp+18);
+	height=*(uint32_t *)((char *)bmp+22);
+	byte_width=((width*bpp+31)>>5)<<2;
+	hsize=*(uint32_t *)((char *)bmp+10);
+	if(hsize+byte_width*height!=size)return -1;
+	if(*(uint32_t *)((char *)bmp+2)!=size)return -1;
+	//*(uint32_t *)((char *)bmp+14);
+	if(*(uint32_t *)((char *)bmp+34)!=byte_width*height)return -1;
+	if(width<=0||height<=0||minx>=maxx||miny>=maxy)
+		return -1;
+	r=init_graph(gp,width,height,bpp,minx,maxx,miny,maxy);
+	if(r<0)return r;
+	memcpy(gp->buf,bmp+hsize,size-hsize);
+	return 0;
+}
 int init_graph(struct graph *restrict gp,int32_t width,int32_t height,uint16_t bpp,double minx,double maxx,double miny,double maxy){
 	gp->byte_width=((width*bpp+31)>>5)<<2;
-	if(width<=0||height<=0||bpp<8||minx>=maxx||miny>=maxy)
+	if(width<=0||height<=0||bpp<8||bpp&7||minx>=maxx||miny>=maxy)
 		return -1;
-	if((gp->buf=malloc(54+gp->byte_width*height))==NULL)return -2;
+	gp->hsize=54;
+	if((gp->buf=malloc(gp->hsize+gp->byte_width*height))==NULL)return -2;
 	if((gp->textbuf=malloc(TEXT_MAXOSIZE))==NULL){
 		free(gp->buf);
 		return -2;
@@ -146,13 +184,12 @@ int init_graph(struct graph *restrict gp,int32_t width,int32_t height,uint16_t b
 	gp->maxx=maxx;
 	gp->miny=miny;
 	gp->maxy=maxy;
-	gp->drawing=0;
 	gp->connect=1;
 	gp->arrow=1;
 	gp->draw_value=1;
 	//gp->lastx=gp->lasty=-1;
 	gp->bpp=bpp/8;
-	memset(gp->buf,0,54);
+	memset(gp->buf,0,gp->hsize);
 	memcpy(gp->buf,"BM",2);
 	*(uint32_t *)(gp->buf+2)=54+gp->byte_width*height;
 	*(uint32_t *)(gp->buf+10)=54;
@@ -162,18 +199,15 @@ int init_graph(struct graph *restrict gp,int32_t width,int32_t height,uint16_t b
 	*(uint16_t *)(gp->buf+26)=1;
 	*(uint16_t *)(gp->buf+28)=bpp;
 	*(uint32_t *)(gp->buf+34)=gp->byte_width*height;
-	gp->buf+=54;
+	gp->buf+=gp->hsize;
 	return 0;
 }
 void graph_free(struct graph *restrict gp){
-	free(gp->buf-54);
+	free(gp->buf-gp->hsize);
 	free(gp->textbuf);
 }
 
 
-#define START_DRAWING gp->drawing=1;\
-	gp->lastx=gp->lasty=-1;
-#define END_DRAWING gp->drawing=0;
 static void graph_draw_vline(struct graph *restrict gp,uint32_t color,int32_t bold,int32_t start,int32_t end,int32_t x){
 	//puts(__func__);
 	for(;start<=end;++start)
@@ -185,42 +219,107 @@ static void graph_draw_hline(struct graph *restrict gp,uint32_t color,int32_t bo
 	for(;start<=end;++start)
 		graph_setpixel_bold(gp,color,bold,start,y);
 }
-void graph_draw_point(struct graph *restrict gp,uint32_t color,int32_t bold,double x,double y){
+void graph_draw_point(struct graph *restrict gp,uint32_t color,int32_t bold,double x,double y,int32_t last[2]){
 	int32_t px=xtop(x),py=ytop(y);
-	if(gp->drawing){
-		if(gp->lastx==px&&gp->lasty==py){
+	if(last){
+		if((last[0]==px&&last[1]==py)){
 			return;
 		}else {
-			if(gp->connect&&gp->lastx!=-1&&gp->lasty!=-1&&shouldconnect(gp->lastx,gp->lasty,px,py)){
-				//printf("at %d,%d to %d,%d\t%d\n",gp->lastx,gp->lasty,px,py,manhattan(gp->lastx,gp->lasty,px,py));
-				if(!graph_connect_pixel(gp,color,bold,gp->lastx,gp->lasty,px,py)){
-					gp->lastx=px;
-					gp->lasty=py;
+			if(gp->connect&&last[0]!=-1&&last[1]!=-1&&shouldconnect(gp,last[0],last[1],px,py)){
+				if(!graph_connect_pixel(gp,color,bold,last[0],last[1],px,py)){
+					last[0]=px;
+					last[1]=py;
 					return;
 				}
 			}
-			gp->lastx=px;
-			gp->lasty=py;
+			last[0]=px;
+			last[1]=py;
 		}
 
 	}
 	graph_setpixel_bold(gp,color,bold,px,py);
 }
-void graph_draw(struct graph *restrict gp,uint32_t color,int32_t bold,double (*x)(double),double (*y)(double),double from,double to,double step){
-	START_DRAWING
-	for(;from<=to;from+=step){
-		graph_draw_point(gp,color,bold,x(from),y(from));
-	}
-	END_DRAWING
-}
-void graph_drawep(struct graph *restrict gp,uint32_t color,int32_t bold,struct expr *restrict xep,struct expr *restrict yep,double from,double to,double step){
-	START_DRAWING
-	for(;from<=to;from+=step){
-		graph_draw_point(gp,color,bold,expr_compute(xep,from),expr_compute(yep,from));
-	}
-	END_DRAWING
+double graph_pixelstep(const struct graph *restrict gp){
+	double x,y;
+	x=(gp->maxx-gp->miny)/(gp->width+1);
+	y=(gp->maxy-gp->miny)/(gp->height+1);
+	return min(x,y);
 }
 
+struct mtarg {
+	struct graph *restrict gp;
+	uint32_t color;
+	int32_t bold;
+	const struct expr *restrict xep;
+	const struct expr *restrict yep;
+	double from,to,step;
+	volatile double *current;
+};
+static void *graph_drawthread(struct mtarg *mt){
+	graph_drawep(mt->gp,mt->color,mt->bold,mt->xep,mt->yep,mt->from,mt->to,mt->step,mt->current);
+	pthread_exit(NULL);
+}
+
+void graph_draw(struct graph *restrict gp,uint32_t color,int32_t bold,double (*x)(double),double (*y)(double),double from,double to,double step,volatile double *current,int thread){
+	struct expr ex,ey;
+	ex.imm=x;
+	ey.imm=y;
+	graph_drawep(gp,color,bold,&ex,&ey,from,to,step,current);
+}
+void graph_draw_mt(struct graph *restrict gp,uint32_t color,int32_t bold,double (*x)(double),double (*y)(double),double from,double to,double step,volatile double *current,int thread){
+	struct expr ex,ey;
+	ex.imm=x;
+	ey.imm=y;
+	graph_drawep_mt(gp,color,bold,&ex,&ey,from,to,step,current,thread);
+}
+void graph_drawep(struct graph *restrict gp,uint32_t color,int32_t bold,const struct expr *restrict xep,const struct expr *restrict yep,double from,double to,double step,volatile double *current){
+	int32_t last[2]={-1,-1};
+	//fprintf(stderr,"from %lf to %lf\n",from,to);
+	//static pthread_mutex_t mu=PTHREAD_MUTEX_INITIALIZER;
+	if(!current)current=&from;
+	else *current=from;
+	//pthread_mutex_lock(&mu);
+	for(;*current<to;*current+=step){
+		graph_draw_point(gp,color,bold,expr_compute(xep,*current),expr_compute(yep,*current),last);
+	}
+	//pthread_mutex_unlock(&mu);
+	*current=to;
+	graph_draw_point(gp,color,bold,expr_compute(xep,*current),expr_compute(yep,*current),last);
+	*current=DBL_MAX;
+}
+
+void graph_drawep_mt(struct graph *restrict gp,uint32_t color,int32_t bold,const struct expr *restrict xeps,const struct expr *restrict yeps,double from,double to,double step,volatile double *currents,int thread){
+	pthread_t *pts;
+	struct mtarg *mts;
+	double last,gap,lpg;
+	if(thread<2/*||(to-from)<step*pow((double)(thread+1),2)*/){
+		graph_drawep(gp,color,bold,xeps,yeps,from,to,step,currents);
+		return;
+	}
+	pts=alloca(thread*sizeof(pthread_t));
+	mts=alloca(thread*sizeof(struct mtarg));
+	last=from;
+	gap=(to-from)/thread;
+	for(int i=0;i<thread;++i){
+		mts[i].gp=gp;
+		mts[i].color=color;
+		mts[i].bold=bold;
+		mts[i].xep=xeps+i;
+		mts[i].yep=yeps+i;
+		lpg=last+gap;
+		if(lpg>to)lpg=to;
+		mts[i].from=last;
+		mts[i].to=lpg;
+		last=lpg;
+		mts[i].step=step;
+		mts[i].current=currents?currents+i:NULL;
+		pthread_create(pts+i,NULL,(void *(*)(void *))graph_drawthread,mts+i);
+	}
+	for(int i=0;i<thread;++i){
+		pthread_join(pts[i],NULL);
+	}
+	return;
+}
 static void graph_connect_pixel_x(struct graph *restrict gp,uint32_t color,int32_t bold,int32_t x1,int32_t y1,int32_t x2,int32_t y2){
 	int32_t dx,dy,idx;
 	//puts(__func__);
@@ -266,14 +365,48 @@ static void graph_connect_pixel_135(struct graph *restrict gp,uint32_t color,int
 		graph_setpixel_bold(gp,color,bold,x1,y1);
 	}
 }
-//#define setpoint(x,y) if(i1)
-int graph_raycast(struct graph *restrict gp,int32_t *restrict x1,int32_t *restrict y1,int32_t *restrict x2,int32_t *restrict y2){
-	char i1=inrange(*x1,*y1),i2=inrange(*x2,*y2);
-	int32_t iv,ix1=-1,iy1=-1,ix2=-1,iy2=-1,swapbuf;
+int graph_raycast(const struct graph *restrict gp,int32_t *restrict x1,int32_t *restrict y1,int32_t *restrict x2,int32_t *restrict y2){
+	char i1,i2;
+	int32_t iv,ix1=-1,iy1=-1,ix2=-1,iy2=-1,swapbuf
+		;
 #define x1 (*x1)
 #define y1 (*y1)
 #define x2 (*x2)
 #define y2 (*y2)
+	/*if(y1>=max){
+		y1=gp->height-1;
+		x1=x2;
+	}
+	if(y1<=-max){
+		y1=0;
+		x1=x2;
+	}
+	if(x1>=max){
+		x1=gp->width-1;
+		y1=y2;
+	}
+	if(x1<=-max){
+		x1=0;
+		y1=y2;
+	}
+	if(y2>=max){
+		y2=gp->height-1;
+		x2=x1;
+	}
+	if(y2<=-max){
+		y2=0;
+		x2=x1;
+	}
+	if(x2>=max){
+		x2=gp->width-1;
+		y2=y1;
+	}
+	if(x2<=-max){
+		x2=0;
+		y2=y1;
+	}*/
+	i1=inrange(x1,y1);
+	i2=inrange(x2,y2);
 	if(i1&&i2)return 0;
 	if(!i1&&!i2&&(
 		((y1<0&&y2<0)||(y1>=gp->height&&y2>=gp->height)) ||
@@ -473,14 +606,14 @@ int graph_connect(struct graph *restrict gp,uint32_t color,int32_t bold,double x
 	if(!strcmp(p=strchr(vb,'.'),".00")){\
 		*p=0;\
 	}\
-	graph_draw_text_pixel(gp,color,0,vb,1,gapline_len*2,px,ay-gapline_len*3);\
+	graph_draw_text_pixel(gp,color,0,vb,1,gapline_len*3/2,px+bold+4,ay-gapline_len*5/2);\
 		}
 #define DRAWYVAL if(gp->draw_value){\
 	snprintf(vb,16,"%.2lf",v);\
 	if(!strcmp(p=strchr(vb,'.'),".00")){\
 		*p=0;\
 	}\
-	graph_draw_text_pixel(gp,color,0,vb,1,gapline_len*2,ax+bold+4,py);\
+	graph_draw_text_pixel(gp,color,0,vb,1,gapline_len*3/2,ax+bold+4,py);\
 		}
 void graph_draw_axis(struct graph *restrict gp,uint32_t color,int32_t bold,double gapx,double gapy,uint32_t gapline_len){
 	int32_t px,py,ax=xtop(0),ay=ytop(0);

@@ -1,2 +1,2 @@
 #! /bin/bash
-grep '){$' | grep '^if' -v | grep '^while' -v | grep '^for' -v | grep '^switch' -v | grep '^else' -v | grep '^static' -v | grep '^[a-zA-Z_]' | sed 's/{$/;/g'
+grep '){$' | grep '^//' -v | grep '^if' -v | grep '^while' -v | grep '^for' -v | grep '^switch' -v | grep '^else' -v | grep '^static' -v | grep '^[a-zA-Z_]' | sed 's/{$/;/g'

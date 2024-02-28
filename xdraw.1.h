@@ -10,7 +10,7 @@ struct graph {
 	char *buf,*textbuf;
 	double minx,maxx,miny,maxy;
 	int32_t width,height,lastx,lasty;
-	uint32_t byte_width;
+	uint32_t byte_width,hsize;
 	uint16_t bpp;
 	char connect:1;
 	char drawing:1;

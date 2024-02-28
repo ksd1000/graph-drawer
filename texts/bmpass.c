@@ -175,6 +175,8 @@ int main(int argc,char **argv){
 	free(x2s);
 	free(datas);
 	fprintf(stdout,"#define TEXT_MAXSIZE %zu\n"
-		"#define TEXT_MAXOSIZE %zu\n",sbsize_max,sbosize_max);
+		"#define TEXT_MAXOSIZE %zu\n"
+		"#define TEXT_COUNT %d\n"
+		"#define TEXT_HEIGHT %d\n",sbsize_max,sbosize_max,argc-1,y2-y1);
 	return 0;
 }

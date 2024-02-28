@@ -4,10 +4,11 @@
  *******************************************************************************/
 #define _GNU_SOURCE
 #include "text.c.h"
+//#include <stdio.h>
 //#include <stdlib.h>
 const struct sbmp *text_getsbmp(char c){
 	struct sbmp *sp;
-	for(int i=0;i<TEXT_SIZE;++i){
+	for(int i=0;i<TEXT_COUNT;++i){
 		sp=(struct sbmp *)texts[i];
 		if(sp->c==c)return sp;
 	}

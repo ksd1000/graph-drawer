@@ -71,7 +71,7 @@ void graph_setpixel_bold(struct graph *restrict gp,uint32_t color,int32_t bold,i
 	setpixel(x,y);
 	//graph_setpixel(gp,color,x,y);
 }
-static int32_t graph_drawchar(struct graph *restrict gp,uint32_t color,int32_t bold,int c,int32_t height,int32_t x,int32_t y){
+static int32_t graph_drawchar(struct graph *restrict gp,uint32_t color,int32_t bold,int c,int32_t height,int32_t x,int32_t y,int test){
 	const struct sbmp *text=text_getsbmp(c);
 	int32_t md1,md2;
 	int32_t width;
@@ -81,7 +81,7 @@ static int32_t graph_drawchar(struct graph *restrict gp,uint32_t color,int32_t b
 		return 0;
 	}
 	width=muldiv(text->width,height,text->height);
-
+	if(test)goto end;
 	if(!sbmp_decompress(text,(struct sbmp *)gp->textbuf))
 		text=(void *)gp->textbuf;
 	if(height>text->height){
@@ -109,15 +109,21 @@ static int32_t graph_drawchar(struct graph *restrict gp,uint32_t color,int32_t b
 	}
 	}
 	}
+end:
 	return width;
 }
 int32_t graph_draw_text_pixel(struct graph *restrict gp,uint32_t color,int32_t bold,const char *s,int32_t gap,int32_t height,int32_t x,int32_t y){
-	//graph_drawchar(gp,color,bold,'A',width,height,x,y);
-	//graph_drawchar(gp,color,bold,'A',width,height,x,y);
-	//return;
 	if(!*s)return x;
 	for(;*s;++s){
-		x+=graph_drawchar(gp,color,bold,*s,height,x,y)+gap;
+		x+=graph_drawchar(gp,color,bold,*s,height,x,y,0)+gap;
+	}
+	return x-gap;
+}
+int32_t graph_textlen(struct graph *restrict gp,const char *s,int32_t gap,int32_t height){
+	int32_t x=0;
+	if(!*s)return x;
+	for(;*s;++s){
+		x+=graph_drawchar(gp,0,0,*s,height,0,0,1)+gap;
 	}
 	return x-gap;
 }
@@ -127,7 +133,6 @@ int32_t graph_text_height(void){
 int32_t graph_draw_text(struct graph *restrict gp,uint32_t color,int32_t bold,const char *s,int32_t gap,int32_t height,double x,double y){
 	return graph_draw_text_pixel(gp,color,bold,s,gap,height,xtop(x),ytop(y));
 }
-
 int32_t graph_xtop(const struct graph *restrict gp,double x){
 	return xtop(x);
 }

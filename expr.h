@@ -32,6 +32,7 @@ EXPR_LOOP,
 EXPR_FOR,
 EXPR_CALLMD,
 EXPR_CALLMDEP,
+EXPR_CALLHOT,
 EXPR_GT,
 EXPR_GE,
 EXPR_LT,
@@ -59,6 +60,7 @@ EXPR_END
 #define EXPR_FUNCTION 2
 #define EXPR_MDFUNCTION 3
 #define EXPR_MDEPFUNCTION 4
+#define EXPR_HOTFUNCTION 5
 #define EXPR_EDBASE(d) (((union expr_double *)(d))->rd.base)
 #define EXPR_EDEXP(d) (((union expr_double *)(d))->rd.exp)
 #define EXPR_EDSIGN(d) (((union expr_double *)(d))->rd.sign)
@@ -84,6 +86,7 @@ struct expr_mdinfo {
 union expr_inst_op2{
 	volatile double *src;
 	double value;
+	struct expr *hotfunc;
 	double (*func)(double);
 	struct expr_suminfo *es;
 	struct expr_branchinfo *eb;
@@ -97,6 +100,10 @@ struct expr_inst {
 union expr_symbol_value {
 	double value;
 	volatile double *addr;
+	struct {
+		char *expr;
+		char *asym;
+	} hot;
 	double (*func)(double);
 	double (*mdfunc)(size_t,double *);
 	double (*mdepfunc)(size_t,
@@ -156,20 +163,19 @@ double expr_gcd2(double x,double y);
 double expr_lcm2(double x,double y);
 double expr_multilevel_derivate(const struct expr *ep,double input,long level,double epsilon);
 void expr_free(struct expr *restrict ep);
-void expr_addconst(struct expr *restrict ep,double *dst,double *val);
 struct expr_inst *expr_addop(struct expr *restrict ep,double *dst,void *src,unsigned int op);
 double *expr_newvar(struct expr *restrict ep);
 void init_expr_symset(struct expr_symset *restrict esp);
 struct expr_symset *new_expr_symset(void);
 void expr_symset_free(struct expr_symset *restrict esp);
-struct expr_symbol *expr_symset_findtail(struct expr_symset *restrict esp);
-struct expr_symbol *expr_symset_add(struct expr_symset *restrict ep,const char *sym,int type,...);
-const struct expr_symbol *expr_symset_search(struct expr_symset *restrict ep,const char *sym,size_t sz);
-void expr_symset_copy(struct expr_symset *restrict dst,struct expr_symset *restrict src);
-struct expr_symset *expr_symset_clone(struct expr_symset *restrict ep);
+struct expr_symbol *expr_symset_findtail(const struct expr_symset *restrict esp);
+struct expr_symbol *expr_symset_add(struct expr_symset *restrict esp,const char *sym,int type,...);
+const struct expr_symbol *expr_symset_search(const struct expr_symset *restrict esp,const char *sym,size_t sz);
+void expr_symset_copy(struct expr_symset *restrict dst,const struct expr_symset *restrict src);
+struct expr_symset *expr_symset_clone(const struct expr_symset *restrict ep);
 int init_expr(struct expr *restrict ep,const char *e,const char *asym,struct expr_symset *esp);
 struct expr *new_expr(const char *e,const char *asym,struct expr_symset *esp,int *error);
-double expr_compute(const struct expr *restrict ep,double input);
+double expr_eval(const struct expr *restrict ep,double input);
 
 #define expr_addcopy(e,t,f) expr_addop(e,t,f,EXPR_COPY)
 #define expr_addcall(e,t,f) expr_addop(e,t,f,EXPR_CALL)
@@ -183,7 +189,11 @@ double expr_compute(const struct expr *restrict ep,double input);
 #define expr_addend(e,t) expr_addop(e,t,NULL,EXPR_END)
 #define expr_addcallmd(e,t,em) expr_addop(e,t,em,EXPR_CALLMD)
 #define expr_addcallmdep(e,t,em) expr_addop(e,t,em,EXPR_CALLMDEP)
+#define expr_addcallhot(e,t,em) expr_addop(e,t,em,EXPR_CALLHOT)
 //#define expr_addconst(e,t,v) expr_addop(e,t,v,EXPR_CONST)
 //#define expr_addconst(e,t,v) expr_addop(e,t,*(void **)(v),EXPR_CONST)
 #define expr_addconst(e,t,v) (expr_addop(e,t,NULL,EXPR_CONST)->un.value=(v))
+#define expr_compute expr_eval
+#define expr_evaluate expr_eval
+#define expr_calculate expr_eval
 #endif

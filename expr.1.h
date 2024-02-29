@@ -32,6 +32,7 @@ EXPR_LOOP,
 EXPR_FOR,
 EXPR_CALLMD,
 EXPR_CALLMDEP,
+EXPR_CALLHOT,
 EXPR_GT,
 EXPR_GE,
 EXPR_LT,
@@ -59,6 +60,7 @@ EXPR_END
 #define EXPR_FUNCTION 2
 #define EXPR_MDFUNCTION 3
 #define EXPR_MDEPFUNCTION 4
+#define EXPR_HOTFUNCTION 5
 #define EXPR_EDBASE(d) (((union expr_double *)(d))->rd.base)
 #define EXPR_EDEXP(d) (((union expr_double *)(d))->rd.exp)
 #define EXPR_EDSIGN(d) (((union expr_double *)(d))->rd.sign)
@@ -84,6 +86,7 @@ struct expr_mdinfo {
 union expr_inst_op2{
 	volatile double *src;
 	double value;
+	struct expr *hotfunc;
 	double (*func)(double);
 	struct expr_suminfo *es;
 	struct expr_branchinfo *eb;
@@ -97,6 +100,10 @@ struct expr_inst {
 union expr_symbol_value {
 	double value;
 	volatile double *addr;
+	struct {
+		char *expr;
+		char *asym;
+	} hot;
 	double (*func)(double);
 	double (*mdfunc)(size_t,double *);
 	double (*mdepfunc)(size_t,

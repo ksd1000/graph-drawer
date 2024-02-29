@@ -11,7 +11,11 @@
 #define expr_addend(e,t) expr_addop(e,t,NULL,EXPR_END)
 #define expr_addcallmd(e,t,em) expr_addop(e,t,em,EXPR_CALLMD)
 #define expr_addcallmdep(e,t,em) expr_addop(e,t,em,EXPR_CALLMDEP)
+#define expr_addcallhot(e,t,em) expr_addop(e,t,em,EXPR_CALLHOT)
 //#define expr_addconst(e,t,v) expr_addop(e,t,v,EXPR_CONST)
 //#define expr_addconst(e,t,v) expr_addop(e,t,*(void **)(v),EXPR_CONST)
 #define expr_addconst(e,t,v) (expr_addop(e,t,NULL,EXPR_CONST)->un.value=(v))
+#define expr_compute expr_eval
+#define expr_evaluate expr_eval
+#define expr_calculate expr_eval
 #endif

@@ -1527,7 +1527,7 @@ struct expr *new_expr(const char *e,const char *asym,struct expr_symset *esp,int
 double expr_eval(const struct expr *restrict ep,double input){
 	struct expr_inst *ip=ep->data;
 	double step,sum,from,to,y;
-	int neg,inited;
+	int neg;
 	if(ep->imm)return ep->imm(input);
 	ip=ep->data;
 	while(ip->op!=EXPR_END){
@@ -1600,7 +1600,7 @@ double expr_eval(const struct expr *restrict ep,double input){
 					1.0:
 					0.0;
 				break;
-#define CALLOGIC(a,b,_s) (fabs(a)>DBL_EPSILON _s fabs(b)>DBL_EPSILON)
+#define CALLOGIC(a,b,_s) ((fabs(a)>DBL_EPSILON) _s (fabs(b)>DBL_EPSILON))
 			case EXPR_ANDL:
 				*ip->dst=CALLOGIC(*ip->dst,*ip->un.src,&&)?
 					1.0:
@@ -1645,11 +1645,11 @@ double expr_eval(const struct expr *restrict ep,double input){
 			CALSUM(EXPR_PROD,sum*=y,sum=1,1/sum);
 			CALSUM(EXPR_SUP,if(y>sum)sum=y,sum=DBL_MIN,sum);
 			CALSUM(EXPR_INF,if(y<sum)sum=y,sum=DBL_MAX,sum);
-			CALSUM(EXPR_AND,sum=inited?expr_and2(sum,y):y;inited=1,inited=0,sum);
-			CALSUM(EXPR_OR,sum=inited?expr_or2(sum,y):y;inited=1,inited=0,sum);
-			CALSUM(EXPR_XOR,sum=inited?expr_xor2(sum,y):y;inited=1,inited=0,sum);
-			CALSUM(EXPR_GCD,sum=inited?expr_gcd2(sum,y):y;inited=1,inited=0,sum);
-			CALSUM(EXPR_LCM,sum=inited?expr_lcm2(sum,y):y;inited=1,inited=0,sum);
+			CALSUM(EXPR_AND,sum=sum!=NAN?expr_and2(sum,y):y,sum=NAN,sum);
+			CALSUM(EXPR_OR,sum=sum!=NAN?expr_or2(sum,y):y,sum=NAN,sum);
+			CALSUM(EXPR_XOR,sum=sum!=NAN?expr_xor2(sum,y):y,sum=NAN,sum);
+			CALSUM(EXPR_GCD,sum=sum!=NAN?expr_gcd2(sum,y):y,sum=NAN,sum);
+			CALSUM(EXPR_LCM,sum=sum!=NAN?expr_lcm2(sum,y):y,sum=NAN,sum);
 
 			case EXPR_FOR:
 				ip->un.es->index=

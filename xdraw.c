@@ -4,10 +4,12 @@
  *******************************************************************************/
 #define _GNU_SOURCE
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <math.h>
 #include <assert.h>
 #include <alloca.h>
+#include <float.h>
 #include <pthread.h>
 #include "xdraw.h"
 #include "texts/text.h"

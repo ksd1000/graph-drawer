@@ -4,6 +4,7 @@
  *******************************************************************************/
 #ifndef _EXPR_H_
 #define _EXPR_H_
+#include <stdint.h>
 enum {
 EXPR_COPY=0,
 EXPR_CONST,

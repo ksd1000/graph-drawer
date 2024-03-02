@@ -5,10 +5,11 @@ struct sbmp {
 	int32_t width,height;
 	uint64_t size;
 	char c;
-	char compressed:1;
-	char startval:1;
-	char unused:6;
-	char data[];
+	unsigned char compressed:1;
+	unsigned char startval:1;
+	unsigned char :6;
+	unsigned char unused[6];
+	unsigned char data[];
 };
 struct sbmp *sbmp_compress(const struct sbmp *sp);
 int sbmp_tstpixeln(const struct sbmp *sp,uint64_t n);

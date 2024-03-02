@@ -4,6 +4,7 @@
  *******************************************************************************/
 #define _GNU_SOURCE
 #include "text.c.h"
+#include <stddef.h>
 //#include <stdio.h>
 //#include <stdlib.h>
 const struct sbmp *text_getsbmp(char c){

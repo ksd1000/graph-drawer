@@ -10,6 +10,7 @@
 #include <assert.h>
 #include <stdarg.h>
 #include <time.h>
+#include <float.h>
 #include "expr.h"
 #define printval(x) fprintf(stderr,#x ":%lu\n",x)
 #define printvall(x) fprintf(stderr,#x ":%ld\n",x)

@@ -288,15 +288,11 @@ void graph_draw_mt(struct graph *restrict gp,uint32_t color,int32_t bold,double 
 }
 void graph_drawep(struct graph *restrict gp,uint32_t color,int32_t bold,const struct expr *restrict xep,const struct expr *restrict yep,double from,double to,double step,volatile double *current){
 	int32_t last[2]={-1,-1};
-	//fprintf(stderr,"from %lf to %lf\n",from,to);
-	//static pthread_mutex_t mu=PTHREAD_MUTEX_INITIALIZER;
 	if(!current)current=&from;
 	else *current=from;
-	//pthread_mutex_lock(&mu);
 	for(;*current<to;*current+=step){
 		graph_draw_point(gp,color,bold,expr_compute(xep,*current),expr_compute(yep,*current),last);
 	}
-	//pthread_mutex_unlock(&mu);
 	*current=to;
 	graph_draw_point(gp,color,bold,expr_compute(xep,*current),expr_compute(yep,*current),last);
 	*current=DBL_MAX;
@@ -318,8 +314,8 @@ void graph_drawep_mt(struct graph *restrict gp,uint32_t color,int32_t bold,const
 		mts[i].gp=gp;
 		mts[i].color=color;
 		mts[i].bold=bold;
-		mts[i].xep=xeps+i;
-		mts[i].yep=yeps+i;
+		mts[i].xep=xeps+(xeps->imm?0:i);
+		mts[i].yep=yeps+(yeps->imm?0:i);
 		lpg=last+gap;
 		if(lpg>to)lpg=to;
 		mts[i].from=last;

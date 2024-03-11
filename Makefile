@@ -21,7 +21,7 @@ header/expr.h: expr.h
 expr.h: expr.1.h expr.2.h expr.c
 	chmod +x ./genexprh ./decdump
 	./genexprh
-xdraw.h: xdraw.1.h xdraw.2.h xdraw.c
+xdraw.h: xdraw.1.h xdraw.2.h xdraw.c expr.h
 	chmod +x ./decdump ./genxdrawh
 	./genxdrawh
 texts/text.o:

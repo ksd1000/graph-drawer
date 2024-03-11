@@ -24,6 +24,7 @@ static int32_t muldiv_up(int32_t m1,int32_t m2,int32_t f){
 #define max(a,b) ((a)>(b)?(a):(b))
 #define manhattan(x1,y1,x2,y2) (abs((x1)-(x2))+abs((y1)-(y2)))
 //#define free(v)
+//#define printf(v, ... ) abort()
 static int shouldconnect(const struct graph *restrict gp,int32_t x1,int32_t y1,int32_t x2,int32_t y2){
 	int32_t max;
 	switch(manhattan(x1,y1,x2,y2)){
@@ -34,6 +35,7 @@ static int shouldconnect(const struct graph *restrict gp,int32_t x1,int32_t y1,i
 			return (x1==y1||x2==y2);
 		default:
 			max=gp->width*gp->height;
+			//printf("dx=%u,dy=%u,max=%u\n",x2-x1,y2-y1,max);
 			if(abs(x2-x1)>=max||abs(y2-y1)>=max)
 				return 0;
 			return 1;
@@ -223,18 +225,19 @@ void graph_free(struct graph *restrict gp){
 
 
 static void graph_draw_vline(struct graph *restrict gp,uint32_t color,int32_t bold,int32_t start,int32_t end,int32_t x){
-	//puts(__func__);
 	for(;start<=end;++start)
 		graph_setpixel_bold(gp,color,bold,x,start);
 }
 static void graph_draw_hline(struct graph *restrict gp,uint32_t color,int32_t bold,int32_t start,int32_t end,int32_t y){
 	
-	//puts(__func__);
 	for(;start<=end;++start)
 		graph_setpixel_bold(gp,color,bold,start,y);
 }
+#define xisnan(x) (EXPR_EDEXP(x)==2047ul)
 void graph_draw_point6(struct graph *restrict gp,uint32_t color,int32_t bold,double x,double y,int32_t last[2]){
-	if(isnan(x)||isnan(y))return;
+	//printf("x=%lf,y=%lf,xisnan(y)=%lu\n",x,y,xisnan(&y));return;
+	//if(x==INFINITY||y==INFINITY)return;
+	if(xisnan(&x)||xisnan(&y))return;
 	int32_t px=xtop(x),py=ytop(y);
 	if(last){
 		if((last[0]==px&&last[1]==py)){
@@ -259,7 +262,8 @@ void graph_draw_point6(struct graph *restrict gp,uint32_t color,int32_t bold,dou
 	graph_setpixel_bold(gp,color,bold,px,py);
 }
 void graph_draw_point(struct graph *restrict gp,uint32_t color,int32_t bold,double x,double y){
-	if(isnan(x)||isnan(y))return;
+	//if(x==INFINITY||y==INFINITY)return;
+	if(xisnan(&x)||xisnan(&y))return;
 	graph_setpixel_bold(gp,color,bold,xtop(x),ytop(y));
 }
 double graph_pixelstep(const struct graph *restrict gp){
@@ -297,13 +301,14 @@ void graph_draw_mt(struct graph *restrict gp,uint32_t color,int32_t bold,double 
 }
 void graph_drawep(struct graph *restrict gp,uint32_t color,int32_t bold,const struct expr *restrict xep,const struct expr *restrict yep,double from,double to,double step,volatile double *current){
 	int32_t last[2]={-1,-1};
-	if(!current)current=&from;
-	else *current=from;
-	for(;*current<to;*current+=step){
-		graph_draw_point6(gp,color,bold,expr_compute(xep,*current),expr_compute(yep,*current),last);
+	double cur_null,toms=to-step;
+	if(!current)current=&cur_null;
+	for(;from<=toms;from+=step){
+		*current=from;
+		graph_draw_point6(gp,color,bold,expr_compute(xep,from),expr_compute(yep,from),last);
 	}
 	*current=to;
-	graph_draw_point6(gp,color,bold,expr_compute(xep,*current),expr_compute(yep,*current),last);
+	graph_draw_point6(gp,color,bold,expr_compute(xep,to),expr_compute(yep,to),last);
 	*current=DBL_MAX;
 }
 
@@ -341,7 +346,6 @@ void graph_drawep_mt(struct graph *restrict gp,uint32_t color,int32_t bold,const
 }
 static void graph_connect_pixel_x(struct graph *restrict gp,uint32_t color,int32_t bold,int32_t x1,int32_t y1,int32_t x2,int32_t y2){
 	int32_t dx,dy,idx;
-	//puts(__func__);
 	idx=x2-x1;
 	dy=y2-y1;
 	if(dy<0){
@@ -355,7 +359,6 @@ static void graph_connect_pixel_x(struct graph *restrict gp,uint32_t color,int32
 	return;
 }
 static void graph_connect_pixel_y(struct graph *restrict gp,uint32_t color,int32_t bold,int32_t x1,int32_t y1,int32_t x2,int32_t y2){
-	//puts(__func__);
 	int32_t dx,dy,idy;
 	idy=y2-y1;
 	dx=x2-x1;
@@ -371,7 +374,6 @@ static void graph_connect_pixel_y(struct graph *restrict gp,uint32_t color,int32
 }
 static void graph_connect_pixel_45(struct graph *restrict gp,uint32_t color,int32_t bold,int32_t x1,int32_t y1,int32_t n){
 	
-	//puts(__func__);
 	for(;n>=0;++x1,++y1,--n){
 //		printf("draw at %d %d\n",x1,y1);
 		graph_setpixel_bold(gp,color,bold,x1,y1);
@@ -379,7 +381,6 @@ static void graph_connect_pixel_45(struct graph *restrict gp,uint32_t color,int3
 }
 static void graph_connect_pixel_135(struct graph *restrict gp,uint32_t color,int32_t bold,int32_t x1,int32_t y1,int32_t n){
 	
-	//puts(__func__);
 	for(;n>=0;++x1,--y1,--n){
 		graph_setpixel_bold(gp,color,bold,x1,y1);
 	}

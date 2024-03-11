@@ -180,6 +180,15 @@ static double expr_dfact(double x){
 	}
 	return sum;
 }
+static double expr_nfact(size_t n,double *args){
+	double sum=1.0,x=args[0];
+	x=floor(x);
+	while(x>DBL_EPSILON){
+		sum*=x;
+		x-=args[1];
+	}
+	return sum;
+}
 static double expr_piece(size_t n,const struct expr *args,double input){
 	const struct expr *arg0=args;
 	--n;
@@ -322,7 +331,9 @@ const struct expr_builtin_symbol expr_bsyms[]={
 	REGCSYM(FLT_EPSILON),
 	REGCSYM(HUGE_VALF),
 	REGCSYM(INFINITY),
+	REGCSYM2("inf",INFINITY),
 	REGCSYM(NAN),
+	REGCSYM2("nan",NAN),
 	REGCSYM2("e",M_E),
 	REGCSYM2("log2e",M_LOG2E),
 	REGCSYM2("log10e",M_LOG10E),
@@ -345,6 +356,7 @@ const struct expr_builtin_symbol expr_bsyms[]={
 	REGMDSYM2("lcm",expr_lcm,0),
 	REGMDSYM2("min",expr_min,0),
 	REGMDSYM2("max",expr_max,0),
+	REGMDSYM2("nfact",expr_nfact,2),
 	REGMDSYM2("rand",expr_rand,2),
 
 	REGMDEPSYM2("piece",expr_piece,0),

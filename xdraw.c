@@ -36,7 +36,13 @@ static int shouldconnect(const struct graph *restrict gp,int32_t x1,int32_t y1,i
 		default:
 			dmax=gp->width+gp->height;
 			//printf("dx=%u,dy=%u,max=%u\n",abs(x2-x1),abs(y2-y1),dmax);
-			if(abs(x2-x1)>=dmax||abs(y2-y1)>=dmax)
+			if(
+				((x1<0||x1>=gp->width)||
+				(y1<0||y1>=gp->height))&&
+				((x2<0||x2>=gp->width)||
+				(y2<0||y2>=gp->height))&&
+				(abs(x2-x1)>=dmax||abs(y2-y1)>=dmax)
+				)
 				return 0;
 			return 1;
 	}

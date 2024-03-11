@@ -14,11 +14,14 @@
 #include "xdraw.h"
 #include "texts/text.h"
 static int32_t muldiv(int32_t m1,int32_t m2,int32_t f){
-	return m1/f*m2+m1%f*m2/f;
+	return (uint64_t)m1*m2/f;
+	//return m1/f*m2+m1%f*m2/f;
 }
 static int32_t muldiv_up(int32_t m1,int32_t m2,int32_t f){
-	int32_t mod=m1%f;
-	return m1/f*m2+mod*m2/f+!!mod;
+	uint64_t p=(uint64_t)m1*m2;
+	return p/f+!!(p%f);
+	//int32_t mod=m1%f;
+	//return m1/f*m2+mod*m2/f+!!mod;
 }
 #define xisnan(x) (EXPR_EDEXP(x)==2047ul&&EXPR_EDBASE(x))
 #define min(a,b) ((a)<(b)?(a):(b))

@@ -10,7 +10,7 @@ text.h: bmpass gen genc text.1.h
 	chmod +x ./gen ./genc
 	./gen
 	./genc
-text.c.h: bmpass gen genc
+text.c.h: bmpass gen genc text.1.h
 	chmod +x ./gen ./genc
 	./gen
 	./genc

@@ -26,7 +26,7 @@ static int32_t muldiv_up(int32_t m1,int32_t m2,int32_t f){
 //#define free(v)
 //#define printf(v, ... ) abort()
 static int shouldconnect(const struct graph *restrict gp,int32_t x1,int32_t y1,int32_t x2,int32_t y2){
-	int32_t max;
+	int32_t dmax;
 	switch(manhattan(x1,y1,x2,y2)){
 		case 0:
 		case 1:
@@ -34,9 +34,9 @@ static int shouldconnect(const struct graph *restrict gp,int32_t x1,int32_t y1,i
 		case 2:
 			return (x1==y1||x2==y2);
 		default:
-			max=gp->width*gp->height;
-			//printf("dx=%u,dy=%u,max=%u\n",x2-x1,y2-y1,max);
-			if(abs(x2-x1)>=max||abs(y2-y1)>=max)
+			dmax=gp->width+gp->height;
+			//printf("dx=%u,dy=%u,max=%u\n",abs(x2-x1),abs(y2-y1),dmax);
+			if(abs(x2-x1)>=dmax||abs(y2-y1)>=dmax)
 				return 0;
 			return 1;
 	}

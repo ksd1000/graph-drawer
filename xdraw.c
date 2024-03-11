@@ -20,6 +20,7 @@ static int32_t muldiv_up(int32_t m1,int32_t m2,int32_t f){
 	int32_t mod=m1%f;
 	return m1/f*m2+mod*m2/f+!!mod;
 }
+#define xisnan(x) (EXPR_EDEXP(x)==2047ul&&EXPR_EDBASE(x))
 #define min(a,b) ((a)<(b)?(a):(b))
 #define max(a,b) ((a)>(b)?(a):(b))
 #define manhattan(x1,y1,x2,y2) (abs((x1)-(x2))+abs((y1)-(y2)))
@@ -47,8 +48,8 @@ static int shouldconnect(const struct graph *restrict gp,int32_t x1,int32_t y1,i
 			return 1;
 	}
 }
-#define xtop(x) (((x)-gp->minx)/(gp->maxx-gp->minx)*gp->width)
-#define ytop(y) (((y)-gp->miny)/(gp->maxy-gp->miny)*gp->height)
+#define xtop(x) ((int32_t)(((x)-gp->minx)/(gp->maxx-gp->minx)*gp->width))
+#define ytop(y) ((int32_t)(((y)-gp->miny)/(gp->maxy-gp->miny)*gp->height))
 #define inrange(x,y) ((x)>=0&&(x)<gp->width&&(y)>=0&&(y)<gp->height)
 #define setpixel(px,py)\
 	memcpy(&graph_colorat(gp,px,py),&color,gp->bpp)
@@ -141,12 +142,15 @@ int32_t graph_text_height(void){
 	return TEXT_HEIGHT;
 }
 int32_t graph_draw_text(struct graph *restrict gp,uint32_t color,int32_t bold,const char *s,int32_t gap,int32_t height,double x,double y){
+	if(xisnan(&x)||xisnan(&y))return -1;
 	return graph_draw_text_pixel(gp,color,bold,s,gap,height,xtop(x),ytop(y));
 }
 int32_t graph_xtop(const struct graph *restrict gp,double x){
+	if(xisnan(&x))return INT32_MAX;
 	return xtop(x);
 }
 int32_t graph_ytop(const struct graph *restrict gp,double y){
+	if(xisnan(&y))return INT32_MAX;
 	return ytop(y);
 }
 void graph_fill(struct graph *restrict gp,uint32_t color){
@@ -192,6 +196,7 @@ int init_graph_frombmp(struct graph *restrict gp,void *bmp,size_t size,double mi
 }
 int init_graph(struct graph *restrict gp,int32_t width,int32_t height,uint16_t bpp,double minx,double maxx,double miny,double maxy){
 	gp->byte_width=((width*bpp+31)>>5)<<2;
+	if(xisnan(&minx)||xisnan(&maxx)||xisnan(&miny)||xisnan(&maxy))return -1;
 	if(width<=0||height<=0||bpp<8||bpp&7||minx>=maxx||miny>=maxy)
 		return -1;
 	gp->hsize=54;
@@ -239,11 +244,13 @@ static void graph_draw_hline(struct graph *restrict gp,uint32_t color,int32_t bo
 	for(;start<=end;++start)
 		graph_setpixel_bold(gp,color,bold,start,y);
 }
-#define xisnan(x) (EXPR_EDEXP(x)==2047ul)
 void graph_draw_point6(struct graph *restrict gp,uint32_t color,int32_t bold,double x,double y,int32_t last[2]){
 	//printf("x=%lf,y=%lf,xisnan(y)=%lu\n",x,y,xisnan(&y));return;
 	//if(x==INFINITY||y==INFINITY)return;
-	if(xisnan(&x)||xisnan(&y))return;
+	if(xisnan(&x)||xisnan(&y)){
+		last[0]=last[1]=-1;
+		return;
+	}
 	int32_t px=xtop(x),py=ytop(y);
 	if(last){
 		if((last[0]==px&&last[1]==py)){
@@ -624,7 +631,9 @@ int graph_connect_pixel(struct graph *restrict gp,uint32_t color,int32_t bold,in
 	return 0;
 }
 int graph_connect(struct graph *restrict gp,uint32_t color,int32_t bold,double x1,double y1,double x2,double y2){
-//	printf("at %lf,%lf %lf,%lf",x1,y1,x2,y2);
+	//printf("at %lf,%lf %lf,%lf\n",x1,y1,x2,y2);
+	//printf("at %d,%d,%d,%d\n",xtop(x1),ytop(y1),xtop(x2),ytop(y2));
+	if(xisnan(&x1)||xisnan(&y1)||xisnan(&x2)||xisnan(&y2))return -1;
 	return graph_connect_pixel(gp,color,bold,xtop(x1),ytop(y1),xtop(x2),ytop(y2));
 }
 #define DRAWXVAL if(gp->draw_value){\

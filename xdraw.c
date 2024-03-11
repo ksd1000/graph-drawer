@@ -234,7 +234,7 @@ static void graph_draw_hline(struct graph *restrict gp,uint32_t color,int32_t bo
 		graph_setpixel_bold(gp,color,bold,start,y);
 }
 void graph_draw_point6(struct graph *restrict gp,uint32_t color,int32_t bold,double x,double y,int32_t last[2]){
-	if(x==NAN||y==NAN)return;
+	if(isnan(x)||isnan(y))return;
 	int32_t px=xtop(x),py=ytop(y);
 	if(last){
 		if((last[0]==px&&last[1]==py)){
@@ -259,7 +259,7 @@ void graph_draw_point6(struct graph *restrict gp,uint32_t color,int32_t bold,dou
 	graph_setpixel_bold(gp,color,bold,px,py);
 }
 void graph_draw_point(struct graph *restrict gp,uint32_t color,int32_t bold,double x,double y){
-	if(x==NAN||y==NAN)return;
+	if(isnan(x)||isnan(y))return;
 	graph_setpixel_bold(gp,color,bold,xtop(x),ytop(y));
 }
 double graph_pixelstep(const struct graph *restrict gp){

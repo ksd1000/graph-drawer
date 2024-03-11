@@ -233,13 +233,18 @@ static void graph_draw_hline(struct graph *restrict gp,uint32_t color,int32_t bo
 	for(;start<=end;++start)
 		graph_setpixel_bold(gp,color,bold,start,y);
 }
-void graph_draw_point(struct graph *restrict gp,uint32_t color,int32_t bold,double x,double y,int32_t last[2]){
+void graph_draw_point6(struct graph *restrict gp,uint32_t color,int32_t bold,double x,double y,int32_t last[2]){
+	if(x==NAN||y==NAN)return;
 	int32_t px=xtop(x),py=ytop(y);
 	if(last){
 		if((last[0]==px&&last[1]==py)){
 			return;
 		}else {
-			if(gp->connect&&last[0]!=-1&&last[1]!=-1&&shouldconnect(gp,last[0],last[1],px,py)){
+			if(gp->connect&&
+				last[0]!=-1&&
+				last[1]!=-1&&
+				shouldconnect(gp,last[0],last[1],px,py)
+				){
 				if(!graph_connect_pixel(gp,color,bold,last[0],last[1],px,py)){
 					last[0]=px;
 					last[1]=py;
@@ -252,6 +257,10 @@ void graph_draw_point(struct graph *restrict gp,uint32_t color,int32_t bold,doub
 
 	}
 	graph_setpixel_bold(gp,color,bold,px,py);
+}
+void graph_draw_point(struct graph *restrict gp,uint32_t color,int32_t bold,double x,double y){
+	if(x==NAN||y==NAN)return;
+	graph_setpixel_bold(gp,color,bold,xtop(x),ytop(y));
 }
 double graph_pixelstep(const struct graph *restrict gp){
 	double x,y;
@@ -291,10 +300,10 @@ void graph_drawep(struct graph *restrict gp,uint32_t color,int32_t bold,const st
 	if(!current)current=&from;
 	else *current=from;
 	for(;*current<to;*current+=step){
-		graph_draw_point(gp,color,bold,expr_compute(xep,*current),expr_compute(yep,*current),last);
+		graph_draw_point6(gp,color,bold,expr_compute(xep,*current),expr_compute(yep,*current),last);
 	}
 	*current=to;
-	graph_draw_point(gp,color,bold,expr_compute(xep,*current),expr_compute(yep,*current),last);
+	graph_draw_point6(gp,color,bold,expr_compute(xep,*current),expr_compute(yep,*current),last);
 	*current=DBL_MAX;
 }
 

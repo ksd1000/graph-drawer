@@ -833,8 +833,8 @@ static struct expr_suminfo *expr_getsuminfo(struct expr *restrict ep,char *e,con
 	char **p;
 	struct expr_suminfo *es;
 	struct expr_symset *sset;
-	int error;
-	char ef[EXPR_SYMLEN];
+//	int error;
+//	char ef[EXPR_SYMLEN];
 	if(!v){
 		return NULL;
 	}
@@ -856,15 +856,15 @@ static struct expr_suminfo *expr_getsuminfo(struct expr *restrict ep,char *e,con
 	expr_symset_add(sset,v[0],EXPR_VARIABLE,&es->index);
 	expr_symset_copy(sset,ep->sset);
 	//printf("es->index %p\n",&es->index);
-	es->from=new_expr(v[1],asym,ep->sset,&error,ef);
+	es->from=new_expr(v[1],asym,ep->sset,&ep->error,ep->errinfo);
 	if(!es->from)goto err1;
-	es->to=new_expr(v[2],asym,sset,&error,ef);
+	es->to=new_expr(v[2],asym,sset,&ep->error,ep->errinfo);
 	if(!es->to)goto err2;
-	es->step=new_expr(v[3],asym,sset,&error,ef);
+	es->step=new_expr(v[3],asym,sset,&ep->error,ep->errinfo);
 	if(!es->step)goto err3;
 	//sset=expr_symset_clone(ep->sset);
 
-	es->ep=new_expr(v[4],asym,sset,&error,ef);
+	es->ep=new_expr(v[4],asym,sset,&ep->error,ep->errinfo);
 	//printf("sset %p 1:%s 2:%s\n",es->ep->sset,es->ep->sset->syms[0].str,es->ep->sset->syms[1].str);
 	if(!es->ep)goto err4;
 	//printf("sset %p 1:%s 2:%s\n",sset,sset->syms[0].str,sset->syms[1].str);
@@ -885,8 +885,6 @@ err2:
 err1:
 	free(es);
 	expr_symset_free(sset);
-	ep->error=error;
-	memcpy(ep->errinfo,ef,EXPR_SYMLEN);
 err0:
 	expr_free2(v);
 	return NULL;
@@ -895,8 +893,8 @@ static struct expr_branchinfo *expr_getbranchinfo(struct expr *restrict ep,char 
 	char **v=expr_sep(ep,e);
 	char **p;
 	struct expr_branchinfo *eb;
-	int error;
-	char ef[EXPR_SYMLEN];
+//	int error;
+//	char ef[EXPR_SYMLEN];
 	//assert(v);
 	if(!v){
 		return NULL;
@@ -913,13 +911,13 @@ static struct expr_branchinfo *expr_getbranchinfo(struct expr *restrict ep,char 
 	}
 	eb=xmalloc(sizeof(struct expr_branchinfo));
 //	while(cond,body,value)
-	eb->cond=new_expr(v[0],asym,ep->sset,&error,ef);
+	eb->cond=new_expr(v[0],asym,ep->sset,&ep->error,ep->errinfo);
 	//assert(eb->cond);
 	if(!eb->cond)goto err1;
-	eb->body=new_expr(v[1],asym,ep->sset,&error,ef);
+	eb->body=new_expr(v[1],asym,ep->sset,&ep->error,ep->errinfo);
 	//assert(eb->body);
 	if(!eb->body)goto err2;
-	eb->value=new_expr(v[2],asym,ep->sset,&error,ef);
+	eb->value=new_expr(v[2],asym,ep->sset,&ep->error,ep->errinfo);
 	//assert(eb->value);
 	if(!eb->value)goto err3;
 	expr_free2(v);
@@ -931,8 +929,8 @@ err2:
 	expr_free(eb->cond);
 err1:
 	free(eb);
-	ep->error=error;
-	memcpy(ep->errinfo,ef,EXPR_SYMLEN);
+//	ep->error=error;
+//	memcpy(ep->errinfo,ef,EXPR_SYMLEN);
 err0:
 	expr_free2(v);
 	return NULL;

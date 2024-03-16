@@ -46,7 +46,7 @@ EXPR_XORL,
 EXPR_ASSIGN,
 EXPR_END
 };
-#define EXPR_SYMLEN 256
+#define EXPR_SYMLEN 64
 #define EXPR_ESYMBOL 1
 #define EXPR_EPT 2
 #define EXPR_EFP 3
@@ -141,6 +141,7 @@ struct expr {
 	struct expr_symset *sset;
 	size_t size,length,vsize,vlength;
 	int error,freeable;
+	char errinfo[EXPR_SYMLEN];
 };
 struct expr_rawdouble {
 	uint64_t base:52;
@@ -175,7 +176,7 @@ const struct expr_symbol *expr_symset_search(const struct expr_symset *restrict 
 void expr_symset_copy(struct expr_symset *restrict dst,const struct expr_symset *restrict src);
 struct expr_symset *expr_symset_clone(const struct expr_symset *restrict ep);
 int init_expr(struct expr *restrict ep,const char *e,const char *asym,struct expr_symset *esp);
-struct expr *new_expr(const char *e,const char *asym,struct expr_symset *esp,int *error);
+struct expr *new_expr(const char *e,const char *asym,struct expr_symset *esp,int *error,char errinfo[EXPR_SYMLEN]);
 double expr_eval(const struct expr *restrict ep,double input);
 
 #define expr_addcopy(e,t,f) expr_addop(e,t,f,EXPR_COPY)

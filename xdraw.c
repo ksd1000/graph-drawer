@@ -321,10 +321,10 @@ void graph_drawep(struct graph *restrict gp,uint32_t color,int32_t bold,const st
 	if(!current)current=&cur_null;
 	for(;from<=toms;from+=step){
 		*current=from;
-		graph_draw_point6(gp,color,bold,expr_compute(xep,from),expr_compute(yep,from),last);
+		graph_draw_point6(gp,color,bold,expr_eval(xep,from),expr_eval(yep,from),last);
 	}
 	*current=to;
-	graph_draw_point6(gp,color,bold,expr_compute(xep,to),expr_compute(yep,to),last);
+	graph_draw_point6(gp,color,bold,expr_eval(xep,to),expr_eval(yep,to),last);
 	*current=DBL_MAX;
 }
 

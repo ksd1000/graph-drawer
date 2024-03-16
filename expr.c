@@ -557,7 +557,7 @@ void expr_free(struct expr *restrict ep){
 				case EXPR_LCM:
 				case EXPR_FOR:
 				case EXPR_LOOP:
-					expr_symset_free(ip->un.es->ep->sset);
+					//expr_symset_free(ip->un.es->ep->sset);
 					expr_free(ip->un.es->ep);
 					expr_free(ip->un.es->from);
 					expr_free(ip->un.es->to);
@@ -790,7 +790,6 @@ static struct expr_mdinfo *expr_getmdinfo(struct expr *restrict ep,char *e,const
 	char **p;
 	size_t i;
 	struct expr_mdinfo *em;
-	int error;
 	if(!v){
 		return NULL;
 	}
@@ -812,7 +811,6 @@ static struct expr_mdinfo *expr_getmdinfo(struct expr *restrict ep,char *e,const
 	em->args=xmalloc(em->dim*sizeof(double));
 	for(i=0;i<em->dim;++i){
 		if(init_expr(em->eps+i,v[i],asym,ep->sset)<0){
-			error=em->eps[i].error;
 			for(ssize_t k=i-1;k>=0;--k)
 				expr_free(em->eps+k);
 			goto err2;
@@ -821,9 +819,11 @@ static struct expr_mdinfo *expr_getmdinfo(struct expr *restrict ep,char *e,const
 	expr_free2(v);
 	return em;
 err2:
-	free(em->eps);
 	free(em->args);
-	ep->error=error;
+	ep->error=em->eps[i].error;
+	memcpy(ep->errinfo,em->eps[i].errinfo,EXPR_SYMLEN);
+	free(em->eps);
+	free(em);
 err1:
 	expr_free2(v);
 	return NULL;
@@ -834,6 +834,7 @@ static struct expr_suminfo *expr_getsuminfo(struct expr *restrict ep,char *e,con
 	struct expr_suminfo *es;
 	struct expr_symset *sset;
 	int error;
+	char ef[EXPR_SYMLEN];
 	if(!v){
 		return NULL;
 	}
@@ -855,22 +856,22 @@ static struct expr_suminfo *expr_getsuminfo(struct expr *restrict ep,char *e,con
 	expr_symset_add(sset,v[0],EXPR_VARIABLE,&es->index);
 	expr_symset_copy(sset,ep->sset);
 	//printf("es->index %p\n",&es->index);
-	es->from=new_expr(v[1],asym,ep->sset,&error);
+	es->from=new_expr(v[1],asym,ep->sset,&error,ef);
 	if(!es->from)goto err1;
-	es->to=new_expr(v[2],asym,sset,&error);
+	es->to=new_expr(v[2],asym,sset,&error,ef);
 	if(!es->to)goto err2;
-	es->step=new_expr(v[3],asym,sset,&error);
+	es->step=new_expr(v[3],asym,sset,&error,ef);
 	if(!es->step)goto err3;
 	//sset=expr_symset_clone(ep->sset);
 
-	es->ep=new_expr(v[4],asym,sset,&error);
+	es->ep=new_expr(v[4],asym,sset,&error,ef);
 	//printf("sset %p 1:%s 2:%s\n",es->ep->sset,es->ep->sset->syms[0].str,es->ep->sset->syms[1].str);
-	//expr_symset_free(sset);
 	if(!es->ep)goto err4;
 	//printf("sset %p 1:%s 2:%s\n",sset,sset->syms[0].str,sset->syms[1].str);
 	expr_free2(v);
 	//assert(es->ep);
 	//puts("getsi");
+	expr_symset_free(sset);
 	return es;
 err4:
 	//puts(v[0]);
@@ -883,7 +884,9 @@ err2:
 	expr_free(es->from);
 err1:
 	free(es);
+	expr_symset_free(sset);
 	ep->error=error;
+	memcpy(ep->errinfo,ef,EXPR_SYMLEN);
 err0:
 	expr_free2(v);
 	return NULL;
@@ -893,6 +896,7 @@ static struct expr_branchinfo *expr_getbranchinfo(struct expr *restrict ep,char 
 	char **p;
 	struct expr_branchinfo *eb;
 	int error;
+	char ef[EXPR_SYMLEN];
 	//assert(v);
 	if(!v){
 		return NULL;
@@ -909,13 +913,13 @@ static struct expr_branchinfo *expr_getbranchinfo(struct expr *restrict ep,char 
 	}
 	eb=xmalloc(sizeof(struct expr_branchinfo));
 //	while(cond,body,value)
-	eb->cond=new_expr(v[0],asym,ep->sset,&error);
+	eb->cond=new_expr(v[0],asym,ep->sset,&error,ef);
 	//assert(eb->cond);
 	if(!eb->cond)goto err1;
-	eb->body=new_expr(v[1],asym,ep->sset,&error);
+	eb->body=new_expr(v[1],asym,ep->sset,&error,ef);
 	//assert(eb->body);
 	if(!eb->body)goto err2;
-	eb->value=new_expr(v[2],asym,ep->sset,&error);
+	eb->value=new_expr(v[2],asym,ep->sset,&error,ef);
 	//assert(eb->value);
 	if(!eb->value)goto err3;
 	expr_free2(v);
@@ -928,6 +932,7 @@ err2:
 err1:
 	free(eb);
 	ep->error=error;
+	memcpy(ep->errinfo,ef,EXPR_SYMLEN);
 err0:
 	expr_free2(v);
 	return NULL;
@@ -1011,10 +1016,12 @@ pterr:
 		}
 		if(type!=-1){
 			if(*p!='('){
+				memcpy(ep->errinfo,e,p-e);
 				ep->error=EXPR_EFP;
 				//assert(0);
 				return NULL;
 			}
+			p2=e;
 			e=p;
 			p=expr_findpair(e);
 			if(!p)goto pterr;
@@ -1032,7 +1039,11 @@ pterr:
 			}
 			free(buf);
 			//assert(es);
-			if(!un.es)return NULL;
+			if(!un.es){
+				if(ep->error==EXPR_ENEA)
+					memcpy(ep->errinfo,p2,e-p2);
+				return NULL;
+			}
 			v0=expr_newvar(ep);
 			expr_addop(ep,v0,un.es,type);
 			e=p+1;
@@ -1058,6 +1069,7 @@ pterr:
 		}else goto number;
 			if(type==EXPR_FUNCTION){
 				if(*p!='('){
+					memcpy(ep->errinfo,e,p-e);
 					ep->error=EXPR_EFP;
 					//assert(0);
 					return NULL;
@@ -1068,6 +1080,7 @@ pterr:
 				expr_addcall(ep,v0,sv->func);
 			}else if(type==EXPR_HOTFUNCTION){
 				if(*p!='('){
+					memcpy(ep->errinfo,e,p-e);
 					ep->error=EXPR_EFP;
 					//assert(0);
 					return NULL;
@@ -1076,7 +1089,7 @@ pterr:
 				//assert(v0);
 				if(!v0)return NULL;
 				un.ep=new_expr(sv->hot.expr,sv->hot.asym
-					,ep->sset,&ep->error);
+					,ep->sset,&ep->error,ep->errinfo);
 				if(!un.ep)return NULL;
 				expr_addcallhot(ep,v0,un.ep);
 			}else if(type==EXPR_CONSTANT){
@@ -1099,10 +1112,12 @@ pterr:
 			}else if(type==EXPR_MDFUNCTION
 				||type==EXPR_MDEPFUNCTION){
 				if(*p!='('){
+					memcpy(ep->errinfo,e,p-e);
 					ep->error=EXPR_EFP;
 					//assert(0);
 					return NULL;
 				}
+				p2=e;
 				e=p;
 				p=expr_findpair(e);
 				if(!p)goto pterr;
@@ -1113,7 +1128,11 @@ pterr:
 					sv->mdfunc,dim);
 				free(buf);
 				//assert(es);
-				if(!un.em)return NULL;
+				if(!un.em){
+					if(ep->error==EXPR_ENEA)
+					memcpy(ep->errinfo,p2,e-p2);
+					return NULL;
+				}
 				v0=expr_newvar(ep);
 				switch(type){
 					case EXPR_MDFUNCTION:
@@ -1121,9 +1140,6 @@ pterr:
 						break;
 					case EXPR_MDEPFUNCTION:
 						expr_addcallmdep(ep,v0,un.em);
-						break;
-					case EXPR_HOTFUNCTION:
-						expr_addcallhot(ep,v0,un.em);
 						break;
 				}
 				e=p+1;
@@ -1139,6 +1155,7 @@ number:
 			break;
 		}
 symerr:
+		memcpy(ep->errinfo,e,p-e);
 		ep->error=EXPR_ESYMBOL;
 		return NULL;
 	}
@@ -1510,6 +1527,7 @@ int init_expr(struct expr *restrict ep,const char *e,const char *asym,struct exp
 	ep->sset=esp;
 	ep->error=0;
 	ep->freeable=0;
+	memset(ep->errinfo,0,EXPR_SYMLEN);
 	ep->length=ep->size=ep->vlength=ep->vsize=0;
 	
 	if(e&&*e){
@@ -1525,11 +1543,12 @@ int init_expr(struct expr *restrict ep,const char *e,const char *asym,struct exp
 	}
 	return 0;
 }
-struct expr *new_expr(const char *e,const char *asym,struct expr_symset *esp,int *error){
+struct expr *new_expr(const char *e,const char *asym,struct expr_symset *esp,int *error,char errinfo[EXPR_SYMLEN]){
 
 	struct expr *ep=xmalloc(sizeof(struct expr));
 	if(init_expr(ep,e,asym,esp)){
-		if(error)*error=ep->error;
+		*error=ep->error;
+		if(errinfo)memcpy(errinfo,ep->errinfo,EXPR_SYMLEN);
 		free(ep);
 		return NULL;
 	}
@@ -1657,11 +1676,11 @@ double expr_eval(const struct expr *restrict ep,double input){
 			CALSUM(EXPR_PROD,sum*=y,sum=1,1/sum);
 			CALSUM(EXPR_SUP,if(y>sum)sum=y,sum=DBL_MIN,sum);
 			CALSUM(EXPR_INF,if(y<sum)sum=y,sum=DBL_MAX,sum);
-			CALSUM(EXPR_AND,sum=sum!=NAN?expr_and2(sum,y):y,sum=NAN,sum);
-			CALSUM(EXPR_OR,sum=sum!=NAN?expr_or2(sum,y):y,sum=NAN,sum);
-			CALSUM(EXPR_XOR,sum=sum!=NAN?expr_xor2(sum,y):y,sum=NAN,sum);
-			CALSUM(EXPR_GCD,sum=sum!=NAN?expr_gcd2(sum,y):y,sum=NAN,sum);
-			CALSUM(EXPR_LCM,sum=sum!=NAN?expr_lcm2(sum,y):y,sum=NAN,sum);
+			CALSUM(EXPR_AND,sum=sum!=DBL_MAX?expr_and2(sum,y):y,sum=DBL_MAX,sum);
+			CALSUM(EXPR_OR,sum=sum!=0.0?expr_or2(sum,y):y,sum=0.0,sum);
+			CALSUM(EXPR_XOR,sum=sum!=0.0?expr_xor2(sum,y):y,sum=0.0,sum);
+			CALSUM(EXPR_GCD,sum=sum!=DBL_MAX?expr_gcd2(sum,y):y,sum=DBL_MAX,sum);
+			CALSUM(EXPR_LCM,sum=sum!=1.0?expr_lcm2(sum,y):y,sum=1.0,sum);
 
 			case EXPR_FOR:
 				ip->un.es->index=

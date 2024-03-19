@@ -15,6 +15,11 @@ EXPR_MUL,
 EXPR_DIV,
 EXPR_MOD,
 EXPR_POW,
+EXPR_AND2,
+EXPR_OR2,
+EXPR_XOR2,
+EXPR_SHL,
+EXPR_SHR,
 EXPR_NEG,
 EXPR_IF,
 EXPR_WHILE,
@@ -46,7 +51,8 @@ EXPR_XORL,
 EXPR_ASSIGN,
 EXPR_END
 };
-#define EXPR_SYMLEN 256
+#define EXPR_SYMLEN 64
+
 #define EXPR_ESYMBOL 1
 #define EXPR_EPT 2
 #define EXPR_EFP 3
@@ -55,6 +61,7 @@ EXPR_END
 #define EXPR_ENUMBER 6
 #define EXPR_ETNV 7
 #define EXPR_EEV 8
+#define EXPR_EUO 9
 
 #define EXPR_CONSTANT 0
 #define EXPR_VARIABLE 1
@@ -141,6 +148,7 @@ struct expr {
 	struct expr_symset *sset;
 	size_t size,length,vsize,vlength;
 	int error,freeable;
+	char errinfo[EXPR_SYMLEN];
 };
 struct expr_rawdouble {
 	uint64_t base:52;

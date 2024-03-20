@@ -1373,12 +1373,11 @@ struct expr *new_expr(const char *e,const char *asym,struct expr_symset *esp,int
 	return ep;
 }
 double expr_eval(const struct expr *restrict ep,double input){
-	struct expr_inst *ip=ep->data;
+	struct expr_inst *ip;
 	double step,sum,from,to,y;
 	int neg;
 	if(ep->imm)return ep->imm(input);
-	ip=ep->data;
-	while(ip->op!=EXPR_END){
+	for(ip=ep->data;;++ip){
 		assert(ip->op>=0);
 		assert(ip->op<=EXPR_END);
 		switch(ip->op){
@@ -1560,8 +1559,8 @@ double expr_eval(const struct expr *restrict ep,double input){
 			case EXPR_CALLHOT:
 				*ip->dst=expr_eval(ip->un.hotfunc,*ip->dst);
 				break;
+			case EXPR_END:
+				return *ip->dst;
 		}
-		++ip;
 	}
-	return *ip->dst;
 }

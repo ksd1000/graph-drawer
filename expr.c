@@ -7,7 +7,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
 #include <stdarg.h>
 #include <time.h>
 #include <float.h>
@@ -15,7 +14,8 @@
 #define printval(x) fprintf(stderr,#x ":%lu\n",x)
 #define printvall(x) fprintf(stderr,#x ":%ld\n",x)
 #define printvald(x) fprintf(stderr,#x ":%lf\n",x)
-
+#define NDEBUG
+#include <assert.h>
 //#define free(v)
 static const char *eerror[]={"Unknown error","Unknown symbol","Parentheses do not match","Function and keyword must be followed by a \'(\'","No value in parenthesis","No enough or too much argument","Bad number","Target is not variable","Empty value","Unexpected operator"};
 const char *expr_error(int error){
@@ -1379,13 +1379,11 @@ double expr_eval(const struct expr *restrict ep,double input){
 	if(ep->imm)return ep->imm(input);
 	ip=ep->data;
 	while(ip->op!=EXPR_END){
+		assert(ip->op>=0);
+		assert(ip->op<=EXPR_END);
 		switch(ip->op){
 			case EXPR_COPY:
 			case EXPR_ASSIGN:
-				//printval((uint64_t)ip->op);
-				//printval((uint64_t)ip->dst);
-				//printval((uint64_t)ip->un.src);
-				//fprintf(stderr,"%lf to %lf\n",*ip->dst,*ip->un.src);
 				if(ip->un.src)
 					*ip->dst=*ip->un.src;
 				else
@@ -1517,9 +1515,6 @@ double expr_eval(const struct expr *restrict ep,double input){
 			case EXPR_FOR:
 				ip->un.es->index=
 				expr_eval(ip->un.es->from,input);//init
-//				printvald(from);
-//				printvald(to);
-//				printvald(step);
 				to=expr_eval(ip->un.es->to,input);//cond
 				if(to<0.0)to=-to;
 				while(to>DBL_EPSILON){
@@ -1532,13 +1527,9 @@ double expr_eval(const struct expr *restrict ep,double input){
 			case EXPR_LOOP:
 				ip->un.es->index=
 				expr_eval(ip->un.es->from,input);//init
-				//printvald(from);
-//				printvald(to);
-//				printvald(step);
 				to=expr_eval(ip->un.es->to,input);//times
 				if(to<0)to=-to;
 				for(;to>DBL_EPSILON;to-=1.0){
-				//printf("ip->un.es->index %p val:%lf\n",&ip->un.es->index,ip->un.es->index);
 					expr_eval(ip->un.es->step,input);//every time
 				}
 				*ip->dst=expr_eval(ip->un.es->ep,input);
@@ -1568,9 +1559,6 @@ double expr_eval(const struct expr *restrict ep,double input){
 				break;
 			case EXPR_CALLHOT:
 				*ip->dst=expr_eval(ip->un.hotfunc,*ip->dst);
-				break;
-			default:
-				abort();
 				break;
 		}
 		++ip;

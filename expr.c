@@ -841,7 +841,7 @@ pterr:
 			e=p+1;
 			break;
 		}
-		if(p-e==strlen(asym)&&!memcmp(e,asym,p-e)){
+		if(asym&&p-e==strlen(asym)&&!memcmp(e,asym,p-e)){
 			v0=expr_newvar(ep);
 			expr_addcopy(ep,v0,NULL);
 			//fprintf(stderr,"asym %ld %s\n",p-e,e);

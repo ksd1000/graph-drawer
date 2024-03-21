@@ -5,7 +5,7 @@
 #ifndef _EXPR_H_
 #define _EXPR_H_
 #include <stdint.h>
-enum {
+enum expr_op {
 EXPR_COPY=0,
 EXPR_CONST,
 EXPR_CALL,
@@ -15,9 +15,9 @@ EXPR_MUL,
 EXPR_DIV,
 EXPR_MOD,
 EXPR_POW,
-EXPR_AND2,
-EXPR_OR2,
-EXPR_XOR2,
+EXPR_AND,
+EXPR_OR,
+EXPR_XOR,
 EXPR_SHL,
 EXPR_SHR,
 EXPR_NEG,
@@ -28,12 +28,11 @@ EXPR_INT,
 EXPR_PROD,
 EXPR_SUP,
 EXPR_INF,
-EXPR_AND,
-EXPR_OR,
-EXPR_XOR,
-EXPR_GCD,
-EXPR_LCM,
-EXPR_NEST,
+EXPR_ANDN,
+EXPR_ORN,
+EXPR_XORN,
+EXPR_GCDN,
+EXPR_LCMN,
 EXPR_LOOP,
 EXPR_FOR,
 EXPR_CALLMD,
@@ -103,7 +102,8 @@ union expr_inst_op2{
 struct expr_inst {
 	double *dst;
 	union expr_inst_op2 un;
-	unsigned int op,assign_level;
+	enum expr_op op;
+	unsigned int assign_level;
 };
 union expr_symbol_value {
 	double value;
@@ -132,7 +132,7 @@ struct expr_builtin_symbol {
 };
 struct expr_builtin_keyword {
 	const char *str;
-	int op;
+	enum expr_op op;
 	unsigned dim;
 	const char *desc;
 };
@@ -172,7 +172,7 @@ double expr_gcd2(double x,double y);
 double expr_lcm2(double x,double y);
 double expr_multilevel_derivate(const struct expr *ep,double input,long level,double epsilon);
 void expr_free(struct expr *restrict ep);
-struct expr_inst *expr_addop(struct expr *restrict ep,double *dst,void *src,unsigned int op);
+struct expr_inst *expr_addop(struct expr *restrict ep,double *dst,void *src,enum expr_op op);
 double *expr_newvar(struct expr *restrict ep);
 void init_expr_symset(struct expr_symset *restrict esp);
 struct expr_symset *new_expr_symset(void);

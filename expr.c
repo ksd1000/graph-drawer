@@ -76,13 +76,16 @@ void expr_memrand(void *restrict m,size_t n){
 	x2=(EXPR_EDBASE(&b)|(1UL<<52UL))>>expdiff;\
 	x1=EXPR_EDBASE(&a)|(1UL<<52UL);\
 	x1 _sign_cal x2;\
-	if(!x1)goto zero;\
-	x2=63UL-__builtin_clzl(x1);\
-	x1&=~(1UL<<x2);\
-	x2=52UL-x2;\
-	if(EXPR_EDEXP(&a)<x2)goto zero;\
-	EXPR_EDBASE(&a)=x1<<x2;\
-	EXPR_EDEXP(&a)-=x2;\
+	if(x1){\
+		x2=63UL-__builtin_clzl(x1);\
+		x1&=~(1UL<<x2);\
+		x2=52UL-x2;\
+		if(EXPR_EDEXP(&a)<x2)goto zero;\
+		EXPR_EDBASE(&a)=x1<<x2;\
+		EXPR_EDEXP(&a)-=x2;\
+	}else {\
+		a=0.0;\
+	}\
 	EXPR_EDSIGN(&a) _sign_cal EXPR_EDSIGN(&b);\
 	return a;\
 zero:\
@@ -108,15 +111,7 @@ double expr_lcm2(double x,double y){
 static double expr_rand(size_t n,double *args){
 	//assert(n==2);
 	return args[0]+(args[1]-args[0])*drand48();
-}/*
-static double expr_if(size_t n,double *args){
-	//assert(n==3);
-	return fabs(args[0])>DBL_EPSILON?args[1]:args[2];
 }
-static double expr_ifnot(size_t n,double *args){
-	//assert(n==3);
-	return fabs(args[0])>DBL_EPSILON?args[2]:args[1];
-}*/
 #define CALMDLOGIC(_symbol)\
 	double ret=*(args++);\
 	while(--n>0){\
@@ -257,11 +252,11 @@ const struct expr_builtin_keyword expr_keywords[]={
 	{"pai",EXPR_PROD,5,"index_name,start_index,end_index,index_step,factor"},
 	{"sup",EXPR_SUP,5,"index_name,start_index,end_index,index_step,element"},
 	{"infi",EXPR_INF,5,"index_name,start_index,end_index,index_step,element"},
-	{"AND",EXPR_AND,5,"index_name,start_index,end_index,index_step,element"},
-	{"OR",EXPR_OR,5,"index_name,start_index,end_index,index_step,element"},
-	{"XOR",EXPR_XOR,5,"index_name,start_index,end_index,index_step,element"},
-	{"GCD",EXPR_GCD,5,"index_name,start_index,end_index,index_step,element"},
-	{"LCM",EXPR_LCM,5,"index_name,start_index,end_index,index_step,element"},
+	{"AND",EXPR_ANDN,5,"index_name,start_index,end_index,index_step,element"},
+	{"OR",EXPR_ORN,5,"index_name,start_index,end_index,index_step,element"},
+	{"XOR",EXPR_XORN,5,"index_name,start_index,end_index,index_step,element"},
+	{"GCD",EXPR_GCDN,5,"index_name,start_index,end_index,index_step,element"},
+	{"LCM",EXPR_LCMN,5,"index_name,start_index,end_index,index_step,element"},
 	{"for",EXPR_FOR,5,"var_name,start_var,cond,body,value"},
 	{"loop",EXPR_LOOP,5,"var_name,start_var,count,body,value"},
 	{"while",EXPR_WHILE,3,"cond,body,value"},
@@ -398,11 +393,11 @@ void expr_free(struct expr *restrict ep){
 				case EXPR_PROD:
 				case EXPR_SUP:
 				case EXPR_INF:
-				case EXPR_AND:
-				case EXPR_OR:
-				case EXPR_XOR:
-				case EXPR_GCD:
-				case EXPR_LCM:
+				case EXPR_ANDN:
+				case EXPR_ORN:
+				case EXPR_XORN:
+				case EXPR_GCDN:
+				case EXPR_LCMN:
 				case EXPR_FOR:
 				case EXPR_LOOP:
 					//expr_symset_free(ip->un.es->ep->sset);
@@ -413,8 +408,8 @@ void expr_free(struct expr *restrict ep){
 					free(ip->un.es);
 					break;
 				case EXPR_CALLMD:
-				case EXPR_CALLMDEP:
 					free(ip->un.em->args);
+				case EXPR_CALLMDEP:
 					for(unsigned int i=0;i<ip->un.em->dim;++i)
 						expr_free(ip->un.em->eps+i);
 					free(ip->un.em->eps);
@@ -445,7 +440,7 @@ void expr_free(struct expr *restrict ep){
 		(ep->length+=16)*sizeof(struct expr_inst));\
 	}
 __attribute__((noinline))
-struct expr_inst *expr_addop(struct expr *restrict ep,double *dst,void *src,unsigned int op){
+struct expr_inst *expr_addop(struct expr *restrict ep,double *dst,void *src,enum expr_op op){
 	struct expr_inst *ip;
 	EXTEND_DATA
 	ip=ep->data+ep->size++;
@@ -588,7 +583,7 @@ static void expr_free2(char **buf){
 	}
 	free(buf);
 }
-static struct expr_mdinfo *expr_getmdinfo(struct expr *restrict ep,char *e,const char *asym,void *func,unsigned int dim){
+static struct expr_mdinfo *expr_getmdinfo(struct expr *restrict ep,char *e,const char *asym,void *func,unsigned int dim,int ifep){
 	char **v=expr_sep(ep,e);
 	char **p;
 	size_t i;
@@ -611,7 +606,8 @@ static struct expr_mdinfo *expr_getmdinfo(struct expr *restrict ep,char *e,const
 
 	em->un.func=func;
 	em->eps=xmalloc(em->dim*sizeof(struct expr));
-	em->args=xmalloc(em->dim*sizeof(double));
+	em->args=NULL;
+	if(!ifep)em->args=xmalloc(em->dim*sizeof(double));
 	for(i=0;i<em->dim;++i){
 		if(init_expr(em->eps+i,v[i],asym,ep->sset)<0){
 			for(ssize_t k=i-1;k>=0;--k)
@@ -622,7 +618,7 @@ static struct expr_mdinfo *expr_getmdinfo(struct expr *restrict ep,char *e,const
 	expr_free2(v);
 	return em;
 err2:
-	free(em->args);
+	if(em->args)free(em->args);
 	ep->error=em->eps[i].error;
 	memcpy(ep->errinfo,em->eps[i].errinfo,EXPR_SYMLEN);
 	free(em->eps);
@@ -917,7 +913,8 @@ pterr:
 				buf[p-e+1]=0;
 				memcpy(buf,e,p-e+1);
 				un.em=expr_getmdinfo(ep,buf,asym,
-					sv->mdfunc,dim);
+					sv->mdfunc,dim,
+					type==EXPR_MDEPFUNCTION);
 				free(buf);
 				//assert(es);
 				if(!un.em){
@@ -967,9 +964,9 @@ symerr:
 struct expr_vnode {
 	struct expr_vnode *next;
 	double *v;
-	int op;
+	enum expr_op op;
 };
-static struct expr_vnode *expr_vn(double *v,int op){
+static struct expr_vnode *expr_vn(double *v,enum expr_op op){
 	struct expr_vnode *p;
 	p=xmalloc(sizeof(struct expr_vnode));
 	p->next=NULL;
@@ -977,7 +974,7 @@ static struct expr_vnode *expr_vn(double *v,int op){
 	p->op=op;
 	return p;
 }
-static struct expr_vnode *expr_vnadd(struct expr_vnode *vp,double *v,int op){
+static struct expr_vnode *expr_vnadd(struct expr_vnode *vp,double *v,enum expr_op op){
 	struct expr_vnode *p;
 	//fprintf(stderr,"vp %p\n",vp);
 	if(!vp)return expr_vn(v,op);
@@ -1021,7 +1018,8 @@ static void expr_vnfree(struct expr_vnode *vp){
 static double *expr_scan(struct expr *restrict ep,const char *e,const char *asym){
 	double *v1;
 	const char *e0=e;
-	int op=0,neg=0;
+	enum expr_op op=0;
+	int neg=0;
 	struct expr_vnode *ev=NULL,*p;
 	//fprintf(stderr,"scan %s\n",e);
 	if(*e=='-'){
@@ -1086,7 +1084,7 @@ static double *expr_scan(struct expr *restrict ep,const char *e,const char *asym
 					op=EXPR_ANDL;
 					++e;
 				}
-				else op=EXPR_AND2;
+				else op=EXPR_AND;
 				++e;
 				goto end1;
 			case '|':
@@ -1094,7 +1092,7 @@ static double *expr_scan(struct expr *restrict ep,const char *e,const char *asym
 					op=EXPR_ORL;
 					++e;
 				}
-				else op=EXPR_OR2;
+				else op=EXPR_OR;
 				++e;
 				goto end1;
 			case '+':
@@ -1127,7 +1125,7 @@ static double *expr_scan(struct expr *restrict ep,const char *e,const char *asym
 						op=EXPR_XORL;
 						++e;
 					}else {
-						op=EXPR_XOR2;
+						op=EXPR_XOR;
 					}
 					++e;
 				}else op=EXPR_POW;
@@ -1193,9 +1191,9 @@ end1:
 	SETPREC2(EXPR_SHL,EXPR_SHR)
 	SETPREC4(EXPR_LT,EXPR_LE,EXPR_GT,EXPR_GE)
 	SETPREC2(EXPR_EQ,EXPR_NE)
-	SETPREC1(EXPR_AND2)
-	SETPREC1(EXPR_XOR2)
-	SETPREC1(EXPR_OR2)
+	SETPREC1(EXPR_AND)
+	SETPREC1(EXPR_XOR)
+	SETPREC1(EXPR_OR)
 	SETPREC1(EXPR_ANDL)
 	SETPREC1(EXPR_XORL)
 	SETPREC1(EXPR_ORL)
@@ -1412,13 +1410,13 @@ double expr_eval(const struct expr *restrict ep,double input){
 			case EXPR_POW:
 				*ip->dst=pow(*ip->dst,*ip->un.src);
 				break;
-			case EXPR_AND2:
+			case EXPR_AND:
 				*ip->dst=expr_and2(*ip->dst,*ip->un.src);
 				break;
-			case EXPR_OR2:
+			case EXPR_OR:
 				*ip->dst=expr_or2(*ip->dst,*ip->un.src);
 				break;
-			case EXPR_XOR2:
+			case EXPR_XOR:
 				*ip->dst=expr_xor2(*ip->dst,*ip->un.src);
 				break;
 			case EXPR_SHL:
@@ -1505,11 +1503,11 @@ double expr_eval(const struct expr *restrict ep,double input){
 			CALSUM(EXPR_PROD,sum*=y,sum=1,1/sum);
 			CALSUM(EXPR_SUP,if(y>sum)sum=y,sum=DBL_MIN,sum);
 			CALSUM(EXPR_INF,if(y<sum)sum=y,sum=DBL_MAX,sum);
-			CALSUM(EXPR_AND,sum=sum!=DBL_MAX?expr_and2(sum,y):y,sum=DBL_MAX,sum);
-			CALSUM(EXPR_OR,sum=sum!=0.0?expr_or2(sum,y):y,sum=0.0,sum);
-			CALSUM(EXPR_XOR,sum=sum!=0.0?expr_xor2(sum,y):y,sum=0.0,sum);
-			CALSUM(EXPR_GCD,sum=sum!=DBL_MAX?expr_gcd2(sum,y):y,sum=DBL_MAX,sum);
-			CALSUM(EXPR_LCM,sum=sum!=1.0?expr_lcm2(sum,y):y,sum=1.0,sum);
+			CALSUM(EXPR_ANDN,sum=sum!=DBL_MAX?expr_and2(sum,y):y,sum=DBL_MAX,sum);
+			CALSUM(EXPR_ORN,sum=sum!=0.0?expr_or2(sum,y):y,sum=0.0,sum);
+			CALSUM(EXPR_XORN,sum=sum!=0.0?expr_xor2(sum,y):y,sum=0.0,sum);
+			CALSUM(EXPR_GCDN,sum=sum!=DBL_MAX?expr_gcd2(sum,y):y,sum=DBL_MAX,sum);
+			CALSUM(EXPR_LCMN,sum=sum!=1.0?expr_lcm2(sum,y):y,sum=1.0,sum);
 
 			case EXPR_FOR:
 				ip->un.es->index=

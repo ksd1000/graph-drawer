@@ -7,6 +7,7 @@
 #include <stdint.h>
 enum expr_op {
 EXPR_COPY=0,
+EXPR_INPUT,
 EXPR_CONST,
 EXPR_CALL,
 EXPR_ADD,
@@ -47,7 +48,6 @@ EXPR_NE,
 EXPR_ANDL,
 EXPR_ORL,
 EXPR_XORL,
-EXPR_ASSIGN,
 EXPR_END
 };
 #define EXPR_SYMLEN 64
@@ -91,7 +91,7 @@ struct expr_mdinfo {
 	unsigned int dim,unused;
 };
 union expr_inst_op2{
-	volatile double *src;
+	double *src;
 	double value;
 	struct expr *hotfunc;
 	double (*func)(double);
@@ -103,11 +103,11 @@ struct expr_inst {
 	double *dst;
 	union expr_inst_op2 un;
 	enum expr_op op;
-	unsigned int assign_level;
+	//unsigned int assign_level;
 };
 union expr_symbol_value {
 	double value;
-	volatile double *addr;
+	double *addr;
 	struct {
 		char *expr;
 		char *asym;
@@ -182,6 +182,7 @@ struct expr_symbol *expr_symset_add(struct expr_symset *restrict esp,const char 
 const struct expr_symbol *expr_symset_search(const struct expr_symset *restrict esp,const char *sym,size_t sz);
 void expr_symset_copy(struct expr_symset *restrict dst,const struct expr_symset *restrict src);
 struct expr_symset *expr_symset_clone(const struct expr_symset *restrict ep);
+int init_expr_old(struct expr *restrict ep,const char *e,const char *asym,struct expr_symset *esp);
 int init_expr(struct expr *restrict ep,const char *e,const char *asym,struct expr_symset *esp);
 struct expr *new_expr(const char *e,const char *asym,struct expr_symset *esp,int *error,char errinfo[EXPR_SYMLEN]);
 double expr_eval(const struct expr *restrict ep,double input);
@@ -194,6 +195,7 @@ double expr_eval(const struct expr *restrict ep,double input);
 #define expr_adddiv(e,t,f) expr_addop(e,t,f,EXPR_DIV)
 #define expr_addpow(e,t,f) expr_addop(e,t,f,EXPR_POW)
 #define expr_addneg(e,t) expr_addop(e,t,NULL,EXPR_NEG)
+#define expr_addinput(e,t) expr_addop(e,t,NULL,EXPR_INPUT)
 //#define expr_addsum(e,t,es) expr_addop(e,t,es,EXPR_SUM)
 #define expr_addend(e,t) expr_addop(e,t,NULL,EXPR_END)
 #define expr_addcallmd(e,t,em) expr_addop(e,t,em,EXPR_CALLMD)

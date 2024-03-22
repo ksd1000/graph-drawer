@@ -7,6 +7,7 @@
 #include <stdint.h>
 enum expr_op {
 EXPR_COPY=0,
+EXPR_INPUT,
 EXPR_CONST,
 EXPR_CALL,
 EXPR_ADD,
@@ -47,7 +48,6 @@ EXPR_NE,
 EXPR_ANDL,
 EXPR_ORL,
 EXPR_XORL,
-EXPR_ASSIGN,
 EXPR_END
 };
 #define EXPR_SYMLEN 64
@@ -91,7 +91,7 @@ struct expr_mdinfo {
 	unsigned int dim,unused;
 };
 union expr_inst_op2{
-	volatile double *src;
+	double *src;
 	double value;
 	struct expr *hotfunc;
 	double (*func)(double);
@@ -103,11 +103,11 @@ struct expr_inst {
 	double *dst;
 	union expr_inst_op2 un;
 	enum expr_op op;
-	unsigned int assign_level;
+	//unsigned int assign_level;
 };
 union expr_symbol_value {
 	double value;
-	volatile double *addr;
+	double *addr;
 	struct {
 		char *expr;
 		char *asym;

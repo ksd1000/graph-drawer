@@ -1534,8 +1534,21 @@ static void expr_optimize_contmul(struct expr *restrict ep,enum expr_op op){
 			||ip->op!=op
 			||expr_modified(ep,(double *)ip->un.src)
 			)continue;
-		sum=*ip->un.src;
-		for(struct expr_inst *ip1=ip+1;ip1->op!=EXPR_END;++ip1){
+		rip=expr_findconst(ep,ip);
+		if(rip){
+			sum=rip->un.value;
+		}else {
+			switch(op){
+				case EXPR_POW:
+				case EXPR_MOD:
+					continue;
+					//abort for non-abelian group
+				default:
+					break;
+			}
+			sum=*ip->un.src;
+		}
+		for(struct expr_inst *ip1=ip+!rip;ip1->op!=EXPR_END;++ip1){
 			if(ip1->dst!=ip->dst)continue;
 			if(ip1->op!=op)break;
 			if(!expr_modified(ep,(double *)ip1->un.src)){
@@ -1570,9 +1583,8 @@ static void expr_optimize_contmul(struct expr *restrict ep,enum expr_op op){
 				ip1->dst=NULL;
 			}
 		}
-		rip=expr_findconst(ep,ip);
 		if(rip){
-			switch(op){
+			/*switch(op){
 				case EXPR_MUL:
 					rip->un.value*=sum;
 					break;
@@ -1599,9 +1611,11 @@ static void expr_optimize_contmul(struct expr *restrict ep,enum expr_op op){
 					break;
 				default:
 					abort();
-			}
+			}*/
+			rip->un.value=sum;
 			ip->dst=NULL;
 		}else {
+
 			nv=expr_newvar(ep);
 			*nv=sum;
 			ip->un.src=nv;

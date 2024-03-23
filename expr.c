@@ -1557,7 +1557,8 @@ static void expr_optimize_contmul(struct expr *restrict ep,enum expr_op op){
 					sum*=*ip1->un.src;
 					break;
 				case EXPR_DIV:
-					sum*=*ip1->un.src;
+					if(rip)sum/=*ip1->un.src;
+					else sum*=*ip1->un.src;
 					break;
 				case EXPR_MOD:
 					sum=fmod(sum,*ip1->un.src);
@@ -1666,6 +1667,17 @@ static void expr_optimize(struct expr *restrict ep){
 	expr_optimize_contmul(ep,EXPR_XOR);
 	expr_optimize_contmul(ep,EXPR_OR);
 	expr_optimize_contmul(ep,EXPR_COPY);
+	//redo a time for new optimizable instruction
+	//expr_optimize_contmul(ep,EXPR_COPY);
+	expr_optimize_contmul(ep,EXPR_OR);
+	expr_optimize_contmul(ep,EXPR_XOR);
+	expr_optimize_contmul(ep,EXPR_AND);
+	expr_optimize_contsh(ep);
+	expr_optimize_contadd(ep);
+	expr_optimize_contmul(ep,EXPR_MOD);
+	expr_optimize_contmul(ep,EXPR_DIV);
+	expr_optimize_contmul(ep,EXPR_MUL);
+	expr_optimize_contmul(ep,EXPR_POW);
 	expr_optimize_const(ep);
 	expr_optimize_copyend(ep);
 }

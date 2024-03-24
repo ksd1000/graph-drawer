@@ -17,7 +17,7 @@
 #define NDEBUG
 #include <assert.h>
 //#define free(v)
-static const char *eerror[]={"Unknown error","Unknown symbol","Parentheses do not match","Function and keyword must be followed by a \'(\'","No value in parenthesis","No enough or too much argument","Bad number","Target is not variable","Empty value","Unexpected operator"};
+static const char *eerror[]={"Unknown error","Unknown symbol","Parentheses do not match","Function and keyword must be followed by a \'(\'","No value in parenthesis","No enough or too much argument","Bad number","Target is not variable","Empty value","Unexpected operator","Zero-argument function must be followed by \'()\'"};
 const char *expr_error(int error){
 	if(error<0)error=-error;
 	if(error>=(sizeof(eerror)/sizeof(*eerror)))return eerror[0];
@@ -62,6 +62,7 @@ void expr_memrand(void *restrict m,size_t n){
 	}
 
 }
+#define CALLOGIC(a,b,_s) ((fabs(a)>DBL_EPSILON) _s (fabs(b)>DBL_EPSILON))
 #define CALBLOGIC(_sign_cal,_sign_zero,_zero_val) \
 	uint64_t x2,x1;\
 	int64_t expdiff=EXPR_EDEXP(&a)-EXPR_EDEXP(&b);\
@@ -238,9 +239,9 @@ static double expr_hypot(size_t n,double *args){
 	return sqrt(ret);
 }
 //#define REGSYM(s) {#s,s}
-#define REGFSYM(s) {.str=#s,.un={.func=s},.type=EXPR_FUNCTION}
+#define REGFSYM(s) {.str=#s,.un={.func=s},.type=EXPR_FUNCTION,.flag=EXPR_SF_INJECTION}
 #define REGCSYM(s) {.str=#s,.un={.value=s},.type=EXPR_CONSTANT}
-#define REGFSYM2(s,sym) {.str=s,.un={.func=sym},.type=EXPR_FUNCTION}
+#define REGFSYM2(s,sym) {.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SF_INJECTION}
 #define REGMDSYM2(s,sym,d) {.str=s,.un={.md={.func=sym,.dim=d}},.type=EXPR_MDFUNCTION}
 #define REGMDEPSYM2(s,sym,d) {.str=s,.un={.mdep={.func=sym,.dim=d}},.type=EXPR_MDEPFUNCTION}
 #define REGCSYM2(s,val) {.str=s,.un={.value=val},.type=EXPR_CONSTANT}
@@ -264,6 +265,7 @@ const struct expr_builtin_keyword expr_keywords[]={
 	{NULL}
 };
 const struct expr_builtin_symbol expr_bsyms[]={
+	REGFSYM2("abs",fabs),
 	REGFSYM(acos),
 	REGFSYM(acosh),
 	REGFSYM(asin),
@@ -875,6 +877,18 @@ pterr:
 				//assert(v0);
 				if(!v0)return NULL;
 				expr_addcall(ep,v0,sv->func);
+			}else if(type==EXPR_ZAFUNCTION){
+				if(*p!='('||p[1]!=')'){
+					memcpy(ep->errinfo,e,p-e);
+					ep->error=EXPR_EZAFP;
+					//assert(0);
+					return NULL;
+				}
+				v0=expr_newvar(ep);
+				//assert(v0);
+				//if(!v0)return NULL;
+				expr_addcallza(ep,v0,sv->zafunc);
+				e=p+2;
 			}else if(type==EXPR_HOTFUNCTION){
 				if(*p!='('){
 					memcpy(ep->errinfo,e,p-e);
@@ -1079,9 +1093,9 @@ static double *expr_scan(struct expr *restrict ep,const char *e,const char *asym
 				goto end1;
 			case '=':
 				if(e[1]=='='){
+					op=EXPR_EQ;
 					++e;
-				}
-				op=EXPR_EQ;
+				}else op=EXPR_SEQ;
 				++e;
 				goto end1;
 			case '!':
@@ -1227,7 +1241,7 @@ end1:
 	SETPREC2(EXPR_ADD,EXPR_SUB)
 	SETPREC2(EXPR_SHL,EXPR_SHR)
 	SETPREC4(EXPR_LT,EXPR_LE,EXPR_GT,EXPR_GE)
-	SETPREC2(EXPR_EQ,EXPR_NE)
+	SETPREC3(EXPR_SEQ,EXPR_EQ,EXPR_NE)
 	SETPREC1(EXPR_AND)
 	SETPREC1(EXPR_XOR)
 	SETPREC1(EXPR_OR)
@@ -1346,6 +1360,9 @@ struct expr_symbol *expr_symset_vadd(struct expr_symset *restrict esp,const char
 			memcpy(ep->un.hot.asym,p1,len_asym);
 			ep->un.hot.asym[len_asym]=0;
 			break;
+		case EXPR_ZAFUNCTION:
+			ep->un.zafunc=va_arg(ap,double (*)(void));
+			break;
 		default:
 			return NULL;
 	}
@@ -1353,6 +1370,7 @@ struct expr_symbol *expr_symset_vadd(struct expr_symset *restrict esp,const char
 	if(len>=EXPR_SYMLEN)len=EXPR_SYMLEN-1;
 	memcpy(ep->str,sym,len+1);
 	ep->type=type;
+	ep->flag=0;
 	ep->next=NULL;
 	//printf("add:%s,%s(%zu) into %p\n",sym,ep->str,len,&ep->str);
 	return ep;
@@ -1599,6 +1617,13 @@ static void expr_optimize_contmul(struct expr *restrict ep,enum expr_op op){
 			switch(op){
 				case EXPR_POW:
 				case EXPR_MOD:
+				case EXPR_LT:
+				case EXPR_LE:
+				case EXPR_GT:
+				case EXPR_GE:
+				case EXPR_EQ:
+				case EXPR_SEQ:
+				case EXPR_NE:
 					continue;
 				default:
 					break;
@@ -1642,6 +1667,56 @@ static void expr_optimize_contmul(struct expr *restrict ep,enum expr_op op){
 				case EXPR_COPY:
 					sum=*ip1->un.src;
 					break;
+				case EXPR_GT:
+					sum=sum>*ip->un.src?
+						1.0:
+						0.0;
+					break;
+				case EXPR_LT:
+					sum=sum<*ip->un.src?
+						1.0:
+						0.0;
+					break;
+				case EXPR_GE:
+					sum=sum>=*ip->un.src-DBL_EPSILON?
+						1.0:
+						0.0;
+					break;
+				case EXPR_LE:
+					sum=sum<=*ip->un.src+DBL_EPSILON?
+						1.0:
+						0.0;
+					break;
+				case EXPR_SEQ:
+					sum=sum==*ip->un.src?
+						1.0:
+						0.0;
+					break;
+				case EXPR_EQ:
+					sum=fabs(sum-*ip->un.src)<=DBL_EPSILON?
+						1.0:
+						0.0;
+					break;
+				case EXPR_NE:
+					sum=fabs(sum-*ip->un.src)>DBL_EPSILON?
+						1.0:
+						0.0;
+					break;
+				case EXPR_ANDL:
+					sum=CALLOGIC(sum,*ip->un.src,&&)?
+						1.0:
+						0.0;
+					break;
+				case EXPR_ORL:
+					sum=CALLOGIC(sum,*ip->un.src,||)?
+						1.0:
+						0.0;
+					break;
+				case EXPR_XORL:
+					sum=CALLOGIC(sum,*ip->un.src,^)?
+						1.0:
+						0.0;
+					break;
 				default:
 					abort();
 			}
@@ -1673,34 +1748,50 @@ static double expr_zero_element(enum expr_op op){
 		case EXPR_MOD:
 		case EXPR_POW:
 			return 1.0;
-		case EXPR_GT:
-			return -INFINITY;
-		case EXPR_GE:
-			return DBL_MIN;
-		case EXPR_LT:
-			return INFINITY;
-		case EXPR_LE:
-			return DBL_MAX;
-		case EXPR_ANDL:
-			return 2.0;
-		case EXPR_ORL:
-		case EXPR_XORL:
-			return -2.0;
 		default:
-			return -3.0;
+			return -1.0;
 	}
 }
 static int expr_optimize_zero(struct expr *restrict ep){
 	double ze;
 	int r=0;
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
-		ze=expr_zero_element(ip->op);
-		if(ip->op==-3.0||expr_modified(ep,ip->un.src))continue;
-		if(	(ze==2.0&&fabs(*ip->un.src)>DBL_EPSILON)||
-			(ze==-2.0&&fabs(*ip->un.src)<=DBL_EPSILON)||
-			ze==*ip->un.src){
-			r=1;
-			ip->dst=NULL;
+		switch(ip->op){
+			/*case EXPR_GT:
+				if(*ip->un.src!=-INFINITY)break;
+			case EXPR_GE:
+				if(*ip->un.src!=-INFINITY&&
+				*ip->un.src!=DBL_MIN)break;
+			case EXPR_LT:
+				if(*ip->un.src!=INFINITY)break;
+			case EXPR_LE:
+				if(*ip->un.src!=INFINITY&&
+				*ip->un.src!=DBL_MAX)break;*/
+			case EXPR_ANDL:
+				if(fabs(*ip->un.src)<=DBL_EPSILON){
+					ip->op=EXPR_CONST;
+					ip->un.value=0.0;
+					r=1;
+				}
+				break;
+			//case EXPR_XORL:
+			case EXPR_ORL:
+				if(fabs(*ip->un.src)>DBL_EPSILON){
+					ip->op=EXPR_CONST;
+					ip->un.value=1.0;
+					r=1;
+				}
+				break;
+			default:
+				ze=expr_zero_element(ip->op);
+				if(ze<0.0
+					||expr_modified(ep,ip->un.src)
+					)continue;
+				if(ze==*ip->un.src){
+					ip->dst=NULL;
+					r=1;
+				}
+				break;
 		}
 	}
 	return r;
@@ -1737,6 +1828,7 @@ static int expr_side(enum expr_op op){
 		case EXPR_GE:
 		case EXPR_LT:
 		case EXPR_LE:
+		case EXPR_SEQ:
 		case EXPR_EQ:
 		case EXPR_NE:
 		case EXPR_ANDL:
@@ -1765,6 +1857,7 @@ static int expr_usesrc(enum expr_op op){
 		case EXPR_GE:
 		case EXPR_LT:
 		case EXPR_LE:
+		case EXPR_SEQ:
 		case EXPR_EQ:
 		case EXPR_NE:
 		case EXPR_ANDL:
@@ -1794,6 +1887,7 @@ static int expr_override(enum expr_op op){
 		case EXPR_LCMN:
 		case EXPR_LOOP:
 		case EXPR_FOR:
+		case EXPR_CALLZA:
 		case EXPR_CALLMD:
 		case EXPR_CALLMDEP:
 			return 1;
@@ -1803,10 +1897,13 @@ static int expr_override(enum expr_op op){
 }
 static int expr_used(struct expr *restrict ep,struct expr_inst *ip){
 	struct expr_inst *ip1;
+	int ov;
 	for(ip1=ip+1;ip1<ep->data+ep->size;++ip1){
-		if((expr_usesrc(ip1->op)&&ip1->un.src==ip->dst)||ip1->dst==ip->dst)
-			break;
-		if(ip1->dst==ip->dst&&expr_override(ip1->op)){
+		ov=expr_override(ip1->op);
+		if((expr_usesrc(ip1->op)&&ip1->un.src==ip->dst)
+			||(ip1->dst==ip->dst&&!ov)
+				)break;
+		if(ip1->dst==ip->dst&&ov){
 			ip1=ep->data+ep->size;
 			break;
 		}
@@ -1815,10 +1912,13 @@ static int expr_used(struct expr *restrict ep,struct expr_inst *ip){
 }
 static void expr_optimize_unused(struct expr *restrict ep){
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
+		/*printf("%d,%d,%d,%d [%zu]\n",ip->dst<ep->vars
+			,ip->dst>=ep->vars+ep->vsize
+			,expr_side(ip->op)
+			,expr_used(ep,ip),ip-ep->data);*/
 		if(ip->dst<ep->vars
 			||ip->dst>=ep->vars+ep->vsize
 			||expr_side(ip->op))continue;
-
 		if(!expr_used(ep,ip)){
 			ip->dst=NULL;
 		}
@@ -1838,22 +1938,70 @@ static void expr_optimize_constneg(struct expr *restrict ep){
 	}
 	expr_optimize_completed(ep);
 }
-static void expr_optimize_injection(struct expr *restrict ep){
-	const struct expr_builtin_symbol *ebs;
+static int expr_injection_symtype(int type){
+	switch(type){
+		case EXPR_FUNCTION:
+		case EXPR_ZAFUNCTION:
+		//case EXPR_HOTFUNCTION:
+			return 1;
+		default:
+			return 0;
+	}
+}
+static int expr_optimize_injection(struct expr *restrict ep){
+	union {
+		const struct expr_symbol *es;
+		const struct expr_builtin_symbol *ebs;
+	} sym;
+	int r=0;
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
-		if(ip->op!=EXPR_CALL
-			||!(ebs=expr_bsym_rsearch(ip->un.func))
-			||ebs->type!=EXPR_FUNCTION
-			)continue;
-		for(struct expr_inst *ip1=ip-1;ip>=ep->data;--ip1){
+		switch(ip->op){
+			case EXPR_CALL:
+			case EXPR_CALLZA:
+			//case EXPR_CALLHOT: not work
+				break;
+			default:
+				continue;
+		}
+			if(!ep->sset
+				||!(sym.es=expr_symset_rsearch(ep->sset,ip->un.func))
+				||!expr_injection_symtype(sym.es->type)
+				||!(sym.es->flag&EXPR_SF_INJECTION)
+			){
+				if(!(sym.ebs=expr_bsym_rsearch(ip->un.func))
+				||!expr_injection_symtype(sym.ebs->type)
+				||!(sym.ebs->flag&EXPR_SF_INJECTION)
+				)continue;
+			}
+			//printf("in %zd\n",ip-ep->data);
+			if(ip->op==EXPR_CALLZA){
+				ip->un.value=ip->un.zafunc();
+			//printf("in %lf\n",ip->un.value);
+				ip->op=EXPR_CONST;
+				r=1;
+				continue;
+			}
+		for(struct expr_inst *ip1=ip-1;ip1>=ep->data;--ip1){
+			//printf("at [%zd] in %zd\n",ip1-ep->data,ip-ep->data);
 			if(ip1->dst!=ip->dst)continue;
 			if(ip1->op!=EXPR_CONST)break;
-			ip1->un.value=ip->un.func(ip1->un.value);
+			switch(ip->op){
+				case EXPR_CALL:
+					ip1->un.value=ip->un.func(ip1->un.value);
+					break;
+				/*case EXPR_CALLHOT:
+					ip1->un.value=expr_eval(ip->un.hotfunc,ip1->un.value);
+					break;*/
+				default:
+					abort();
+			}
+			r=1;
 			ip->dst=NULL;
 			break;
 		}
 	}
 	expr_optimize_completed(ep);
+	return r;
 }
 static void expr_optimize_copyadd(struct expr *restrict ep){
 	struct expr_inst *ip2;
@@ -1897,7 +2045,7 @@ static int expr_optimize_once(struct expr *restrict ep){
 	int r=0;
 	expr_optimize_const(ep);
 	expr_optimize_constneg(ep);
-	expr_optimize_injection(ep);
+	r|=expr_optimize_injection(ep);
 
 	//expr_optimize_contmul(ep,EXPR_COPY);
 /*	expr_optimize_contmul(ep,EXPR_OR);
@@ -1916,9 +2064,19 @@ static int expr_optimize_once(struct expr *restrict ep){
 	expr_optimize_contmul(ep,EXPR_MOD);
 	expr_optimize_contadd(ep);
 	expr_optimize_contsh(ep);
+	expr_optimize_contmul(ep,EXPR_LT);
+	expr_optimize_contmul(ep,EXPR_LE);
+	expr_optimize_contmul(ep,EXPR_GT);
+	expr_optimize_contmul(ep,EXPR_GE);
+	expr_optimize_contmul(ep,EXPR_SEQ);
+	expr_optimize_contmul(ep,EXPR_EQ);
+	expr_optimize_contmul(ep,EXPR_NE);
 	expr_optimize_contmul(ep,EXPR_AND);
 	expr_optimize_contmul(ep,EXPR_XOR);
 	expr_optimize_contmul(ep,EXPR_OR);
+	expr_optimize_contmul(ep,EXPR_ANDL);
+	expr_optimize_contmul(ep,EXPR_XORL);
+	expr_optimize_contmul(ep,EXPR_ORL);
 	//expr_optimize_contmul(ep,EXPR_COPY);
 
 	r|=expr_optimize_zero(ep);
@@ -2016,6 +2174,12 @@ double expr_eval(const struct expr *restrict ep,double input){
 					1.0:
 					0.0;
 				break;
+
+			case EXPR_SEQ:
+				*ip->dst=*ip->dst==*ip->un.src?
+					1.0:
+					0.0;
+				break;
 			case EXPR_EQ:
 				*ip->dst=fabs(*ip->dst-*ip->un.src)<=DBL_EPSILON?
 					1.0:
@@ -2026,7 +2190,7 @@ double expr_eval(const struct expr *restrict ep,double input){
 					1.0:
 					0.0;
 				break;
-#define CALLOGIC(a,b,_s) ((fabs(a)>DBL_EPSILON) _s (fabs(b)>DBL_EPSILON))
+//#define CALLOGIC(a,b,_s) ((fabs(a)>DBL_EPSILON) _s (fabs(b)>DBL_EPSILON))
 			case EXPR_ANDL:
 				*ip->dst=CALLOGIC(*ip->dst,*ip->un.src,&&)?
 					1.0:
@@ -2113,6 +2277,9 @@ double expr_eval(const struct expr *restrict ep,double input){
 				expr_eval(ip->un.eb->body,input);
 				*ip->dst=
 				expr_eval(ip->un.eb->value,input);
+				break;
+			case EXPR_CALLZA:
+				*ip->dst=ip->un.zafunc();
 				break;
 			case EXPR_CALLMD:
 				for(size_t i=0;i<ip->un.em->dim;++i)

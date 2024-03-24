@@ -10,6 +10,7 @@
 #define expr_addinput(e,t) expr_addop(e,t,NULL,EXPR_INPUT)
 //#define expr_addsum(e,t,es) expr_addop(e,t,es,EXPR_SUM)
 #define expr_addend(e,t) expr_addop(e,t,NULL,EXPR_END)
+#define expr_addcallza(e,t,em) expr_addop(e,t,em,EXPR_CALLZA)
 #define expr_addcallmd(e,t,em) expr_addop(e,t,em,EXPR_CALLMD)
 #define expr_addcallmdep(e,t,em) expr_addop(e,t,em,EXPR_CALLMDEP)
 #define expr_addcallhot(e,t,em) expr_addop(e,t,em,EXPR_CALLHOT)

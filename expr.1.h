@@ -36,6 +36,7 @@ EXPR_GCDN,
 EXPR_LCMN,
 EXPR_LOOP,
 EXPR_FOR,
+EXPR_CALLZA,
 EXPR_CALLMD,
 EXPR_CALLMDEP,
 EXPR_CALLHOT,
@@ -43,6 +44,7 @@ EXPR_GT,
 EXPR_GE,
 EXPR_LT,
 EXPR_LE,
+EXPR_SEQ,
 EXPR_EQ,
 EXPR_NE,
 EXPR_ANDL,
@@ -61,6 +63,7 @@ EXPR_END
 #define EXPR_ETNV 7
 #define EXPR_EEV 8
 #define EXPR_EUO 9
+#define EXPR_EZAFP 10
 
 #define EXPR_CONSTANT 0
 #define EXPR_VARIABLE 1
@@ -68,6 +71,10 @@ EXPR_END
 #define EXPR_MDFUNCTION 3
 #define EXPR_MDEPFUNCTION 4
 #define EXPR_HOTFUNCTION 5
+#define EXPR_ZAFUNCTION 6
+
+#define EXPR_SF_INJECTION 1
+
 #define EXPR_EDBASE(d) (((union expr_double *)(d))->rd.base)
 #define EXPR_EDEXP(d) (((union expr_double *)(d))->rd.exp)
 #define EXPR_EDSIGN(d) (((union expr_double *)(d))->rd.sign)
@@ -95,6 +102,7 @@ union expr_inst_op2{
 	double value;
 	struct expr *hotfunc;
 	double (*func)(double);
+	double (*zafunc)(void);
 	struct expr_suminfo *es;
 	struct expr_branchinfo *eb;
 	struct expr_mdinfo *em;
@@ -110,6 +118,7 @@ union expr_symbol_value {
 	double *addr;
 	void *uaddr;
 	double (*func)(double);
+	double (*zafunc)(void);
 	struct {
 		char *expr;
 		char *asym;
@@ -128,14 +137,14 @@ struct expr_symbol {
 	union expr_symbol_value un;
 	struct expr_symbol *next;
 	unsigned int length;
-	int type;
+	int type,flag;
 	char str[EXPR_SYMLEN];
 	char hot_expr_asym[];
 };
 struct expr_builtin_symbol {
 	union expr_symbol_value un;
 	const char *str;
-	int type;
+	int type,flag;
 	size_t dim;
 };
 struct expr_builtin_keyword {

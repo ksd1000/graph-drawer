@@ -1504,7 +1504,7 @@ static void expr_optimize_contadd(struct expr *restrict ep){
 		if(!ip->dst
 			||!expr_modified(ep,ip->dst)
 			||(ip->op!=EXPR_ADD&&ip->op!=EXPR_SUB)
-			||expr_modified(ep,(double *)ip->un.src)
+			||expr_modified(ep,ip->un.src)
 			)continue;
 		sum=ip->op==EXPR_ADD?*ip->un.src:-*ip->un.src;
 		for(struct expr_inst *ip1=ip+1;ip1->op!=EXPR_END;++ip1){
@@ -1512,7 +1512,7 @@ static void expr_optimize_contadd(struct expr *restrict ep){
 			if(ip1->op!=EXPR_ADD
 				&&ip1->op!=EXPR_SUB
 				)break;
-			if(!expr_modified(ep,(double *)ip1->un.src)){
+			if(!expr_modified(ep,ip1->un.src)){
 				if(ip1->op==EXPR_ADD)
 					sum+=*ip1->un.src;
 				else
@@ -1547,7 +1547,7 @@ static void expr_optimize_contsh(struct expr *restrict ep){
 		if(!ip->dst
 			||!expr_modified(ep,ip->dst)
 			||(ip->op!=EXPR_SHL&&ip->op!=EXPR_SHR)
-			||expr_modified(ep,(double *)ip->un.src)
+			||expr_modified(ep,ip->un.src)
 			)continue;
 		sum=ip->op==EXPR_SHL?*ip->un.src:-*ip->un.src;
 		for(struct expr_inst *ip1=ip+1;ip1->op!=EXPR_END;++ip1){
@@ -1555,7 +1555,7 @@ static void expr_optimize_contsh(struct expr *restrict ep){
 			if(ip1->op!=EXPR_SHL
 				&&ip1->op!=EXPR_SHR
 				)break;
-			if(!expr_modified(ep,(double *)ip1->un.src)){
+			if(!expr_modified(ep,ip1->un.src)){
 				if(ip1->op==EXPR_SHL)
 					sum+=*ip1->un.src;
 				else
@@ -1590,7 +1590,7 @@ static void expr_optimize_contmul(struct expr *restrict ep,enum expr_op op){
 		if(!ip->dst
 			||!expr_modified(ep,ip->dst)
 			||ip->op!=op
-			||expr_modified(ep,(double *)ip->un.src)
+			||expr_modified(ep,ip->un.src)
 			)continue;
 		rip=expr_findconst(ep,ip);
 		if(rip){
@@ -1659,12 +1659,54 @@ static void expr_optimize_contmul(struct expr *restrict ep,enum expr_op op){
 	}
 	expr_optimize_completed(ep);
 }
-
+static double expr_zero_element(enum expr_op op){
+	switch(op){
+		case EXPR_ADD:
+		case EXPR_SUB:
+		case EXPR_OR:
+		case EXPR_XOR:
+		case EXPR_SHL:
+		case EXPR_SHR:
+			return 0.0;
+		case EXPR_MUL:
+		case EXPR_DIV:
+		case EXPR_MOD:
+		case EXPR_POW:
+			return 1.0;
+		case EXPR_GE:
+			return DBL_MIN;
+		case EXPR_LE:
+			return DBL_MAX;
+		case EXPR_ANDL:
+			return INFINITY;
+		case EXPR_ORL:
+		case EXPR_XORL:
+			return -INFINITY;
+		default:
+			return -1.0;
+	}
+}
+static int expr_optimize_zero(struct expr *restrict ep){
+	double ze;
+	int r=0;
+	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
+		ze=expr_zero_element(ip->op);
+		if(ip->op<0.0||expr_modified(ep,ip->un.src))continue;
+		if(	(ze==INFINITY&&fabs(*ip->un.src)>DBL_EPSILON)||
+			(ze==-INFINITY&&fabs(*ip->un.src)<=DBL_EPSILON)||
+			ze==*ip->un.src){
+			r=1;
+			ip->dst=NULL;
+		}
+	}
+	return r;
+}
 static void expr_optimize_const(struct expr *restrict ep){
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
 		//printf("before checking vars[%zd]\n",(ssize_t)(ip->dst-ep->vars));
 		if(ip->op==EXPR_CONST&&!expr_modified(ep,ip->dst)){
-			*ip->dst=ip->un.value;
+			//*ip->dst=ip->un.value;
+			//not necessary
 			ip->dst=NULL;
 		}
 	}
@@ -1701,6 +1743,34 @@ static int expr_side(enum expr_op op){
 			return 1;
 	}
 }
+static int expr_usesrc(enum expr_op op){
+	switch(op){
+		case EXPR_COPY:
+		case EXPR_ADD:
+		case EXPR_SUB:
+		case EXPR_MUL:
+		case EXPR_DIV:
+		case EXPR_MOD:
+		case EXPR_POW:
+		case EXPR_AND:
+		case EXPR_OR:
+		case EXPR_XOR:
+		case EXPR_SHL:
+		case EXPR_SHR:
+		case EXPR_GT:
+		case EXPR_GE:
+		case EXPR_LT:
+		case EXPR_LE:
+		case EXPR_EQ:
+		case EXPR_NE:
+		case EXPR_ANDL:
+		case EXPR_ORL:
+		case EXPR_XORL:
+			return 1;
+		default:
+			return 0;
+	}
+}
 static int expr_override(enum expr_op op){
 	switch(op){
 		case EXPR_COPY:
@@ -1727,21 +1797,25 @@ static int expr_override(enum expr_op op){
 			return 0;
 	}
 }
-static void expr_optimize_unused(struct expr *restrict ep){
+static int expr_used(struct expr *restrict ep,struct expr_inst *ip){
 	struct expr_inst *ip1;
+	for(ip1=ip+1;ip1<ep->data+ep->size;++ip1){
+		if((expr_usesrc(ip1->op)&&ip1->un.src==ip->dst)||ip1->dst==ip->dst)
+			break;
+		if(ip1->dst==ip->dst&&expr_override(ip1->op)){
+			ip1=ep->data+ep->size;
+			break;
+		}
+	}
+	return ip1!=ep->data+ep->size;
+}
+static void expr_optimize_unused(struct expr *restrict ep){
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
 		if(ip->dst<ep->vars
 			||ip->dst>=ep->vars+ep->vsize
 			||expr_side(ip->op))continue;
-		for(ip1=ip+1;ip1<ep->data+ep->size;++ip1){
-			if(ip1->un.src==ip->dst||ip1->dst==ip->dst)
-				break;
-			if(ip1->dst==ip->dst&&expr_override(ip1->op)){
-				ip1=ep->data+ep->size;
-				break;
-			}
-		}
-		if(ip1==ep->data+ep->size){
+
+		if(!expr_used(ep,ip)){
 			ip->dst=NULL;
 		}
 	}
@@ -1777,6 +1851,30 @@ static void expr_optimize_injection(struct expr *restrict ep){
 	}
 	expr_optimize_completed(ep);
 }
+static void expr_optimize_copyadd(struct expr *restrict ep){
+	struct expr_inst *ip2;
+	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
+		if(ip->op!=EXPR_COPY||
+			ip->dst<ep->vars||
+			ip->dst>=ep->vars+ep->vsize)continue;
+		ip2=NULL;
+		for(struct expr_inst *ip1=ip+1;ip1->op!=EXPR_END;++ip1){
+			if(ip1->dst==ip->dst)goto fail;
+			if(!expr_usesrc(ip1->op)||ip1->un.src!=ip->dst)continue;
+			if(ip2){
+fail:
+				ip2=NULL;
+				break;
+			}else
+				ip2=ip1;
+		}
+		if(ip2){
+			ip2->un.src=ip->un.src;
+			ip->dst=NULL;
+		}
+	}
+	expr_optimize_completed(ep);
+}
 static void expr_optimize_copyend(struct expr *restrict ep){
 	struct expr_inst *lip=NULL;
 	struct expr_inst *ip=ep->data;
@@ -1786,28 +1884,28 @@ static void expr_optimize_copyend(struct expr *restrict ep){
 	if(lip&&lip->op==EXPR_COPY&&lip->dst==ip->dst&&
 		lip->dst>=ep->vars&&lip->dst<ep->vars+ep->vsize
 		){
-		ip->dst=(double *)lip->un.src;
+		ip->dst=lip->un.src;
 		lip->dst=NULL;
 	}
 	expr_optimize_completed(ep);
 }
-static void expr_optimize_once(struct expr *restrict ep){
+static int expr_optimize_once(struct expr *restrict ep){
+	int r=0;
 	expr_optimize_const(ep);
 	expr_optimize_constneg(ep);
 	expr_optimize_injection(ep);
 
 	//expr_optimize_contmul(ep,EXPR_COPY);
+/*	expr_optimize_contmul(ep,EXPR_OR);
+	expr_optimize_contmul(ep,EXPR_XOR);
+	expr_optimize_contmul(ep,EXPR_AND);
+	expr_optimize_contsh(ep);
+	expr_optimize_contadd(ep);
+	expr_optimize_contmul(ep,EXPR_MOD);
+	expr_optimize_contmul(ep,EXPR_DIV);
+	expr_optimize_contmul(ep,EXPR_MUL);
+	expr_optimize_contmul(ep,EXPR_POW);*/
 
-	expr_optimize_contmul(ep,EXPR_OR);
-	expr_optimize_contmul(ep,EXPR_XOR);
-	expr_optimize_contmul(ep,EXPR_AND);
-	expr_optimize_contsh(ep);
-	expr_optimize_contadd(ep);
-	expr_optimize_contmul(ep,EXPR_MOD);
-	expr_optimize_contmul(ep,EXPR_DIV);
-	expr_optimize_contmul(ep,EXPR_MUL);
-	expr_optimize_contmul(ep,EXPR_POW);
-/*
 	expr_optimize_contmul(ep,EXPR_POW);
 	expr_optimize_contmul(ep,EXPR_MUL);
 	expr_optimize_contmul(ep,EXPR_DIV);
@@ -1817,17 +1915,22 @@ static void expr_optimize_once(struct expr *restrict ep){
 	expr_optimize_contmul(ep,EXPR_AND);
 	expr_optimize_contmul(ep,EXPR_XOR);
 	expr_optimize_contmul(ep,EXPR_OR);
-*/
+	//expr_optimize_contmul(ep,EXPR_COPY);
+
+	r|=expr_optimize_zero(ep);
+	expr_optimize_copyadd(ep);
 	expr_optimize_unused(ep);
 	expr_optimize_copyend(ep);
+	return r;
 }
 static void expr_optimize(struct expr *restrict ep){
 	size_t s=ep->size;
+	int r;
 	expr_writeconsts(ep);
 again:
-	expr_optimize_once(ep);
+	r=expr_optimize_once(ep);
 //	return;
-	if(ep->size<s&&ep->size>1){
+	if((ep->size<s||r)&&ep->size>1){
 		s=ep->size;
 		goto again;
 	}

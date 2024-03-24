@@ -1453,6 +1453,15 @@ struct expr *new_expr(const char *e,const char *asym,struct expr_symset *esp,int
 	ep->freeable=1;
 	return ep;
 }
+static void expr_writeconsts(struct expr *restrict ep){
+	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
+		if(ip->op==EXPR_CONST&&
+			ip->dst>=ep->vars&&ip->dst<ep->vars+ep->vsize
+			){
+			*ip->dst=ip->un.value;
+		}
+	}
+}
 static void expr_optimize_completed(struct expr *restrict ep){
 	struct expr_inst *cip=ep->data;
 	for(struct expr_inst *ip=cip;ip-ep->data<ep->size;++ip){
@@ -1463,6 +1472,7 @@ static void expr_optimize_completed(struct expr *restrict ep){
 		}
 	}
 	ep->size=cip-ep->data;
+	expr_writeconsts(ep);
 }
 static int expr_modified(const struct expr *restrict ep,double *v){
 	if(v<ep->vars||v>=ep->vars+ep->vsize)
@@ -1649,13 +1659,7 @@ static void expr_optimize_contmul(struct expr *restrict ep,enum expr_op op){
 	}
 	expr_optimize_completed(ep);
 }
-/*static void expr_writeconsts(struct expr *restrict ep){
-	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
-		if(ip->op==EXPR_CONST){
-			*ip->dst=ip->un.value;
-		}
-	}
-}*/
+
 static void expr_optimize_const(struct expr *restrict ep){
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
 		//printf("before checking vars[%zd]\n",(ssize_t)(ip->dst-ep->vars));
@@ -1788,22 +1792,13 @@ static void expr_optimize_copyend(struct expr *restrict ep){
 	expr_optimize_completed(ep);
 }
 static void expr_optimize_once(struct expr *restrict ep){
-	//expr_writeconsts(ep);
+	expr_writeconsts(ep);
 	expr_optimize_const(ep);
 	expr_optimize_constneg(ep);
 	expr_optimize_injection(ep);
 
-	/*expr_optimize_contmul(ep,EXPR_POW);
-	expr_optimize_contmul(ep,EXPR_MUL);
-	expr_optimize_contmul(ep,EXPR_DIV);
-	expr_optimize_contmul(ep,EXPR_MOD);
-	expr_optimize_contadd(ep);
-	expr_optimize_contsh(ep);
-	expr_optimize_contmul(ep,EXPR_AND);
-	expr_optimize_contmul(ep,EXPR_XOR);
-	expr_optimize_contmul(ep,EXPR_OR);*/
-
 	//expr_optimize_contmul(ep,EXPR_COPY);
+
 	expr_optimize_contmul(ep,EXPR_OR);
 	expr_optimize_contmul(ep,EXPR_XOR);
 	expr_optimize_contmul(ep,EXPR_AND);
@@ -1813,7 +1808,17 @@ static void expr_optimize_once(struct expr *restrict ep){
 	expr_optimize_contmul(ep,EXPR_DIV);
 	expr_optimize_contmul(ep,EXPR_MUL);
 	expr_optimize_contmul(ep,EXPR_POW);
-
+/*
+	expr_optimize_contmul(ep,EXPR_POW);
+	expr_optimize_contmul(ep,EXPR_MUL);
+	expr_optimize_contmul(ep,EXPR_DIV);
+	expr_optimize_contmul(ep,EXPR_MOD);
+	expr_optimize_contadd(ep);
+	expr_optimize_contsh(ep);
+	expr_optimize_contmul(ep,EXPR_AND);
+	expr_optimize_contmul(ep,EXPR_XOR);
+	expr_optimize_contmul(ep,EXPR_OR);
+*/
 	expr_optimize_unused(ep);
 	expr_optimize_copyend(ep);
 }
@@ -1821,10 +1826,12 @@ static void expr_optimize(struct expr *restrict ep){
 	size_t s=ep->size;
 again:
 	expr_optimize_once(ep);
+//	return;
 	if(ep->size<s&&ep->size>1){
 		s=ep->size;
 		goto again;
 	}
+
 }
 double expr_eval(const struct expr *restrict ep,double input){
 	double step,sum,from,to,y;

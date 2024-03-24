@@ -1673,17 +1673,21 @@ static double expr_zero_element(enum expr_op op){
 		case EXPR_MOD:
 		case EXPR_POW:
 			return 1.0;
+		case EXPR_GT:
+			return -INFINITY;
 		case EXPR_GE:
 			return DBL_MIN;
+		case EXPR_LT:
+			return INFINITY;
 		case EXPR_LE:
 			return DBL_MAX;
 		case EXPR_ANDL:
-			return INFINITY;
+			return 2.0;
 		case EXPR_ORL:
 		case EXPR_XORL:
-			return -INFINITY;
+			return -2.0;
 		default:
-			return -1.0;
+			return -3.0;
 	}
 }
 static int expr_optimize_zero(struct expr *restrict ep){
@@ -1691,9 +1695,9 @@ static int expr_optimize_zero(struct expr *restrict ep){
 	int r=0;
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
 		ze=expr_zero_element(ip->op);
-		if(ip->op<0.0||expr_modified(ep,ip->un.src))continue;
-		if(	(ze==INFINITY&&fabs(*ip->un.src)>DBL_EPSILON)||
-			(ze==-INFINITY&&fabs(*ip->un.src)<=DBL_EPSILON)||
+		if(ip->op==-3.0||expr_modified(ep,ip->un.src))continue;
+		if(	(ze==2.0&&fabs(*ip->un.src)>DBL_EPSILON)||
+			(ze==-2.0&&fabs(*ip->un.src)<=DBL_EPSILON)||
 			ze==*ip->un.src){
 			r=1;
 			ip->dst=NULL;

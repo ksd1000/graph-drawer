@@ -1792,7 +1792,6 @@ static void expr_optimize_copyend(struct expr *restrict ep){
 	expr_optimize_completed(ep);
 }
 static void expr_optimize_once(struct expr *restrict ep){
-	expr_writeconsts(ep);
 	expr_optimize_const(ep);
 	expr_optimize_constneg(ep);
 	expr_optimize_injection(ep);
@@ -1824,6 +1823,7 @@ static void expr_optimize_once(struct expr *restrict ep){
 }
 static void expr_optimize(struct expr *restrict ep){
 	size_t s=ep->size;
+	expr_writeconsts(ep);
 again:
 	expr_optimize_once(ep);
 //	return;

@@ -238,12 +238,12 @@ static double expr_hypot(size_t n,double *args){
 	return sqrt(ret);
 }
 //#define REGSYM(s) {#s,s}
-#define REGFSYM(s) {.str=#s,.un={.func=s},.type=EXPR_FUNCTION,.dim=0}
-#define REGCSYM(s) {.str=#s,.un={.value=s},.type=EXPR_CONSTANT,.dim=0}
-#define REGFSYM2(s,sym) {.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.dim=0}
-#define REGMDSYM2(s,sym,d) {.str=s,.un={.mdfunc=sym},.type=EXPR_MDFUNCTION,.dim=d}
-#define REGMDEPSYM2(s,sym,d) {.str=s,.un={.mdepfunc=sym},.type=EXPR_MDEPFUNCTION,.dim=d}
-#define REGCSYM2(s,val) {.str=s,.un={.value=val},.type=EXPR_CONSTANT,.dim=0}
+#define REGFSYM(s) {.str=#s,.un={.func=s},.type=EXPR_FUNCTION}
+#define REGCSYM(s) {.str=#s,.un={.value=s},.type=EXPR_CONSTANT}
+#define REGFSYM2(s,sym) {.str=s,.un={.func=sym},.type=EXPR_FUNCTION}
+#define REGMDSYM2(s,sym,d) {.str=s,.un={.md={.func=sym,.dim=d}},.type=EXPR_MDFUNCTION}
+#define REGMDEPSYM2(s,sym,d) {.str=s,.un={.mdep={.func=sym,.dim=d}},.type=EXPR_MDEPFUNCTION}
+#define REGCSYM2(s,val) {.str=s,.un={.value=val},.type=EXPR_CONSTANT}
 //#define REGSYMMD(s,n) {#s,s,n}
 const struct expr_builtin_keyword expr_keywords[]={
 	{"sum",EXPR_SUM,5,"index_name,start_index,end_index,index_step,addend"},
@@ -349,7 +349,7 @@ const struct expr_builtin_symbol expr_bsyms[]={
 	REGMDEPSYM2("dn",expr_multi_derivate,0),
 	{.str=NULL}
 };
-static const struct expr_builtin_symbol *expr_bsym_search(const char *sym,size_t sz){
+const struct expr_builtin_symbol *expr_bsym_search(const char *sym,size_t sz){
 	const struct expr_builtin_symbol *p;
 	for(p=expr_bsyms;p->str;++p){
 		if(sz==strlen(p->str)&&!memcmp(p->str,sym,sz)){
@@ -358,7 +358,7 @@ static const struct expr_builtin_symbol *expr_bsym_search(const char *sym,size_t
 	}
 	return NULL;
 }
-static const struct expr_builtin_symbol *expr_bsym_rsearch(void *addr){
+const struct expr_builtin_symbol *expr_bsym_rsearch(void *addr){
 	const struct expr_builtin_symbol *p;
 	for(p=expr_bsyms;p->str;++p){
 		if(p->un.uaddr==addr){
@@ -419,7 +419,7 @@ void expr_free(struct expr *restrict ep){
 				case EXPR_CALLMD:
 					free(ip->un.em->args);
 				case EXPR_CALLMDEP:
-					for(unsigned int i=0;i<ip->un.em->dim;++i)
+					for(size_t i=0;i<ip->un.em->dim;++i)
 						expr_free(ip->un.em->eps+i);
 					free(ip->un.em->eps);
 					free(ip->un.em);
@@ -595,7 +595,7 @@ static void expr_free2(char **buf){
 	}
 	free(buf);
 }
-static struct expr_mdinfo *expr_getmdinfo(struct expr *restrict ep,char *e,const char *asym,void *func,unsigned int dim,int ifep){
+static struct expr_mdinfo *expr_getmdinfo(struct expr *restrict ep,char *e,const char *asym,void *func,size_t dim,int ifep){
 	char **v=expr_sep(ep,e);
 	char **p;
 	size_t i;
@@ -765,7 +765,6 @@ static double *expr_getval(struct expr *restrict ep,const char *e,const char **_
 	} sym;
 	const union expr_symbol_value *sv;
 	int type;
-	unsigned int dim;
 
 	//fprintf(stderr,"getval %u: %s\n",assign_level,e0);
 	for(;;++e){
@@ -860,11 +859,9 @@ pterr:
 		//fprintf(stderr,"find sym %ld %s\n",p-e,e);
 		if(ep->sset&&(sym.es=expr_symset_search(ep->sset,e,p-e))){
 			type=sym.es->type;
-			dim=sym.es->dim;
 			sv=&sym.es->un;
 		}else if((sym.ebs=expr_bsym_search(e,p-e))){
 			type=sym.ebs->type;
-			dim=sym.ebs->dim;
 			sv=&sym.ebs->un;
 		}else goto number;
 			if(type==EXPR_FUNCTION){
@@ -924,9 +921,12 @@ pterr:
 				buf=xmalloc(p-e+2);
 				buf[p-e+1]=0;
 				memcpy(buf,e,p-e+1);
-				un.em=expr_getmdinfo(ep,buf,asym,
-					sv->mdfunc,dim,
-					type==EXPR_MDEPFUNCTION);
+				if(type==EXPR_MDEPFUNCTION)
+					un.em=expr_getmdinfo(ep,buf,asym,
+					sv->mdep.func,sv->mdep.dim,1);
+				else	
+					un.em=expr_getmdinfo(ep,buf,asym,
+					sv->md.func,sv->md.dim,0);
 				free(buf);
 				//assert(es);
 				if(!un.em){
@@ -1259,14 +1259,20 @@ void expr_symset_free(struct expr_symset *restrict esp){
 	if(!esp)return;
 	while((p=esp->syms)){
 		esp->syms=p->next;
-		switch(p->type){
+		/*switch(p->type){
 			case EXPR_HOTFUNCTION:
-				free(p->un.hot.expr);
-				free(p->un.hot.asym);
+				if(p->un.hot.expr){
+					free(p->un.hot.expr);
+					p->un.hot.expr=NULL;
+				}
+				if(p->un.hot.asym){
+					free(p->un.hot.asym);
+					p->un.hot.asym=NULL;
+				}
 				break;
 			default:
 				break;
-		}
+		}*/
 		free(p);
 	}
 	if(esp->freeable)free(esp);
@@ -1280,26 +1286,32 @@ struct expr_symbol *expr_symset_findtail(const struct expr_symset *restrict esp)
 	return NULL;
 }
 struct expr_symbol *expr_symset_add(struct expr_symset *restrict esp,const char *sym,int type,...){
-	struct expr_symbol *ep=expr_symset_findtail(esp);
-	size_t len=strlen(sym);
 	va_list ap;
-	const char *p;
-	if(len>EXPR_SYMLEN)len=EXPR_SYMLEN;
+	struct expr_symbol *r;
+	va_start(ap,type);
+	r=expr_symset_vadd(esp,sym,type,ap);
+	va_end(ap);
+	return r;
+}
+struct expr_symbol *expr_symset_vadd(struct expr_symset *restrict esp,const char *sym,int type,va_list ap){
+	struct expr_symbol *ep=expr_symset_findtail(esp),**next;
+	size_t len,len_expr,len_asym;
+	const char *p,*p1;
 	/*if(ep->size>=ep->length){
 		ep->syms=xrealloc(ep->syms,
 		(ep->length+=16)*sizeof(double));
 	}
 	ep=ep->syms+ep->size++;*/
+	len=sizeof(struct expr_symbol);
 	if(ep){
 		ep->next=xmalloc(sizeof(struct expr_symbol));
-		ep=ep->next;
+		next=&ep->next;
 	}else {
 		esp->syms=xmalloc(sizeof(struct expr_symbol));
-		ep=esp->syms;
+		next=&esp->syms;
 	}
-	memcpy(ep->str,sym,len);
-	if(len<EXPR_SYMLEN)ep->str[len]=0;
-	va_start(ap,type);
+	ep=*next;
+	ep->length=len;
 	switch(type){
 		case EXPR_CONSTANT:
 			ep->un.value=va_arg(ap,double);
@@ -1311,38 +1323,65 @@ struct expr_symbol *expr_symset_add(struct expr_symset *restrict esp,const char 
 			ep->un.func=va_arg(ap,double (*)(double));
 			break;
 		case EXPR_MDFUNCTION:
-			ep->un.mdfunc=va_arg(ap,double (*)(size_t,double *));
-			ep->dim=va_arg(ap,unsigned int);
+			ep->un.md.func=va_arg(ap,double (*)(size_t,double *));
+			ep->un.md.dim=va_arg(ap,size_t);
 			break;
 		case EXPR_MDEPFUNCTION:
-			ep->un.mdepfunc=va_arg(ap,double (*)(size_t,
-			const struct expr *,double));
-			ep->dim=va_arg(ap,unsigned int);
+			ep->un.mdep.func=va_arg(ap,double (*)(size_t,
+				const struct expr *,double));
+			ep->un.mdep.dim=va_arg(ap,size_t);
 			break;
 		case EXPR_HOTFUNCTION:
 			p=va_arg(ap,const char *);
-			len=strlen(p);
-			memcpy(ep->un.hot.expr=xmalloc(len+1),p,len);
-
-			p=va_arg(ap,const char *);
-			len=strlen(p);
-			memcpy(ep->un.hot.asym=xmalloc(len+1),p,len);
+			len=len_expr=strlen(p);
+			p1=va_arg(ap,const char *);
+			len+=len_asym=strlen(p1)+2;
+			ep->length+=len;
+			ep=xrealloc(ep,ep->length);
+			*next=ep;
+			ep->un.hot.expr=ep->hot_expr_asym;
+			ep->un.hot.asym=ep->hot_expr_asym+len_expr+1;
+			memcpy(ep->un.hot.expr,p,len_expr);
+			ep->un.hot.expr[len_expr]=0;
+			memcpy(ep->un.hot.asym,p1,len_asym);
+			ep->un.hot.asym[len_asym]=0;
 			break;
 		default:
-			break;
+			return NULL;
 	}
+	len=strlen(sym);
+	if(len>=EXPR_SYMLEN)len=EXPR_SYMLEN-1;
+	memcpy(ep->str,sym,len+1);
 	ep->type=type;
 	ep->next=NULL;
-	//printf("add:%s,%s(%zu,%p) into %p\n",sym,ep->str,len,addr,&ep->str);
+	//printf("add:%s,%s(%zu) into %p\n",sym,ep->str,len,&ep->str);
 	return ep;
 }
-
+static struct expr_symbol *expr_symset_addcopy(struct expr_symset *restrict esp,const struct expr_symbol *restrict es){
+	struct expr_symbol *ep=expr_symset_findtail(esp);
+	if(ep){
+		ep->next=xmalloc(es->length);
+		ep=ep->next;
+	}else {
+		esp->syms=xmalloc(es->length);
+		ep=esp->syms;
+	}
+	memcpy(ep,es,es->length);
+	ep->next=NULL;
+	return ep;
+}
 const struct expr_symbol *expr_symset_search(const struct expr_symset *restrict esp,const char *sym,size_t sz){
 	for(struct expr_symbol *p=esp->syms;p;p=p->next){
-	//for(i=0;i<1;++i){
-		//printf("%p %zu found %s %p at%p\n",ep->sset,i,ep->sset->syms[i].str,ep->sset->syms[i].str,ep->sset->syms[i].addr);
-		//if(!*ep->sset->syms[i].str)strcpy(ep->sset->syms[i].str,"n1");
+		//puts(p->str);
 		if(sz==strlen(p->str)&&!memcmp(p->str,sym,sz)){
+			return p;
+		}
+	}
+	return NULL;
+}
+const struct expr_symbol *expr_symset_rsearch(const struct expr_symset *restrict esp,void *addr){
+	for(struct expr_symbol *p=esp->syms;p;p=p->next){
+		if(p->un.uaddr==addr){
 			return p;
 		}
 	}
@@ -1353,8 +1392,8 @@ void expr_symset_copy(struct expr_symset *restrict dst,const struct expr_symset 
 	for(struct expr_symbol *p=src->syms;p;p=p->next){
 		//printf("copy %s %p\n",src->syms[i].str,
 		//src->syms[i].addr);
-		memcpy(&expr_symset_add(dst,p->str,
-		p->type,NULL,p->dim)->un,&p->un,sizeof(union expr_symbol_value));
+		//if(p->type==EXPR_HOTFUNCTION)continue;
+		expr_symset_addcopy(dst,p);
 		
 	}
 }
@@ -1962,7 +2001,7 @@ double expr_eval(const struct expr *restrict ep,double input){
 				expr_eval(ip->un.eb->value,input);
 				break;
 			case EXPR_CALLMD:
-				for(unsigned int i=0;i<ip->un.em->dim;++i)
+				for(size_t i=0;i<ip->un.em->dim;++i)
 					ip->un.em->args[i]=
 						expr_eval(
 						ip->un.em->eps+i,input);

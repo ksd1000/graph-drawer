@@ -88,7 +88,7 @@ struct expr_mdinfo {
 		double (*funcep)(size_t,
 			const struct expr *,double);
 	} un;
-	unsigned int dim,unused;
+	size_t dim;
 };
 union expr_inst_op2{
 	double *src;
@@ -109,32 +109,39 @@ union expr_symbol_value {
 	double value;
 	double *addr;
 	void *uaddr;
+	double (*func)(double);
 	struct {
 		char *expr;
 		char *asym;
 	} hot;
-	double (*func)(double);
-	double (*mdfunc)(size_t,double *);
-	double (*mdepfunc)(size_t,
-		const struct expr *,double);
+	struct {
+		double (*func)(size_t,double *);
+		size_t dim;
+	} md;
+	struct {
+		double (*func)(size_t,
+			const struct expr *,double);
+		size_t dim;
+	} mdep;
 };
 struct expr_symbol {
 	union expr_symbol_value un;
 	struct expr_symbol *next;
+	unsigned int length;
 	int type;
-	unsigned int dim;
 	char str[EXPR_SYMLEN];
+	char hot_expr_asym[];
 };
 struct expr_builtin_symbol {
 	union expr_symbol_value un;
 	const char *str;
 	int type;
-	unsigned int dim;
+	size_t dim;
 };
 struct expr_builtin_keyword {
 	const char *str;
 	enum expr_op op;
-	unsigned dim;
+	size_t dim;
 	const char *desc;
 };
 struct expr_symset {

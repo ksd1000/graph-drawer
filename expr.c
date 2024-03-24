@@ -358,6 +358,15 @@ static const struct expr_builtin_symbol *expr_bsym_search(const char *sym,size_t
 	}
 	return NULL;
 }
+static const struct expr_builtin_symbol *expr_bsym_rsearch(void *addr){
+	const struct expr_builtin_symbol *p;
+	for(p=expr_bsyms;p->str;++p){
+		if(p->un.uaddr==addr){
+			return p;
+		}
+	}
+	return NULL;
+}
 #define LISTSYM(esp) if(esp)\
 	for(struct expr_symbol *p=ep->sset->syms;p;p=p->next){\
 		printf("listsym %s %p at %p\n",p->str,\
@@ -1708,6 +1717,23 @@ static void expr_optimize_constneg(struct expr *restrict ep){
 	}
 	expr_optimize_completed(ep);
 }
+static void expr_optimize_injection(struct expr *restrict ep){
+	const struct expr_builtin_symbol *ebs;
+	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
+		if(ip->op!=EXPR_CALL
+			||!(ebs=expr_bsym_rsearch(ip->un.func))
+			||ebs->type!=EXPR_FUNCTION
+			)continue;
+		for(struct expr_inst *ip1=ip-1;ip>=ep->data;--ip1){
+			if(ip1->dst!=ip->dst)continue;
+			if(ip1->op!=EXPR_CONST)break;
+			ip1->un.value=ip->un.func(ip1->un.value);
+			ip->dst=NULL;
+			break;
+		}
+	}
+	expr_optimize_completed(ep);
+}
 static void expr_optimize_copyend(struct expr *restrict ep){
 	struct expr_inst *lip=NULL;
 	struct expr_inst *ip=ep->data;
@@ -1726,6 +1752,8 @@ static void expr_optimize_once(struct expr *restrict ep){
 	//expr_writeconsts(ep);
 	expr_optimize_const(ep);
 	expr_optimize_constneg(ep);
+	expr_optimize_injection(ep);
+
 	/*expr_optimize_contmul(ep,EXPR_POW);
 	expr_optimize_contmul(ep,EXPR_MUL);
 	expr_optimize_contmul(ep,EXPR_DIV);
@@ -1736,6 +1764,7 @@ static void expr_optimize_once(struct expr *restrict ep){
 	expr_optimize_contmul(ep,EXPR_XOR);
 	expr_optimize_contmul(ep,EXPR_OR);*/
 
+	//expr_optimize_contmul(ep,EXPR_COPY);
 	expr_optimize_contmul(ep,EXPR_OR);
 	expr_optimize_contmul(ep,EXPR_XOR);
 	expr_optimize_contmul(ep,EXPR_AND);
@@ -1746,7 +1775,6 @@ static void expr_optimize_once(struct expr *restrict ep){
 	expr_optimize_contmul(ep,EXPR_MUL);
 	expr_optimize_contmul(ep,EXPR_POW);
 
-	//expr_optimize_contmul(ep,EXPR_COPY);
 	expr_optimize_unused(ep);
 	expr_optimize_copyend(ep);
 }

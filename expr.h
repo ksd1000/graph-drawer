@@ -108,6 +108,7 @@ struct expr_inst {
 union expr_symbol_value {
 	double value;
 	double *addr;
+	void *uaddr;
 	struct {
 		char *expr;
 		char *asym;

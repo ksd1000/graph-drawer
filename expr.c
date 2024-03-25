@@ -686,9 +686,9 @@ static struct expr_suminfo *expr_getsuminfo(struct expr *restrict ep,char *e,con
 	//printf("es->index %p\n",&es->index);
 	es->from=new_expr(v[1],asym,ep->sset,&ep->error,ep->errinfo);
 	if(!es->from)goto err1;
-	es->to=new_expr(v[2],asym,sset,&ep->error,ep->errinfo);
+	es->to=new_expr(v[2],asym,ep->sset,&ep->error,ep->errinfo);
 	if(!es->to)goto err2;
-	es->step=new_expr(v[3],asym,sset,&ep->error,ep->errinfo);
+	es->step=new_expr(v[3],asym,ep->sset,&ep->error,ep->errinfo);
 	if(!es->step)goto err3;
 	//sset=expr_symset_clone(ep->sset);
 

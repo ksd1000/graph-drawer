@@ -160,11 +160,11 @@ struct expr_symset {
 };
 struct expr {
 	double *vars;
-	double (*imm)(double);
 	struct expr_inst *data;
 	struct expr_symset *sset;
 	size_t size,length,vsize,vlength;
-	int error,freeable;
+	int error;
+	short freeable,sset_shouldfree;
 	char errinfo[EXPR_SYMLEN];
 };
 struct expr_rawdouble {
@@ -192,7 +192,6 @@ const struct expr_builtin_symbol *expr_bsym_search(const char *sym,size_t sz);
 const struct expr_builtin_symbol *expr_bsym_rsearch(void *addr);
 void expr_free(struct expr *restrict ep);
 struct expr_inst *expr_addop(struct expr *restrict ep,double *dst,void *src,enum expr_op op);
-double *expr_newvar(struct expr *restrict ep);
 void init_expr_symset(struct expr_symset *restrict esp);
 struct expr_symset *new_expr_symset(void);
 void expr_symset_free(struct expr_symset *restrict esp);

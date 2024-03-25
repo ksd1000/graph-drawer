@@ -289,7 +289,7 @@ double graph_pixelstep(const struct graph *restrict gp){
 	return min(x,y);
 }
 
-struct mtarg {
+struct mtarg_ep {
 	struct graph *restrict gp;
 	uint32_t color;
 	int32_t bold;
@@ -298,22 +298,68 @@ struct mtarg {
 	double from,to,step;
 	volatile double *current;
 };
-static void *graph_drawthread(struct mtarg *mt){
+struct mtarg {
+	struct graph *restrict gp;
+	uint32_t color;
+	int32_t bold;
+	double (*x)(double);
+	double (*y)(double);
+	const struct expr *restrict xep;
+	const struct expr *restrict yep;
+	double from,to,step;
+	volatile double *current;
+};
+static void *graph_drawthread_ep(struct mtarg_ep *mt){
 	graph_drawep(mt->gp,mt->color,mt->bold,mt->xep,mt->yep,mt->from,mt->to,mt->step,mt->current);
 	pthread_exit(NULL);
 }
-
-void graph_draw(struct graph *restrict gp,uint32_t color,int32_t bold,double (*x)(double),double (*y)(double),double from,double to,double step,volatile double *current,int thread){
-	struct expr ex,ey;
-	ex.imm=x;
-	ey.imm=y;
-	graph_drawep(gp,color,bold,&ex,&ey,from,to,step,current);
+static void *graph_drawthread(struct mtarg *mt){
+	graph_draw(mt->gp,mt->color,mt->bold,mt->x,mt->y,mt->from,mt->to,mt->step,mt->current);
+	pthread_exit(NULL);
 }
-void graph_draw_mt(struct graph *restrict gp,uint32_t color,int32_t bold,double (*x)(double),double (*y)(double),double from,double to,double step,volatile double *current,int thread){
-	struct expr ex,ey;
-	ex.imm=x;
-	ey.imm=y;
-	graph_drawep_mt(gp,color,bold,&ex,&ey,from,to,step,current,thread);
+void graph_draw(struct graph *restrict gp,uint32_t color,int32_t bold,double (*x)(double),double (*y)(double),double from,double to,double step,volatile double *current){
+	int32_t last[2]={-1,-1};
+	double cur_null,toms=to-step;
+	if(!current)current=&cur_null;
+	for(;from<=toms;from+=step){
+		*current=from;
+		graph_draw_point6(gp,color,bold,x(from),y(from),last);
+	}
+	*current=to;
+	graph_draw_point6(gp,color,bold,x(to),y(to),last);
+	*current=DBL_MAX;
+}
+void graph_draw_mt(struct graph *restrict gp,uint32_t color,int32_t bold,double (*x)(double),double (*y)(double),double from,double to,double step,volatile double *currents,int thread){
+	pthread_t *pts;
+	struct mtarg *mts;
+	double last,gap,lpg;
+	if(thread<2/*||(to-from)<step*pow((double)(thread+1),2)*/){
+		graph_draw(gp,color,bold,x,y,from,to,step,currents);
+		return;
+	}
+	pts=alloca(thread*sizeof(pthread_t));
+	mts=alloca(thread*sizeof(struct mtarg));
+	last=from;
+	gap=(to-from)/thread;
+	for(int i=0;i<thread;++i){
+		mts[i].gp=gp;
+		mts[i].color=color;
+		mts[i].bold=bold;
+		mts[i].x=x;
+		mts[i].y=y;
+		lpg=last+gap;
+		if(lpg>to)lpg=to;
+		mts[i].from=last;
+		mts[i].to=lpg;
+		last=lpg;
+		mts[i].step=step;
+		mts[i].current=currents?currents+i:NULL;
+		pthread_create(pts+i,NULL,(void *(*)(void *))graph_drawthread,mts+i);
+	}
+	for(int i=0;i<thread;++i){
+		pthread_join(pts[i],NULL);
+	}
+	return;
 }
 void graph_drawep(struct graph *restrict gp,uint32_t color,int32_t bold,const struct expr *restrict xep,const struct expr *restrict yep,double from,double to,double step,volatile double *current){
 	int32_t last[2]={-1,-1};
@@ -330,22 +376,22 @@ void graph_drawep(struct graph *restrict gp,uint32_t color,int32_t bold,const st
 
 void graph_drawep_mt(struct graph *restrict gp,uint32_t color,int32_t bold,const struct expr *restrict xeps,const struct expr *restrict yeps,double from,double to,double step,volatile double *currents,int thread){
 	pthread_t *pts;
-	struct mtarg *mts;
+	struct mtarg_ep *mts;
 	double last,gap,lpg;
 	if(thread<2/*||(to-from)<step*pow((double)(thread+1),2)*/){
 		graph_drawep(gp,color,bold,xeps,yeps,from,to,step,currents);
 		return;
 	}
 	pts=alloca(thread*sizeof(pthread_t));
-	mts=alloca(thread*sizeof(struct mtarg));
+	mts=alloca(thread*sizeof(struct mtarg_ep));
 	last=from;
 	gap=(to-from)/thread;
 	for(int i=0;i<thread;++i){
 		mts[i].gp=gp;
 		mts[i].color=color;
 		mts[i].bold=bold;
-		mts[i].xep=xeps+(xeps->imm?0:i);
-		mts[i].yep=yeps+(yeps->imm?0:i);
+		mts[i].xep=xeps+i;
+		mts[i].yep=yeps+i;
 		lpg=last+gap;
 		if(lpg>to)lpg=to;
 		mts[i].from=last;
@@ -353,7 +399,7 @@ void graph_drawep_mt(struct graph *restrict gp,uint32_t color,int32_t bold,const
 		last=lpg;
 		mts[i].step=step;
 		mts[i].current=currents?currents+i:NULL;
-		pthread_create(pts+i,NULL,(void *(*)(void *))graph_drawthread,mts+i);
+		pthread_create(pts+i,NULL,(void *(*)(void *))graph_drawthread_ep,mts+i);
 	}
 	for(int i=0;i<thread;++i){
 		pthread_join(pts[i],NULL);

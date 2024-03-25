@@ -459,23 +459,29 @@ struct expr_inst *expr_addop(struct expr *restrict ep,double *dst,void *src,enum
 	ip->dst=dst;
 	ip->un.src=(double *)src;
 	//printvald(*(double *)&src);
-	//ip->assign_level=0;
 	return ip;
 }
 
-double *expr_newvar(struct expr *restrict ep){
+static double *expr_newvar(struct expr *restrict ep){
 	double *r;
 	if(ep->vsize>=ep->vlength){
-		//LISTSYM(ep->sset)
 		ep->vars=xrealloc(ep->vars,
 			(ep->vlength+=16)*sizeof(double));
-		//LISTSYM(ep->sset)
 	}
 	r=ep->vars+ep->vsize++;
 	*r=NAN;
 	return r;
 }
-
+static double *expr_createvar(struct expr *restrict ep,const char *symbol){
+	double *r=expr_newvar(ep);
+	if(!ep->sset_shouldfree){
+		if(!ep->sset)ep->sset=new_expr_symset();
+		else ep->sset=expr_symset_clone(ep->sset);
+		ep->sset_shouldfree=1;
+	}
+	expr_symset_add(ep->sset,symbol,EXPR_VARIABLE,r);
+	return r;
+}
 static const char *expr_findpair(const char *c){
 	size_t lv=0;
 	if(*c!='(')goto err;
@@ -519,6 +525,15 @@ err:
 static const char *expr_getsym(const char *c){
 	while(*c&&!strchr(special,*c))
 		++c;
+	return c;
+}
+static const char *expr_getsym_expo(const char *c){
+	const char *c0=c;
+	while(*c&&!strchr(special,*c))
+		++c;
+	if(c-c0>=2&&(*c=='-'||*c=='+')&&(c[-1]=='e'||c[-1]=='E')&&((c[-2]<='9'&&c[-2]>=0)||c[-2]=='.')){
+		return expr_getsym(c+1);
+	}
 	return c;
 }
 static int expr_atod2(const char *str,double *dst){
@@ -749,7 +764,7 @@ err0:
 	return NULL;
 }
 static double *expr_scan(struct expr *restrict ep,const char *e,const char *asym);
-static double *expr_getval(struct expr *restrict ep,const char *e,const char **_p,const char *asym){
+static double *expr_getvalue(struct expr *restrict ep,const char *e,const char **_p,const char *asym){
 	const char *p,*p2;//*e0=e
 	char *buf;
 	double *v0=NULL;
@@ -800,7 +815,7 @@ pterr:
 		}else if(*e=='+')continue;
 		//else if(*e==')'&&!expr_unfindpair(e0,e))goto pterr;
 		p=expr_getsym(e);
-	//	fprintf(stderr,"unknown sym %ld %s\n",p-e,e);
+		//fprintf(stderr,"unknown sym %ld %s\n",p-e,e);
 		if(p==e){
 			if(*e&&strchr(special,*e)){
 				*ep->errinfo=*e;
@@ -873,7 +888,7 @@ pterr:
 					//assert(0);
 					return NULL;
 				}
-				v0=expr_getval(ep,p,&e,asym);
+				v0=expr_getvalue(ep,p,&e,asym);
 				//assert(v0);
 				if(!v0)return NULL;
 				expr_addcall(ep,v0,sv->func);
@@ -896,7 +911,7 @@ pterr:
 					//assert(0);
 					return NULL;
 				}
-				v0=expr_getval(ep,p,&e,asym);
+				v0=expr_getvalue(ep,p,&e,asym);
 				//assert(v0);
 				if(!v0)return NULL;
 				un.ep=new_expr(sv->hot.expr,sv->hot.asym
@@ -961,6 +976,7 @@ pterr:
 			}else goto symerr;
 			break;
 number:
+		p=expr_getsym_expo(e);
 		r0=expr_atod(e,p-e,&un.v);
 		if(r0==1){
 			//v1=expr_newvar(ep);
@@ -1053,12 +1069,12 @@ static double *expr_scan(struct expr *restrict ep,const char *e,const char *asym
 		++e;
 	}
 	do {
-//	v0=expr_getval(ep,e,&e,asym,0);
+//	v0=expr_getvalue(ep,e,&e,asym,0);
 //	if(!v0)goto err;
 //	ev=expr_vn(v0,0);
 	v1=NULL;
 		//printvall((long)op);
-		v1=expr_getval(ep,e,&e,asym);
+		v1=expr_getvalue(ep,e,&e,asym);
 		//assert(!ep->error);
 		if(!v1)goto err;
 		ev=expr_vnadd(ev,v1,op);
@@ -1141,16 +1157,29 @@ static double *expr_scan(struct expr *restrict ep,const char *e,const char *asym
 					if(ep->sset)
 					esp=expr_symset_search(ep->sset,e,p1-e);
 					if(!esp){
-						ep->error=EXPR_ESYMBOL;
+						double *v2;
+						char *v2sym;
+						if(expr_bsym_search(e,p1-e))
+							goto tnv;
+						v2sym=xmalloc(p1-e+1);
+						memcpy(v2sym,e,p1-e);
+						v2sym[p1-e]=0;
+						v2=expr_createvar(ep,v2sym);
+						free(v2sym);
+						expr_addcopy(ep,v2,v1);
+						e=p1;
+						continue;
+						/*ep->error=EXPR_ESYMBOL;
 						memcpy(ep->errinfo,e,p1-e);
-						goto err;
+						goto err;*/
 					}
 					if(esp->type!=EXPR_VARIABLE){
-						memcpy(ep->errinfo,e,p1-e);
+tnv:
 						ep->error=EXPR_ETNV;
+						memcpy(ep->errinfo,e,p1-e);
 						goto err;
 					}
-					expr_addcopy(ep,(double *)esp->un.addr,v1);
+					expr_addcopy(ep,esp->un.addr,v1);
 					e=p1;
 					continue;
 				}else {
@@ -1432,8 +1461,8 @@ int init_expr_old(struct expr *restrict ep,const char *e,const char *asym,struct
 	char *ebuf;
 	ep->data=NULL;
 	ep->vars=NULL;
-	ep->imm=NULL;
 	ep->sset=esp;
+	ep->sset_shouldfree=0;
 	ep->error=0;
 	ep->freeable=0;
 	memset(ep->errinfo,0,EXPR_SYMLEN);
@@ -1444,9 +1473,13 @@ int init_expr_old(struct expr *restrict ep,const char *e,const char *asym,struct
 		expr_strcpy_nospace(ebuf,e);
 		p=expr_scan(ep,ebuf,asym);
 		free(ebuf);
-		if(p)
+		if(ep->sset_shouldfree){
+			free(ep->sset);
+			ep->sset=esp;
+		}
+		if(p){
 			expr_addend(ep,p);
-		else {
+		}else {
 			return -1;
 		}
 	}
@@ -1504,10 +1537,12 @@ static int expr_modified(const struct expr *restrict ep,double *v){
 	}
 	return 0;
 }
+static int expr_usesrc(enum expr_op op);
 
 static struct expr_inst *expr_findconst(const struct expr *restrict ep,struct expr_inst *ip){
 	double *s=ip->dst;
 	for(--ip;ip>=ep->data;--ip){
+		if(expr_usesrc(ip->op)&&ip->un.src==s)break;
 		if(ip->dst!=s)continue;
 		if(ip->op==EXPR_CONST)return ip;
 		else break;
@@ -2008,7 +2043,8 @@ static void expr_optimize_copyadd(struct expr *restrict ep){
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
 		if(ip->op!=EXPR_COPY||
 			ip->dst<ep->vars||
-			ip->dst>=ep->vars+ep->vsize)continue;
+			ip->dst>=ep->vars+ep->vsize
+			)continue;
 		ip2=NULL;
 		for(struct expr_inst *ip1=ip+1;ip1->op!=EXPR_END;++ip1){
 			if(ip1->dst==ip->dst)goto fail;
@@ -2027,6 +2063,26 @@ fail:
 	}
 	expr_optimize_completed(ep);
 }
+/*static int expr_optimize_copy2const(struct expr *restrict ep){
+	int r=0;
+	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
+		if(ip->op!=EXPR_COPY
+			//||
+			//ip->dst<ep->vars||
+			//ip->dst>=ep->vars+ep->vsize||
+			//ip->un.src<ep->vars||
+			//ip->un.src>=ep->vars+ep->vsize
+			)continue;
+		if(!expr_modified(ep,ip->un.src)){
+			ip->op=EXPR_CONST;
+			ip->un.value=*ip->un.src;
+			r=1;
+		}
+	}
+	expr_optimize_completed(ep);
+	return r;
+}*/
+//a bug cannot fix
 static void expr_optimize_copyend(struct expr *restrict ep){
 	struct expr_inst *lip=NULL;
 	struct expr_inst *ip=ep->data;
@@ -2080,6 +2136,7 @@ static int expr_optimize_once(struct expr *restrict ep){
 	//expr_optimize_contmul(ep,EXPR_COPY);
 
 	r|=expr_optimize_zero(ep);
+	//r|=expr_optimize_copy2const(ep);
 	expr_optimize_copyadd(ep);
 	expr_optimize_unused(ep);
 	expr_optimize_copyend(ep);
@@ -2101,7 +2158,6 @@ again:
 double expr_eval(const struct expr *restrict ep,double input){
 	double step,sum,from,to,y;
 	int neg;
-	if(ep->imm)return ep->imm(input);
 	for(struct expr_inst *ip=ep->data;;++ip){
 		assert(ip->op>=0);
 		assert(ip->op<=EXPR_END);

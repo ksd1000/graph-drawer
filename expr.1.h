@@ -160,11 +160,11 @@ struct expr_symset {
 };
 struct expr {
 	double *vars;
-	double (*imm)(double);
 	struct expr_inst *data;
 	struct expr_symset *sset;
 	size_t size,length,vsize,vlength;
-	int error,freeable;
+	int error;
+	short freeable,sset_shouldfree;
 	char errinfo[EXPR_SYMLEN];
 };
 struct expr_rawdouble {

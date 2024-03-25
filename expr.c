@@ -17,7 +17,7 @@
 #define NDEBUG
 #include <assert.h>
 //#define free(v)
-static const char *eerror[]={"Unknown error","Unknown symbol","Parentheses do not match","Function and keyword must be followed by a \'(\'","No value in parenthesis","No enough or too much argument","Bad number","Target is not variable","Empty value","Unexpected operator","Zero-argument function must be followed by \'()\'"};
+static const char *eerror[]={"Unknown error","Unknown symbol","Parentheses do not match","Function and keyword must be followed by a \'(\'","No value in parenthesis","No enough or too much argument","Bad number","Target is not variable","Empty value","Unexpected operator","Zero-argument function must be followed by \'()\'","Defined symbol"};
 const char *expr_error(int error){
 	if(error<0)error=-error;
 	if(error>=(sizeof(eerror)/sizeof(*eerror)))return eerror[0];
@@ -1157,21 +1157,11 @@ static double *expr_scan(struct expr *restrict ep,const char *e,const char *asym
 					if(ep->sset)
 					esp=expr_symset_search(ep->sset,e,p1-e);
 					if(!esp){
-						double *v2;
-						char *v2sym;
 						if(expr_bsym_search(e,p1-e))
 							goto tnv;
-						v2sym=xmalloc(p1-e+1);
-						memcpy(v2sym,e,p1-e);
-						v2sym[p1-e]=0;
-						v2=expr_createvar(ep,v2sym);
-						free(v2sym);
-						expr_addcopy(ep,v2,v1);
-						e=p1;
-						continue;
-						/*ep->error=EXPR_ESYMBOL;
+						ep->error=EXPR_ESYMBOL;
 						memcpy(ep->errinfo,e,p1-e);
-						goto err;*/
+						goto err;
 					}
 					if(esp->type!=EXPR_VARIABLE){
 tnv:
@@ -1180,6 +1170,33 @@ tnv:
 						goto err;
 					}
 					expr_addcopy(ep,esp->un.addr,v1);
+					e=p1;
+					continue;
+				}else if(e[1]&&e[1]=='-'&&e[2]=='>'){
+					const char *p1=expr_getsym(e+=3);
+					double *v2;
+					char *v2sym;
+					if(p1==e){
+						if(*e&&strchr(special,*e)){
+							*ep->errinfo=*e;
+							ep->error=EXPR_EUO;
+						}else {
+							ep->error=EXPR_EEV;
+						}
+					goto err;
+					}
+					if(expr_bsym_search(e,p1-e)
+					||(ep->sset&&expr_symset_search(ep->sset,e,p1-e))){
+						ep->error=EXPR_EDS;
+						memcpy(ep->errinfo,e,p1-e);
+						goto err;
+					}
+					v2sym=xmalloc(p1-e+1);
+					memcpy(v2sym,e,p1-e);
+					v2sym[p1-e]=0;
+					v2=expr_createvar(ep,v2sym);
+					free(v2sym);
+					expr_addcopy(ep,v2,v1);
 					e=p1;
 					continue;
 				}else {

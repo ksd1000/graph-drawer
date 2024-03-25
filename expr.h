@@ -64,6 +64,7 @@ EXPR_END
 #define EXPR_EEV 8
 #define EXPR_EUO 9
 #define EXPR_EZAFP 10
+#define EXPR_EDS 11
 
 #define EXPR_CONSTANT 0
 #define EXPR_VARIABLE 1

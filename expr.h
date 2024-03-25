@@ -146,7 +146,6 @@ struct expr_builtin_symbol {
 	union expr_symbol_value un;
 	const char *str;
 	int type,flag;
-	size_t dim;
 };
 struct expr_builtin_keyword {
 	const char *str;

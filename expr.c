@@ -343,8 +343,8 @@ const struct expr_builtin_symbol expr_bsyms[]={
 	REGMDSYM2("lcm",expr_lcm,0),
 	REGMDSYM2("min",expr_min,0),
 	REGMDSYM2("max",expr_max,0),
-	REGMDSYM2("nfact",expr_nfact,2),
-	REGMDSYM2("rand",expr_rand,2),
+	REGMDSYM2("nfact",expr_nfact,2ul),
+	REGMDSYM2("rand",expr_rand,2ul),
 
 	REGMDEPSYM2("piece",expr_piece,0),
 	REGMDEPSYM2("d",expr_derivate,0),
@@ -1990,6 +1990,7 @@ static void expr_optimize_constneg(struct expr *restrict ep){
 	}
 	expr_optimize_completed(ep);
 }
+
 static int expr_injection_symtype(int type){
 	switch(type){
 		case EXPR_FUNCTION:
@@ -2000,31 +2001,36 @@ static int expr_injection_symtype(int type){
 			return 0;
 	}
 }
-static int expr_optimize_injection(struct expr *restrict ep){
+static int expr_isinjection(struct expr *restrict ep,struct expr_inst *ip){
 	union {
 		const struct expr_symbol *es;
 		const struct expr_builtin_symbol *ebs;
 	} sym;
+	switch(ip->op){
+		case EXPR_CALL:
+		case EXPR_CALLZA:
+		//case EXPR_CALLHOT: not work
+			break;
+		default:
+			return 0;
+	}
+	if(ep->sset
+	&&(sym.es=expr_symset_rsearch(ep->sset,ip->un.func))){
+		if(expr_injection_symtype(sym.es->type)
+		&&(sym.es->flag&EXPR_SF_INJECTION))
+			return 1;
+	}else {
+		if((sym.ebs=expr_bsym_rsearch(ip->un.func))
+		&&expr_injection_symtype(sym.ebs->type)
+		&&(sym.ebs->flag&EXPR_SF_INJECTION))
+			return 1;
+	}
+	return 0;
+}
+static int expr_optimize_injection(struct expr *restrict ep){
 	int r=0;
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
-		switch(ip->op){
-			case EXPR_CALL:
-			case EXPR_CALLZA:
-			//case EXPR_CALLHOT: not work
-				break;
-			default:
-				continue;
-		}
-			if(!ep->sset
-				||!(sym.es=expr_symset_rsearch(ep->sset,ip->un.func))
-				||!expr_injection_symtype(sym.es->type)
-				||!(sym.es->flag&EXPR_SF_INJECTION)
-			){
-				if(!(sym.ebs=expr_bsym_rsearch(ip->un.func))
-				||!expr_injection_symtype(sym.ebs->type)
-				||!(sym.ebs->flag&EXPR_SF_INJECTION)
-				)continue;
-			}
+			if(!expr_isinjection(ep,ip))continue;
 			//printf("in %zd\n",ip-ep->data);
 			if(ip->op==EXPR_CALLZA){
 				ip->un.value=ip->un.zafunc();

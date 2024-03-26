@@ -587,10 +587,13 @@ fail:
 size_t expr_strscan(const char *s,size_t sz,char *buf){
 	char *buf0=buf;
 	const char *p,*endp=s+sz;
+	if(!sz||*s!='\"')return 0;
 	for(;;){
-	while(s<endp&&*s!='\"')++s;
+	while(s<endp&&*s!='\"'&&!strchr(spaces,*s))++s;
 	if(!(s<endp))return buf-buf0;
+	//if(*s=='\"')
 	++s;
+	//else return buf-buf0;
 	p=s;
 	do {
 		p=strchr(p+1,'\"');
@@ -777,6 +780,7 @@ static int expr_atod(const char *str,size_t sz,double *dst){
 }
 static char *expr_tok(char *restrict str,char **restrict saveptr){
 	if(str){
+	//	puts(str);
 		*saveptr=str;
 	}else if(!**saveptr)return NULL;
 	else {
@@ -786,6 +790,7 @@ static char *expr_tok(char *restrict str,char **restrict saveptr){
 		if(**saveptr==','){
 			**saveptr=0;
 			++(*saveptr);
+		//	puts(str);
 			return str;
 		}
 		if(**saveptr=='('){
@@ -909,6 +914,13 @@ static struct expr_suminfo *expr_getsuminfo(struct expr *restrict ep,char *e,con
 		//puts(*p);
 		++p;
 	}
+		/*printf("is %zu\n",p-v);
+		puts(v[0]);
+		puts(v[1]);
+		puts(v[2]);
+		puts(v[3]);
+		puts(v[4]);
+		puts(v[5]);*/
 	if(p-v!=5){
 		ep->error=EXPR_ENEA;
 		goto err0;

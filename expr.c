@@ -140,9 +140,9 @@ static double expr_sign(double x){
 	else if(x<-DBL_EPSILON)return -1.0;
 	else return 0.0;
 }
-static double expr_not(double x){
-	if(fabs(x)>DBL_EPSILON)return 0.0;
-	else return 1.0;
+#define expr_not(x) expr_xor2(x,9007199254740991.0/* 2^53-1*/)
+static double expr_notfunc(double x){
+	return expr_not(x);
 }
 static double expr_nnot(double x){
 	if(fabs(x)>DBL_EPSILON)return 1.0;
@@ -270,12 +270,13 @@ static double expr_root2(size_t n,const struct expr *args,double input){
 	neg=(swapbuf<0.0);
 	for(from+=step;from<=to;from+=step){
 		if(fabs(swapbuf=expr_eval(args,from))<=epsilon)return from;
-		if((swapbuf<0.0)!=neg){
-			to=from;
+		if((swapbuf<0.0)==neg)continue;
 			from-=step;
+		do {
 			step/=2.0;
-			if(step<=DBL_EPSILON)return from;
-		}
+			if(step<=epsilon)return from;
+		}while((expr_eval(args,from+step)<0.0)!=neg);
+		from+=step;
 	}
 	return INFINITY;
 }
@@ -367,7 +368,7 @@ const struct expr_builtin_symbol expr_bsyms[]={
 	REGFSYM(logb),
 	REGFSYM(nearbyint),
 	REGFSYM2("nnot",expr_nnot),
-	REGFSYM2("not",expr_not),
+	REGFSYM2("not",expr_notfunc),
 	REGFSYM(rint),
 	REGFSYM(round),
 	REGFSYM2("sign",expr_sign),
@@ -1298,12 +1299,24 @@ static double *expr_scan(struct expr *restrict ep,const char *e,const char *asym
 	double *v1;
 	const char *e0=e;
 	enum expr_op op=0;
-	int neg=0;
+	char neg=0,notl=0,not=0;
 	struct expr_vnode *ev=NULL,*p;
 	//fprintf(stderr,"scan %s\n",e);
-	if(*e=='-'){
-		neg=1;
-		++e;
+	switch(*e){
+		case '-':
+			neg=1;
+			++e;
+			break;
+		case '!':
+			notl=1;
+			++e;
+			break;
+		case '~':
+			not=1;
+			++e;
+			break;
+		default:
+			break;
 	}
 	do {
 //	v0=expr_getvalue(ep,e,&e,asym,0);
@@ -1518,6 +1531,8 @@ end1:
 		}\
 	}
 	//SETPREC1(EXPR_ASSIGN)
+	if(notl)expr_addnotl(ep,ev->v);
+	if(not)expr_addnot(ep,ev->v);
 	SETPREC1(EXPR_POW)
 	SETPREC3(EXPR_MUL,EXPR_DIV,EXPR_MOD)
 	if(neg)expr_addneg(ep,ev->v);
@@ -2124,6 +2139,8 @@ static int expr_side(enum expr_op op){
 		case EXPR_SHL:
 		case EXPR_SHR:
 		case EXPR_NEG:
+		case EXPR_NOT:
+		case EXPR_NOTL:
 		case EXPR_GT:
 		case EXPR_GE:
 		case EXPR_LT:
@@ -2307,11 +2324,31 @@ static void expr_optimize_unused(struct expr *restrict ep){
 }
 static void expr_optimize_constneg(struct expr *restrict ep){
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
-		if(ip->op!=EXPR_NEG)continue;
+		switch(ip->op){
+			case EXPR_NEG:
+			case EXPR_NOT:
+			case EXPR_NOTL:
+				break;
+			default:
+				continue;
+		}
 		for(struct expr_inst *ip1=ip-1;ip>=ep->data;--ip1){
 			if(ip1->dst!=ip->dst)continue;
 			if(ip1->op!=EXPR_CONST)break;
-			ip1->un.value=-ip1->un.value;
+			switch(ip->op){
+				case EXPR_NEG:
+					ip1->un.value=-ip1->un.value;
+					break;
+				case EXPR_NOT:
+					ip1->un.value=expr_not(ip1->un.value);
+					break;
+				case EXPR_NOTL:
+					ip1->un.value=fabs(ip1->un.value)<=DBL_EPSILON?
+						1.0:0.0;
+					break;
+				default:
+					continue;
+			}
 			ip->dst=NULL;
 			break;
 		}
@@ -2560,6 +2597,14 @@ double expr_eval(const struct expr *restrict ep,double input){
 				break;
 			case EXPR_NEG:
 				*ip->dst=-*ip->dst;
+				break;
+			case EXPR_NOT:
+				*ip->dst=expr_not(*ip->dst);
+				break;
+			case EXPR_NOTL:
+				*ip->dst=fabs(*ip->dst)<=DBL_EPSILON?
+					1.0:
+					0.0;
 				break;
 			case EXPR_GT:
 				*ip->dst=*ip->dst>*ip->un.src?

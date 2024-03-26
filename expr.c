@@ -2304,7 +2304,7 @@ static int expr_vcheck_ep(struct expr_inst *ip0,double *v){
 }
 
 
-static int expr_used(struct expr_inst *ip){
+/*static int expr_used(struct expr_inst *ip){
 	struct expr_inst *ip1;
 	int ov;
 	for(ip1=ip+1;;++ip1){
@@ -2322,13 +2322,13 @@ static int expr_used(struct expr_inst *ip){
 		}
 	}
 	return 0;
-}
+}*/
 static void expr_optimize_unused(struct expr *restrict ep){
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
 
 		if(!expr_varofep(ep,ip->dst)
 			||expr_side(ip->op))continue;
-		if(!expr_used(ip)&&!expr_vcheck_ep(ip,ip->dst)){
+		if(/*!expr_used(ip)&&*/!expr_vcheck_ep(ip+1,ip->dst)){
 			ip->dst=NULL;
 		}
 	}
@@ -2446,7 +2446,7 @@ static void expr_optimize_copyadd(struct expr *restrict ep){
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
 		if(ip->op!=EXPR_COPY||
 			!expr_varofep(ep,ip->dst)
-			||expr_vcheck_ep(ip,ip->dst))continue;
+			||expr_vcheck_ep(ip+1,ip->dst))continue;
 		ip2=NULL;
 		for(struct expr_inst *ip1=ip+1;ip1->op!=EXPR_END;++ip1){
 			if(ip1->dst==ip->dst)goto fail;

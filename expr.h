@@ -140,7 +140,7 @@ struct expr_symbol {
 	unsigned int length;
 	int type,flag;
 	char str[EXPR_SYMLEN];
-	char hot_expr_asym[];
+	char data[];
 };
 struct expr_builtin_symbol {
 	union expr_symbol_value un;

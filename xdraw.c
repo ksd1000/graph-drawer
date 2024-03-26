@@ -322,8 +322,8 @@ void graph_draw(struct graph *restrict gp,uint32_t color,int32_t bold,double (*x
 	double cur_null,toms=to-step;
 	if(!current)current=&cur_null;
 	for(;from<=toms;from+=step){
-		*current=from;
 		graph_draw_point6(gp,color,bold,x(from),y(from),last);
+		*current=from;
 	}
 	*current=to;
 	graph_draw_point6(gp,color,bold,x(to),y(to),last);
@@ -366,8 +366,8 @@ void graph_drawep(struct graph *restrict gp,uint32_t color,int32_t bold,const st
 	double cur_null,toms=to-step;
 	if(!current)current=&cur_null;
 	for(;from<=toms;from+=step){
-		*current=from;
 		graph_draw_point6(gp,color,bold,expr_eval(xep,from),expr_eval(yep,from),last);
+		*current=from;
 	}
 	*current=to;
 	graph_draw_point6(gp,color,bold,expr_eval(xep,to),expr_eval(yep,to),last);
@@ -686,23 +686,26 @@ int graph_connect(struct graph *restrict gp,uint32_t color,int32_t bold,double x
 	return graph_connect_pixel(gp,color,bold,xtop(x1),ytop(y1),xtop(x2),ytop(y2));
 }
 #define DRAWXVAL if(gp->draw_value){\
-	snprintf(vb,16,"%.2lf",v);\
-	if(!strcmp(p=strchr(vb,'.'),".00")){\
+	snprintf(vb,16,"%.5lg",v);\
+	if(!strchr(vb,'e')&&!(p=strstr(vb,".00"))){\
 		*p=0;\
 	}\
-	graph_draw_text_pixel(gp,color,0,vb,1,gapline_len*3/2,px+bold+4,ay-gapline_len*5/2);\
+	ih=h=gapline_len*3/2;\
+	while((len=graph_textlen(gp,vb,1,h))>gapxi&&h>=4)h=muldiv(h,gapxi,len);\
+	--h;\
+	graph_draw_text_pixel(gp,color,0,vb,1,h,px+bold+4,ay-gapline_len*5/2+(ih-h));\
 		}
 #define DRAWYVAL if(gp->draw_value){\
-	snprintf(vb,16,"%.2lf",v);\
-	if(!strcmp(p=strchr(vb,'.'),".00")){\
+	snprintf(vb,16,"%.5lg",v);\
+	if(!strchr(vb,'e')&&!(p=strstr(vb,".00"))){\
 		*p=0;\
 	}\
 	graph_draw_text_pixel(gp,color,0,vb,1,gapline_len*3/2,ax+bold+4,py);\
 		}
 void graph_draw_axis(struct graph *restrict gp,uint32_t color,int32_t bold,double gapx,double gapy,uint32_t gapline_len){
-	int32_t px,py,ax=xtop(0),ay=ytop(0);
+	int32_t px,py,ax=xtop(0),ay=ytop(0),gapxi=xtop(gapx),len,h,ih;
 	double v;
-	char vb[16];
+	char vb[32];
 	char *p;
 	graph_draw_hline(gp,color,bold,0,gp->width,ay);
 	graph_draw_vline(gp,color,bold,0,gp->height,ax);

@@ -194,7 +194,7 @@ static double expr_derivate(size_t n,const struct expr *args,double input){
 		expr_eval(args,input-epsilon))/epsilon/2;
 }
 double expr_multilevel_derivate(const struct expr *ep,double input,long level,double epsilon){
-	if(level<1)
+	if(level<1l)
 		return expr_eval(ep,input);
 	else return (expr_multilevel_derivate(
 		ep,input+epsilon,level-1,epsilon
@@ -206,6 +206,78 @@ static double expr_multi_derivate(size_t n,const struct expr *args,double input)
 	double epsilon=(n>=3?expr_eval(args+2,input):FLT_EPSILON);
 	double level=(n>=2?expr_eval(args+1,input):1.0);
 	return expr_multilevel_derivate(args,input,(long)(level+DBL_EPSILON),epsilon);
+}
+static double expr_root(size_t n,const struct expr *args,double input){
+	//root(expression)
+	//root(expression,from)
+	//root(expression,from,to)
+	//root(expression,from,to,step)
+	//root(expression,from,to,step,epsilon)
+	double epsilon=FLT_EPSILON,from=0.0,to=INFINITY,step=FLT_EPSILON,swapbuf;
+	switch(n){
+		case 5:
+			epsilon=fabs(expr_eval(args+4,input));
+		case 4:
+			step=fabs(expr_eval(args+3,input));
+		case 3:
+			to=expr_eval(args+2,input);
+		case 2:
+			from=expr_eval(args+1,input);
+		case 1:
+			break;
+		default:
+			return NAN;
+	}
+	if(from>to){
+		swapbuf=from;
+		from=to;
+		to=swapbuf;
+	}
+	for(;from<=to;from+=step){
+		if(fabs(expr_eval(args,from))<=epsilon)
+			return from;
+	}
+	return INFINITY;
+}
+static double expr_root2(size_t n,const struct expr *args,double input){
+	//root2(expression)
+	//root2(expression,from)
+	//root2(expression,from,to)
+	//root2(expression,from,to,step)
+	//root2(expression,from,to,step,epsilon)
+	double epsilon=DBL_EPSILON,from=0.0,to=INFINITY,step=FLT_EPSILON,swapbuf;
+	int neg;
+	switch(n){
+		case 5:
+			epsilon=fabs(expr_eval(args+4,input));
+		case 4:
+			step=fabs(expr_eval(args+3,input));
+		case 3:
+			to=expr_eval(args+2,input);
+		case 2:
+			from=expr_eval(args+1,input);
+		case 1:
+			break;
+		default:
+			return NAN;
+	}
+	if(from>to){
+		swapbuf=from;
+		from=to;
+		to=swapbuf;
+	}
+	if(fabs(swapbuf=expr_eval(args,from))<=epsilon)return from;
+	neg=(swapbuf<0.0);
+	for(from+=step;from<=to;from+=step){
+		if(fabs(swapbuf=expr_eval(args,from))<=epsilon)return from;
+		if((swapbuf<0.0)!=neg){
+			to=from;
+			from-=step;
+			step/=2.0;
+			if(step<=DBL_EPSILON)return from;
+		}
+	}
+	return INFINITY;
 }
 static double expr_max(size_t n,double *args){
 	double ret=DBL_MIN;
@@ -349,6 +421,8 @@ const struct expr_builtin_symbol expr_bsyms[]={
 	REGMDEPSYM2("piece",expr_piece,0),
 	REGMDEPSYM2("d",expr_derivate,0),
 	REGMDEPSYM2("dn",expr_multi_derivate,0),
+	REGMDEPSYM2("root",expr_root,0),
+	REGMDEPSYM2("root2",expr_root2,0),
 	{.str=NULL}
 };
 const struct expr_builtin_symbol *expr_bsym_search(const char *sym,size_t sz){
@@ -1562,8 +1636,8 @@ struct expr_symbol *expr_symset_vadd(struct expr_symset *restrict esp,const char
 			ep->length+=len;
 			ep=xrealloc(ep,ep->length);
 			*next=ep;
-			ep->un.hot.expr=ep->hot_expr_asym;
-			ep->un.hot.asym=ep->hot_expr_asym+len_expr+1;
+			ep->un.hot.expr=ep->data;
+			ep->un.hot.asym=ep->data+len_expr+1;
 			memcpy(ep->un.hot.expr,p,len_expr);
 			ep->un.hot.expr[len_expr]=0;
 			memcpy(ep->un.hot.asym,p1,len_asym);

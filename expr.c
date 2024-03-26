@@ -2263,7 +2263,7 @@ static int expr_usebranch(enum expr_op op){
 }
 static int expr_vused(struct expr_inst *ip1,double *v){
 	int ov;
-	for(++ip1;;++ip1){
+	for(;;++ip1){
 		ov=expr_override(ip1->op);
 		if((expr_usesrc(ip1->op)&&ip1->un.src==v)
 			||(ip1->dst==v&&!ov)

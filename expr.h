@@ -159,7 +159,7 @@ struct expr_symset {
 	int freeable;
 };
 struct expr {
-	double *vars;
+	double **vars;
 	struct expr_inst *data;
 	struct expr_symset *sset;
 	size_t size,length,vsize,vlength;
@@ -190,6 +190,9 @@ double expr_lcm2(double x,double y);
 double expr_multilevel_derivate(const struct expr *ep,double input,long level,double epsilon);
 const struct expr_builtin_symbol *expr_bsym_search(const char *sym,size_t sz);
 const struct expr_builtin_symbol *expr_bsym_rsearch(void *addr);
+size_t expr_strcopy(const char *s,size_t sz,char *buf);
+size_t expr_strscan(const char *s,size_t sz,char *buf);
+char *expr_astrscan(const char *s,size_t sz,size_t *outsz);
 void expr_free(struct expr *restrict ep);
 struct expr_inst *expr_addop(struct expr *restrict ep,double *dst,void *src,enum expr_op op);
 void init_expr_symset(struct expr_symset *restrict esp);

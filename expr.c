@@ -25,6 +25,7 @@ const char *expr_error(int error){
 }
 static const char spaces[]={" \t\r\f\n\v"};
 static const char special[]={"+-*/%^(),<>=!&|"};
+const static char ntoc[]={"0123456789abcdefg"};
 uint64_t expr_gcd64(uint64_t x,uint64_t y){
 	uint64_t r,r1;
 	r=__builtin_ctzl(x);
@@ -39,7 +40,6 @@ uint64_t expr_gcd64(uint64_t x,uint64_t y){
 	}
 	return (x|y)<<r;
 }
-
 void expr_memrand(void *restrict m,size_t n){
 #if (RAND_MAX>=UINT32_MAX)
 	while(n>=4){
@@ -392,6 +392,150 @@ static void *xrealloc(void *old,size_t size){
 	assert(r != NULL);
 	return r;
 }
+size_t expr_strcopy(const char *s,size_t sz,char *buf){
+	const char *s0=s,*p;
+	char *buf0=buf,v;
+	while(s-s0<sz)switch(*s){
+		case '\\':
+			switch(s[1]){
+				case '\\':
+					*(buf++)='\\';
+					s+=2;
+					break;
+				case 'a':
+					*(buf++)='\a';
+					s+=2;
+					break;
+				case 'b':
+					*(buf++)='\b';
+					s+=2;
+					break;
+				case 'c':
+					*(buf++)='\0';
+					s+=2;
+					break;
+				case 'e':
+					*(buf++)='\033';
+					s+=2;
+					break;
+				case 'f':
+					*(buf++)='\f';
+					s+=2;
+					break;
+				case 'n':
+					*(buf++)='\n';
+					s+=2;
+					break;
+				case 'r':
+					*(buf++)='\r';
+					s+=2;
+					break;
+				case 't':
+					*(buf++)='\t';
+					s+=2;
+					break;
+				case 'v':
+					*(buf++)='\v';
+					s+=2;
+					break;
+				case 'x':
+					p=s+=2;
+					do
+						++p;
+					while(p-s0<sz&&((*p>='0'&&*p<='9')
+						||(*p>='a'&&*p<='f')
+						||(*p>='A'&&*p<='F')
+						)&&p-s<2);
+					if(p==s)goto fail;
+					v=0;
+					while(s<p){
+						v<<=4;
+						switch(*s){
+							case '0':
+							case '1':
+							case '2':
+							case '3':
+							case '4':
+							case '5':
+							case '6':
+							case '7':
+							case '8':
+							case '9':
+								v+=*s-'0';
+								break;
+							case 'a':
+							case 'b':
+							case 'c':
+							case 'd':
+							case 'e':
+							case 'f':
+								v+=*s-'a'+10;
+								break;
+							case 'A':
+							case 'B':
+							case 'C':
+							case 'D':
+							case 'E':
+							case 'F':
+								v+=*s-'A'+10;
+								break;
+							default:
+								abort();
+						}
+						++s;
+					}
+					*(buf++)=v;
+					break;
+				default:
+					p=s+=1;
+					do
+						++p;
+					while(p-s0<sz&&*p>='0'&&*p<='7'&&p-s<3);
+					if(p==s)goto fail;
+					v=0;
+					while(s<p){
+						v<<=3;
+						v+=*s-'0';
+						++s;
+					}
+					*(buf++)=v;
+					break;
+			}
+			break;
+		default:
+			*(buf++)=*(s++);
+			break;
+	}
+fail:
+	return buf-buf0;
+}
+size_t expr_strscan(const char *s,size_t sz,char *buf){
+	char *buf0=buf;
+	const char *p,*endp=s+sz;
+	for(;;){
+	while(s<endp&&*s!='\"')++s;
+	if(!(s<endp))return buf-buf0;
+	++s;
+	p=s;
+	do {
+		p=strchr(p+1,'\"');
+	}while(p&&p>s&&p[-1]=='\\');
+	if(!p||p<=s)return buf-buf0;
+	buf+=expr_strcopy(s,p-s,buf);
+	s=p+1;
+	}
+}
+char *expr_astrscan(const char *s,size_t sz,size_t *outsz){
+	char *buf;
+	buf=xmalloc(sz);
+	*outsz=expr_strscan(s,sz,buf);
+	buf[*outsz]=0;
+	if(!*buf){
+		free(buf);
+		return NULL;
+	}
+	return buf;
+}
 void expr_free(struct expr *restrict ep){
 	struct expr_inst *ip;
 	if(!ep)return;
@@ -443,12 +587,17 @@ void expr_free(struct expr *restrict ep){
 		}
 		free(ep->data);
 	}
-	if(ep->vars)free(ep->vars);
+	if(ep->vars){
+		for(size_t i=0;i<ep->vsize;++i)
+			free(ep->vars[i]);
+		free(ep->vars);
+	}
 	if(ep->freeable)free(ep);
 }
+#define EXTEND_SIZE 1
 #define EXTEND_DATA if(ep->size>=ep->length){\
 	ep->data=xrealloc(ep->data,\
-		(ep->length+=16)*sizeof(struct expr_inst));\
+		(ep->length+=EXTEND_SIZE)*sizeof(struct expr_inst));\
 	}
 __attribute__((noinline))
 struct expr_inst *expr_addop(struct expr *restrict ep,double *dst,void *src,enum expr_op op){
@@ -463,12 +612,12 @@ struct expr_inst *expr_addop(struct expr *restrict ep,double *dst,void *src,enum
 }
 
 static double *expr_newvar(struct expr *restrict ep){
-	double *r;
+	double *r=xmalloc(sizeof(double));
 	if(ep->vsize>=ep->vlength){
 		ep->vars=xrealloc(ep->vars,
-			(ep->vlength+=16)*sizeof(double));
+			(ep->vlength+=EXTEND_SIZE)*sizeof(double *));
 	}
-	r=ep->vars+ep->vsize++;
+	*(ep->vars+ep->vsize++)=r;
 	*r=NAN;
 	return r;
 }
@@ -574,8 +723,8 @@ static char *expr_tok(char *restrict str,char **restrict saveptr){
 	return str;
 }
 static char **expr_sep(struct expr *restrict ep,char *e){
-	char *p,*p1,*p2,**p3=NULL;
-	size_t len=0,s;
+	char *p,*p1,*p2,**p3=NULL,*p5;
+	size_t len=0,s,sz;
 	if(*e=='('){
 		p1=(char *)expr_findpair(e);
 		if(p1){
@@ -594,14 +743,28 @@ static char **expr_sep(struct expr *restrict ep,char *e){
 		return NULL;
 	}
 	for(p=expr_tok(e,&p2);p;p=expr_tok(NULL,&p2)){
-		p1=xmalloc((s=strlen(p))+1);
-		p1[s]=0;
-		memcpy(p1,p,s);
-		//puts(p1);
-		p3=xrealloc(p3,(++len+1)*sizeof(char *));
-		p3[len-1]=p1;
+		s=strlen(p);
+		if((p5=expr_astrscan(p,s,&sz))){
+			for(char *p4=p5;p4-p5<sz;++p4){
+			p1=xmalloc(5);
+			p1[0]='0';
+			p1[1]='x';
+			p1[2]=ntoc[*p4>>4];
+			p1[3]=ntoc[*p4&15];
+			p1[4]=0;
+			p3=xrealloc(p3,(++len+1)*sizeof(char *));
+			p3[len-1]=p1;
+			}
+			free(p5);
+		}else {
+			p1=xmalloc(s+1);
+			p1[s]=0;
+			memcpy(p1,p,s);
+			p3=xrealloc(p3,(++len+1)*sizeof(char *));
+			p3[len-1]=p1;
+		}
 	}
-	p3[len]=NULL;
+	if(p3)p3[len]=NULL;
 	return p3;
 }
 static void expr_free2(char **buf){
@@ -1359,7 +1522,7 @@ struct expr_symbol *expr_symset_vadd(struct expr_symset *restrict esp,const char
 	const char *p,*p1;
 	/*if(ep->size>=ep->length){
 		ep->syms=xrealloc(ep->syms,
-		(ep->length+=16)*sizeof(double));
+		(ep->length+=EXTEND_SIZE)*sizeof(double));
 	}
 	ep=ep->syms+ep->size++;*/
 	len=sizeof(struct expr_symbol);
@@ -1521,10 +1684,20 @@ struct expr *new_expr(const char *e,const char *asym,struct expr_symset *esp,int
 	ep->freeable=1;
 	return ep;
 }
+static int expr_varofep(const struct expr *restrict ep,double *v){
+	for(size_t i=0;i<ep->vsize;++i){
+		if(ep->vars[i]==v){
+	//		printf("%p is var %zu\n",v,i);
+			return 1;
+		}
+	}
+		//puts("var no at");
+	return 0;
+}
 static void expr_writeconsts(struct expr *restrict ep){
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
 		if(ip->op==EXPR_CONST&&
-			ip->dst>=ep->vars&&ip->dst<ep->vars+ep->vsize
+			expr_varofep(ep,ip->dst)
 			){
 			*ip->dst=ip->un.value;
 		}
@@ -1543,7 +1716,7 @@ static void expr_optimize_completed(struct expr *restrict ep){
 	expr_writeconsts(ep);
 }
 static int expr_modified(const struct expr *restrict ep,double *v){
-	if(v<ep->vars||v>=ep->vars+ep->vsize)
+	if(!expr_varofep(ep,v))
 		return 1;
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
 		//printf("checking vars[%zd] at %p on %p\n",(ssize_t)(v-ep->vars),ip->un.src,ep->vars);
@@ -1576,6 +1749,7 @@ static void expr_optimize_contadd(struct expr *restrict ep){
 			||(ip->op!=EXPR_ADD&&ip->op!=EXPR_SUB)
 			||expr_modified(ep,ip->un.src)
 			)continue;
+	//	abort();
 		sum=ip->op==EXPR_ADD?*ip->un.src:-*ip->un.src;
 		for(struct expr_inst *ip1=ip+1;ip1->op!=EXPR_END;++ip1){
 			if(ip1->dst!=ip->dst)continue;
@@ -1891,6 +2065,33 @@ static int expr_side(enum expr_op op){
 			return 1;
 	}
 }
+static int expr_override(enum expr_op op){
+	switch(op){
+		case EXPR_COPY:
+		case EXPR_INPUT:
+		case EXPR_CONST:
+		case EXPR_IF:
+		case EXPR_WHILE:
+		case EXPR_SUM:
+		case EXPR_INT:
+		case EXPR_PROD:
+		case EXPR_SUP:
+		case EXPR_INF:
+		case EXPR_ANDN:
+		case EXPR_ORN:
+		case EXPR_XORN:
+		case EXPR_GCDN:
+		case EXPR_LCMN:
+		case EXPR_LOOP:
+		case EXPR_FOR:
+		case EXPR_CALLZA:
+		case EXPR_CALLMD:
+		case EXPR_CALLMDEP:
+			return 1;
+		default:
+			return 0;
+	}
+}
 static int expr_usesrc(enum expr_op op){
 	switch(op){
 		case EXPR_COPY:
@@ -1920,13 +2121,8 @@ static int expr_usesrc(enum expr_op op){
 			return 0;
 	}
 }
-static int expr_override(enum expr_op op){
+static int expr_usesum(enum expr_op op){
 	switch(op){
-		case EXPR_COPY:
-		case EXPR_INPUT:
-		case EXPR_CONST:
-		case EXPR_IF:
-		case EXPR_WHILE:
 		case EXPR_SUM:
 		case EXPR_INT:
 		case EXPR_PROD:
@@ -1937,41 +2133,99 @@ static int expr_override(enum expr_op op){
 		case EXPR_XORN:
 		case EXPR_GCDN:
 		case EXPR_LCMN:
-		case EXPR_LOOP:
 		case EXPR_FOR:
-		case EXPR_CALLZA:
-		case EXPR_CALLMD:
-		case EXPR_CALLMDEP:
-			return 1;
+		case EXPR_LOOP:
+				return 1;
 		default:
-			return 0;
+				return 0;
 	}
 }
-static int expr_used(struct expr *restrict ep,struct expr_inst *ip){
+static int expr_usemd(enum expr_op op){
+	switch(op){
+		case EXPR_CALLMD:
+		case EXPR_CALLMDEP:
+				return 1;
+		default:
+				return 0;
+	}
+}
+static int expr_usebranch(enum expr_op op){
+	switch(op){
+		case EXPR_IF:
+		case EXPR_WHILE:
+				return 1;
+		default:
+				return 0;
+	}
+}
+static int expr_vused(struct expr_inst *ip1,double *v){
+	int ov;
+	for(++ip1;;++ip1){
+		ov=expr_override(ip1->op);
+		if((expr_usesrc(ip1->op)&&ip1->un.src==v)
+			||(ip1->dst==v&&!ov)
+		){
+			return 1;
+		}
+		if(ip1->dst==v&&ov){
+			return 0;
+		}
+		if(ip1->op==EXPR_END){
+			return 0;
+		}
+	}
+	return 0;
+}
+static int expr_vcheck_ep(struct expr_inst *ip0,double *v){
+	if(expr_vused(ip0,v))return 1;
+	for(struct expr_inst *ip=ip0;ip->op!=EXPR_END;++ip){
+		if(expr_usesum(ip->op)&&(
+			expr_vcheck_ep(ip->un.es->from->data,v)||
+			expr_vcheck_ep(ip->un.es->to->data,v)||
+			expr_vcheck_ep(ip->un.es->step->data,v)||
+			expr_vcheck_ep(ip->un.es->ep->data,v)
+			))return 1;
+		if(expr_usebranch(ip->op)&&(
+			expr_vcheck_ep(ip->un.eb->cond->data,v)||
+			expr_vcheck_ep(ip->un.eb->body->data,v)||
+			expr_vcheck_ep(ip->un.eb->value->data,v)
+			))return 1;
+		if(expr_usemd(ip->op)){
+			for(size_t i=0;i<ip->un.em->dim;++i){
+				if(expr_vcheck_ep(ip->un.em->eps[i].data,v))
+					return 1;
+			}
+		}
+	}
+	return 0;
+}
+
+
+static int expr_used(struct expr_inst *ip){
 	struct expr_inst *ip1;
 	int ov;
-	for(ip1=ip+1;ip1<ep->data+ep->size;++ip1){
+	for(ip1=ip+1;;++ip1){
 		ov=expr_override(ip1->op);
 		if((expr_usesrc(ip1->op)&&ip1->un.src==ip->dst)
 			||(ip1->dst==ip->dst&&!ov)
-				)break;
+		){
+			return 1;
+		}
 		if(ip1->dst==ip->dst&&ov){
-			ip1=ep->data+ep->size;
-			break;
+			return 0;
+		}
+		if(ip1->op==EXPR_END){
+			return 0;
 		}
 	}
-	return ip1!=ep->data+ep->size;
+	return 0;
 }
 static void expr_optimize_unused(struct expr *restrict ep){
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
-		/*printf("%d,%d,%d,%d [%zu]\n",ip->dst<ep->vars
-			,ip->dst>=ep->vars+ep->vsize
-			,expr_side(ip->op)
-			,expr_used(ep,ip),ip-ep->data);*/
-		if(ip->dst<ep->vars
-			||ip->dst>=ep->vars+ep->vsize
+
+		if(!expr_varofep(ep,ip->dst)
 			||expr_side(ip->op))continue;
-		if(!expr_used(ep,ip)){
+		if(!expr_used(ip)&&!expr_vcheck_ep(ip,ip->dst)){
 			ip->dst=NULL;
 		}
 	}
@@ -2065,9 +2319,8 @@ static void expr_optimize_copyadd(struct expr *restrict ep){
 	struct expr_inst *ip2;
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
 		if(ip->op!=EXPR_COPY||
-			ip->dst<ep->vars||
-			ip->dst>=ep->vars+ep->vsize
-			)continue;
+			!expr_varofep(ep,ip->dst)
+			||expr_vcheck_ep(ip,ip->dst))continue;
 		ip2=NULL;
 		for(struct expr_inst *ip1=ip+1;ip1->op!=EXPR_END;++ip1){
 			if(ip1->dst==ip->dst)goto fail;
@@ -2091,10 +2344,8 @@ fail:
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
 		if(ip->op!=EXPR_COPY
 			//||
-			//ip->dst<ep->vars||
-			//ip->dst>=ep->vars+ep->vsize||
-			//ip->un.src<ep->vars||
-			//ip->un.src>=ep->vars+ep->vsize
+			//!expr_varofep(ep,ip->dst)||
+			//!expr_varofep(ep,ip->un.src)
 			)continue;
 		if(!expr_modified(ep,ip->un.src)){
 			ip->op=EXPR_CONST;
@@ -2113,7 +2364,7 @@ static void expr_optimize_copyend(struct expr *restrict ep){
 		lip=ip;
 	}
 	if(lip&&lip->op==EXPR_COPY&&lip->dst==ip->dst&&
-		lip->dst>=ep->vars&&lip->dst<ep->vars+ep->vsize
+		expr_varofep(ep,lip->dst)
 		){
 		ip->dst=lip->un.src;
 		lip->dst=NULL;

@@ -2255,19 +2255,22 @@ static int expr_injection_symtype(int type){
 			return 0;
 	}
 }
+static int expr_injection_optype(enum expr_op op){
+	switch(op){
+		case EXPR_CALL:
+		case EXPR_CALLZA:
+		//case EXPR_CALLHOT: not work
+			return 1;
+		default:
+			return 0;
+	}
+}
 static int expr_isinjection(struct expr *restrict ep,struct expr_inst *ip){
 	union {
 		const struct expr_symbol *es;
 		const struct expr_builtin_symbol *ebs;
 	} sym;
-	switch(ip->op){
-		case EXPR_CALL:
-		case EXPR_CALLZA:
-		//case EXPR_CALLHOT: not work
-			break;
-		default:
-			return 0;
-	}
+	expr_injection_optype(ip->op);
 	if(ep->sset
 	&&(sym.es=expr_symset_rsearch(ep->sset,ip->un.func))){
 		if(expr_injection_symtype(sym.es->type)

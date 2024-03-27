@@ -139,7 +139,7 @@ union expr_symbol_value {
 struct expr_symbol {
 	union expr_symbol_value un;
 	struct expr_symbol *next;
-	unsigned int length;
+	unsigned int length,strlen;
 	int type,flag;
 	char str[EXPR_SYMLEN];
 	char data[];
@@ -147,16 +147,19 @@ struct expr_symbol {
 struct expr_builtin_symbol {
 	union expr_symbol_value un;
 	const char *str;
-	int type,flag;
+	unsigned short strlen;
+	short type,flag,unused;
 };
 struct expr_builtin_keyword {
 	const char *str;
 	enum expr_op op;
-	size_t dim;
+	unsigned short dim;
+	unsigned short strlen;
 	const char *desc;
 };
 struct expr_symset {
 	struct expr_symbol *syms;
+	struct expr_symbol *tail;
 	//size_t size,length;
 	int freeable;
 };

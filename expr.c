@@ -269,12 +269,14 @@ static double expr_root2(size_t n,const struct expr *args,double input){
 	if(fabs(swapbuf=expr_eval(args,from))<=epsilon)return from;
 	neg=(swapbuf<0.0);
 	for(from+=step;from<=to;from+=step){
-		if(fabs(swapbuf=expr_eval(args,from))<=epsilon)return from;
+		if(from+step==from||
+		fabs(swapbuf=expr_eval(args,from))<=epsilon)return from;
+		//printf("neg=%d\tstep=%lg\t%.1024lf\n",neg,step,step);
 		if((swapbuf<0.0)==neg)continue;
-			from-=step;
+		from-=step;
+		if(step<=epsilon)return from;
 		do {
 			step/=2.0;
-			if(step<=epsilon)return from;
 		}while((expr_eval(args,from+step)<0.0)!=neg);
 		from+=step;
 	}
@@ -326,29 +328,29 @@ static double expr_hypot(size_t n,double *args){
 	return sqrt(ret);
 }
 //#define REGSYM(s) {#s,s}
-#define REGFSYM(s) {.str=#s,.un={.func=s},.type=EXPR_FUNCTION,.flag=EXPR_SF_INJECTION}
-#define REGCSYM(s) {.str=#s,.un={.value=s},.type=EXPR_CONSTANT}
-#define REGFSYM2(s,sym) {.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SF_INJECTION}
-#define REGMDSYM2(s,sym,d) {.str=s,.un={.md={.func=sym,.dim=d}},.type=EXPR_MDFUNCTION}
-#define REGMDEPSYM2(s,sym,d) {.str=s,.un={.mdep={.func=sym,.dim=d}},.type=EXPR_MDEPFUNCTION}
-#define REGCSYM2(s,val) {.str=s,.un={.value=val},.type=EXPR_CONSTANT}
-//#define REGSYMMD(s,n) {#s,s,n}
+#define REGFSYM(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.func=s},.type=EXPR_FUNCTION,.flag=EXPR_SF_INJECTION}
+#define REGCSYM(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.value=s},.type=EXPR_CONSTANT}
+#define REGFSYM2(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SF_INJECTION}
+#define REGMDSYM2(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.md={.func=sym,.dim=d}},.type=EXPR_MDFUNCTION}
+#define REGMDEPSYM2(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdep={.func=sym,.dim=d}},.type=EXPR_MDEPFUNCTION}
+#define REGCSYM2(s,val) {.strlen=sizeof(s)-1,.str=s,.un={.value=val},.type=EXPR_CONSTANT}
+#define REGKEY(s,op,dim,desc) {s,op,dim,sizeof(s)-1,desc}
 const struct expr_builtin_keyword expr_keywords[]={
-	{"sum",EXPR_SUM,5,"index_name,start_index,end_index,index_step,addend"},
-	{"int",EXPR_INT,5,"integral_var_name,upper_limit,lower_limit,epsilon,integrand"},
-	{"prod",EXPR_PROD,5,"index_name,start_index,end_index,index_step,factor"},
-	{"pai",EXPR_PROD,5,"index_name,start_index,end_index,index_step,factor"},
-	{"sup",EXPR_SUP,5,"index_name,start_index,end_index,index_step,element"},
-	{"infi",EXPR_INF,5,"index_name,start_index,end_index,index_step,element"},
-	{"AND",EXPR_ANDN,5,"index_name,start_index,end_index,index_step,element"},
-	{"OR",EXPR_ORN,5,"index_name,start_index,end_index,index_step,element"},
-	{"XOR",EXPR_XORN,5,"index_name,start_index,end_index,index_step,element"},
-	{"GCD",EXPR_GCDN,5,"index_name,start_index,end_index,index_step,element"},
-	{"LCM",EXPR_LCMN,5,"index_name,start_index,end_index,index_step,element"},
-	{"for",EXPR_FOR,5,"var_name,start_var,cond,body,value"},
-	{"loop",EXPR_LOOP,5,"var_name,start_var,count,body,value"},
-	{"while",EXPR_WHILE,3,"cond,body,value"},
-	{"if",EXPR_IF,3,"cond,if_value,else_value"},
+	REGKEY("sum",EXPR_SUM,5,"index_name,start_index,end_index,index_step,addend"),
+	REGKEY("int",EXPR_INT,5,"integral_var_name,upper_limit,lower_limit,epsilon,integrand"),
+	REGKEY("prod",EXPR_PROD,5,"index_name,start_index,end_index,index_step,factor"),
+	REGKEY("pai",EXPR_PROD,5,"index_name,start_index,end_index,index_step,factor"),
+	REGKEY("sup",EXPR_SUP,5,"index_name,start_index,end_index,index_step,element"),
+	REGKEY("infi",EXPR_INF,5,"index_name,start_index,end_index,index_step,element"),
+	REGKEY("AND",EXPR_ANDN,5,"index_name,start_index,end_index,index_step,element"),
+	REGKEY("OR",EXPR_ORN,5,"index_name,start_index,end_index,index_step,element"),
+	REGKEY("XOR",EXPR_XORN,5,"index_name,start_index,end_index,index_step,element"),
+	REGKEY("GCD",EXPR_GCDN,5,"index_name,start_index,end_index,index_step,element"),
+	REGKEY("LCM",EXPR_LCMN,5,"index_name,start_index,end_index,index_step,element"),
+	REGKEY("for",EXPR_FOR,5,"var_name,start_var,cond,body,value"),
+	REGKEY("loop",EXPR_LOOP,5,"var_name,start_var,count,body,value"),
+	REGKEY("while",EXPR_WHILE,3,"cond,body,value"),
+	REGKEY("if",EXPR_IF,3,"cond,if_value,else_value"),
 	{NULL}
 };
 const struct expr_builtin_symbol expr_bsyms[]={
@@ -443,17 +445,16 @@ const struct expr_builtin_symbol expr_bsyms[]={
 	{.str=NULL}
 };
 const struct expr_builtin_symbol *expr_bsym_search(const char *sym,size_t sz){
-	const struct expr_builtin_symbol *p;
-	for(p=expr_bsyms;p->str;++p){
-		if(sz==strlen(p->str)&&!memcmp(p->str,sym,sz)){
+	for(const struct expr_builtin_symbol *p=expr_bsyms;p->str;++p){
+		//printf("sz=%zu,ps=%u %s\n",sz,p->strlen,p->str);
+		if(sz==p->strlen&&!memcmp(p->str,sym,sz)){
 			return p;
 		}
 	}
 	return NULL;
 }
 const struct expr_builtin_symbol *expr_bsym_rsearch(void *addr){
-	const struct expr_builtin_symbol *p;
-	for(p=expr_bsyms;p->str;++p){
+	for(const struct expr_builtin_symbol *p=expr_bsyms;p->str;++p){
 		if(p->un.uaddr==addr){
 			return p;
 		}
@@ -1051,7 +1052,7 @@ static double *expr_getvalue(struct expr *restrict ep,const char *e,const char *
 	} sym;
 	const union expr_symbol_value *sv;
 	int type;
-
+	size_t asymlen=strlen(asym);
 	//fprintf(stderr,"getval %u: %s\n",assign_level,e0);
 	for(;;++e){
 		switch(*e){
@@ -1101,7 +1102,7 @@ pterr:
 		}
 		type=-1;
 		for(const struct expr_builtin_keyword *kp=expr_keywords;kp->str;++kp){
-			if(p-e==strlen(kp->str)&&!memcmp(e,kp->str,p-e)){
+			if(p-e==kp->strlen&&!memcmp(e,kp->str,p-e)){
 				type=kp->op;
 			}
 		}
@@ -1140,7 +1141,7 @@ pterr:
 			e=p+1;
 			break;
 		}
-		if(asym&&p-e==strlen(asym)&&!memcmp(e,asym,p-e)){
+		if(asym&&p-e==asymlen&&!memcmp(e,asym,p-e)){
 			v0=expr_newvar(ep);
 			expr_addinput(ep,v0);
 			//fprintf(stderr,"asym %ld %s\n",p-e,e);
@@ -1679,6 +1680,7 @@ err:
 }
 void init_expr_symset(struct expr_symset *restrict esp){
 	esp->syms=NULL;
+	esp->tail=NULL;
 	//esp->length=esp->size=0;
 	esp->freeable=0;
 }
@@ -1711,13 +1713,25 @@ void expr_symset_free(struct expr_symset *restrict esp){
 	}
 	if(esp->freeable)free(esp);
 }
-struct expr_symbol *expr_symset_findtail(const struct expr_symset *restrict esp){
-	struct expr_symbol *p=esp->syms;
+static struct expr_symbol *expr_symset_findtail0(struct expr_symbol *p){
 	while(p){
 		if(!p->next)return p;
 		p=p->next;
 	}
 	return NULL;
+}
+struct expr_symbol *expr_symset_findtail(struct expr_symset *restrict esp){
+	if(!esp->syms)return NULL;
+	if(!esp->tail){
+		return
+		esp->tail=expr_symset_findtail0(esp->syms);
+	}
+	if(esp->tail->next){
+		return
+		esp->tail=expr_symset_findtail0(esp->tail->next);
+	}
+	return esp->tail;
+
 }
 struct expr_symbol *expr_symset_add(struct expr_symset *restrict esp,const char *sym,int type,...){
 	va_list ap;
@@ -1789,6 +1803,7 @@ struct expr_symbol *expr_symset_vadd(struct expr_symset *restrict esp,const char
 	len=strlen(sym);
 	if(len>=EXPR_SYMLEN)len=EXPR_SYMLEN-1;
 	memcpy(ep->str,sym,len+1);
+	ep->strlen=len;
 	ep->type=type;
 	ep->flag=0;
 	ep->next=NULL;
@@ -1811,7 +1826,7 @@ static struct expr_symbol *expr_symset_addcopy(struct expr_symset *restrict esp,
 const struct expr_symbol *expr_symset_search(const struct expr_symset *restrict esp,const char *sym,size_t sz){
 	for(struct expr_symbol *p=esp->syms;p;p=p->next){
 		//puts(p->str);
-		if(sz==strlen(p->str)&&!memcmp(p->str,sym,sz)){
+		if(sz==p->strlen&&!memcmp(p->str,sym,sz)){
 			return p;
 		}
 	}

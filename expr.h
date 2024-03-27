@@ -139,7 +139,7 @@ union expr_symbol_value {
 struct expr_symbol {
 	union expr_symbol_value un;
 	struct expr_symbol *next;
-	unsigned int length;
+	unsigned int length,strlen;
 	int type,flag;
 	char str[EXPR_SYMLEN];
 	char data[];
@@ -147,16 +147,19 @@ struct expr_symbol {
 struct expr_builtin_symbol {
 	union expr_symbol_value un;
 	const char *str;
-	int type,flag;
+	unsigned short strlen;
+	short type,flag,unused;
 };
 struct expr_builtin_keyword {
 	const char *str;
 	enum expr_op op;
-	size_t dim;
+	unsigned short dim;
+	unsigned short strlen;
 	const char *desc;
 };
 struct expr_symset {
 	struct expr_symbol *syms;
+	struct expr_symbol *tail;
 	//size_t size,length;
 	int freeable;
 };
@@ -192,7 +195,6 @@ double expr_lcm2(double x,double y);
 double expr_multilevel_derivate(const struct expr *ep,double input,long level,double epsilon);
 const struct expr_builtin_symbol *expr_bsym_search(const char *sym,size_t sz);
 const struct expr_builtin_symbol *expr_bsym_rsearch(void *addr);
-size_t expr_strcopy(const char *s,size_t sz,char *buf);
 size_t expr_strscan(const char *s,size_t sz,char *buf);
 char *expr_astrscan(const char *s,size_t sz,size_t *outsz);
 void expr_free(struct expr *restrict ep);
@@ -200,7 +202,7 @@ struct expr_inst *expr_addop(struct expr *restrict ep,double *dst,void *src,enum
 void init_expr_symset(struct expr_symset *restrict esp);
 struct expr_symset *new_expr_symset(void);
 void expr_symset_free(struct expr_symset *restrict esp);
-struct expr_symbol *expr_symset_findtail(const struct expr_symset *restrict esp);
+struct expr_symbol *expr_symset_findtail(struct expr_symset *restrict esp);
 struct expr_symbol *expr_symset_add(struct expr_symset *restrict esp,const char *sym,int type,...);
 struct expr_symbol *expr_symset_vadd(struct expr_symset *restrict esp,const char *sym,int type,va_list ap);
 const struct expr_symbol *expr_symset_search(const struct expr_symset *restrict esp,const char *sym,size_t sz);

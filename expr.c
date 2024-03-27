@@ -280,6 +280,20 @@ static double expr_root2(size_t n,const struct expr *args,double input){
 	}
 	return INFINITY;
 }
+static double expr_andl(size_t n,const struct expr *args,double input){
+	for(const struct expr *ep=args;ep-args<n;++ep){
+		if(fabs(expr_eval(ep,input))<=DBL_EPSILON)
+			return 0.0;
+	}
+	return 1.0;
+}
+static double expr_orl(size_t n,const struct expr *args,double input){
+	for(const struct expr *ep=args;ep-args<n;++ep){
+		if(fabs(expr_eval(ep,input))>DBL_EPSILON)
+			return 1.0;
+	}
+	return 0.0;
+}
 static double expr_max(size_t n,double *args){
 	double ret=DBL_MIN;
 	while(n>0){
@@ -419,6 +433,8 @@ const struct expr_builtin_symbol expr_bsyms[]={
 	REGMDSYM2("nfact",expr_nfact,2ul),
 	REGMDSYM2("rand",expr_rand,2ul),
 
+	REGMDEPSYM2("andl",expr_andl,0),
+	REGMDEPSYM2("orl",expr_orl,0),
 	REGMDEPSYM2("piece",expr_piece,0),
 	REGMDEPSYM2("d",expr_derivate,0),
 	REGMDEPSYM2("dn",expr_multi_derivate,0),
@@ -467,13 +483,14 @@ static void *xrealloc(void *old,size_t size){
 	assert(r != NULL);
 	return r;
 }
-size_t expr_strcopy(const char *s,size_t sz,char *buf){
+static size_t expr_strcopy(const char *s,size_t sz,char *buf){
 	const char *s0=s,*p;
 	char *buf0=buf,v;
 	while(s-s0<sz)switch(*s){
 		case '\\':
 			switch(s[1]){
 				case '\\':
+fail:
 					*(buf++)='\\';
 					s+=2;
 					break;
@@ -581,7 +598,6 @@ size_t expr_strcopy(const char *s,size_t sz,char *buf){
 			*(buf++)=*(s++);
 			break;
 	}
-fail:
 	return buf-buf0;
 }
 size_t expr_strscan(const char *s,size_t sz,char *buf){

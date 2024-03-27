@@ -269,8 +269,11 @@ static double expr_root2(size_t n,const struct expr *args,double input){
 	if(fabs(swapbuf=expr_eval(args,from))<=epsilon)return from;
 	neg=(swapbuf<0.0);
 	for(from+=step;from<=to;from+=step){
-		if(from+step==from||
-		fabs(swapbuf=expr_eval(args,from))<=epsilon)return from;
+		if(from+step==from){
+			if(neg)from+=2.0*step;
+			return from;
+		}
+		if(fabs(swapbuf=expr_eval(args,from))<=epsilon)return from;
 		//printf("neg=%d\tstep=%lg\t%.1024lf\n",neg,step,step);
 		if((swapbuf<0.0)==neg)continue;
 		from-=step;
@@ -279,6 +282,34 @@ static double expr_root2(size_t n,const struct expr *args,double input){
 			step/=2.0;
 		}while((expr_eval(args,from+step)<0.0)!=neg);
 		from+=step;
+	}
+	return INFINITY;
+}
+static double expr_rooti(size_t n,const struct expr *args,double input){
+	//root2(expression)
+	//root2(expression,from)
+	//root2(expression,from,epsilon)
+	double epsilon=DBL_EPSILON,from=1.0,swapbuf;
+	switch(n){
+		case 3:
+			epsilon=fabs(expr_eval(args+4,input));
+		case 2:
+			from=expr_eval(args+1,input);
+		case 1:
+			break;
+		default:
+			return NAN;
+	}
+	for(;;){
+		swapbuf=expr_multilevel_derivate(args,from,1,epsilon);
+		if(fabs(swapbuf)==0.0){
+			if(fabs(expr_eval(args,from))<=epsilon)
+				return from;
+			break;
+		}
+		swapbuf=from-expr_eval(args,from)/swapbuf;
+		if(fabs(from-swapbuf)<=epsilon)return swapbuf;
+		from=swapbuf;
 	}
 	return INFINITY;
 }
@@ -442,6 +473,7 @@ const struct expr_builtin_symbol expr_bsyms[]={
 	REGMDEPSYM2("dn",expr_multi_derivate,0),
 	REGMDEPSYM2("root",expr_root,0),
 	REGMDEPSYM2("root2",expr_root2,0),
+	REGMDEPSYM2("rooti",expr_rooti,0),
 	{.str=NULL}
 };
 const struct expr_builtin_symbol *expr_bsym_search(const char *sym,size_t sz){

@@ -1745,6 +1745,14 @@ void expr_symset_free(struct expr_symset *restrict esp){
 }
 int expr_strdiff(const char *restrict s1,size_t len1,const char *restrict s2,size_t len2){
 	if(len1==len2){
+		/*int r,x=len1;
+		while(len1){
+			r=*(s1++)-*(s2++);
+			if(r)return r+x^6;
+			--len1;
+			x=(x*17)%7;
+		}
+		return 0;*/
 		return memcmp(s1,s2,len1);
 	}
 	else if(len1<len2)return -(unsigned int)s2[len1];
@@ -1758,6 +1766,7 @@ struct expr_symbol **expr_symset_findtail(struct expr_symset *restrict esp,const
 		r=expr_strdiff(sym,symlen,p->str,p->strlen);
 		if(!r)return NULL;
 		r&=(EXPR_SYMNEXT-1);
+		//printf("diff:%d\n",r);
 		if(p->next[r])
 			p=p->next[r];
 		else

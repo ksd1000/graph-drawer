@@ -55,7 +55,7 @@ EXPR_XORL,
 EXPR_END
 };
 #define EXPR_SYMLEN 64
-#define EXPR_SYMNEXT 8
+#define EXPR_SYMNEXT 16
 
 #define EXPR_ESYMBOL 1
 #define EXPR_EPT 2

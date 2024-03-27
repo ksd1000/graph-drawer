@@ -55,6 +55,7 @@ EXPR_XORL,
 EXPR_END
 };
 #define EXPR_SYMLEN 64
+#define EXPR_SYMNEXT 8
 
 #define EXPR_ESYMBOL 1
 #define EXPR_EPT 2
@@ -138,12 +139,11 @@ union expr_symbol_value {
 };
 struct expr_symbol {
 	union expr_symbol_value un;
-	struct expr_symbol *next;
+	struct expr_symbol *next[EXPR_SYMNEXT];
 	unsigned int length,strlen;
 	int type,flag;
-	char str[EXPR_SYMLEN];
-	char data[];
-};
+	char str[];
+} __attribute__((packed));
 struct expr_builtin_symbol {
 	union expr_symbol_value un;
 	const char *str;
@@ -159,7 +159,6 @@ struct expr_builtin_keyword {
 };
 struct expr_symset {
 	struct expr_symbol *syms;
-	struct expr_symbol *tail;
 	//size_t size,length;
 	int freeable;
 };

@@ -10,6 +10,7 @@
 #include <stdarg.h>
 #include <time.h>
 #include <float.h>
+#include <err.h>
 #include "expr.h"
 #define printval(x) fprintf(stderr,#x ":%lu\n",x)
 #define printvall(x) fprintf(stderr,#x ":%ld\n",x)
@@ -510,19 +511,22 @@ const struct expr_builtin_symbol *expr_bsym_rsearch(void *addr){
 	puts("");
 static void *xmalloc(size_t size){
 	void *r=malloc(size);
-	assert(r != NULL);
+	if(!r){
+		warn("IN xmalloc(size=%zu)\n"
+			"CANNOT ALLOCATE MEMORY",size);
+		warnx("ABORTING");
+		abort();
+	}
 	return r;
 }
 static void *xrealloc(void *old,size_t size){
-	//void *r=malloc(size);
 	void *r=realloc(old,size);
-	//printf("realloc(%p,%zu)=%p\n",old,size,r);
-	/*void *r=malloc(size);
-	if(old){
-		memcpy(r,old,size-16);
-		free(old);
-	}*/
-	assert(r != NULL);
+	if(!r){
+		warn("IN xrealloc(old=%p,size=%zu)\n"
+			"CANNOT REALLOCATE MEMORY",old,size);
+		warnx("ABORTING");
+		abort();
+	}
 	return r;
 }
 static size_t expr_strcopy(const char *s,size_t sz,char *buf){
@@ -1717,7 +1721,6 @@ err:
 }
 void init_expr_symset(struct expr_symset *restrict esp){
 	esp->syms=NULL;
-	esp->tail=NULL;
 	//esp->length=esp->size=0;
 	esp->freeable=0;
 }
@@ -1727,48 +1730,39 @@ struct expr_symset *new_expr_symset(void){
 	ep->freeable=1;
 	return ep;
 }
-void expr_symset_free(struct expr_symset *restrict esp){
-	struct expr_symbol *p;
-	if(!esp)return;
-	while((p=esp->syms)){
-		esp->syms=p->next;
-		/*switch(p->type){
-			case EXPR_HOTFUNCTION:
-				if(p->un.hot.expr){
-					free(p->un.hot.expr);
-					p->un.hot.expr=NULL;
-				}
-				if(p->un.hot.asym){
-					free(p->un.hot.asym);
-					p->un.hot.asym=NULL;
-				}
-				break;
-			default:
-				break;
-		}*/
-		free(p);
+
+static void expr_symbol_free(struct expr_symbol *restrict esp){
+	for(int i=0;i<EXPR_SYMNEXT;++i){
+		if(!esp->next[i])continue;
+		expr_symbol_free(esp->next[i]);
 	}
+	free(esp);
+}
+void expr_symset_free(struct expr_symset *restrict esp){
+	if(esp->syms)
+		expr_symbol_free(esp->syms);
 	if(esp->freeable)free(esp);
 }
-static struct expr_symbol *expr_symset_findtail0(struct expr_symbol *p){
-	while(p){
-		if(!p->next)return p;
-		p=p->next;
+int expr_strdiff(const char *restrict s1,size_t len1,const char *restrict s2,size_t len2){
+	if(len1==len2){
+		return memcmp(s1,s2,len1);
 	}
-	return NULL;
+	else if(len1<len2)return -(unsigned int)s2[len1];
+	else return (unsigned int)s1[len2];
 }
-struct expr_symbol *expr_symset_findtail(struct expr_symset *restrict esp){
-	if(!esp->syms)return NULL;
-	if(!esp->tail){
-		return
-		esp->tail=expr_symset_findtail0(esp->syms);
+struct expr_symbol **expr_symset_findtail(struct expr_symset *restrict esp,const char *sym,size_t symlen){
+	struct expr_symbol *p;
+	int r;
+	if(!esp->syms)return &esp->syms;
+	for(p=esp->syms;;){
+		r=expr_strdiff(sym,symlen,p->str,p->strlen);
+		if(!r)return NULL;
+		r&=(EXPR_SYMNEXT-1);
+		if(p->next[r])
+			p=p->next[r];
+		else
+			return p->next+r;
 	}
-	if(esp->tail->next){
-		return
-		esp->tail=expr_symset_findtail0(esp->tail->next);
-	}
-	return esp->tail;
-
 }
 struct expr_symbol *expr_symset_add(struct expr_symset *restrict esp,const char *sym,int type,...){
 	va_list ap;
@@ -1790,7 +1784,7 @@ struct expr_symbol *expr_symset_vadd(struct expr_symset *restrict esp,const char
 	return expr_symset_vaddl(esp,sym,strlen(sym),type,ap);
 }
 struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const char *sym,size_t symlen,int type,va_list ap){
-	struct expr_symbol *ep=expr_symset_findtail(esp),**next;
+	struct expr_symbol *ep,**next;
 	size_t len,len_expr,len_asym;
 	const char *p,*p1;
 	/*if(ep->size>=ep->length){
@@ -1798,15 +1792,12 @@ struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const cha
 		(ep->length+=EXTEND_SIZE)*sizeof(double));
 	}
 	ep=ep->syms+ep->size++;*/
-	len=sizeof(struct expr_symbol);
-	if(ep){
-		ep->next=xmalloc(sizeof(struct expr_symbol));
-		next=&ep->next;
-	}else {
-		esp->syms=xmalloc(sizeof(struct expr_symbol));
-		next=&esp->syms;
-	}
-	ep=*next;
+	if(symlen>=EXPR_SYMLEN)symlen=EXPR_SYMLEN-1;
+	next=expr_symset_findtail(esp,sym,symlen);
+	if(!next)return NULL;
+	len=sizeof(struct expr_symbol)+symlen+1;
+	ep=xmalloc(len);
+	memset(&ep->next,0,sizeof(ep->next));
 	ep->length=len;
 	switch(type){
 		case EXPR_CONSTANT:
@@ -1829,14 +1820,13 @@ struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const cha
 			break;
 		case EXPR_HOTFUNCTION:
 			p=va_arg(ap,const char *);
-			len=len_expr=strlen(p);
 			p1=va_arg(ap,const char *);
-			len+=len_asym=strlen(p1)+2;
-			ep->length+=len;
+			len_expr=strlen(p);
+			len_asym=strlen(p1)+2;
+			ep->length+=len_expr+len_asym;
 			ep=xrealloc(ep,ep->length);
-			*next=ep;
-			ep->un.hot.expr=ep->data;
-			ep->un.hot.asym=ep->data+len_expr+1;
+			ep->un.hot.expr=ep->str+symlen+1;
+			ep->un.hot.asym=ep->un.hot.expr+len_expr+1;
 			memcpy(ep->un.hot.expr,p,len_expr);
 			ep->un.hot.expr[len_expr]=0;
 			memcpy(ep->un.hot.asym,p1,len_asym);
@@ -1848,56 +1838,76 @@ struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const cha
 		default:
 			return NULL;
 	}
-	if(symlen>=EXPR_SYMLEN)symlen=EXPR_SYMLEN-1;
 	memcpy(ep->str,sym,symlen);
 	ep->str[symlen]=0;
 	ep->strlen=symlen;
 	ep->type=type;
 	ep->flag=0;
-	ep->next=NULL;
-	esp->tail=ep;
+	*next=ep;
 	//printf("add:%s,%s(%zu) into %p\n",sym,ep->str,len,&ep->str);
 	return ep;
 }
 struct expr_symbol *expr_symset_addcopy(struct expr_symset *restrict esp,const struct expr_symbol *restrict es){
-	struct expr_symbol *ep=expr_symset_findtail(esp);
+	struct expr_symbol *restrict *ep=expr_symset_findtail(esp,es->str,es->strlen);
 	if(ep){
-		ep->next=xmalloc(es->length);
-		ep=ep->next;
+		*ep=xmalloc(es->length);
 	}else {
-		esp->syms=xmalloc(es->length);
-		ep=esp->syms;
+		return NULL;
 	}
-	memcpy(ep,es,es->length);
-	ep->next=NULL;
-	return ep;
+	memcpy(*ep,es,es->length);
+	memset(&(*ep)->next,0,sizeof((*ep)->next));
+	return *ep;
 }
-const struct expr_symbol *expr_symset_search(const struct expr_symset *restrict esp,const char *sym,size_t sz){
-	for(struct expr_symbol *p=esp->syms;p;p=p->next){
+struct expr_symbol *expr_symset_search(const struct expr_symset *restrict esp,const char *sym,size_t sz){
+	int r;
+	for(struct expr_symbol *p=esp->syms;p;){
 		//puts(p->str);
-		if(sz==p->strlen&&!memcmp(p->str,sym,sz)){
+		r=expr_strdiff(sym,sz,p->str,p->strlen);
+		if(!r){
+		//if(sz==p->strlen&&!memcmp(p->str,sym,sz)){
 			return p;
 		}
+		p=p->next[r&(EXPR_SYMNEXT-1)];
 	}
 	return NULL;
 }
-const struct expr_symbol *expr_symset_rsearch(const struct expr_symset *restrict esp,void *addr){
-	for(struct expr_symbol *p=esp->syms;p;p=p->next){
+static struct expr_symbol *expr_symset_rsearch_symbol(struct expr_symbol *esp,void *addr){
+	struct expr_symbol *p;
+	if(esp->un.uaddr==addr)return esp;
+	for(int i=0;i<EXPR_SYMNEXT;++i){
+		if(!esp->next[i])continue;
+		p=expr_symset_rsearch_symbol(esp->next[i],addr);
+		if(p)return p;
+	}
+	return NULL;
+	/*for(struct expr_symbol *p=esp->syms;p;p=p->next){
 		if(p->un.uaddr==addr){
 			return p;
 		}
 	}
-	return NULL;
+	return NULL;*/
+}
+struct expr_symbol *expr_symset_rsearch(const struct expr_symset *restrict esp,void *addr){
+	if(!esp->syms)return NULL;
+	return expr_symset_rsearch_symbol(esp->syms,addr);
+}
+static void expr_symset_copy_symbol(struct expr_symset *restrict dst,const struct expr_symbol *restrict src){
+	expr_symset_addcopy(dst,src);
+	for(int i=0;i<EXPR_SYMNEXT;++i){
+		if(!src->next[i])continue;
+		expr_symset_copy_symbol(dst,src->next[i]);
+	}
 }
 void expr_symset_copy(struct expr_symset *restrict dst,const struct expr_symset *restrict src){
-	if(src)
-	for(struct expr_symbol *p=src->syms;p;p=p->next){
+	if(src&&src->syms)
+		expr_symset_copy_symbol(dst,src->syms);
+	/*for(struct expr_symbol *p=src->syms;p;p=p->next){
 		//printf("copy %s %p\n",src->syms[i].str,
 		//src->syms[i].addr);
 		//if(p->type==EXPR_HOTFUNCTION)continue;
 		expr_symset_addcopy(dst,p);
 		
-	}
+	}*/
 }
 struct expr_symset *expr_symset_clone(const struct expr_symset *restrict ep){
 	struct expr_symset *es=new_expr_symset();

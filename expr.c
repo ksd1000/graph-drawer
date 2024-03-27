@@ -246,7 +246,7 @@ static double expr_root2(size_t n,const struct expr *args,double input){
 	//root2(expression,from,to,step)
 	//root2(expression,from,to,step,epsilon)
 	double epsilon=0.0,from=0.0,to=INFINITY,step=1.0,swapbuf;
-	int neg;
+	int neg,trunc=0;
 	switch(n){
 		case 5:
 			epsilon=fabs(expr_eval(args+4,input));
@@ -265,25 +265,34 @@ static double expr_root2(size_t n,const struct expr *args,double input){
 		swapbuf=from;
 		from=to;
 		to=swapbuf;
+		trunc=1;
 	}
-	if(fabs(swapbuf=expr_eval(args,from))<=epsilon)return from;
-	neg=(swapbuf<0.0);
+	swapbuf=expr_eval(args,from);
+	neg=(swapbuf<-0.0);
+	if(fabs(swapbuf)<=epsilon)goto end;
 	for(from+=step;from<=to;from+=step){
 		if(from+step==from){
-			if(neg)from+=2.0*step;
-			return from;
+			//if(neg)from+=2.0*step;
+			goto end1;
 		}
-		if(fabs(swapbuf=expr_eval(args,from))<=epsilon)return from;
+		if(fabs(swapbuf=expr_eval(args,from))<=epsilon)goto end;
 		//printf("neg=%d\tstep=%lg\t%.1024lf\n",neg,step,step);
-		if((swapbuf<0.0)==neg)continue;
+		if((swapbuf<-0.0)==neg)continue;
 		from-=step;
-		if(step<=epsilon)return from;
+		if(step<=epsilon)goto end;
 		do {
 			step/=2.0;
 		}while((expr_eval(args,from+step)<0.0)!=neg);
 		from+=step;
 	}
 	return INFINITY;
+end1:
+	if(!trunc)swapbuf=expr_eval(args,from);
+end:
+	//from+=neg?2.0*step:step;
+	if(!trunc&&fabs(swapbuf)>epsilon)
+		return from+2.0*step;
+	return from;
 }
 static double expr_rooti(size_t n,const struct expr *args,double input){
 	//root2(expression)

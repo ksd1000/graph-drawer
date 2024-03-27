@@ -1284,19 +1284,21 @@ struct expr_vnode {
 	struct expr_vnode *next;
 	double *v;
 	enum expr_op op;
+	unsigned int unary;
 };
-static struct expr_vnode *expr_vn(double *v,enum expr_op op){
+static struct expr_vnode *expr_vn(double *v,enum expr_op op,unsigned int unary){
 	struct expr_vnode *p;
 	p=xmalloc(sizeof(struct expr_vnode));
 	p->next=NULL;
 	p->v=v;
 	p->op=op;
+	p->unary=unary;
 	return p;
 }
-static struct expr_vnode *expr_vnadd(struct expr_vnode *vp,double *v,enum expr_op op){
+static struct expr_vnode *expr_vnadd(struct expr_vnode *vp,double *v,enum expr_op op,unsigned int unary){
 	struct expr_vnode *p;
 	//fprintf(stderr,"vp %p\n",vp);
-	if(!vp)return expr_vn(v,op);
+	if(!vp)return expr_vn(v,op,unary);
 	for(p=vp;p->next;p=p->next);
 //	//fprintf(stderr,"p %p\n",p);
 //	//fprintf(stderr,"p %p\n",p);
@@ -1304,11 +1306,55 @@ static struct expr_vnode *expr_vnadd(struct expr_vnode *vp,double *v,enum expr_o
 //	//fprintf(stderr,"p->next %p\n",p->next);
 	p->next->v=v;
 	p->next->op=op;
+	p->next->unary=unary;
 	p->next->next=NULL;
 	return vp;
 }
+
+static int expr_do_unary(struct expr *restrict ep,struct expr_vnode *ev,int prec){
+	int r=0;;
+	for(struct expr_vnode *p=ev;p;p=p->next){
+redo:
+	switch(prec){
+		case 2:
+			//printf("is %d\n",p->unary);
+			switch(p->unary&3){
+				case 2:
+					expr_addnotl(ep,p->v);
+					break;
+				case 3:
+					expr_addnot(ep,p->v);
+					break;
+				default:
+					continue;
+			}
+			r=1;
+			p->unary>>=2;
+			//if(!p->unary)continue;
+			goto redo;
+		case 4:
+			//printf("is %d\n",p->unary);
+			switch(p->unary&3){
+				case 1:
+					expr_addneg(ep,p->v);
+					break;
+				default:
+					continue;
+			}
+			r=1;
+			p->unary>>=2;
+			//if(!p->unary)continue;
+			goto redo;
+		default:
+			continue;
+	}
+
+	}
+	return r;
+}
 static void expr_vnunion(struct expr *restrict ep,struct expr_vnode *ev){
 	struct expr_vnode *p;
+
 	expr_addop(ep,ev->v,ev->next->v,ev->next->op);
 	/*if(ev->next->op==EXPR_ASSIGN){
 		for(size_t i=0;i<ep->size;++i){
@@ -1324,6 +1370,7 @@ static void expr_vnunion(struct expr *restrict ep,struct expr_vnode *ev){
 	}*/
 	p=ev->next;
 	ev->next=ev->next->next;
+
 	free(p);
 }
 static void expr_vnfree(struct expr_vnode *vp){
@@ -1338,26 +1385,43 @@ static double *expr_scan(struct expr *restrict ep,const char *e,const char *asym
 	double *v1;
 	const char *e0=e;
 	enum expr_op op=0;
-	char neg=0,notl=0,not=0;
+	unsigned int unary;
 	struct expr_vnode *ev=NULL,*p;
 	//fprintf(stderr,"scan %s\n",e);
+
+	do {
+	unary=0;
+redo:
 	switch(*e){
 		case '-':
-			neg=1;
-			++e;
-			break;
 		case '!':
-			notl=1;
-			++e;
-			break;
 		case '~':
-			not=1;
-			++e;
-			break;
+			if(unary&0xc0000000){
+				if(*e&&strchr(special,*e)){
+					*ep->errinfo=*e;
+					ep->error=EXPR_EUO;
+				}else {
+					ep->error=EXPR_EEV;
+				}
+				goto err;
+			}
 		default:
 			break;
 	}
-	do {
+	switch(*e){
+		case '-':
+			unary=(unary<<2)|1;
+			++e;
+			goto redo;
+		case '!':
+			unary=(unary<<2)|2;
+			++e;
+			goto redo;
+		case '~':
+			unary=(unary<<2)|3;
+			++e;
+			goto redo;
+	}
 //	v0=expr_getvalue(ep,e,&e,asym,0);
 //	if(!v0)goto err;
 //	ev=expr_vn(v0,0);
@@ -1366,7 +1430,7 @@ static double *expr_scan(struct expr *restrict ep,const char *e,const char *asym
 		v1=expr_getvalue(ep,e,&e,asym);
 		//assert(!ep->error);
 		if(!v1)goto err;
-		ev=expr_vnadd(ev,v1,op);
+		ev=expr_vnadd(ev,v1,op,unary);
 	op=EXPR_END;
 	for(;*e;){
 		switch(*e){
@@ -1570,11 +1634,14 @@ end1:
 		}\
 	}
 	//SETPREC1(EXPR_ASSIGN)
-	if(notl)expr_addnotl(ep,ev->v);
-	if(not)expr_addnot(ep,ev->v);
+	//if(notl)expr_addnotl(ep,ev->v);
+	//if(not)expr_addnot(ep,ev->v);
+	expr_do_unary(ep,ev,2);
 	SETPREC1(EXPR_POW)
+	expr_do_unary(ep,ev,4);
+	while(expr_do_unary(ep,ev,2)&&expr_do_unary(ep,ev,4));
 	SETPREC3(EXPR_MUL,EXPR_DIV,EXPR_MOD)
-	if(neg)expr_addneg(ep,ev->v);
+	//if(neg)expr_addneg(ep,ev->v);
 	SETPREC2(EXPR_ADD,EXPR_SUB)
 	SETPREC2(EXPR_SHL,EXPR_SHR)
 	SETPREC4(EXPR_LT,EXPR_LE,EXPR_GT,EXPR_GE)
@@ -1591,7 +1658,7 @@ end1:
 	expr_vnfree(ev);
 	return v1;
 err:
-	expr_vnfree(ev);
+	if(ev)expr_vnfree(ev);
 	return NULL;
 }
 void init_expr_symset(struct expr_symset *restrict esp){

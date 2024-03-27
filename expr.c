@@ -700,7 +700,7 @@ void expr_free(struct expr *restrict ep){
 					break;
 				case EXPR_CALLMD:
 					free(ip->un.em->args);
-				case EXPR_CALLMDEP:
+				case EXPR_CALLME:
 					for(size_t i=0;i<ip->un.em->dim;++i)
 						expr_free(ip->un.em->eps+i);
 					free(ip->un.em->eps);
@@ -1445,6 +1445,7 @@ static double *expr_scan(struct expr *restrict ep,const char *e,const char *asym
 	enum expr_op op=0;
 	unsigned int unary;
 	struct expr_vnode *ev=NULL,*p;
+	size_t asymlen=strlen(asym);
 	//fprintf(stderr,"scan %s\n",e);
 
 	do {
@@ -1565,6 +1566,8 @@ redo:
 						}
 					goto err;
 					}
+					if(p1-e==asymlen&&!memcmp(e,asym,p1-e))
+						goto tnv;
 					if(ep->sset)
 					esp=expr_symset_search(ep->sset,e,p1-e);
 					if(!esp){
@@ -1596,8 +1599,9 @@ tnv:
 						}
 					goto err;
 					}
-					if(expr_bsym_search(e,p1-e)
-					||(ep->sset&&expr_symset_search(ep->sset,e,p1-e))){
+					if((p1-e==asymlen&&!memcmp(e,asym,p1-e))
+					||(expr_bsym_search(e,p1-e)
+					||(ep->sset&&expr_symset_search(ep->sset,e,p1-e)))){
 						ep->error=EXPR_EDS;
 						memcpy(ep->errinfo,e,p1-e);
 						goto err;
@@ -2355,7 +2359,7 @@ static int expr_override(enum expr_op op){
 		case EXPR_FOR:
 		case EXPR_CALLZA:
 		case EXPR_CALLMD:
-		case EXPR_CALLMDEP:
+		case EXPR_CALLME:
 			return 1;
 		default:
 			return 0;
@@ -2412,7 +2416,7 @@ static int expr_usesum(enum expr_op op){
 static int expr_usemd(enum expr_op op){
 	switch(op){
 		case EXPR_CALLMD:
-		case EXPR_CALLMDEP:
+		case EXPR_CALLME:
 				return 1;
 		default:
 				return 0;
@@ -2919,7 +2923,7 @@ double expr_eval(const struct expr *restrict ep,double input){
 				
 				*ip->dst=ip->un.em->un.func(ip->un.em->dim,ip->un.em->args);
 				break;
-			case EXPR_CALLMDEP:
+			case EXPR_CALLME:
 				*ip->dst=ip->un.em->un.funcep(ip->un.em->dim,ip->un.em->eps,input);
 				break;
 			case EXPR_CALLHOT:

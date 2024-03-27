@@ -40,7 +40,7 @@ EXPR_LOOP,
 EXPR_FOR,
 EXPR_CALLZA,
 EXPR_CALLMD,
-EXPR_CALLMDEP,
+EXPR_CALLME,
 EXPR_CALLHOT,
 EXPR_GT,
 EXPR_GE,
@@ -229,7 +229,7 @@ double expr_eval(const struct expr *restrict ep,double input);
 #define expr_addend(e,t) expr_addop(e,t,NULL,EXPR_END)
 #define expr_addcallza(e,t,em) expr_addop(e,t,em,EXPR_CALLZA)
 #define expr_addcallmd(e,t,em) expr_addop(e,t,em,EXPR_CALLMD)
-#define expr_addcallmdep(e,t,em) expr_addop(e,t,em,EXPR_CALLMDEP)
+#define expr_addcallmdep(e,t,em) expr_addop(e,t,em,EXPR_CALLME)
 #define expr_addcallhot(e,t,em) expr_addop(e,t,em,EXPR_CALLHOT)
 //#define expr_addconst(e,t,v) expr_addop(e,t,v,EXPR_CONST)
 //#define expr_addconst(e,t,v) expr_addop(e,t,*(void **)(v),EXPR_CONST)

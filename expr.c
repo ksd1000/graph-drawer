@@ -526,13 +526,12 @@ static void *xrealloc(void *old,size_t size){
 	return r;
 }
 static size_t expr_strcopy(const char *s,size_t sz,char *buf){
-	const char *s0=s,*p;
+	const char *s0=s,*p,*s1;
 	char *buf0=buf,v;
 	while(s-s0<sz)switch(*s){
 		case '\\':
 			switch(s[1]){
 				case '\\':
-fail:
 					*(buf++)='\\';
 					s+=2;
 					break;
@@ -573,13 +572,12 @@ fail:
 					s+=2;
 					break;
 				case 'x':
+					s1=s;
 					p=s+=2;
-					do
-						++p;
 					while(p-s0<sz&&((*p>='0'&&*p<='9')
 						||(*p>='a'&&*p<='f')
 						||(*p>='A'&&*p<='F')
-						)&&p-s<2);
+						)&&p-s<2)++p;
 					if(p==s)goto fail;
 					v=0;
 					while(s<p){
@@ -614,17 +612,17 @@ fail:
 								v+=*s-'A'+10;
 								break;
 							default:
-								abort();
+								goto fail;
 						}
 						++s;
 					}
 					*(buf++)=v;
 					break;
 				default:
+					s1=s;
 					p=s+=1;
-					do
-						++p;
-					while(p-s0<sz&&*p>='0'&&*p<='7'&&p-s<3);
+					while(p-s0<sz&&*p>='0'&&*p<='7'&&p-s<3)
+						++p;;
 					if(p==s)goto fail;
 					v=0;
 					while(s<p){
@@ -633,6 +631,10 @@ fail:
 						++s;
 					}
 					*(buf++)=v;
+					break;
+fail:
+					*(buf++)=s1[1];
+					s=s1+2;
 					break;
 			}
 			break;
@@ -757,14 +759,14 @@ static double *expr_newvar(struct expr *restrict ep){
 	*r=NAN;
 	return r;
 }
-static double *expr_createvar(struct expr *restrict ep,const char *symbol){
+static double *expr_createvar(struct expr *restrict ep,const char *symbol,size_t symlen){
 	double *r=expr_newvar(ep);
 	if(!ep->sset_shouldfree){
 		if(!ep->sset)ep->sset=new_expr_symset();
 		else ep->sset=expr_symset_clone(ep->sset);
 		ep->sset_shouldfree=1;
 	}
-	expr_symset_add(ep->sset,symbol,EXPR_VARIABLE,r);
+	expr_symset_addl(ep->sset,symbol,symlen,EXPR_VARIABLE,r);
 	return r;
 }
 static const char *expr_findpair(const char *c){
@@ -1074,8 +1076,8 @@ err0:
 	expr_free2(v);
 	return NULL;
 }
-static double *expr_scan(struct expr *restrict ep,const char *e,const char *asym);
-static double *expr_getvalue(struct expr *restrict ep,const char *e,const char **_p,const char *asym){
+static double *expr_scan(struct expr *restrict ep,const char *e,const char *asym,size_t asymlen);
+static double *expr_getvalue(struct expr *restrict ep,const char *e,const char **_p,const char *asym,size_t asymlen){
 	const char *p,*p2;//*e0=e
 	char *buf;
 	double *v0=NULL;
@@ -1093,7 +1095,6 @@ static double *expr_getvalue(struct expr *restrict ep,const char *e,const char *
 	} sym;
 	const union expr_symbol_value *sv;
 	int type;
-	size_t asymlen=strlen(asym);
 	//fprintf(stderr,"getval %u: %s\n",assign_level,e0);
 	for(;;++e){
 		switch(*e){
@@ -1118,7 +1119,7 @@ pterr:
 				buf=xmalloc(p-e);
 				buf[p-e-1]=0;
 				memcpy(buf,e+1,p-e-1);
-				v0=expr_scan(ep,buf,asym);
+				v0=expr_scan(ep,buf,asym,asymlen);
 				free(buf);
 				//assert(v0);
 				if(!v0)return NULL;
@@ -1141,13 +1142,10 @@ pterr:
 			}
 			goto symerr;
 		}
-		type=-1;
-		for(const struct expr_builtin_keyword *kp=expr_keywords;kp->str;++kp){
-			if(p-e==kp->strlen&&!memcmp(e,kp->str,p-e)){
-				type=kp->op;
-			}
-		}
-		if(type!=-1){
+		for(const struct expr_builtin_keyword *kp=expr_keywords;
+				kp->str;++kp){
+			if(p-e!=kp->strlen||memcmp(e,kp->str,p-e))
+				continue;
 			if(*p!='('){
 				memcpy(ep->errinfo,e,p-e);
 				ep->error=EXPR_EFP;
@@ -1161,7 +1159,7 @@ pterr:
 			buf=xmalloc(p-e+2);
 			buf[p-e+1]=0;
 			memcpy(buf,e,p-e+1);
-			switch(type){
+			switch(kp->op){
 				case EXPR_IF:
 				case EXPR_WHILE:
 					un.eb=expr_getbranchinfo(ep,p2,e-p2,buf,asym);
@@ -1178,16 +1176,16 @@ pterr:
 				return NULL;
 			}
 			v0=expr_newvar(ep);
-			expr_addop(ep,v0,un.es,type);
+			expr_addop(ep,v0,un.es,kp->op);
 			e=p+1;
-			break;
+			goto vend;
 		}
 		if(asym&&p-e==asymlen&&!memcmp(e,asym,p-e)){
 			v0=expr_newvar(ep);
 			expr_addinput(ep,v0);
 			//fprintf(stderr,"asym %ld %s\n",p-e,e);
 			e=p;
-			break;
+			goto vend;
 		}
 		//p1=expr_sym2addr(ep,e,p-e,&type,&dim);
 		//fprintf(stderr,"find sym %ld %s\n",p-e,e);
@@ -1207,7 +1205,7 @@ pterr:
 					//assert(0);
 					return NULL;
 				}
-				v0=expr_getvalue(ep,p,&e,asym);
+				v0=expr_getvalue(ep,p,&e,asym,asymlen);
 				//assert(v0);
 				if(!v0)return NULL;
 				expr_addcall(ep,v0,sv->func);
@@ -1234,7 +1232,7 @@ pterr:
 					//assert(0);
 					return NULL;
 				}
-				v0=expr_getvalue(ep,p,&e,asym);
+				v0=expr_getvalue(ep,p,&e,asym,asymlen);
 				//assert(v0);
 				if(!v0)return NULL;
 				un.ep=new_expr(sv->hot.expr,sv->hot.asym
@@ -1439,13 +1437,12 @@ static void expr_vnfree(struct expr_vnode *vp){
 		vp=p;
 	}
 }
-static double *expr_scan(struct expr *restrict ep,const char *e,const char *asym){
+static double *expr_scan(struct expr *restrict ep,const char *e,const char *asym,size_t asymlen){
 	double *v1;
 	const char *e0=e;
 	enum expr_op op=0;
 	unsigned int unary;
 	struct expr_vnode *ev=NULL,*p;
-	size_t asymlen=strlen(asym);
 	//fprintf(stderr,"scan %s\n",e);
 
 	do {
@@ -1486,7 +1483,7 @@ redo:
 //	ev=expr_vn(v0,0);
 	v1=NULL;
 		//printvall((long)op);
-		v1=expr_getvalue(ep,e,&e,asym);
+		v1=expr_getvalue(ep,e,&e,asym,asymlen);
 		//assert(!ep->error);
 		if(!v1)goto err;
 		ev=expr_vnadd(ev,v1,op,unary);
@@ -1589,7 +1586,6 @@ tnv:
 				}else if(e[1]&&e[1]=='-'&&e[2]=='>'){
 					const char *p1=expr_getsym(e+=3);
 					double *v2;
-					char *v2sym;
 					if(p1==e){
 						if(*e&&strchr(special,*e)){
 							*ep->errinfo=*e;
@@ -1606,11 +1602,7 @@ tnv:
 						memcpy(ep->errinfo,e,p1-e);
 						goto err;
 					}
-					v2sym=xmalloc(p1-e+1);
-					memcpy(v2sym,e,p1-e);
-					v2sym[p1-e]=0;
-					v2=expr_createvar(ep,v2sym);
-					free(v2sym);
+					v2=expr_createvar(ep,e,p1-e);
 					expr_addcopy(ep,v2,v1);
 					e=p1;
 					continue;
@@ -1786,7 +1778,18 @@ struct expr_symbol *expr_symset_add(struct expr_symset *restrict esp,const char 
 	va_end(ap);
 	return r;
 }
+struct expr_symbol *expr_symset_addl(struct expr_symset *restrict esp,const char *sym,size_t symlen,int type,...){
+	va_list ap;
+	struct expr_symbol *r;
+	va_start(ap,type);
+	r=expr_symset_vaddl(esp,sym,symlen,type,ap);
+	va_end(ap);
+	return r;
+}
 struct expr_symbol *expr_symset_vadd(struct expr_symset *restrict esp,const char *sym,int type,va_list ap){
+	return expr_symset_vaddl(esp,sym,strlen(sym),type,ap);
+}
+struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const char *sym,size_t symlen,int type,va_list ap){
 	struct expr_symbol *ep=expr_symset_findtail(esp),**next;
 	size_t len,len_expr,len_asym;
 	const char *p,*p1;
@@ -1845,17 +1848,18 @@ struct expr_symbol *expr_symset_vadd(struct expr_symset *restrict esp,const char
 		default:
 			return NULL;
 	}
-	len=strlen(sym);
-	if(len>=EXPR_SYMLEN)len=EXPR_SYMLEN-1;
-	memcpy(ep->str,sym,len+1);
-	ep->strlen=len;
+	if(symlen>=EXPR_SYMLEN)symlen=EXPR_SYMLEN-1;
+	memcpy(ep->str,sym,symlen);
+	ep->str[symlen]=0;
+	ep->strlen=symlen;
 	ep->type=type;
 	ep->flag=0;
 	ep->next=NULL;
+	esp->tail=ep;
 	//printf("add:%s,%s(%zu) into %p\n",sym,ep->str,len,&ep->str);
 	return ep;
 }
-static struct expr_symbol *expr_symset_addcopy(struct expr_symset *restrict esp,const struct expr_symbol *restrict es){
+struct expr_symbol *expr_symset_addcopy(struct expr_symset *restrict esp,const struct expr_symbol *restrict es){
 	struct expr_symbol *ep=expr_symset_findtail(esp);
 	if(ep){
 		ep->next=xmalloc(es->length);
@@ -1901,8 +1905,11 @@ struct expr_symset *expr_symset_clone(const struct expr_symset *restrict ep){
 	return es;
 }
 static void expr_strcpy_nospace(char *restrict s1,const char *restrict s2){
+	const char *s20=s2;
+	int instr=0;
 	for(;*s2;++s2){
-		if(strchr(spaces,*s2))continue;
+		if(*s2=='\"'&&s2>s20&&s2[-1]!='\\')instr^=1;
+		if(!instr&&strchr(spaces,*s2))continue;
 		*(s1++)=*s2;
 	}
 	*s1=0;
@@ -1922,7 +1929,7 @@ int init_expr_old(struct expr *restrict ep,const char *e,const char *asym,struct
 	if(e){
 		ebuf=xmalloc(strlen(e)+1);
 		expr_strcpy_nospace(ebuf,e);
-		p=expr_scan(ep,ebuf,asym);
+		p=expr_scan(ep,ebuf,asym,strlen(asym));
 		free(ebuf);
 		if(ep->sset_shouldfree){
 			free(ep->sset);
@@ -2469,6 +2476,9 @@ static int expr_vcheck_ep(struct expr_inst *ip0,double *v){
 					return 1;
 			}
 		}
+		if(ip->op==EXPR_CALLHOT&&(
+			expr_vcheck_ep(ip->un.hotfunc->data,v)
+			))return 1;
 	}
 	return 0;
 }

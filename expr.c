@@ -245,7 +245,7 @@ static double expr_root2(size_t n,const struct expr *args,double input){
 	//root2(expression,from,to)
 	//root2(expression,from,to,step)
 	//root2(expression,from,to,step,epsilon)
-	double epsilon=0.0,from=0.0,to=INFINITY,step=FLT_EPSILON,swapbuf;
+	double epsilon=0.0,from=0.0,to=INFINITY,step=1.0,swapbuf;
 	int neg;
 	switch(n){
 		case 5:

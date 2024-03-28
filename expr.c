@@ -6,6 +6,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 #include <stdarg.h>
 #include <time.h>
@@ -372,8 +373,8 @@ static double expr_hypot(size_t n,double *args){
 #define REGFSYM(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.func=s},.type=EXPR_FUNCTION,.flag=EXPR_SF_INJECTION}
 #define REGCSYM(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.value=s},.type=EXPR_CONSTANT}
 #define REGFSYM2(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SF_INJECTION}
-#define REGMDSYM2(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.md={.func=sym,.dim=d}},.type=EXPR_MDFUNCTION}
-#define REGMDEPSYM2(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdep={.func=sym,.dim=d}},.type=EXPR_MDEPFUNCTION}
+#define REGMDSYM2(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdfunc=sym},.dim=d,.type=EXPR_MDFUNCTION}
+#define REGMDEPSYM2(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdepfunc=sym},.dim=d,.type=EXPR_MDEPFUNCTION}
 #define REGCSYM2(s,val) {.strlen=sizeof(s)-1,.str=s,.un={.value=val},.type=EXPR_CONSTANT}
 #define REGKEY(s,op,dim,desc) {s,op,dim,sizeof(s)-1,desc}
 const struct expr_builtin_keyword expr_keywords[]={
@@ -383,11 +384,11 @@ const struct expr_builtin_keyword expr_keywords[]={
 	REGKEY("pai",EXPR_PROD,5,"index_name,start_index,end_index,index_step,factor"),
 	REGKEY("sup",EXPR_SUP,5,"index_name,start_index,end_index,index_step,element"),
 	REGKEY("infi",EXPR_INF,5,"index_name,start_index,end_index,index_step,element"),
-	REGKEY("AND",EXPR_ANDN,5,"index_name,start_index,end_index,index_step,element"),
-	REGKEY("OR",EXPR_ORN,5,"index_name,start_index,end_index,index_step,element"),
-	REGKEY("XOR",EXPR_XORN,5,"index_name,start_index,end_index,index_step,element"),
-	REGKEY("GCD",EXPR_GCDN,5,"index_name,start_index,end_index,index_step,element"),
-	REGKEY("LCM",EXPR_LCMN,5,"index_name,start_index,end_index,index_step,element"),
+	REGKEY("andn",EXPR_ANDN,5,"index_name,start_index,end_index,index_step,element"),
+	REGKEY("orn",EXPR_ORN,5,"index_name,start_index,end_index,index_step,element"),
+	REGKEY("xorn",EXPR_XORN,5,"index_name,start_index,end_index,index_step,element"),
+	REGKEY("gcd",EXPR_GCDN,5,"index_name,start_index,end_index,index_step,element"),
+	REGKEY("lcm",EXPR_LCMN,5,"index_name,start_index,end_index,index_step,element"),
 	REGKEY("for",EXPR_FOR,5,"var_name,start_var,cond,body,value"),
 	REGKEY("loop",EXPR_LOOP,5,"var_name,start_var,count,body,value"),
 	REGKEY("while",EXPR_WHILE,3,"cond,body,value"),
@@ -503,12 +504,6 @@ const struct expr_builtin_symbol *expr_bsym_rsearch(void *addr){
 	}
 	return NULL;
 }
-#define LISTSYM(esp) if(esp)\
-	for(struct expr_symbol *p=ep->sset->syms;p;p=p->next){\
-		printf("listsym %s %p at %p\n",p->str,\
-		p->addr,p->str);\
-	}\
-	puts("");
 static void *xmalloc(size_t size){
 	void *r=malloc(size);
 	if(!r){
@@ -1099,6 +1094,7 @@ static double *expr_getvalue(struct expr *restrict ep,const char *e,const char *
 	} sym;
 	const union expr_symbol_value *sv;
 	int type;
+	size_t dim;
 	//fprintf(stderr,"getval %u: %s\n",assign_level,e0);
 	for(;;++e){
 		switch(*e){
@@ -1195,10 +1191,18 @@ pterr:
 		//fprintf(stderr,"find sym %ld %s\n",p-e,e);
 		if(ep->sset&&(sym.es=expr_symset_search(ep->sset,e,p-e))){
 			type=sym.es->type;
+			switch(type){
+				case EXPR_MDFUNCTION:
+				case EXPR_MDEPFUNCTION:
+					dim=*(size_t *)(sym.es->str+sym.es->strlen+1);
+				default:
+					break;
+			}
 			sv=&sym.es->un;
 		}else if((sym.ebs=expr_bsym_search(e,p-e))){
 			type=sym.ebs->type;
 			sv=&sym.ebs->un;
+			dim=sym.ebs->dim;
 		}else goto number;
 		switch(type){
 			case EXPR_FUNCTION:
@@ -1239,7 +1243,8 @@ pterr:
 				v0=expr_getvalue(ep,p,&e,asym,asymlen);
 				//assert(v0);
 				if(!v0)return NULL;
-				un.ep=new_expr(sv->hot.expr,sv->hot.asym
+				un.ep=new_expr(sv->hotexpr,sv->hotexpr+
+					strlen(sv->hotexpr)+1
 					,ep->sset,&ep->error,ep->errinfo);
 				if(!un.ep)return NULL;
 				expr_addcallhot(ep,v0,un.ep);
@@ -1284,10 +1289,10 @@ pterr:
 				memcpy(buf,e,p-e+1);
 				if(type==EXPR_MDEPFUNCTION)
 					un.em=expr_getmdinfo(ep,p2,e-p2,buf,asym,
-					sv->mdep.func,sv->mdep.dim,1);
+					sv->mdepfunc,dim,1);
 				else	
 					un.em=expr_getmdinfo(ep,p2,e-p2,buf,asym,
-					sv->md.func,sv->md.dim,0);
+					sv->mdfunc,dim,0);
 				free(buf);
 				//assert(es);
 				if(!un.em){
@@ -1720,9 +1725,12 @@ err:
 	return NULL;
 }
 void init_expr_symset(struct expr_symset *restrict esp){
-	esp->syms=NULL;
-	//esp->length=esp->size=0;
-	esp->freeable=0;
+	/*esp->syms=NULL;
+	esp->size=0;
+	esp->depth=0;
+	esp->length=0;
+	esp->freeable=0;*/
+	memset(esp,0,sizeof(struct expr_symset));
 }
 struct expr_symset *new_expr_symset(void){
 	struct expr_symset *ep=xmalloc(sizeof(struct expr_symset));
@@ -1743,34 +1751,52 @@ void expr_symset_free(struct expr_symset *restrict esp){
 		expr_symbol_free(esp->syms);
 	if(esp->freeable)free(esp);
 }
-int expr_strdiff(const char *restrict s1,size_t len1,const char *restrict s2,size_t len2){
-	if(len1==len2){
-		/*int r,x=len1;
-		while(len1){
-			r=*(s1++)-*(s2++);
-			if(r)return r+x^6;
-			--len1;
-			x=(x*17)%7;
-		}
-		return 0;*/
-		return memcmp(s1,s2,len1);
-	}
-	else if(len1<len2)return -(unsigned int)s2[len1];
-	else return (unsigned int)s1[len2];
-}
-struct expr_symbol **expr_symset_findtail(struct expr_symset *restrict esp,const char *sym,size_t symlen){
-	struct expr_symbol *p;
+static int expr_firstdiff(const char *restrict s1,const char *restrict s2,size_t len){
 	int r;
-	if(!esp->syms)return &esp->syms;
-	for(p=esp->syms;;){
-		r=expr_strdiff(sym,symlen,p->str,p->strlen);
-		if(!r)return NULL;
-		r&=(EXPR_SYMNEXT-1);
+	do {
+		r=(unsigned int)*(s1++)-(unsigned int)*(s2++);
+		if(r)break;
+	}while(--len);
+	return r;
+}
+static int expr_strdiff(const char *restrict s1,size_t len1,const char *restrict s2,size_t len2,int *sum){
+	int r;
+	if(len1==len2){
+		r=memcmp(s1,s2,len1);
+		if(!r)return 0;
+		*sum=r;
+		return 1;
+	}
+	*sum=expr_firstdiff(s1,s2,len1<len2?len1:len2);
+	return 1;
+}
+#define modi(d,m){\
+	int tmpvar;\
+	tmpvar=(d)%(m);\
+	if((d)>=0||!tmpvar)\
+		(d)=tmpvar;\
+	else\
+		(d)=((d)+((-(d))/(m)+!!tmpvar)*(m))%(m);\
+}
+static struct expr_symbol **expr_symset_findtail(struct expr_symset *restrict esp,const char *sym,size_t symlen,size_t *depth){
+	struct expr_symbol *p;
+	size_t dep;
+	int r;
+	if(!esp->syms){
+		*depth=1;
+		return &esp->syms;
+	}
+	dep=2;
+	for(p=esp->syms;;++dep){
+		if(!expr_strdiff(sym,symlen,p->str,p->strlen,&r))return NULL;
+		modi(r,EXPR_SYMNEXT)
 		//printf("diff:%d\n",r);
-		if(p->next[r])
+		if(p->next[r]){
 			p=p->next[r];
-		else
+		}else {
+			*depth=dep;
 			return p->next+r;
+		}
 	}
 }
 struct expr_symbol *expr_symset_add(struct expr_symset *restrict esp,const char *sym,int type,...){
@@ -1794,15 +1820,12 @@ struct expr_symbol *expr_symset_vadd(struct expr_symset *restrict esp,const char
 }
 struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const char *sym,size_t symlen,int type,va_list ap){
 	struct expr_symbol *ep,**next;
-	size_t len,len_expr,len_asym;
+	size_t len,len_expr,len_asym,depth;
+	char *asymp;
 	const char *p,*p1;
-	/*if(ep->size>=ep->length){
-		ep->syms=xrealloc(ep->syms,
-		(ep->length+=EXTEND_SIZE)*sizeof(double));
-	}
-	ep=ep->syms+ep->size++;*/
+	if(!symlen)return NULL;
 	if(symlen>=EXPR_SYMLEN)symlen=EXPR_SYMLEN-1;
-	next=expr_symset_findtail(esp,sym,symlen);
+	next=expr_symset_findtail(esp,sym,symlen,&depth);
 	if(!next)return NULL;
 	len=sizeof(struct expr_symbol)+symlen+1;
 	ep=xmalloc(len);
@@ -1819,13 +1842,19 @@ struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const cha
 			ep->un.func=va_arg(ap,double (*)(double));
 			break;
 		case EXPR_MDFUNCTION:
-			ep->un.md.func=va_arg(ap,double (*)(size_t,double *));
-			ep->un.md.dim=va_arg(ap,size_t);
+			ep->un.mdfunc=va_arg(ap,double (*)(size_t,double *));
+			ep->length+=sizeof(size_t);
+			ep=xrealloc(ep,ep->length);
+			*(size_t *)(ep->str+ep->strlen+1)
+			=va_arg(ap,size_t);
 			break;
 		case EXPR_MDEPFUNCTION:
-			ep->un.mdep.func=va_arg(ap,double (*)(size_t,
+			ep->un.mdepfunc=va_arg(ap,double (*)(size_t,
 				const struct expr *,double));
-			ep->un.mdep.dim=va_arg(ap,size_t);
+			ep->length+=sizeof(size_t);
+			ep=xrealloc(ep,ep->length);
+			*(size_t *)(ep->str+ep->strlen+1)
+			=va_arg(ap,size_t);
 			break;
 		case EXPR_HOTFUNCTION:
 			p=va_arg(ap,const char *);
@@ -1834,17 +1863,18 @@ struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const cha
 			len_asym=strlen(p1)+2;
 			ep->length+=len_expr+len_asym;
 			ep=xrealloc(ep,ep->length);
-			ep->un.hot.expr=ep->str+symlen+1;
-			ep->un.hot.asym=ep->un.hot.expr+len_expr+1;
-			memcpy(ep->un.hot.expr,p,len_expr);
-			ep->un.hot.expr[len_expr]=0;
-			memcpy(ep->un.hot.asym,p1,len_asym);
-			ep->un.hot.asym[len_asym]=0;
+			ep->un.hotexpr=ep->str+symlen+1;
+			asymp=ep->un.hotexpr+len_expr+1;
+			memcpy(ep->un.hotexpr,p,len_expr);
+			ep->un.hotexpr[len_expr]=0;
+			memcpy(asymp,p1,len_asym);
+			asymp[len_asym]=0;
 			break;
 		case EXPR_ZAFUNCTION:
 			ep->un.zafunc=va_arg(ap,double (*)(void));
 			break;
 		default:
+			free(ep);
 			return NULL;
 	}
 	memcpy(ep->str,sym,symlen);
@@ -1852,12 +1882,15 @@ struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const cha
 	ep->strlen=symlen;
 	ep->type=type;
 	ep->flag=0;
+	++esp->size;
+	esp->length+=ep->length;
+	if(depth>esp->depth)esp->depth=depth;
 	*next=ep;
-	//printf("add:%s,%s(%zu) into %p\n",sym,ep->str,len,&ep->str);
 	return ep;
 }
 struct expr_symbol *expr_symset_addcopy(struct expr_symset *restrict esp,const struct expr_symbol *restrict es){
-	struct expr_symbol *restrict *ep=expr_symset_findtail(esp,es->str,es->strlen);
+	size_t depth;
+	struct expr_symbol *restrict *ep=expr_symset_findtail(esp,es->str,es->strlen,&depth);
 	if(ep){
 		*ep=xmalloc(es->length);
 	}else {
@@ -1865,18 +1898,19 @@ struct expr_symbol *expr_symset_addcopy(struct expr_symset *restrict esp,const s
 	}
 	memcpy(*ep,es,es->length);
 	memset(&(*ep)->next,0,sizeof((*ep)->next));
+	++esp->size;
+	esp->length+=es->length;
+	if(depth>esp->depth)esp->depth=depth;
 	return *ep;
 }
 struct expr_symbol *expr_symset_search(const struct expr_symset *restrict esp,const char *sym,size_t sz){
 	int r;
 	for(struct expr_symbol *p=esp->syms;p;){
-		//puts(p->str);
-		r=expr_strdiff(sym,sz,p->str,p->strlen);
-		if(!r){
-		//if(sz==p->strlen&&!memcmp(p->str,sym,sz)){
+		if(!expr_strdiff(sym,sz,p->str,p->strlen,&r)){
 			return p;
 		}
-		p=p->next[r&(EXPR_SYMNEXT-1)];
+		modi(r,EXPR_SYMNEXT)
+		p=p->next[r];
 	}
 	return NULL;
 }
@@ -1889,12 +1923,6 @@ static struct expr_symbol *expr_symset_rsearch_symbol(struct expr_symbol *esp,vo
 		if(p)return p;
 	}
 	return NULL;
-	/*for(struct expr_symbol *p=esp->syms;p;p=p->next){
-		if(p->un.uaddr==addr){
-			return p;
-		}
-	}
-	return NULL;*/
 }
 struct expr_symbol *expr_symset_rsearch(const struct expr_symset *restrict esp,void *addr){
 	if(!esp->syms)return NULL;
@@ -1910,13 +1938,6 @@ static void expr_symset_copy_symbol(struct expr_symset *restrict dst,const struc
 void expr_symset_copy(struct expr_symset *restrict dst,const struct expr_symset *restrict src){
 	if(src&&src->syms)
 		expr_symset_copy_symbol(dst,src->syms);
-	/*for(struct expr_symbol *p=src->syms;p;p=p->next){
-		//printf("copy %s %p\n",src->syms[i].str,
-		//src->syms[i].addr);
-		//if(p->type==EXPR_HOTFUNCTION)continue;
-		expr_symset_addcopy(dst,p);
-		
-	}*/
 }
 struct expr_symset *expr_symset_clone(const struct expr_symset *restrict ep){
 	struct expr_symset *es=new_expr_symset();
@@ -1936,14 +1957,15 @@ static void expr_strcpy_nospace(char *restrict s1,const char *restrict s2){
 int init_expr_old(struct expr *restrict ep,const char *e,const char *asym,struct expr_symset *esp){
 	double *p;
 	char *ebuf;
-	ep->data=NULL;
+	/*ep->data=NULL;
 	ep->vars=NULL;
-	ep->sset=esp;
 	ep->sset_shouldfree=0;
 	ep->error=0;
 	ep->freeable=0;
 	memset(ep->errinfo,0,EXPR_SYMLEN);
-	ep->length=ep->size=ep->vlength=ep->vsize=0;
+	ep->length=ep->size=ep->vlength=ep->vsize=0;*/
+	memset(ep,0,sizeof(struct expr));
+	ep->sset=esp;
 	
 	if(e){
 		ebuf=xmalloc(strlen(e)+1);
@@ -2016,11 +2038,9 @@ static int expr_modified(const struct expr *restrict ep,double *v){
 	if(!expr_varofep(ep,v))
 		return 1;
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
-		//printf("checking vars[%zd] at %p on %p\n",(ssize_t)(v-ep->vars),ip->un.src,ep->vars);
 		if(ip->dst==v&&ip->op!=EXPR_CONST){
 			return 1;
 		}
-		//printf("ok\n");
 	}
 	return 0;
 }
@@ -2321,7 +2341,6 @@ static int expr_optimize_zero(struct expr *restrict ep){
 }
 static void expr_optimize_const(struct expr *restrict ep){
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
-		//printf("before checking vars[%zd]\n",(ssize_t)(ip->dst-ep->vars));
 		if(ip->op==EXPR_CONST&&!expr_modified(ep,ip->dst)){
 			//*ip->dst=ip->un.value;
 			//not necessary
@@ -2502,26 +2521,6 @@ static int expr_vcheck_ep(struct expr_inst *ip0,double *v){
 	return 0;
 }
 
-
-/*static int expr_used(struct expr_inst *ip){
-	struct expr_inst *ip1;
-	int ov;
-	for(ip1=ip+1;;++ip1){
-		ov=expr_override(ip1->op);
-		if((expr_usesrc(ip1->op)&&ip1->un.src==ip->dst)
-			||(ip1->dst==ip->dst&&!ov)
-		){
-			return 1;
-		}
-		if(ip1->dst==ip->dst&&ov){
-			return 0;
-		}
-		if(ip1->op==EXPR_END){
-			return 0;
-		}
-	}
-	return 0;
-}*/
 static void expr_optimize_unused(struct expr *restrict ep){
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
 
@@ -2702,17 +2701,6 @@ static int expr_optimize_once(struct expr *restrict ep){
 	expr_optimize_constneg(ep);
 	r|=expr_optimize_injection(ep);
 
-	//expr_optimize_contmul(ep,EXPR_COPY);
-/*	expr_optimize_contmul(ep,EXPR_OR);
-	expr_optimize_contmul(ep,EXPR_XOR);
-	expr_optimize_contmul(ep,EXPR_AND);
-	expr_optimize_contsh(ep);
-	expr_optimize_contadd(ep);
-	expr_optimize_contmul(ep,EXPR_MOD);
-	expr_optimize_contmul(ep,EXPR_DIV);
-	expr_optimize_contmul(ep,EXPR_MUL);
-	expr_optimize_contmul(ep,EXPR_POW);*/
-
 	expr_optimize_contmul(ep,EXPR_POW);
 	expr_optimize_contmul(ep,EXPR_MUL);
 	expr_optimize_contmul(ep,EXPR_DIV);
@@ -2747,7 +2735,6 @@ static void expr_optimize(struct expr *restrict ep){
 	expr_writeconsts(ep);
 again:
 	r=expr_optimize_once(ep);
-//	return;
 	if((ep->size<s||r)&&ep->size>1){
 		s=ep->size;
 		goto again;

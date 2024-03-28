@@ -55,8 +55,9 @@ EXPR_XORL,
 EXPR_END
 };
 #define EXPR_SYMLEN 64
-#define EXPR_SYMNEXT 16
-
+#ifndef EXPR_SYMNEXT
+#define EXPR_SYMNEXT 26
+#endif
 #define EXPR_ESYMBOL 1
 #define EXPR_EPT 2
 #define EXPR_EFP 3
@@ -115,7 +116,6 @@ struct expr_inst {
 	double *dst;
 	union expr_inst_op2 un;
 	enum expr_op op;
-	//unsigned int assign_level;
 };
 union expr_symbol_value {
 	double value;
@@ -123,32 +123,26 @@ union expr_symbol_value {
 	void *uaddr;
 	double (*func)(double);
 	double (*zafunc)(void);
-	struct {
-		char *expr;
-		char *asym;
-	} hot;
-	struct {
-		double (*func)(size_t,double *);
-		size_t dim;
-	} md;
-	struct {
-		double (*func)(size_t,
-			const struct expr *,double);
-		size_t dim;
-	} mdep;
+	char *hotexpr;
+	double (*mdfunc)(size_t,double *);
+	double (*mdepfunc)(size_t,
+		const struct expr *,double);
 };
+//_Static_assert(sizeof(union expr_symbol_value)==8,"symbol_value size error");
 struct expr_symbol {
 	union expr_symbol_value un;
 	struct expr_symbol *next[EXPR_SYMNEXT];
-	unsigned int length,strlen;
-	int type,flag;
+	unsigned int length;
+	unsigned short strlen;
+	char type,flag;
 	char str[];
 } __attribute__((packed));
+//_Static_assert(sizeof(struct expr_symbol)==142,"symbol size error");
 struct expr_builtin_symbol {
 	union expr_symbol_value un;
 	const char *str;
 	unsigned short strlen;
-	short type,flag,unused;
+	short type,flag,dim;
 };
 struct expr_builtin_keyword {
 	const char *str;
@@ -159,7 +153,7 @@ struct expr_builtin_keyword {
 };
 struct expr_symset {
 	struct expr_symbol *syms;
-	//size_t size,length;
+	size_t size,depth,length;
 	int freeable;
 };
 struct expr {
@@ -201,8 +195,6 @@ struct expr_inst *expr_addop(struct expr *restrict ep,double *dst,void *src,enum
 void init_expr_symset(struct expr_symset *restrict esp);
 struct expr_symset *new_expr_symset(void);
 void expr_symset_free(struct expr_symset *restrict esp);
-int expr_strdiff(const char *restrict s1,size_t len1,const char *restrict s2,size_t len2);
-struct expr_symbol **expr_symset_findtail(struct expr_symset *restrict esp,const char *sym,size_t symlen);
 struct expr_symbol *expr_symset_add(struct expr_symset *restrict esp,const char *sym,int type,...);
 struct expr_symbol *expr_symset_addl(struct expr_symset *restrict esp,const char *sym,size_t symlen,int type,...);
 struct expr_symbol *expr_symset_vadd(struct expr_symset *restrict esp,const char *sym,int type,va_list ap);

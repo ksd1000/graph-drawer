@@ -928,6 +928,7 @@ static struct expr_mdinfo *expr_getmdinfo(struct expr *restrict ep,const char *e
 		++p;
 	}
 	i=p-v;
+	//printf("%zu,%zu\n",i,dim);
 	if(dim&&i!=dim){
 		memcpy(ep->errinfo,e0,sz);
 		ep->error=EXPR_ENEA;
@@ -1195,6 +1196,7 @@ pterr:
 				case EXPR_MDFUNCTION:
 				case EXPR_MDEPFUNCTION:
 					dim=*(size_t *)(sym.es->str+sym.es->strlen+1);
+					//printf("%s:%zu\n",sym.es->str,dim);
 				default:
 					break;
 			}
@@ -1831,6 +1833,9 @@ struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const cha
 	ep=xmalloc(len);
 	memset(&ep->next,0,sizeof(ep->next));
 	ep->length=len;
+	memcpy(ep->str,sym,symlen);
+	ep->str[symlen]=0;
+	ep->strlen=symlen;
 	switch(type){
 		case EXPR_CONSTANT:
 			ep->un.value=va_arg(ap,double);
@@ -1847,6 +1852,7 @@ struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const cha
 			ep=xrealloc(ep,ep->length);
 			*(size_t *)(ep->str+ep->strlen+1)
 			=va_arg(ap,size_t);
+			//printf("%s:%zu",ep->str,*(size_t *)(ep->str+ep->strlen+1));
 			break;
 		case EXPR_MDEPFUNCTION:
 			ep->un.mdepfunc=va_arg(ap,double (*)(size_t,
@@ -1877,9 +1883,7 @@ struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const cha
 			free(ep);
 			return NULL;
 	}
-	memcpy(ep->str,sym,symlen);
-	ep->str[symlen]=0;
-	ep->strlen=symlen;
+
 	ep->type=type;
 	ep->flag=0;
 	++esp->size;

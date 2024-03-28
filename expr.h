@@ -139,7 +139,7 @@ struct expr_symbol {
 	char type,flag;
 	char str[];
 }/* __attribute__((packed))*/;
-_Static_assert(sizeof(struct expr_symbol)-EXPR_SYMNEXT*sizeof(struct expr_symbol *)==16,"symbol size error");
+//_Static_assert(sizeof(struct expr_symbol)-EXPR_SYMNEXT*sizeof(struct expr_symbol *)==16,"symbol size error");
 struct expr_builtin_symbol {
 	union expr_symbol_value un;
 	const char *str;

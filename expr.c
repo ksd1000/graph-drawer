@@ -116,7 +116,7 @@ static double expr_rand(size_t n,double *args){
 	return args[0]+(args[1]-args[0])*drand48();
 }
 #define expr_add2(a,b) ((a)+(b))
-#define expr_mul2(a,b) ((a)+(b))
+#define expr_mul2(a,b) ((a)*(b))
 #define CALMDLOGIC(_symbol)\
 	double ret=*(args++);\
 	while(--n>0){\

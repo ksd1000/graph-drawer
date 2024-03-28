@@ -25,8 +25,43 @@ const char *expr_error(int error){
 	if(error>=(sizeof(eerror)/sizeof(*eerror)))return eerror[0];
 	else return eerror[error];
 }
-static const char spaces[]={" \t\r\f\n\v"};
-static const char special[]={"+-*/%^(),<>=!&|"};
+static int expr_space(char c){
+	switch(c){
+		case '\t':
+		case '\r':
+		case '\f':
+		case '\n':
+		case '\b':
+		case ' ':
+			return 1;
+		default:
+			return 0;
+	}
+}
+static int expr_operator(char c){
+	switch(c){
+		case '+':
+		case '-':
+		case '*':
+		case '/':
+		case '%':
+		case '^':
+		case '(':
+		case ')':
+		case ',':
+		case '<':
+		case '>':
+		case '=':
+		case '!':
+		case '&':
+		case '|':
+			return 1;
+		default:
+			return 0;
+	}
+}
+//static const char spaces[]={" \t\r\f\n\v"};
+//static const char special[]={"+-*/%^(),<>=!&|"};
 const static char ntoc[]={"0123456789abcdefg"};
 uint64_t expr_gcd64(uint64_t x,uint64_t y){
 	uint64_t r,r1;
@@ -688,7 +723,7 @@ size_t expr_strscan(const char *s,size_t sz,char *buf){
 	const char *p,*endp=s+sz;
 	if(!sz||*s!='\"')return 0;
 	for(;;){
-	while(s<endp&&*s!='\"'&&!strchr(spaces,*s))++s;
+	while(s<endp&&*s!='\"'&&!expr_space(*s))++s;
 	if(!(s<endp))return buf-buf0;
 	//if(*s=='\"')
 	++s;
@@ -849,13 +884,13 @@ err:
 	return NULL;
 }
 static const char *expr_getsym(const char *c){
-	while(*c&&!strchr(special,*c))
+	while(*c&&!expr_operator(*c))
 		++c;
 	return c;
 }
 static const char *expr_getsym_expo(const char *c){
 	const char *c0=c;
-	while(*c&&!strchr(special,*c))
+	while(*c&&!expr_operator(*c))
 		++c;
 	if(c-c0>=2&&(*c=='-'||*c=='+')&&(c[-1]=='e'||c[-1]=='E')&&((c[-2]<='9'&&c[-2]>=0)||c[-2]=='.')){
 		return expr_getsym(c+1);
@@ -1227,7 +1262,6 @@ pterr:
 			case '8':
 			case '9':
 				goto number;
-			case '-':
 			case '.':
 				switch(e[1]){
 				case '0':
@@ -1242,7 +1276,7 @@ pterr:
 				case '9':
 					goto number;
 				default:
-					goto uo;
+					break;
 				}
 			default:
 				break;
@@ -1252,8 +1286,7 @@ pterr:
 		p=expr_getsym(e);
 		//fprintf(stderr,"unknown sym %ld %s\n",p-e,e);
 		if(p==e){
-			if(*e&&strchr(special,*e)){
-uo:
+			if(*e&&expr_operator(*e)){
 				*ep->errinfo=*e;
 				ep->error=EXPR_EUO;
 				return NULL;
@@ -1581,7 +1614,7 @@ redo:
 		case '!':
 		case '~':
 			if(unary&0xc0000000){
-				if(*e&&strchr(special,*e)){
+				if(*e&&expr_operator(*e)){
 					*ep->errinfo=*e;
 					ep->error=EXPR_EUO;
 				}else {
@@ -1683,7 +1716,7 @@ redo:
 					const struct expr_symbol *esp=NULL;
 					const char *p1=expr_getsym(e+=2);
 					if(p1==e){
-						if(*e&&strchr(special,*e)){
+						if(*e&&expr_operator(*e)){
 							*ep->errinfo=*e;
 							ep->error=EXPR_EUO;
 						}else {
@@ -1715,7 +1748,7 @@ tnv:
 					const char *p1=expr_getsym(e+=3);
 					double *v2;
 					if(p1==e){
-						if(*e&&strchr(special,*e)){
+						if(*e&&expr_operator(*e)){
 							*ep->errinfo=*e;
 							ep->error=EXPR_EUO;
 						}else {
@@ -2070,7 +2103,7 @@ static void expr_strcpy_nospace(char *restrict s1,const char *restrict s2){
 	int instr=0;
 	for(;*s2;++s2){
 		if(*s2=='\"'&&s2>s20&&s2[-1]!='\\')instr^=1;
-		if(!instr&&strchr(spaces,*s2))continue;
+		if(!instr&&expr_space(*s2))continue;
 		*(s1++)=*s2;
 	}
 	*s1=0;

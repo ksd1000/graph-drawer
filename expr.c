@@ -566,20 +566,34 @@ const struct expr_builtin_symbol *expr_bsym_rsearch(void *addr){
 	return NULL;
 }
 static void *xmalloc(size_t size){
-	void *r=malloc(size);
+	void *r;
+	if(size>=SSIZE_MAX){
+		warnx("IN xmalloc(size=%zu)\n"
+			"CANNOT ALLOCATE MEMORY",size);
+		goto ab;
+	}
+	r=malloc(size);
 	if(!r){
 		warn("IN xmalloc(size=%zu)\n"
 			"CANNOT ALLOCATE MEMORY",size);
+ab:
 		warnx("ABORTING");
 		abort();
 	}
 	return r;
 }
 static void *xrealloc(void *old,size_t size){
-	void *r=realloc(old,size);
+	void *r;
+	if(size>=SSIZE_MAX){
+		warnx("IN xrealloc(old=%p,size=%zu)\n"
+			"CANNOT REALLOCATE MEMORY",old,size);
+		goto ab;
+	}
+	r=realloc(old,size);
 	if(!r){
 		warn("IN xrealloc(old=%p,size=%zu)\n"
 			"CANNOT REALLOCATE MEMORY",old,size);
+ab:
 		warnx("ABORTING");
 		abort();
 	}
@@ -936,6 +950,14 @@ static char *expr_tok(char *restrict str,char **restrict saveptr){
 	}
 	return str;
 }
+static void expr_free2(char **buf){
+	char **p=buf;
+	while(*p){
+		free(*p);
+		++p;
+	}
+	free(buf);
+}
 static char **expr_sep(struct expr *restrict ep,char *e){
 	char *p,*p1,*p2,**p3=NULL,*p5;
 	size_t len=0,s,sz;
@@ -972,10 +994,12 @@ static char **expr_sep(struct expr *restrict ep,char *e){
 			free(p5);
 		}else if(*p=='{'){
 			long from,to,istep=1;
+			size_t diff;
 			double f,t,step;
 			int r;
 			char c;
 			r=sscanf(p+1,"%ld..%ld%c",&from,&to,&c);
+			//errx(-1,"from=%ld,to=%ld,r=%d",from,to,r);
 			if(r!=3||c!='}'){
 				r=sscanf(p+1,"%lf:%lf:%lf%c",&f,&step,&t,&c);
 				if(r!=4||c!='}'){
@@ -988,7 +1012,6 @@ static char **expr_sep(struct expr *restrict ep,char *e){
 				if(f<=t)
 				do {
 					xasprintf(&p1,"%.64lg",f);
-					//puts(p1);
 					p3=xrealloc(p3,(++len+1)*sizeof(char *));
 					p3[len-1]=p1;
 					f+=step;
@@ -1003,7 +1026,15 @@ static char **expr_sep(struct expr *restrict ep,char *e){
 				continue;
 			}
 integer:
-			p3=xrealloc(p3,(len+(from>to?from-to:to-from)/istep+1+1)*sizeof(char *));
+			diff=(from>to?from-to:to-from);
+			if(diff&0xff00000000000000ul){
+				if(p3){
+					expr_free2(p3);
+					p3[len]=NULL;
+				}
+				return NULL;
+			}
+			p3=xrealloc(p3,(len+diff/istep+1+1)*sizeof(char *));
 			if(from<=to)
 			do {
 				xasprintf(&p1,"%ld",from);
@@ -1029,14 +1060,7 @@ normal:
 	if(p3)p3[len]=NULL;
 	return p3;
 }
-static void expr_free2(char **buf){
-	char **p=buf;
-	while(*p){
-		free(*p);
-		++p;
-	}
-	free(buf);
-}
+
 static struct expr_mdinfo *expr_getmdinfo(struct expr *restrict ep,const char *e0,size_t sz,char *e,const char *asym,void *func,size_t dim,int ifep){
 	char **v=expr_sep(ep,e);
 	char **p;

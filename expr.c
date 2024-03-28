@@ -1094,7 +1094,7 @@ static double *expr_getvalue(struct expr *restrict ep,const char *e,const char *
 	} sym;
 	const union expr_symbol_value *sv;
 	int type;
-	size_t dim;
+	size_t dim=0;
 	//fprintf(stderr,"getval %u: %s\n",assign_level,e0);
 	for(;;++e){
 		switch(*e){

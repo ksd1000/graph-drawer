@@ -56,7 +56,7 @@ EXPR_END
 };
 #define EXPR_SYMLEN 64
 #ifndef EXPR_SYMNEXT
-#define EXPR_SYMNEXT 26
+#define EXPR_SYMNEXT 14
 #endif
 #define EXPR_ESYMBOL 1
 #define EXPR_EPT 2
@@ -119,6 +119,8 @@ struct expr_inst {
 };
 union expr_symbol_value {
 	double value;
+	long ivalue;
+	unsigned long uvalue;
 	double *addr;
 	void *uaddr;
 	double (*func)(double);
@@ -136,8 +138,8 @@ struct expr_symbol {
 	unsigned short strlen;
 	char type,flag;
 	char str[];
-} __attribute__((packed));
-//_Static_assert(sizeof(struct expr_symbol)==142,"symbol size error");
+}/* __attribute__((packed))*/;
+_Static_assert(sizeof(struct expr_symbol)-EXPR_SYMNEXT*sizeof(struct expr_symbol *)==16,"symbol size error");
 struct expr_builtin_symbol {
 	union expr_symbol_value un;
 	const char *str;

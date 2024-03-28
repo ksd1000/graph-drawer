@@ -115,6 +115,8 @@ static double expr_rand(size_t n,double *args){
 	//assert(n==2);
 	return args[0]+(args[1]-args[0])*drand48();
 }
+#define expr_add2(a,b) ((a)+(b))
+#define expr_mul2(a,b) ((a)+(b))
 #define CALMDLOGIC(_symbol)\
 	double ret=*(args++);\
 	while(--n>0){\
@@ -136,6 +138,12 @@ static double expr_gcd(size_t n,double *args){
 }
 static double expr_lcm(size_t n,double *args){
 	CALMDLOGIC(expr_lcm2);
+}
+static double expr_add(size_t n,double *args){
+	CALMDLOGIC(expr_add2);
+}
+static double expr_mul(size_t n,double *args){
+	CALMDLOGIC(expr_mul2);
 }
 static double expr_sign(double x){
 	if(x>DBL_EPSILON)return 1.0;
@@ -480,14 +488,16 @@ const struct expr_builtin_symbol expr_bsyms[]={
 	REGCSYM2("sqrt2",M_SQRT2),
 	REGCSYM2("sqrt1_2",M_SQRT1_2),
 
+	REGMDSYM2("add",expr_add,0),
 	REGMDSYM2("and",expr_and,0),
 	REGMDSYM2("or",expr_or,0),
 	REGMDSYM2("xor",expr_xor,0),
 	REGMDSYM2("gcd",expr_gcd,0),
 	REGMDSYM2("hypot",expr_hypot,0),
 	REGMDSYM2("lcm",expr_lcm,0),
-	REGMDSYM2("min",expr_min,0),
 	REGMDSYM2("max",expr_max,0),
+	REGMDSYM2("min",expr_min,0),
+	REGMDSYM2("mul",expr_mul,0),
 	REGMDSYM2("nfact",expr_nfact,2ul),
 	REGMDSYM2("rand",expr_rand,2ul),
 
@@ -538,6 +548,20 @@ static void *xrealloc(void *old,size_t size){
 		warnx("ABORTING");
 		abort();
 	}
+	return r;
+}
+static int xasprintf(char **restrict strp, const char *restrict fmt,...){
+	int r;
+	va_list ap;
+	va_start(ap,fmt);
+	r=vasprintf(strp,fmt,ap);
+	if(r<0){
+		warn("IN xasprintf(strp=%p)\n"
+			"CANNOT ALLOCATE MEMORY",strp);
+		warnx("ABORTING");
+		abort();
+	}
+	va_end(ap);
 	return r;
 }
 static size_t expr_strcopy(const char *s,size_t sz,char *buf){
@@ -899,19 +923,67 @@ static char **expr_sep(struct expr *restrict ep,char *e){
 	}
 	for(p=expr_tok(e,&p2);p;p=expr_tok(NULL,&p2)){
 		s=strlen(p);
-		if((p5=expr_astrscan(p,s,&sz))){
+		if(*p=='\"'&&(p5=expr_astrscan(p,s,&sz))){
 			for(char *p4=p5;p4-p5<sz;++p4){
-			p1=xmalloc(5);
-			p1[0]='0';
-			p1[1]='x';
-			p1[2]=ntoc[*p4>>4];
-			p1[3]=ntoc[*p4&15];
-			p1[4]=0;
-			p3=xrealloc(p3,(++len+1)*sizeof(char *));
-			p3[len-1]=p1;
+				p1=xmalloc(5);
+				p1[0]='0';
+				p1[1]='x';
+				p1[2]=ntoc[*p4>>4];
+				p1[3]=ntoc[*p4&15];
+				p1[4]=0;
+				p3=xrealloc(p3,(++len+1)*sizeof(char *));
+				p3[len-1]=p1;
 			}
 			free(p5);
-		}else {
+		}else if(*p=='{'){
+			long from,to,istep=1;
+			double f,t,step;
+			int r;
+			char c;
+			r=sscanf(p+1,"%ld..%ld%c",&from,&to,&c);
+			if(r!=3||c!='}'){
+				r=sscanf(p+1,"%lf:%lf:%lf%c",&f,&step,&t,&c);
+				if(r!=4||c!='}'){
+					r=sscanf(p+1,"%ld..%ld..%ld%c",&from,&istep,&to,&c);
+					if(r!=4||c!='}')goto normal;
+					if(istep<0l)istep=-istep;
+					goto integer;
+				}
+				if(step<0.0)step=-step;
+				if(f<=t)
+				do {
+					xasprintf(&p1,"%.64lg",f);
+					//puts(p1);
+					p3=xrealloc(p3,(++len+1)*sizeof(char *));
+					p3[len-1]=p1;
+					f+=step;
+				}while(f<=t);
+				else
+				do {
+					xasprintf(&p1,"%.64lg",f);
+					p3=xrealloc(p3,(++len+1)*sizeof(char *));
+					p3[len-1]=p1;
+					f-=step;
+				}while(f>=t);
+				continue;
+			}
+integer:
+			p3=xrealloc(p3,(len+(from>to?from-to:to-from)/istep+1+1)*sizeof(char *));
+			if(from<=to)
+			do {
+				xasprintf(&p1,"%ld",from);
+				p3[++len-1]=p1;
+				from+=istep;
+			}while(from<=to);
+			else
+			do {
+				xasprintf(&p1,"%ld",from);
+				//p3=xrealloc(p3,(++len+1)*sizeof(char *));
+				p3[++len-1]=p1;
+				from-=istep;
+			}while(from>=to);
+		}else{
+normal:
 			p1=xmalloc(s+1);
 			p1[s]=0;
 			memcpy(p1,p,s);
@@ -1144,6 +1216,34 @@ pterr:
 				goto vend;
 			case '+':
 				continue;
+			case '0':
+			case '1':
+			case '2':
+			case '3':
+			case '4':
+			case '5':
+			case '6':
+			case '7':
+			case '8':
+			case '9':
+				goto number;
+			case '-':
+			case '.':
+				switch(e[1]){
+				case '0':
+				case '1':
+				case '2':
+				case '3':
+				case '4':
+				case '5':
+				case '6':
+				case '7':
+				case '8':
+				case '9':
+					goto number;
+				default:
+					goto uo;
+				}
 			default:
 				break;
 		//}else if(*e=='+')continue;
@@ -1153,6 +1253,7 @@ pterr:
 		//fprintf(stderr,"unknown sym %ld %s\n",p-e,e);
 		if(p==e){
 			if(*e&&strchr(special,*e)){
+uo:
 				*ep->errinfo=*e;
 				ep->error=EXPR_EUO;
 				return NULL;

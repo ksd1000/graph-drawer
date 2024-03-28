@@ -209,6 +209,20 @@ static double expr_multi_derivate(size_t n,const struct expr *args,double input)
 	double level=(n>=2?expr_eval(args+1,input):1.0);
 	return expr_multilevel_derivate(args,input,(long)(level+DBL_EPSILON),epsilon);
 }
+
+static double expr_strlen(size_t n,const struct expr *args,double input){
+	return (double)n;
+}
+static double expr_strchr(size_t n,const struct expr *args,double input){
+	double c=expr_eval(args,input);
+	const struct expr *s0=++args;
+	while(--n){
+		if(expr_eval(args,input)==c)
+			return (double)(args-s0);
+		++args;
+	}
+	return -1.0;
+}
 static double expr_root(size_t n,const struct expr *args,double input){
 	//root(expression)
 	//root(expression,from)
@@ -482,6 +496,8 @@ const struct expr_builtin_symbol expr_bsyms[]={
 	REGMDEPSYM2("piece",expr_piece,0),
 	REGMDEPSYM2("d",expr_derivate,0),
 	REGMDEPSYM2("dn",expr_multi_derivate,0),
+	REGMDEPSYM2("strchr",expr_strchr,0),
+	REGMDEPSYM2("strlen",expr_strlen,0),
 	REGMDEPSYM2("root",expr_root,0),
 	REGMDEPSYM2("root2",expr_root2,0),
 	REGMDEPSYM2("rooti",expr_rooti,0),

@@ -5,6 +5,7 @@
 #ifndef _EXPR_H_
 #define _EXPR_H_
 #include <stdint.h>
+#include <stddef.h>
 enum expr_op {
 EXPR_COPY=0,
 EXPR_INPUT,
@@ -111,6 +112,7 @@ struct expr_vmdinfo {
 };
 union expr_inst_op2{
 	double *src;
+	void *uaddr;
 	double value;
 	struct expr *hotfunc;
 	double (*func)(double);
@@ -124,8 +126,9 @@ struct expr_inst {
 	double *dst;
 	union expr_inst_op2 un;
 	enum expr_op op;
+	int flag;
 };
-union expr_symbol_value {
+union expr_symvalue {
 	double value;
 	long ivalue;
 	unsigned long uvalue;
@@ -138,9 +141,9 @@ union expr_symbol_value {
 	double (*mdepfunc)(size_t,
 		const struct expr *,double);
 };
-//_Static_assert(sizeof(union expr_symbol_value)==8,"symbol_value size error");
+//_Static_assert(sizeof(union expr_symvalue)==8,"symbol_value size error");
 struct expr_symbol {
-	union expr_symbol_value un;
+	union expr_symvalue un;
 	struct expr_symbol *next[EXPR_SYMNEXT];
 	unsigned int length;
 	unsigned short strlen;
@@ -149,7 +152,7 @@ struct expr_symbol {
 }/* __attribute__((packed))*/;
 //_Static_assert(sizeof(struct expr_symbol)-EXPR_SYMNEXT*sizeof(struct expr_symbol *)==16,"symbol size error");
 struct expr_builtin_symbol {
-	union expr_symbol_value un;
+	union expr_symvalue un;
 	const char *str;
 	unsigned short strlen;
 	short type,flag,dim;
@@ -204,7 +207,19 @@ const struct expr_builtin_symbol *expr_bsym_rsearch(void *addr);
 size_t expr_strscan(const char *s,size_t sz,char *buf);
 char *expr_astrscan(const char *s,size_t sz,size_t *outsz);
 void expr_free(struct expr *restrict ep);
-struct expr_inst *expr_addop(struct expr *restrict ep,double *dst,void *src,enum expr_op op);
+struct expr_inst *expr_addop(struct expr *restrict ep,double *dst,void *src,enum expr_op op,int flag);
+struct expr_inst *expr_addcopy(struct expr *restrict ep,double *dst,double *src);
+struct expr_inst *expr_addcall(struct expr *restrict ep,double *dst,double (*func)(double),int flag);
+struct expr_inst *expr_addneg(struct expr *restrict ep,double *dst);
+struct expr_inst *expr_addnot(struct expr *restrict ep,double *dst);
+struct expr_inst *expr_addnotl(struct expr *restrict ep,double *dst);
+struct expr_inst *expr_addinput(struct expr *restrict ep,double *dst);
+struct expr_inst *expr_addend(struct expr *restrict ep,double *dst);
+struct expr_inst *expr_addza(struct expr *restrict ep,double *dst,double (*zafunc)(void),int flag);
+struct expr_inst *expr_addmd(struct expr *restrict ep,double *dst,struct expr_mdinfo *em,int flag);
+struct expr_inst *expr_addme(struct expr *restrict ep,double *dst,struct expr_mdinfo *em,int flag);
+struct expr_inst *expr_addhot(struct expr *restrict ep,double *dst,struct expr *hot,int flag);
+struct expr_inst *expr_addconst(struct expr *restrict ep,double *dst,double val);
 void init_expr_symset(struct expr_symset *restrict esp);
 struct expr_symset *new_expr_symset(void);
 void expr_symset_free(struct expr_symset *restrict esp);
@@ -221,28 +236,4 @@ int init_expr_old(struct expr *restrict ep,const char *e,const char *asym,struct
 int init_expr(struct expr *restrict ep,const char *e,const char *asym,struct expr_symset *esp);
 struct expr *new_expr(const char *e,const char *asym,struct expr_symset *esp,int *error,char errinfo[EXPR_SYMLEN]);
 double expr_eval(const struct expr *restrict ep,double input);
-
-#define expr_addcopy(e,t,f) expr_addop(e,t,f,EXPR_COPY)
-#define expr_addcall(e,t,f) expr_addop(e,t,f,EXPR_CALL)
-#define expr_addadd(e,t,f) expr_addop(e,t,f,EXPR_ADD)
-#define expr_addsub(e,t,f) expr_addop(e,t,f,EXPR_SUB)
-#define expr_addmul(e,t,f) expr_addop(e,t,f,EXPR_MUL)
-#define expr_adddiv(e,t,f) expr_addop(e,t,f,EXPR_DIV)
-#define expr_addpow(e,t,f) expr_addop(e,t,f,EXPR_POW)
-#define expr_addneg(e,t) expr_addop(e,t,NULL,EXPR_NEG)
-#define expr_addnot(e,t) expr_addop(e,t,NULL,EXPR_NOT)
-#define expr_addnotl(e,t) expr_addop(e,t,NULL,EXPR_NOTL)
-#define expr_addinput(e,t) expr_addop(e,t,NULL,EXPR_INPUT)
-//#define expr_addsum(e,t,es) expr_addop(e,t,es,EXPR_SUM)
-#define expr_addend(e,t) expr_addop(e,t,NULL,EXPR_END)
-#define expr_addcallza(e,t,em) expr_addop(e,t,em,EXPR_ZA)
-#define expr_addcallmd(e,t,em) expr_addop(e,t,em,EXPR_MD)
-#define expr_addcallmdep(e,t,em) expr_addop(e,t,em,EXPR_ME)
-#define expr_addcallhot(e,t,em) expr_addop(e,t,em,EXPR_HOT)
-//#define expr_addconst(e,t,v) expr_addop(e,t,v,EXPR_CONST)
-//#define expr_addconst(e,t,v) expr_addop(e,t,*(void **)(v),EXPR_CONST)
-#define expr_addconst(e,t,v) (expr_addop(e,t,NULL,EXPR_CONST)->un.value=(v))
-#define expr_compute expr_eval
-#define expr_evaluate expr_eval
-#define expr_calculate expr_eval
 #endif

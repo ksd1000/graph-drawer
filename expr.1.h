@@ -5,6 +5,7 @@
 #ifndef _EXPR_H_
 #define _EXPR_H_
 #include <stdint.h>
+#include <stddef.h>
 enum expr_op {
 EXPR_COPY=0,
 EXPR_INPUT,
@@ -111,6 +112,7 @@ struct expr_vmdinfo {
 };
 union expr_inst_op2{
 	double *src;
+	void *uaddr;
 	double value;
 	struct expr *hotfunc;
 	double (*func)(double);
@@ -124,8 +126,9 @@ struct expr_inst {
 	double *dst;
 	union expr_inst_op2 un;
 	enum expr_op op;
+	int flag;
 };
-union expr_symbol_value {
+union expr_symvalue {
 	double value;
 	long ivalue;
 	unsigned long uvalue;
@@ -138,9 +141,9 @@ union expr_symbol_value {
 	double (*mdepfunc)(size_t,
 		const struct expr *,double);
 };
-//_Static_assert(sizeof(union expr_symbol_value)==8,"symbol_value size error");
+//_Static_assert(sizeof(union expr_symvalue)==8,"symbol_value size error");
 struct expr_symbol {
-	union expr_symbol_value un;
+	union expr_symvalue un;
 	struct expr_symbol *next[EXPR_SYMNEXT];
 	unsigned int length;
 	unsigned short strlen;
@@ -149,7 +152,7 @@ struct expr_symbol {
 }/* __attribute__((packed))*/;
 //_Static_assert(sizeof(struct expr_symbol)-EXPR_SYMNEXT*sizeof(struct expr_symbol *)==16,"symbol size error");
 struct expr_builtin_symbol {
-	union expr_symbol_value un;
+	union expr_symvalue un;
 	const char *str;
 	unsigned short strlen;
 	short type,flag,dim;

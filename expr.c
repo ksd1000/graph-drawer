@@ -191,7 +191,7 @@ void expr_sort(double *v,size_t n){
 	switch(n){
 		case 0:
 			return;
-		case 1 ... 16:
+		case 1 ... 14:
 			expr_sort_old(v,n);
 			return;
 		default:
@@ -899,11 +899,12 @@ char *expr_astrscan(const char *s,size_t sz,size_t *outsz){
 	return buf;
 }
 void expr_free(struct expr *restrict ep){
-	struct expr_inst *ip;
+	struct expr_inst *ip,*endp;
 	if(!ep)return;
 	if(ep->data){
 		ip=ep->data;
-		for(size_t i=ep->size;i>0;--i){
+		endp=ip+ep->size;
+		for(;ip<endp;++ip){
 			switch(ip->op){
 				case EXPR_SUM:
 				case EXPR_INT:
@@ -953,7 +954,6 @@ void expr_free(struct expr *restrict ep){
 				default:
 					break;
 			}
-			++ip;
 		}
 		free(ep->data);
 	}
@@ -970,17 +970,76 @@ void expr_free(struct expr *restrict ep){
 		(ep->length+=EXTEND_SIZE)*sizeof(struct expr_inst));\
 	}
 __attribute__((noinline))
-struct expr_inst *expr_addop(struct expr *restrict ep,double *dst,void *src,enum expr_op op){
+struct expr_inst *expr_addop(struct expr *restrict ep,double *dst,void *src,enum expr_op op,int flag){
 	struct expr_inst *ip;
 	EXTEND_DATA
 	ip=ep->data+ep->size++;
 	ip->op=op;
 	ip->dst=dst;
-	ip->un.src=(double *)src;
+	ip->un.uaddr=src;
+	ip->flag=flag;
 	//printvald(*(double *)&src);
 	return ip;
 }
-
+struct expr_inst *expr_addcopy(struct expr *restrict ep,double *dst,double *src){
+	return expr_addop(ep,dst,src,EXPR_COPY,0);
+}
+struct expr_inst *expr_addcall(struct expr *restrict ep,double *dst,double (*func)(double),int flag){
+	return expr_addop(ep,dst,func,EXPR_CALL,flag);
+}
+struct expr_inst *expr_addneg(struct expr *restrict ep,double *dst){
+	return expr_addop(ep,dst,NULL,EXPR_NEG,0);
+}
+struct expr_inst *expr_addnot(struct expr *restrict ep,double *dst){
+	return expr_addop(ep,dst,NULL,EXPR_NOT,0);
+}
+struct expr_inst *expr_addnotl(struct expr *restrict ep,double *dst){
+	return expr_addop(ep,dst,NULL,EXPR_NOTL,0);
+}
+struct expr_inst *expr_addinput(struct expr *restrict ep,double *dst){
+	return expr_addop(ep,dst,NULL,EXPR_INPUT,0);
+}
+struct expr_inst *expr_addend(struct expr *restrict ep,double *dst){
+	return expr_addop(ep,dst,NULL,EXPR_END,0);
+}
+struct expr_inst *expr_addza(struct expr *restrict ep,double *dst,double (*zafunc)(void),int flag){
+	return expr_addop(ep,dst,zafunc,EXPR_ZA,flag);
+}
+struct expr_inst *expr_addmd(struct expr *restrict ep,double *dst,struct expr_mdinfo *em,int flag){
+	return expr_addop(ep,dst,em,EXPR_MD,flag);
+}
+struct expr_inst *expr_addme(struct expr *restrict ep,double *dst,struct expr_mdinfo *em,int flag){
+	return expr_addop(ep,dst,em,EXPR_ME,flag);
+}
+struct expr_inst *expr_addhot(struct expr *restrict ep,double *dst,struct expr *hot,int flag){
+	return expr_addop(ep,dst,hot,EXPR_HOT,flag);
+}
+struct expr_inst *expr_addconst(struct expr *restrict ep,double *dst,double val){
+	struct expr_inst *r=expr_addop(ep,dst,NULL,EXPR_CONST,0);
+	r->un.value=val;
+	return r;
+}
+/*
+#define expr_addcopy(e,t,f) expr_addop(e,t,f,EXPR_COPY,0)
+#define expr_addcall(e,t,f,flag) expr_addop(e,t,f,EXPR_CALL,flag)
+#define expr_addadd(e,t,f) expr_addop(e,t,f,EXPR_ADD,0)
+#define expr_addsub(e,t,f) expr_addop(e,t,f,EXPR_SUB,0)
+#define expr_addmul(e,t,f) expr_addop(e,t,f,EXPR_MUL,0)
+#define expr_adddiv(e,t,f) expr_addop(e,t,f,EXPR_DIV,0)
+#define expr_addpow(e,t,f) expr_addop(e,t,f,EXPR_POW,0)
+#define expr_addneg(e,t) expr_addop(e,t,NULL,EXPR_NEG,0)
+#define expr_addnot(e,t) expr_addop(e,t,NULL,EXPR_NOT,0)
+#define expr_addnotl(e,t) expr_addop(e,t,NULL,EXPR_NOTL,0)
+#define expr_addinput(e,t) expr_addop(e,t,NULL,EXPR_INPUT,0)
+#define expr_addend(e,t) expr_addop(e,t,NULL,EXPR_END,0)
+#define expr_addza(e,t,em,flag) expr_addop(e,t,em,EXPR_ZA,flag)
+#define expr_addmd(e,t,em,flag) expr_addop(e,t,em,EXPR_MD,flag)
+#define expr_addme(e,t,em,flag) expr_addop(e,t,em,EXPR_ME,flag)
+#define expr_addhot(e,t,em,flag) expr_addop(e,t,em,EXPR_HOT,flag)
+#define expr_addconst(e,t,v) (expr_addop(e,t,NULL,EXPR_CONST,0)->un.value=(v))
+#define expr_compute expr_eval
+#define expr_evaluate expr_eval
+#define expr_calculate expr_eval*/
 static double *expr_newvar(struct expr *restrict ep){
 	double *r=xmalloc(sizeof(double));
 	if(ep->vsize>=ep->vlength){
@@ -1463,8 +1522,8 @@ static double *expr_getvalue(struct expr *restrict ep,const char *e,const char *
 		const struct expr_symbol *es;
 		const struct expr_builtin_symbol *ebs;
 	} sym;
-	const union expr_symbol_value *sv;
-	int type;
+	const union expr_symvalue *sv;
+	int type,flag;
 	size_t dim=0;
 	//fprintf(stderr,"getval %u: %s\n",assign_level,e0);
 	for(;;++e){
@@ -1553,13 +1612,13 @@ pterr:
 			}
 			free(buf);
 			//assert(es);
-			if(!un.es){
+			if(!un.uaddr){
 				/*if(ep->error==EXPR_ENEA)
 					memcpy(ep->errinfo,p2,e-p2);*/
 				return NULL;
 			}
 			v0=expr_newvar(ep);
-			expr_addop(ep,v0,un.uaddr,kp->op);
+			expr_addop(ep,v0,un.uaddr,kp->op,0);
 			e=p+1;
 			goto vend;
 		}
@@ -1583,10 +1642,12 @@ pterr:
 					break;
 			}
 			sv=&sym.es->un;
+			flag=sym.es->flag;
 		}else if((sym.ebs=expr_bsym_search(e,p-e))){
 			type=sym.ebs->type;
 			sv=&sym.ebs->un;
 			dim=sym.ebs->dim;
+			flag=sym.ebs->flag;
 		}else goto number;
 		switch(type){
 			case EXPR_FUNCTION:
@@ -1600,7 +1661,7 @@ pterr:
 				v0=expr_getvalue(ep,p,&e,asym,asymlen);
 				//assert(v0);
 				if(!v0)return NULL;
-				expr_addcall(ep,v0,sv->func);
+				expr_addcall(ep,v0,sv->func,flag);
 				break;
 			case EXPR_ZAFUNCTION:
 			//}else if(type==EXPR_ZAFUNCTION){
@@ -1613,7 +1674,7 @@ pterr:
 				v0=expr_newvar(ep);
 				//assert(v0);
 				//if(!v0)return NULL;
-				expr_addcallza(ep,v0,sv->zafunc);
+				expr_addza(ep,v0,sv->zafunc,flag);
 				e=p+2;
 				break;
 			case EXPR_HOTFUNCTION:
@@ -1631,7 +1692,7 @@ pterr:
 					strlen(sv->hotexpr)+1
 					,ep->sset,&ep->error,ep->errinfo);
 				if(!un.ep)return NULL;
-				expr_addcallhot(ep,v0,un.ep);
+				expr_addhot(ep,v0,un.ep,flag);
 				break;
 			//}else if(type==EXPR_CONSTANT){
 			case EXPR_CONSTANT:
@@ -1687,10 +1748,10 @@ pterr:
 				v0=expr_newvar(ep);
 				switch(type){
 					case EXPR_MDFUNCTION:
-						expr_addcallmd(ep,v0,un.em);
+						expr_addmd(ep,v0,un.em,flag);
 						break;
 					case EXPR_MDEPFUNCTION:
-						expr_addcallmdep(ep,v0,un.em);
+						expr_addme(ep,v0,un.em,flag);
 						break;
 				}
 				e=p+1;
@@ -1804,7 +1865,7 @@ redo:
 static void expr_vnunion(struct expr *restrict ep,struct expr_vnode *ev){
 	struct expr_vnode *p;
 
-	expr_addop(ep,ev->v,ev->next->v,ev->next->op);
+	expr_addop(ep,ev->v,ev->next->v,ev->next->op,0);
 	/*if(ev->next->op==EXPR_ASSIGN){
 		for(size_t i=0;i<ep->size;++i){
 			if(ep->data[i].op==EXPR_COPY&&ep->data[i].assign_level){
@@ -2967,33 +3028,34 @@ static void expr_optimize_constneg(struct expr *restrict ep){
 	expr_optimize_completed(ep);
 }
 
-static int expr_injection_symtype(int type){
+/*static int expr_injection_symtype(int type){
 	switch(type){
 		case EXPR_FUNCTION:
 		case EXPR_ZAFUNCTION:
-		//case EXPR_HOTFUNCTION:
+		case EXPR_HOTFUNCTION:
 			return 1;
 		default:
 			return 0;
 	}
-}
+}*/
 static int expr_injection_optype(enum expr_op op){
 	switch(op){
 		case EXPR_CALL:
 		case EXPR_ZA:
-		//case EXPR_HOT: not work
+		case EXPR_HOT:
 			return 1;
 		default:
 			return 0;
 	}
 }
 static int expr_isinjection(struct expr *restrict ep,struct expr_inst *ip){
-	union {
+	/*union {
 		const struct expr_symbol *es;
 		const struct expr_builtin_symbol *ebs;
-	} sym;
-	expr_injection_optype(ip->op);
-	if(ep->sset
+	} sym;*/
+	return expr_injection_optype(ip->op)
+		&&(ip->flag&EXPR_SF_INJECTION);
+	/*if(ep->sset
 	&&(sym.es=expr_symset_rsearch(ep->sset,ip->un.func))){
 		if(expr_injection_symtype(sym.es->type)
 		&&(sym.es->flag&EXPR_SF_INJECTION))
@@ -3004,7 +3066,7 @@ static int expr_isinjection(struct expr *restrict ep,struct expr_inst *ip){
 		&&(sym.ebs->flag&EXPR_SF_INJECTION))
 			return 1;
 	}
-	return 0;
+	return 0;*/
 }
 static int expr_optimize_injection(struct expr *restrict ep){
 	int r=0;
@@ -3026,9 +3088,10 @@ static int expr_optimize_injection(struct expr *restrict ep){
 				case EXPR_CALL:
 					ip1->un.value=ip->un.func(ip1->un.value);
 					break;
-				/*case EXPR_HOT:
+				case EXPR_HOT:
 					ip1->un.value=expr_eval(ip->un.hotfunc,ip1->un.value);
-					break;*/
+					expr_free(ip->un.hotfunc);
+					break;
 				default:
 					abort();
 			}

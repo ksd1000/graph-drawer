@@ -38,10 +38,11 @@ EXPR_GCDN,
 EXPR_LCMN,
 EXPR_LOOP,
 EXPR_FOR,
-EXPR_CALLZA,
-EXPR_CALLMD,
-EXPR_CALLME,
-EXPR_CALLHOT,
+EXPR_ZA,
+EXPR_MD,
+EXPR_ME,
+EXPR_VMD,
+EXPR_HOT,
 EXPR_GT,
 EXPR_GE,
 EXPR_LT,
@@ -69,6 +70,7 @@ EXPR_END
 #define EXPR_EUO 9
 #define EXPR_EZAFP 10
 #define EXPR_EDS 11
+#define EXPR_EVMD 12
 
 #define EXPR_CONSTANT 0
 #define EXPR_VARIABLE 1
@@ -86,7 +88,7 @@ EXPR_END
 struct expr;
 struct expr_symset;
 struct expr_suminfo {
-	struct expr *ep,*from,*to,*step;
+	struct expr *from,*to,*step,*ep;
 	volatile double index;
 };
 struct expr_branchinfo {
@@ -102,6 +104,11 @@ struct expr_mdinfo {
 	} un;
 	size_t dim;
 };
+struct expr_vmdinfo {
+	struct expr *from,*to,*step,*ep,*max;
+	double (*func)(size_t,double *);
+	volatile double index;
+};
 union expr_inst_op2{
 	double *src;
 	double value;
@@ -111,6 +118,7 @@ union expr_inst_op2{
 	struct expr_suminfo *es;
 	struct expr_branchinfo *eb;
 	struct expr_mdinfo *em;
+	struct expr_vmdinfo *ev;
 };
 struct expr_inst {
 	double *dst;

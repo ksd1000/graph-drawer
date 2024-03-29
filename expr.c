@@ -119,8 +119,9 @@ void expr_fry(double *v,size_t n){
 		case 1:
 			return;
 		default:
-			expr_fry(v,n/2);
-			expr_fry(v+n/2,n/2);
+			r=n>>1ul;
+			expr_fry(v,r);
+			expr_fry(v+r,r);
 			break;
 	}
 	r=((size_t)v+(size_t)__builtin_frame_address(0))&511;
@@ -981,40 +982,40 @@ struct expr_inst *expr_addop(struct expr *restrict ep,double *dst,void *src,enum
 	//printvald(*(double *)&src);
 	return ip;
 }
-struct expr_inst *expr_addcopy(struct expr *restrict ep,double *dst,double *src){
+static struct expr_inst *expr_addcopy(struct expr *restrict ep,double *dst,double *src){
 	return expr_addop(ep,dst,src,EXPR_COPY,0);
 }
-struct expr_inst *expr_addcall(struct expr *restrict ep,double *dst,double (*func)(double),int flag){
+static struct expr_inst *expr_addcall(struct expr *restrict ep,double *dst,double (*func)(double),int flag){
 	return expr_addop(ep,dst,func,EXPR_CALL,flag);
 }
-struct expr_inst *expr_addneg(struct expr *restrict ep,double *dst){
+static struct expr_inst *expr_addneg(struct expr *restrict ep,double *dst){
 	return expr_addop(ep,dst,NULL,EXPR_NEG,0);
 }
-struct expr_inst *expr_addnot(struct expr *restrict ep,double *dst){
+static struct expr_inst *expr_addnot(struct expr *restrict ep,double *dst){
 	return expr_addop(ep,dst,NULL,EXPR_NOT,0);
 }
-struct expr_inst *expr_addnotl(struct expr *restrict ep,double *dst){
+static struct expr_inst *expr_addnotl(struct expr *restrict ep,double *dst){
 	return expr_addop(ep,dst,NULL,EXPR_NOTL,0);
 }
-struct expr_inst *expr_addinput(struct expr *restrict ep,double *dst){
+static struct expr_inst *expr_addinput(struct expr *restrict ep,double *dst){
 	return expr_addop(ep,dst,NULL,EXPR_INPUT,0);
 }
-struct expr_inst *expr_addend(struct expr *restrict ep,double *dst){
+static struct expr_inst *expr_addend(struct expr *restrict ep,double *dst){
 	return expr_addop(ep,dst,NULL,EXPR_END,0);
 }
-struct expr_inst *expr_addza(struct expr *restrict ep,double *dst,double (*zafunc)(void),int flag){
+static struct expr_inst *expr_addza(struct expr *restrict ep,double *dst,double (*zafunc)(void),int flag){
 	return expr_addop(ep,dst,zafunc,EXPR_ZA,flag);
 }
-struct expr_inst *expr_addmd(struct expr *restrict ep,double *dst,struct expr_mdinfo *em,int flag){
+static struct expr_inst *expr_addmd(struct expr *restrict ep,double *dst,struct expr_mdinfo *em,int flag){
 	return expr_addop(ep,dst,em,EXPR_MD,flag);
 }
-struct expr_inst *expr_addme(struct expr *restrict ep,double *dst,struct expr_mdinfo *em,int flag){
+static struct expr_inst *expr_addme(struct expr *restrict ep,double *dst,struct expr_mdinfo *em,int flag){
 	return expr_addop(ep,dst,em,EXPR_ME,flag);
 }
-struct expr_inst *expr_addhot(struct expr *restrict ep,double *dst,struct expr *hot,int flag){
+static struct expr_inst *expr_addhot(struct expr *restrict ep,double *dst,struct expr *hot,int flag){
 	return expr_addop(ep,dst,hot,EXPR_HOT,flag);
 }
-struct expr_inst *expr_addconst(struct expr *restrict ep,double *dst,double val){
+static struct expr_inst *expr_addconst(struct expr *restrict ep,double *dst,double val){
 	struct expr_inst *r=expr_addop(ep,dst,NULL,EXPR_CONST,0);
 	r->un.value=val;
 	return r;

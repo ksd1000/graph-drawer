@@ -11,6 +11,7 @@
 #include <stdarg.h>
 #include <stddef.h>
 #include <float.h>
+#include <limits.h>
 #include <err.h>
 #include "expr.h"
 #define printval(x) fprintf(stderr,#x ":%lu\n",x)
@@ -1172,8 +1173,8 @@ integer:
 			diff=(from>to?from-to:to-from);
 			if(diff&0xff00000000000000ul){
 				if(p3){
-					expr_free2(p3);
 					p3[len]=NULL;
+					expr_free2(p3);
 				}
 				return NULL;
 			}

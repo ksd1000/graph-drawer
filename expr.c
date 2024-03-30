@@ -65,6 +65,54 @@ static int expr_operator(char c){
 //static const char spaces[]={" \t\r\f\n\v"};
 //static const char special[]={"+-*/%^(),<>=!&|"};
 const static char ntoc[]={"0123456789abcdefg"};
+static void *xmalloc(size_t size){
+	void *r;
+	if(size>=SSIZE_MAX){
+		warnx("IN xmalloc(size=%zu)\n"
+			"CANNOT ALLOCATE MEMORY",size);
+		goto ab;
+	}
+	r=malloc(size);
+	if(!r){
+		warn("IN xmalloc(size=%zu)\n"
+			"CANNOT ALLOCATE MEMORY",size);
+ab:
+		warnx("ABORTING");
+		abort();
+	}
+	return r;
+}
+static void *xrealloc(void *old,size_t size){
+	void *r;
+	if(size>=SSIZE_MAX){
+		warnx("IN xrealloc(old=%p,size=%zu)\n"
+			"CANNOT REALLOCATE MEMORY",old,size);
+		goto ab;
+	}
+	r=realloc(old,size);
+	if(!r){
+		warn("IN xrealloc(old=%p,size=%zu)\n"
+			"CANNOT REALLOCATE MEMORY",old,size);
+ab:
+		warnx("ABORTING");
+		abort();
+	}
+	return r;
+}
+static int xasprintf(char **restrict strp, const char *restrict fmt,...){
+	int r;
+	va_list ap;
+	va_start(ap,fmt);
+	r=vasprintf(strp,fmt,ap);
+	if(r<0){
+		warn("IN xasprintf(strp=%p)\n"
+			"CANNOT ALLOCATE MEMORY",strp);
+		warnx("ABORTING");
+		abort();
+	}
+	va_end(ap);
+	return r;
+}
 uint64_t expr_gcd64(uint64_t x,uint64_t y){
 	uint64_t r;
 	int r1;
@@ -91,30 +139,12 @@ double expr_gcd2(double x,double y){
 double expr_lcm2(double x,double y){
 	return x*y/expr_gcd2(x,y);
 }
-struct dnode {
-	struct dnode *lt,*gt;
-	size_t eq;
-	double val;
-};
-static void expr_sort_write(double **dst,const struct dnode *dnp){
-	size_t eq;
-	if(dnp->lt)
-		expr_sort_write(dst,dnp->lt);
-	eq=dnp->eq;
-	do
-		*((*dst)++)=dnp->val;
-	while(--eq);
-	if(dnp->gt)
-		expr_sort_write(dst,dnp->gt);
-}
+
 void expr_fry(double *v,size_t n){
 	size_t r;
 	double swapbuf;
+	double *endp;
 	switch(n){
-		case 2:
-			swapbuf=*v;
-			*v=v[1];
-			v[1]=swapbuf;
 		case 0:
 		case 1:
 			return;
@@ -125,8 +155,8 @@ void expr_fry(double *v,size_t n){
 			break;
 	}
 	r=((size_t)v+(size_t)__builtin_frame_address(0))&511;
-	for(double *endp=v+n-1;v<endp;++v,--endp){
-	r=(r*121+37)&1023;
+	for(endp=v+n-1;v<endp;++v,--endp){
+		r=(r*121+37)&1023;
 		if(__builtin_parity(r)){
 			swapbuf=*v;
 			*v=*endp;
@@ -134,49 +164,70 @@ void expr_fry(double *v,size_t n){
 		}
 	}
 }
+struct dnode {
+	struct dnode *lt,*gt;
+	size_t eq;
+	double val;
+};
+static void expr_sort3_write(double **dst,const struct dnode *dnp){
+	size_t eq;
+	if(dnp->lt)
+		expr_sort3_write(dst,dnp->lt);
+	eq=dnp->eq;
+	do
+		*((*dst)++)=dnp->val;
+	while(--eq);
+	if(dnp->gt)
+		expr_sort3_write(dst,dnp->gt);
+}
 __attribute__((noinline))
-void expr_sort3(double *v,size_t n){
-	struct dnode *top,**pp,*dnp;
-	expr_fry(v,n);
-	dnp=alloca(n*sizeof(struct dnode));
+void *expr_sort3(double *v,size_t n,void *(*allocator)(size_t)){
+	struct dnode *top,*dnp;
+	double *restrict p;
+	double *endp=v+n;
+	if(allocator){
+		dnp=allocator(n*sizeof(struct dnode));
+		if(!dnp)return NULL;
+		expr_fry(v,n);
+	}else {
+		expr_fry(v,n);
+		dnp=alloca(n*sizeof(struct dnode));
+	}
 	top=dnp;
-	top->lt=NULL;
-	top->gt=NULL;
-	top->eq=1;
-	top->val=*v;
-	for(double *restrict p=v+1,*endp=v+n;p<endp;++p){
+	p=v;
+	goto create;
+	for(;p<endp;++p){
 		for(struct dnode *p1=dnp;;){
 			if(*p==p1->val){
 				++p1->eq;
-				goto no_create;
+				break;
 			}else if((*p>p1->val)){
 				if(p1->gt){
 					p1=p1->gt;
 					continue;
 				}
-				pp=&p1->gt;
-				break;
+				p1->gt=++top;
+				goto create;
 			}else {
 				if(p1->lt){
 					p1=p1->lt;
 					continue;
 				}
-				pp=&p1->lt;
-				break;
+				p1->lt=++top;
+				goto create;
 			}
 		}
-		++top;
+		continue;
+create:
 		top->lt=NULL;
 		top->gt=NULL;
 		top->eq=1;
 		top->val=*p;
-		*pp=top;
-no_create:
-		continue;
 	}
-	expr_sort_write(&v,dnp);
+	expr_sort3_write(&v,dnp);
+	return dnp;
 }
-void expr_sort_old(double *v,size_t n){
+void expr_sort_old(double *restrict v,size_t n){
 	double swapbuf;
 	for(size_t i=0;i<n;++i){
 		for(size_t j=i+1;j<n;++j){
@@ -196,7 +247,7 @@ void expr_sort(double *v,size_t n){
 			expr_sort_old(v,n);
 			return;
 		default:
-			expr_sort3(v,n);
+			expr_sort3(v,n,NULL);
 			return;
 	}
 }
@@ -291,6 +342,10 @@ static double expr_med(size_t n,double *args){
 	expr_sort(args,n);
 	return n&1ul?args[n>>1ul]:(n>>=1ul,(args[n]+args[n-1])/2);
 }
+static double expr_hmed(size_t n,double *args){
+	free(expr_sort3(args,n,xmalloc));
+	return n&1ul?args[n>>1ul]:(n>>=1ul,(args[n]+args[n-1])/2);
+}
 static double expr_med_old(size_t n,double *args){
 	expr_sort_old(args,n);
 	return n&1ul?args[n>>1ul]:(n>>=1ul,(args[n]+args[n-1])/2);
@@ -299,15 +354,22 @@ static double expr_gmed(size_t n,double *args){
 	expr_sort(args,n);
 	return n&1ul?args[n>>1ul]:(n>>=1ul,sqrt(args[n]*args[n-1]));
 }
+static double expr_hgmed(size_t n,double *args){
+	free(expr_sort3(args,n,xmalloc));
+	return n&1ul?args[n>>1ul]:(n>>=1ul,sqrt(args[n]*args[n-1]));
+}
 static double expr_gmed_old(size_t n,double *args){
 	expr_sort_old(args,n);
 	return n&1ul?args[n>>1ul]:(n>>=1ul,sqrt(args[n]*args[n-1]));
 }
-static double expr_mode(size_t n,double *args){
+static double expr_mode0(size_t n,double *args,int heap){
 	double max,cnt;
 	double *endp=args+n;
 	size_t maxn=1;
-	expr_sort(args,n);
+	if(heap)
+		free(expr_sort3(args,n,xmalloc));
+	else
+		expr_sort(args,n);
 	cnt=max=*(args++);
 	for(size_t cn=1;;++args){
 		if(*args==cnt){
@@ -318,12 +380,17 @@ static double expr_mode(size_t n,double *args){
 			maxn=cn;
 			max=cnt;
 		}
-		//printf("%lg %zu times\n",cnt,cn);
 		cn=1;
 		cnt=*args;
 		if(args==endp)break;
 	}
 	return max;
+}
+static double expr_mode(size_t n,double *args){
+	return expr_mode0(n,args,0);
+}
+static double expr_hmode(size_t n,double *args){
+	return expr_mode0(n,args,1);
 }
 static double expr_sign(double x){
 	if(x>DBL_EPSILON)return 1.0;
@@ -679,6 +746,9 @@ const struct expr_builtin_symbol expr_bsyms[]={
 	REGMDSYM2("or",expr_or,0),
 	REGMDSYM2("xor",expr_xor,0),
 	REGMDSYM2("gcd",expr_gcd,0),
+	REGMDSYM2("hgmed",expr_hgmed,0),
+	REGMDSYM2("hmed",expr_hmed,0),
+	REGMDSYM2("hmode",expr_hmode,0),
 	REGMDSYM2("hypot",expr_hypot,0),
 	REGMDSYM2("lcm",expr_lcm,0),
 	REGMDSYM2("max",expr_max,0),
@@ -721,54 +791,8 @@ const struct expr_builtin_symbol *expr_bsym_rsearch(void *addr){
 	}
 	return NULL;
 }
-static void *xmalloc(size_t size){
-	void *r;
-	if(size>=SSIZE_MAX){
-		warnx("IN xmalloc(size=%zu)\n"
-			"CANNOT ALLOCATE MEMORY",size);
-		goto ab;
-	}
-	r=malloc(size);
-	if(!r){
-		warn("IN xmalloc(size=%zu)\n"
-			"CANNOT ALLOCATE MEMORY",size);
-ab:
-		warnx("ABORTING");
-		abort();
-	}
-	return r;
-}
-static void *xrealloc(void *old,size_t size){
-	void *r;
-	if(size>=SSIZE_MAX){
-		warnx("IN xrealloc(old=%p,size=%zu)\n"
-			"CANNOT REALLOCATE MEMORY",old,size);
-		goto ab;
-	}
-	r=realloc(old,size);
-	if(!r){
-		warn("IN xrealloc(old=%p,size=%zu)\n"
-			"CANNOT REALLOCATE MEMORY",old,size);
-ab:
-		warnx("ABORTING");
-		abort();
-	}
-	return r;
-}
-static int xasprintf(char **restrict strp, const char *restrict fmt,...){
-	int r;
-	va_list ap;
-	va_start(ap,fmt);
-	r=vasprintf(strp,fmt,ap);
-	if(r<0){
-		warn("IN xasprintf(strp=%p)\n"
-			"CANNOT ALLOCATE MEMORY",strp);
-		warnx("ABORTING");
-		abort();
-	}
-	va_end(ap);
-	return r;
-}
+
+
 static size_t expr_strcopy(const char *s,size_t sz,char *buf){
 	const char *s0=s,*p,*s1;
 	char *buf0=buf,v;
@@ -935,11 +959,12 @@ void expr_free(struct expr *restrict ep){
 					free(ip->un.em);
 					break;
 				case EXPR_VMD:
-					expr_free(ip->un.ev->max);
 					expr_free(ip->un.ev->ep);
 					expr_free(ip->un.ev->from);
 					expr_free(ip->un.ev->to);
 					expr_free(ip->un.ev->step);
+					if(ip->un.ev->args)
+						free(ip->un.ev->args);
 					free(ip->un.ev);
 					break;
 				case EXPR_IF:
@@ -1321,7 +1346,9 @@ static struct expr_vmdinfo *expr_getvmdinfo(struct expr *restrict ep,const char 
 		const struct expr_builtin_symbol *ebs;
 	} sym;
 	size_t ssz;
+	ssize_t max;
 	double (*fp)(size_t n,double *args);
+	char c;
 //	int error;
 //	char ef[EXPR_SYMLEN];
 	if(!v){
@@ -1335,6 +1362,11 @@ static struct expr_vmdinfo *expr_getvmdinfo(struct expr *restrict ep,const char 
 	if(p-v!=7){
 		memcpy(ep->errinfo,e0,sz);
 		ep->error=EXPR_ENEA;
+		goto err0;
+	}
+	if(sscanf(v[6],"%zd%c",&max,&c)!=1){
+		strcpy(ep->errinfo,v[6]);
+		ep->error=EXPR_ENUMBER;
 		goto err0;
 	}
 	ssz=strlen(v[5]);
@@ -1355,6 +1387,13 @@ evmd:
 		goto err0;
 	}
 	ev=xmalloc(sizeof(struct expr_vmdinfo));
+	if(max>0){
+		ev->args=xmalloc(max*sizeof(double));
+		ev->max=max;
+	}else {
+		ev->args=NULL;
+		ev->max=0;
+	}
 	ev->func=fp;
 	sset=new_expr_symset();
 	expr_symset_add(sset,v[0],EXPR_VARIABLE,&ev->index);
@@ -1367,14 +1406,10 @@ evmd:
 	if(!ev->step)goto err3;
 	ev->ep=new_expr(v[4],asym,sset,&ep->error,ep->errinfo);
 	if(!ev->ep)goto err4;
-	ev->max=new_expr(v[6],asym,sset,&ep->error,ep->errinfo);
-	if(!ev->max)goto err5;
 
 	expr_free2(v);
 	expr_symset_free(sset);
 	return ev;
-err5:
-	expr_free(ev->ep);
 err4:
 	expr_free(ev->step);
 err3:
@@ -2963,8 +2998,7 @@ static int expr_vcheck_ep(struct expr_inst *ip0,double *v){
 			expr_vcheck_ep(ip->un.ev->from->data,v)||
 			expr_vcheck_ep(ip->un.ev->to->data,v)||
 			expr_vcheck_ep(ip->un.ev->step->data,v)||
-			expr_vcheck_ep(ip->un.ev->ep->data,v)||
-			expr_vcheck_ep(ip->un.ev->max->data,v)
+			expr_vcheck_ep(ip->un.ev->ep->data,v)
 			))return 1;
 		if(expr_usebranch(ip->op)&&(
 			expr_vcheck_ep(ip->un.eb->cond->data,v)||
@@ -3208,10 +3242,9 @@ again:
 }
 __attribute__((noinline))
 static double expr_vmdeval(struct expr_vmdinfo *restrict ev,double input){
-	ssize_t max;
+	ssize_t max=ev->max;
 	double *args,*ap,from,to,step;
 	step=fabs(expr_eval(ev->step,input));
-	max=(ssize_t)expr_eval(ev->max,input);
 	from=expr_eval(ev->from,input);
 	to=expr_eval(ev->to,input);
 	if(max<=0){
@@ -3232,7 +3265,7 @@ static double expr_vmdeval(struct expr_vmdinfo *restrict ev,double input){
 			if(from2==from1)return NAN;
 		}
 	}
-	args=alloca(max*sizeof(double));
+	args=ev->args?ev->args:alloca(max*sizeof(double));
 	ap=args;
 	ev->index=from;
 	for(;max;--max){

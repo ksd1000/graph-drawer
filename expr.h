@@ -106,8 +106,10 @@ struct expr_mdinfo {
 	size_t dim;
 };
 struct expr_vmdinfo {
-	struct expr *from,*to,*step,*ep,*max;
+	struct expr *from,*to,*step,*ep;
+	ssize_t max;
 	double (*func)(size_t,double *);
+	double *args;
 	volatile double index;
 };
 union expr_inst_op2{
@@ -195,8 +197,8 @@ uint64_t expr_gcd64(uint64_t x,uint64_t y);
 double expr_gcd2(double x,double y);
 double expr_lcm2(double x,double y);
 void expr_fry(double *v,size_t n);
-void expr_sort3(double *v,size_t n);
-void expr_sort_old(double *v,size_t n);
+void *expr_sort3(double *v,size_t n,void *(*allocator)(size_t));
+void expr_sort_old(double *restrict v,size_t n);
 void expr_sort(double *v,size_t n);
 double expr_and2(double a,double b);
 double expr_or2(double a,double b);

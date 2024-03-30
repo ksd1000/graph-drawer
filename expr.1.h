@@ -106,8 +106,10 @@ struct expr_mdinfo {
 	size_t dim;
 };
 struct expr_vmdinfo {
-	struct expr *from,*to,*step,*ep,*max;
+	struct expr *from,*to,*step,*ep;
+	ssize_t max;
 	double (*func)(size_t,double *);
+	double *args;
 	volatile double index;
 };
 union expr_inst_op2{

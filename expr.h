@@ -25,6 +25,7 @@ EXPR_SHR,
 EXPR_NEG,
 EXPR_NOT,
 EXPR_NOTL,
+EXPR_TSTL,
 EXPR_IF,
 EXPR_WHILE,
 EXPR_SUM,
@@ -80,8 +81,14 @@ EXPR_END
 #define EXPR_MDEPFUNCTION 4
 #define EXPR_HOTFUNCTION 5
 #define EXPR_ZAFUNCTION 6
-
+//expr symbol flag
 #define EXPR_SF_INJECTION 1
+//expr initial flag
+#define EXPR_IF_NOOPTIMIZE 1
+#define EXPR_IF_INSTANT_FREE 2
+
+#define EXPR_IF_EXTEND_MASK (\
+		EXPR_IF_INSTANT_FREE)
 
 #define EXPR_EDBASE(d) (((union expr_double *)(d))->rd.base)
 #define EXPR_EDEXP(d) (((union expr_double *)(d))->rd.exp)
@@ -222,8 +229,13 @@ struct expr_symbol *expr_symset_search(const struct expr_symset *restrict esp,co
 struct expr_symbol *expr_symset_rsearch(const struct expr_symset *restrict esp,void *addr);
 void expr_symset_copy(struct expr_symset *restrict dst,const struct expr_symset *restrict src);
 struct expr_symset *expr_symset_clone(const struct expr_symset *restrict ep);
-int init_expr_old(struct expr *restrict ep,const char *e,const char *asym,struct expr_symset *esp);
+int init_expr5(struct expr *restrict ep,const char *e,const char *asym,struct expr_symset *esp,int flag);
 int init_expr(struct expr *restrict ep,const char *e,const char *asym,struct expr_symset *esp);
+struct expr *new_expr6(const char *e,const char *asym,struct expr_symset *esp,int flag,int *error,char errinfo[EXPR_SYMLEN]);
 struct expr *new_expr(const char *e,const char *asym,struct expr_symset *esp,int *error,char errinfo[EXPR_SYMLEN]);
+double expr_calc5(const char *e,const char *asym,double input,struct expr_symset *esp,int flag);
+double expr_calc4(const char *e,const char *asym,double input,struct expr_symset *esp);
+double expr_calc3(const char *e,const char *asym,double input);
+double expr_calc(const char *e);
 double expr_eval(const struct expr *restrict ep,double input);
 #endif

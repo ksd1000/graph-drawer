@@ -2,8 +2,10 @@ CC := gcc
 CFLAG := -Wall -Ofast -fPIC
 LFLAG := -lc -lm
 kernel := $(shell uname -r)
-xgraph.tar.gz: header/expr.h header/xdraw.h lib/xgraph.a lib/xgraph.so
+xgraph.tar.gz: header/expr.h header/xdraw.h lib/xgraph.a lib/xgraph.so check
 	tar -czf xgraph.tar.gz header lib
+check: lib/xgraph.a check.c
+	$(CC) $(CFLAG) check.c -o check lib/xgraph.a $(LFLAG)
 lib/xgraph.a: expr.o xdraw.o texts/text.o texts/sbmp.o
 	mkdir -p lib
 	ar -rcs lib/xgraph.a expr.o xdraw.o texts/text.o texts/sbmp.o
@@ -40,7 +42,7 @@ cleanall:
 clean:
 	rm -f xgraph.tar.gz
 	rm -rf lib header
-	rm -f all
+	rm -f check
 	rm -f expr.o
 	rm -f xdraw.o
 	make -C texts clean

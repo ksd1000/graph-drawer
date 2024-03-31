@@ -25,6 +25,7 @@ EXPR_SHR,
 EXPR_NEG,
 EXPR_NOT,
 EXPR_NOTL,
+EXPR_TSTL,
 EXPR_IF,
 EXPR_WHILE,
 EXPR_SUM,
@@ -80,8 +81,14 @@ EXPR_END
 #define EXPR_MDEPFUNCTION 4
 #define EXPR_HOTFUNCTION 5
 #define EXPR_ZAFUNCTION 6
-
+//expr symbol flag
 #define EXPR_SF_INJECTION 1
+//expr initial flag
+#define EXPR_IF_NOOPTIMIZE 1
+#define EXPR_IF_INSTANT_FREE 2
+
+#define EXPR_IF_EXTEND_MASK (\
+		EXPR_IF_INSTANT_FREE)
 
 #define EXPR_EDBASE(d) (((union expr_double *)(d))->rd.base)
 #define EXPR_EDEXP(d) (((union expr_double *)(d))->rd.exp)

@@ -59,6 +59,7 @@ static int expr_space(char c){
 	switch(c){
 		case '\t':
 		case '\r':
+		case '\v':
 		case '\f':
 		case '\n':
 		case '\b':
@@ -102,7 +103,7 @@ static void xfree(void *p){
 	free(p);
 	--count;
 }
-void __attribute__((destructor)) show(void){
+static void __attribute__((destructor)) show(void){
 	warnx("MEMORY LEAK COUNT:%d",count);
 }
 #define free(p) xfree(p)
@@ -962,7 +963,6 @@ char *expr_astrscan(const char *s,size_t sz,size_t *outsz){
 }
 void expr_free(struct expr *restrict ep){
 	struct expr_inst *ip,*endp;
-	if(!ep)return;
 	if(ep->data){
 		ip=ep->data;
 		endp=ip+ep->size;
@@ -1005,9 +1005,9 @@ void expr_free(struct expr *restrict ep){
 					break;
 				case EXPR_IF:
 				case EXPR_WHILE:
-					free(ip->un.eb->cond);
-					free(ip->un.eb->body);
-					free(ip->un.eb->value);
+					expr_free(ip->un.eb->cond);
+					expr_free(ip->un.eb->body);
+					expr_free(ip->un.eb->value);
 					free(ip->un.eb);
 					break;
 				case EXPR_HOT:
@@ -2117,9 +2117,8 @@ end2:
 	SETPREC1(EXPR_ANDL)
 	SETPREC1(EXPR_XORL)
 	SETPREC1(EXPR_ORL)
-	while(ev->next)
-		expr_vnunion(ep,ev);
-	v1=ev->v;
+	for(p=ev;p->next;p=p->next);
+	v1=p->v;
 	expr_vnfree(ev);
 	return v1;
 err:
@@ -2380,8 +2379,7 @@ int init_expr5(struct expr *restrict ep,const char *e,const char *asym,struct ex
 		p=expr_scan(ep,ebuf,r,asym,asym?strlen(asym):0);
 		free(ebuf);
 		if(ep->sset_shouldfree){
-			free(ep->sset);
-			ep->sset=esp;
+			expr_symset_free(ep->sset);
 		}
 		if(p){
 			expr_addend(ep,p);

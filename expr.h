@@ -204,7 +204,6 @@ union expr_double {
 extern const struct expr_builtin_symbol expr_bsyms[];
 extern const struct expr_builtin_keyword expr_keywords[];
 const char *expr_error(int error);
-void __attribute__((destructor)) show(void);
 uint64_t expr_gcd64(uint64_t x,uint64_t y);
 double expr_gcd2(double x,double y);
 double expr_lcm2(double x,double y);

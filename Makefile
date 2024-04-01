@@ -4,8 +4,8 @@ LFLAG := -lc -lm
 kernel := $(shell uname -r)
 xgraph.tar.gz: header/expr.h header/xdraw.h lib/xgraph.a lib/xgraph.so check
 	tar -czf xgraph.tar.gz header lib
-check: lib/xgraph.a check.c
-	$(CC) $(CFLAG) check.c -o check lib/xgraph.a $(LFLAG)
+check: expr.c check.c
+	$(CC) $(CFLAG) check.c -o check -DMEMORY_LEAK_CHECK expr.c $(LFLAG)
 lib/xgraph.a: expr.o xdraw.o texts/text.o texts/sbmp.o
 	mkdir -p lib
 	ar -rcs lib/xgraph.a expr.o xdraw.o texts/text.o texts/sbmp.o

@@ -187,7 +187,8 @@ struct expr {
 	struct expr_symset *sset;
 	size_t size,length,vsize,vlength;
 	int error;
-	short freeable,sset_shouldfree;
+	short iflag;
+	char freeable,sset_shouldfree;
 	char errinfo[EXPR_SYMLEN];
 };
 struct expr_rawdouble {

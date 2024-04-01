@@ -20,11 +20,40 @@
 #define SYMDIM(sp) (*(size_t *)((sp)->str+(sp)->strlen+1))
 #define NDEBUG
 #include <assert.h>
-static const char *eerror[]={"Unknown error","Unknown symbol","Parentheses do not match","Function and keyword must be followed by a \'(\'","No value in parenthesis","No enough or too much argument","Bad number","Target is not variable","Empty value","Unexpected operator","Zero-argument function must be followed by \'()\'","Defined symbol","Not a multi-demension function with dim 0"};
+static const char *eerror[]={
+	[0]="Unknown error",
+	[EXPR_ESYMBOL]="Unknown symbol",
+	[EXPR_EPT]="Parentheses do not match",
+	[EXPR_EFP]="Function and keyword must be followed by a \'(\'",
+	[EXPR_ENVP]="No value in parenthesis",
+	[EXPR_ENEA]="No enough or too much argument",
+	[EXPR_ENUMBER]="Bad number",
+	[EXPR_ETNV]="Target is not variable",
+	[EXPR_EEV]="Empty value",
+	[EXPR_EUO]="Unexpected operator",
+	[EXPR_EZAFP]="Zero-argument function must be followed by \'()\'",
+	[EXPR_EDS]="Defined symbol",
+	[EXPR_EVMD]="Not a multi-demension function with dim 0"
+};
 const char *expr_error(int error){
 	if(error<0)error=-error;
 	if(error>=(sizeof(eerror)/sizeof(*eerror)))return eerror[0];
 	else return eerror[error];
+}
+static __attribute__((always_inline)) int expr_equal(double a,double b){
+	double absa,absb,absamb;
+	absa=a<0.0?-a:a;
+	absb=b<0.0?-b:b;
+	absamb=a<b?b-a:a-b;
+	if(absa>absb){
+		if(absa<=1.0)
+			return absamb<=DBL_EPSILON;
+		return absamb<=DBL_EPSILON*absa;
+	}else {
+		if(absb<=1.0)
+			return absamb<=DBL_EPSILON;
+		return absamb<=DBL_EPSILON*absb;
+	}
 }
 static int expr_space(char c){
 	switch(c){
@@ -64,6 +93,20 @@ static int expr_operator(char c){
 //static const char spaces[]={" \t\r\f\n\v"};
 //static const char special[]={"+-*/%^(),<>=!&|"};
 const static char ntoc[]={"0123456789abcdefg"};
+
+//#define MEMORY_LEAK_CHECK
+
+#ifdef MEMORY_LEAK_CHECK
+static volatile _Atomic int count=0;
+static void xfree(void *p){
+	free(p);
+	--count;
+}
+void __attribute__((destructor)) show(void){
+	warnx("MEMORY LEAK COUNT:%d",count);
+}
+#define free(p) xfree(p)
+#endif
 static void *xmalloc(size_t size){
 	void *r;
 	if(size>=SSIZE_MAX){
@@ -79,6 +122,9 @@ ab:
 		warnx("ABORTING");
 		abort();
 	}
+#ifdef MEMORY_LEAK_CHECK
+	++count;
+#endif
 	return r;
 }
 static void *xrealloc(void *old,size_t size){
@@ -96,6 +142,9 @@ ab:
 		warnx("ABORTING");
 		abort();
 	}
+#ifdef MEMORY_LEAK_CHECK
+	if(!old)++count;
+#endif
 	return r;
 }
 static int xasprintf(char **restrict strp, const char *restrict fmt,...){
@@ -110,6 +159,9 @@ static int xasprintf(char **restrict strp, const char *restrict fmt,...){
 		abort();
 	}
 	va_end(ap);
+#ifdef MEMORY_LEAK_CHECK
+	++count;
+#endif
 	return r;
 }
 uint64_t expr_gcd64(uint64_t x,uint64_t y){
@@ -1820,7 +1872,7 @@ eev:
 			if(e>=endp)goto eev;
 			goto redo;
 	}
-	v1=NULL;
+	//v1=NULL;
 	v1=expr_getvalue(ep,e,endp,&e,asym,asymlen);
 	if(!v1)goto err;
 	ev=expr_vnadd(ev,v1,op,unary);
@@ -2320,7 +2372,7 @@ int init_expr5(struct expr *restrict ep,const char *e,const char *asym,struct ex
 	ep->length=ep->size=ep->vlength=ep->vsize=0;*/
 	memset(ep,0,sizeof(struct expr));
 	ep->sset=esp;
-	
+	ep->iflag=(short)flag;
 	if(e){
 		ebuf=xmalloc(strlen(e)+1);
 		r=expr_strcpy_nospace(ebuf,e);
@@ -2351,12 +2403,15 @@ struct expr *new_expr6(const char *e,const char *asym,struct expr_symset *esp,in
 
 	struct expr *ep=xmalloc(sizeof(struct expr));
 	if(init_expr5(ep,e,asym,esp,flag)){
-		*error=ep->error;
+		if(error)*error=ep->error;
 		if(errinfo)memcpy(errinfo,ep->errinfo,EXPR_SYMLEN);
 		free(ep);
 		return NULL;
 	}
-	ep->freeable=1;
+	if(flag&EXPR_IF_INSTANT_FREE)
+		free(ep);
+	else
+		ep->freeable=1;
 	return ep;
 }
 struct expr *new_expr(const char *e,const char *asym,struct expr_symset *esp,int *error,char errinfo[EXPR_SYMLEN]){
@@ -2365,6 +2420,7 @@ struct expr *new_expr(const char *e,const char *asym,struct expr_symset *esp,int
 double expr_calc5(const char *e,const char *asym,double input,struct expr_symset *esp,int flag){
 	struct expr ep[1];
 	double r;
+	flag&=~EXPR_IF_INSTANT_FREE;
 	if(init_expr5(ep,e,asym,esp,flag)<0)
 		return NAN;
 	r=expr_eval(ep,input);
@@ -2630,13 +2686,23 @@ static void expr_optimize_contmul(struct expr *restrict ep,enum expr_op op){
 						1.0:
 						0.0;
 					break;
-				case EXPR_EQ:
+/*				case EXPR_EQ:
 					sum=fabs(sum-*ip->un.src)<=DBL_EPSILON?
 						1.0:
 						0.0;
 					break;
 				case EXPR_NE:
 					sum=fabs(sum-*ip->un.src)>DBL_EPSILON?
+						1.0:
+						0.0;
+					break;*/
+				case EXPR_EQ:
+					sum=expr_equal(sum,*ip->un.src)?
+						1.0:
+						0.0;
+					break;
+				case EXPR_NE:
+					sum=!expr_equal(sum,*ip->un.src)?
 						1.0:
 						0.0;
 					break;
@@ -3418,13 +3484,23 @@ double expr_eval(const struct expr *restrict ep,double input){
 					1.0:
 					0.0;
 				break;
-			case EXPR_EQ:
+/*			case EXPR_EQ:
 				*ip->dst=fabs(*ip->dst-*ip->un.src)<=DBL_EPSILON?
 					1.0:
 					0.0;
 				break;
 			case EXPR_NE:
 				*ip->dst=fabs(*ip->dst-*ip->un.src)>DBL_EPSILON?
+					1.0:
+					0.0;
+				break;*/
+			case EXPR_EQ:
+				*ip->dst=expr_equal(*ip->dst,*ip->un.src)?
+					1.0:
+					0.0;
+				break;
+			case EXPR_NE:
+				*ip->dst=!expr_equal(*ip->dst,*ip->un.src)?
 					1.0:
 					0.0;
 				break;

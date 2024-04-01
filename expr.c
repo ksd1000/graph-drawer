@@ -326,7 +326,7 @@ void expr_sort(double *v,size_t n){
 		EXPR_EDBASE(&a)=x1<<x2;\
 		EXPR_EDEXP(&a)-=x2;\
 	}else {\
-		a=0.0;\
+		a=EXPR_EDSIGN(&a)?-0.0:0.0;\
 	}\
 	EXPR_EDSIGN(&a) _sign_cal EXPR_EDSIGN(&b);\
 	return a;\

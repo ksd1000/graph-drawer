@@ -1100,10 +1100,10 @@ static double *expr_createvar(struct expr *restrict ep,const char *symbol,size_t
 	expr_symset_addl(ep->sset,symbol,symlen,EXPR_VARIABLE,r);
 	return r;
 }
-static const char *expr_findpair(const char *c){
+static const char *expr_findpair(const char *c,const char *endp){
 	size_t lv=0;
 	if(*c!='(')goto err;
-	while(*c){
+	while(c<endp){
 		switch(*c){
 			case '(':
 				++lv;
@@ -1184,7 +1184,7 @@ static char *expr_tok(char *restrict str,char **restrict saveptr){
 			return str;
 		}
 		if(**saveptr=='('){
-			*saveptr=(char *)expr_findpair(*saveptr);
+			*saveptr=(char *)expr_findpair(*saveptr,*saveptr+strlen(*saveptr));
 			if(!*saveptr)return NULL;
 		}
 		++(*saveptr);
@@ -1206,7 +1206,7 @@ static char **expr_sep(struct expr *restrict ep,const char *pe,size_t esz){
 	memcpy(e,pe,esz);
 	e[esz]=0;
 	if(*e=='('){
-		p1=(char *)expr_findpair(e);
+		p1=(char *)expr_findpair(e,e+esz);
 		if(p1){
 			if(!p1[1]){
 				*p1=0;
@@ -1540,14 +1540,13 @@ eev:
 				ep->error=EXPR_EEV;
 				return NULL;
 			case '(':
-				p=expr_findpair(e);
+				p=expr_findpair(e,endp);
 				if(!p){
 pterr:
 					ep->error=EXPR_EPT;
 					return NULL;
 				}
-				p2=e;
-				if(*(++p2)==')'){
+				if(p==e+1){
 					ep->error=EXPR_ENVP;
 					return NULL;
 				}
@@ -1585,12 +1584,11 @@ pterr:
 			if(*p!='('){
 				memcpy(ep->errinfo,e,p-e);
 				ep->error=EXPR_EFP;
-				//assert(0);
 				return NULL;
 			}
 			p2=e;
 			e=p;
-			p=expr_findpair(e);
+			p=expr_findpair(e,endp);
 			if(!p)goto pterr;
 			switch(kp->op){
 				case EXPR_IF:
@@ -1605,8 +1603,6 @@ pterr:
 					break;
 			}
 			if(!un.uaddr){
-				/*if(ep->error==EXPR_ENEA)
-					memcpy(ep->errinfo,p2,e-p2);*/
 				return NULL;
 			}
 			v0=expr_newvar(ep);
@@ -1691,7 +1687,7 @@ pterr:
 				}
 				p2=e;
 				e=p;
-				p=expr_findpair(e);
+				p=expr_findpair(e,endp);
 				if(!p)goto pterr;
 				switch(type){
 					case EXPR_MDFUNCTION:
@@ -1702,8 +1698,6 @@ pterr:
 					break;
 				}
 				if(!un.em){
-					/*if(ep->error==EXPR_ENEA)
-					memcpy(ep->errinfo,p2,e-p2);*/
 					return NULL;
 				}
 				v0=expr_newvar(ep);

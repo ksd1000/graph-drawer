@@ -10,6 +10,8 @@ const struct proj {
 	const char *e;
 	double expect;
 } projs[]={
+	{"+7",7},
+	{"-7",-7},
 	{"1+5",6},
 	{"5+3*8",29},
 	{"(5+3)*8",64},
@@ -115,12 +117,12 @@ void check(const char *e,double expect){
 	//static int k=0;if(k++==39)exit(0);
 	printf("checking %s --- expect %lg",e,expect);
 	r=expr_calc5(e,"t",0,NULL,0);
-	if(r!=expect){
+	if(memcmp(&r,&expect,sizeof(double))){
 		printf("\nerror! %s should be %lg but %lg\n",e,expect,r);
 		goto ab;
 	}
 	r=expr_calc5(e,"t",0,NULL,EXPR_IF_NOOPTIMIZE);
-	if(r!=expect){
+	if(memcmp(&r,&expect,sizeof(double))){
 		printf("\noptimization error! %s should be %lg but %lg\n",e,expect,r);
 		goto ab;
 	}

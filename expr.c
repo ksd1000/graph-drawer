@@ -2381,6 +2381,7 @@ int init_expr5(struct expr *restrict ep,const char *e,const char *asym,struct ex
 		free(ebuf);
 		if(ep->sset_shouldfree){
 			expr_symset_free(ep->sset);
+			ep->sset=esp;
 		}
 		if(p){
 			expr_addend(ep,p);
@@ -2665,12 +2666,14 @@ static void expr_optimize_contmul(struct expr *restrict ep,enum expr_op op){
 						0.0;
 					break;
 				case EXPR_GE:
-					sum=sum>=*ip->un.src-DBL_EPSILON?
+					sum=sum>=*ip->un.src
+					||expr_equal(sum,*ip->un.src)?
 						1.0:
 						0.0;
 					break;
 				case EXPR_LE:
-					sum=sum<=*ip->un.src+DBL_EPSILON?
+					sum=sum<=*ip->un.src
+					||expr_equal(sum,*ip->un.src)?
 						1.0:
 						0.0;
 					break;
@@ -3449,12 +3452,14 @@ double expr_eval(const struct expr *restrict ep,double input){
 					0.0;
 				break;
 			case EXPR_GE:
-				*ip->dst=*ip->dst>=*ip->un.src-DBL_EPSILON?
+				*ip->dst=*ip->dst>=*ip->un.src
+				||expr_equal(*ip->dst,*ip->un.src)?
 					1.0:
 					0.0;
 				break;
 			case EXPR_LE:
-				*ip->dst=*ip->dst<=*ip->un.src+DBL_EPSILON?
+				*ip->dst=*ip->dst<=*ip->un.src
+				||expr_equal(*ip->dst,*ip->un.src)?
 					1.0:
 					0.0;
 				break;
@@ -3469,16 +3474,6 @@ double expr_eval(const struct expr *restrict ep,double input){
 					1.0:
 					0.0;
 				break;
-/*			case EXPR_EQ:
-				*ip->dst=fabs(*ip->dst-*ip->un.src)<=DBL_EPSILON?
-					1.0:
-					0.0;
-				break;
-			case EXPR_NE:
-				*ip->dst=fabs(*ip->dst-*ip->un.src)>DBL_EPSILON?
-					1.0:
-					0.0;
-				break;*/
 			case EXPR_EQ:
 				*ip->dst=expr_equal(*ip->dst,*ip->un.src)?
 					1.0:
@@ -3489,7 +3484,6 @@ double expr_eval(const struct expr *restrict ep,double input){
 					1.0:
 					0.0;
 				break;
-//#define CALLOGIC(a,b,_s) ((fabs(a)>DBL_EPSILON) _s (fabs(b)>DBL_EPSILON))
 			case EXPR_ANDL:
 				*ip->dst=CALLOGIC(*ip->dst,*ip->un.src,&&)?
 					1.0:

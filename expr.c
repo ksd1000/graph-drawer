@@ -303,7 +303,7 @@ void expr_sort(double *v,size_t n){
 			return;
 	}
 }
-#define CALLOGIC(a,b,_s) ((fabs(a)>DBL_EPSILON) _s (fabs(b)>DBL_EPSILON))
+#define CALLOGIC(a,b,_s) (((a)!=0.0) _s ((b)!=0.0))
 #define CALBLOGIC(_sign_cal,_sign_zero,_zero_val) \
 	uint64_t x2,x1;\
 	int64_t expdiff=EXPR_EDEXP(&a)-EXPR_EDEXP(&b);\
@@ -439,22 +439,15 @@ static double expr_hmode(size_t n,double *args){
 	return expr_mode0(n,args,1);
 }
 static double expr_sign(double x){
-	if(x>DBL_EPSILON)return 1.0;
-	else if(x<-DBL_EPSILON)return -1.0;
+	if(x>0.0)return 1.0;
+	else if(x<-0.0)return -1.0;
 	else return 0.0;
 }
 #define expr_not(x) expr_xor2(x,9007199254740991.0/* 2^53-1*/)
-static double expr_notfunc(double x){
-	return expr_not(x);
-}
-static double expr_nnot(double x){
-	if(fabs(x)>DBL_EPSILON)return 1.0;
-	else return 0.0;
-}
 static double expr_fact(double x){
 	double sum=1.0;
 	x=floor(x);
-	while(x>DBL_EPSILON){
+	while(x>0.0){
 		sum*=x;
 		x-=1.0;
 	}
@@ -463,7 +456,7 @@ static double expr_fact(double x){
 static double expr_dfact(double x){
 	double sum=1.0;
 	x=floor(x);
-	while(x>DBL_EPSILON){
+	while(x>0.0){
 		sum*=x;
 		x-=2.0;
 	}
@@ -472,7 +465,7 @@ static double expr_dfact(double x){
 static double expr_nfact(size_t n,double *args){
 	double sum=1.0,x=args[0];
 	x=floor(x);
-	while(x>DBL_EPSILON){
+	while(x>0.0){
 		sum*=x;
 		x-=args[1];
 	}
@@ -482,7 +475,7 @@ static double expr_piece(size_t n,const struct expr *args,double input){
 	const struct expr *arg0=args;
 	--n;
 	while(args-arg0<n){
-		if(fabs(expr_eval(args++,input))>DBL_EPSILON){
+		if(expr_eval(args++,input)!=0.0){
 			return expr_eval(args,input);
 		}else {
 			++args;
@@ -508,7 +501,7 @@ double expr_multilevel_derivate(const struct expr *ep,double input,long level,do
 static double expr_multi_derivate(size_t n,const struct expr *args,double input){
 	double epsilon=(n>=3?expr_eval(args+2,input):FLT_EPSILON);
 	double level=(n>=2?expr_eval(args+1,input):1.0);
-	return expr_multilevel_derivate(args,input,(long)(level+DBL_EPSILON),epsilon);
+	return expr_multilevel_derivate(args,input,(long)level,epsilon);
 }
 
 static double expr_strlen(size_t n,const struct expr *args,double input){
@@ -638,14 +631,14 @@ static double expr_rooti(size_t n,const struct expr *args,double input){
 }
 static double expr_andl(size_t n,const struct expr *args,double input){
 	for(const struct expr *ep=args;ep-args<n;++ep){
-		if(fabs(expr_eval(ep,input))<=DBL_EPSILON)
+		if(expr_eval(ep,input)==0.0)
 			return 0.0;
 	}
 	return 1.0;
 }
 static double expr_orl(size_t n,const struct expr *args,double input){
 	for(const struct expr *ep=args;ep-args<n;++ep){
-		if(fabs(expr_eval(ep,input))>DBL_EPSILON)
+		if(expr_eval(ep,input)!=0.0)
 			return 1.0;
 	}
 	return 0.0;
@@ -740,8 +733,6 @@ const struct expr_builtin_symbol expr_bsyms[]={
 	REGFSYM(log2),
 	REGFSYM(logb),
 	REGFSYM(nearbyint),
-	REGFSYM2("nnot",expr_nnot),
-	REGFSYM2("not",expr_notfunc),
 	REGFSYM(rint),
 	REGFSYM(round),
 	REGFSYM2("sign",expr_sign),
@@ -2754,7 +2745,7 @@ static int expr_optimize_zero(struct expr *restrict ep){
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
 		switch(ip->op){
 			case EXPR_ANDL:
-				if(fabs(*ip->un.src)<=DBL_EPSILON){
+				if(*ip->un.src==0.0){
 					ip->op=EXPR_CONST;
 					ip->un.value=0.0;
 					expr_writeconsts(ep);
@@ -2762,7 +2753,7 @@ static int expr_optimize_zero(struct expr *restrict ep){
 				}
 				break;
 			case EXPR_ORL:
-				if(fabs(*ip->un.src)>DBL_EPSILON){
+				if(*ip->un.src!=0.0){
 					ip->op=EXPR_CONST;
 					ip->un.value=1.0;
 					expr_writeconsts(ep);
@@ -3019,11 +3010,11 @@ static void expr_optimize_constneg(struct expr *restrict ep){
 					ip1->un.value=expr_not(ip1->un.value);
 					break;
 				case EXPR_NOTL:
-					ip1->un.value=fabs(ip1->un.value)<=DBL_EPSILON?
+					ip1->un.value=(ip1->un.value==0)?
 						1.0:0.0;
 					break;
 				case EXPR_TSTL:
-					ip1->un.value=fabs(ip1->un.value)>DBL_EPSILON?
+					ip1->un.value=(ip1->un.value!=0)?
 						1.0:0.0;
 					break;
 				default:
@@ -3422,12 +3413,12 @@ double expr_eval(const struct expr *restrict ep,double input){
 				*ip->dst=expr_not(*ip->dst);
 				break;
 			case EXPR_NOTL:
-				*ip->dst=fabs(*ip->dst)<=DBL_EPSILON?
+				*ip->dst=(*ip->dst==0.0)?
 					1.0:
 					0.0;
 				break;
 			case EXPR_TSTL:
-				*ip->dst=fabs(*ip->dst)>DBL_EPSILON?
+				*ip->dst=(*ip->dst!=0.0)?
 					1.0:
 					0.0;
 				break;
@@ -3542,7 +3533,7 @@ double expr_eval(const struct expr *restrict ep,double input){
 				expr_eval(ip->un.es->from,input);//init
 				to=expr_eval(ip->un.es->to,input);//cond
 				if(to<0.0)to=-to;
-				while(to>DBL_EPSILON){
+				while(to!=0.0){
 					expr_eval(ip->un.es->step,input);//every time
 					to=expr_eval(ip->un.es->to,input);//cond
 					if(to<0.0)to=-to;
@@ -3554,19 +3545,19 @@ double expr_eval(const struct expr *restrict ep,double input){
 				expr_eval(ip->un.es->from,input);//init
 				to=expr_eval(ip->un.es->to,input);//times
 				if(to<0)to=-to;
-				for(;to>DBL_EPSILON;to-=1.0){
+				for(;to>0.0;to-=1.0){
 					expr_eval(ip->un.es->step,input);//every time
 				}
 				*ip->dst=expr_eval(ip->un.es->ep,input);
 				break;
 			case EXPR_IF:
 				*ip->dst=
-				fabs(expr_eval(ip->un.eb->cond,input))>DBL_EPSILON?
+				expr_eval(ip->un.eb->cond,input)!=0.0?
 				expr_eval(ip->un.eb->body,input):
 				expr_eval(ip->un.eb->value,input);
 				break;
 			case EXPR_WHILE:
-				while(fabs(expr_eval(ip->un.eb->cond,input))>DBL_EPSILON)
+				while(expr_eval(ip->un.eb->cond,input)!=0.0)
 				expr_eval(ip->un.eb->body,input);
 				*ip->dst=
 				expr_eval(ip->un.eb->value,input);

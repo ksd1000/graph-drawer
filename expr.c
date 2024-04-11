@@ -35,6 +35,7 @@ static const char *eerror[]={
 	[EXPR_EDS]="Defined symbol",
 	[EXPR_EVMD]="Not a multi-demension function with dim 0"
 };
+const static char ntoc[]={"0123456789abcdefg"};
 const char *expr_error(int error){
 	if(error<0)error=-error;
 	if(error>=(sizeof(eerror)/sizeof(*eerror)))return eerror[0];
@@ -93,7 +94,6 @@ static int expr_operator(char c){
 }
 //static const char spaces[]={" \t\r\f\n\v"};
 //static const char special[]={"+-*/%^(),<>=!&|"};
-const static char ntoc[]={"0123456789abcdefg"};
 
 //#define MEMORY_LEAK_CHECK
 
@@ -3010,11 +3010,11 @@ static void expr_optimize_constneg(struct expr *restrict ep){
 					ip1->un.value=expr_not(ip1->un.value);
 					break;
 				case EXPR_NOTL:
-					ip1->un.value=(ip1->un.value==0)?
+					ip1->un.value=(ip1->un.value==0.0)?
 						1.0:0.0;
 					break;
 				case EXPR_TSTL:
-					ip1->un.value=(ip1->un.value!=0)?
+					ip1->un.value=(ip1->un.value!=0.0)?
 						1.0:0.0;
 					break;
 				default:
@@ -3055,6 +3055,9 @@ static int expr_optimize_injection(struct expr *restrict ep){
 			}
 		for(struct expr_inst *ip1=ip-1;ip1>=ep->data;--ip1){
 			if(ip1->dst!=ip->dst)continue;
+			if(ip1->op==EXPR_INPUT&&
+				!expr_vcheck_ep(ip+1,ip->dst))
+				goto delete;
 			if(ip1->op!=EXPR_CONST)break;
 			switch(ip->op){
 				case EXPR_CALL:
@@ -3068,6 +3071,7 @@ static int expr_optimize_injection(struct expr *restrict ep){
 					abort();
 			}
 			expr_writeconsts(ep);
+delete:
 			r=1;
 			ip->dst=NULL;
 			break;

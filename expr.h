@@ -76,6 +76,7 @@ EXPR_END
 #define EXPR_EZAFP 10
 #define EXPR_EDS 11
 #define EXPR_EVMD 12
+#define EXPR_EMEM 13
 
 #define EXPR_CONSTANT 0
 #define EXPR_VARIABLE 1

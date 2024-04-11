@@ -18,6 +18,12 @@
 #define printvall(x) fprintf(stderr,#x ":%ld\n",x)
 #define printvald(x) fprintf(stderr,#x ":%lf\n",x)
 #define SYMDIM(sp) (*(size_t *)((sp)->str+(sp)->strlen+1))
+#define check_nullptr(ep,v,act) {\
+	if(!(v)){\
+		ep->error=EXPR_EMEM;\
+		act;\
+	}\
+}
 #define NDEBUG
 #include <assert.h>
 static const char *eerror[]={
@@ -33,7 +39,8 @@ static const char *eerror[]={
 	[EXPR_EUO]="Unexpected operator",
 	[EXPR_EZAFP]="Zero-argument function must be followed by \'()\'",
 	[EXPR_EDS]="Defined symbol",
-	[EXPR_EVMD]="Not a multi-demension function with dim 0"
+	[EXPR_EVMD]="Not a multi-demension function with dim 0",
+	[EXPR_EMEM]="Cannot allocate memory"
 };
 const static char ntoc[]={"0123456789abcdefg"};
 const char *expr_error(int error){
@@ -108,6 +115,37 @@ static void __attribute__((destructor)) show(void){
 }
 #define free(p) xfree(p)
 #endif
+static void *xmalloc_nullable(size_t size){
+#ifdef MEMORY_LEAK_CHECK
+	void *r=malloc(size);
+	if(!r)return NULL;
+	++count;
+	return r;
+#else
+	return malloc(size);
+#endif
+}
+static void *xrealloc_nullable(void *old,size_t size){
+#ifdef MEMORY_LEAK_CHECK
+	void *r=realloc(old,size);
+	if(!r)return NULL;
+	if(!old)++count;
+	return r;
+#else
+	return realloc(old,size);
+#endif
+}
+static int xasprintf_nullable(char **restrict strp, const char *restrict fmt,...){
+	va_list ap;
+	int r;
+	va_start(ap,fmt);
+	r=vasprintf(strp,fmt,ap);
+#ifdef MEMORY_LEAK_CHECK
+	++count;
+#endif
+	va_end(ap);
+	return r;
+}
 static void *xmalloc(size_t size){
 	void *r;
 	if(size>=SSIZE_MAX){
@@ -148,7 +186,7 @@ ab:
 #endif
 	return r;
 }
-static int xasprintf(char **restrict strp, const char *restrict fmt,...){
+/*static int xasprintf(char **restrict strp, const char *restrict fmt,...){
 	int r;
 	va_list ap;
 	va_start(ap,fmt);
@@ -164,7 +202,7 @@ static int xasprintf(char **restrict strp, const char *restrict fmt,...){
 	++count;
 #endif
 	return r;
-}
+}*/
 uint64_t expr_gcd64(uint64_t x,uint64_t y){
 	uint64_t r;
 	int r1;
@@ -442,6 +480,18 @@ static double expr_sign(double x){
 	if(x>0.0)return 1.0;
 	else if(x<-0.0)return -1.0;
 	else return 0.0;
+}
+struct s_eb {
+	uint64_t eb:63;
+	uint64_t sign:1;
+};
+static double expr_next(double x){
+	++((struct s_eb*)&x)->eb;
+	return x;
+}
+static double expr_prev(double x){
+	--((struct s_eb*)&x)->eb;
+	return x;
 }
 #define expr_not(x) expr_xor2(x,9007199254740991.0/* 2^53-1*/)
 static double expr_fact(double x){
@@ -733,6 +783,8 @@ const struct expr_builtin_symbol expr_bsyms[]={
 	REGFSYM(log2),
 	REGFSYM(logb),
 	REGFSYM(nearbyint),
+	REGFSYM2("next",expr_next),
+	REGFSYM2("prev",expr_prev),
 	REGFSYM(rint),
 	REGFSYM(round),
 	REGFSYM2("sign",expr_sign),
@@ -947,7 +999,8 @@ size_t expr_strscan(const char *s,size_t sz,char *buf){
 }
 char *expr_astrscan(const char *s,size_t sz,size_t *outsz){
 	char *buf;
-	buf=xmalloc(sz);
+	buf=xmalloc_nullable(sz);
+	if(!buf)return NULL;
 	*outsz=expr_strscan(s,sz,buf);
 	buf[*outsz]=0;
 	if(!*buf){
@@ -1088,10 +1141,16 @@ static struct expr_inst *expr_addconst(struct expr *restrict ep,double *dst,doub
 	return r;
 }
 static double *expr_newvar(struct expr *restrict ep){
-	double *r=xmalloc(sizeof(double));
+	double *r=xmalloc_nullable(sizeof(double)),**p;
+	if(!r)return NULL;
 	if(ep->vsize>=ep->vlength){
-		ep->vars=xrealloc(ep->vars,
+		p=xrealloc_nullable(ep->vars,
 			(ep->vlength+=EXTEND_SIZE)*sizeof(double *));
+		if(!p){
+			free(r);
+			return NULL;
+		}
+		ep->vars=p;
 	}
 	*(ep->vars+ep->vsize++)=r;
 	*r=NAN;
@@ -1099,6 +1158,7 @@ static double *expr_newvar(struct expr *restrict ep){
 }
 static double *expr_createvar(struct expr *restrict ep,const char *symbol,size_t symlen){
 	double *r=expr_newvar(ep);
+	if(!r)return NULL;
 	if(!ep->sset_shouldfree){
 		if(!ep->sset)ep->sset=new_expr_symset();
 		else ep->sset=expr_symset_clone(ep->sset);
@@ -1198,17 +1258,19 @@ static char *expr_tok(char *restrict str,char **restrict saveptr){
 	return str;
 }
 static void expr_free2(char **buf){
-	char **p=buf;
-	while(*p){
+	//size_t i=0;
+	for(char **p=buf;*p;++p){
+	//	printf("freeing %zuth %p(%s)\n",++i,*p,*p);
 		free(*p);
-		++p;
 	}
 	free(buf);
 }
 static char **expr_sep(struct expr *restrict ep,const char *pe,size_t esz){
 	char *p,*p1,*p2,**p3=NULL,*p5,*e,*p6;
+	void *p7;
 	size_t len=0,s,sz;
-	p6=e=xmalloc(esz+1);
+	p6=e=xmalloc_nullable(esz+1);
+	check_nullptr(ep,e,return NULL);
 	memcpy(e,pe,esz);
 	e[esz]=0;
 	if(*e=='('){
@@ -1231,14 +1293,17 @@ static char **expr_sep(struct expr *restrict ep,const char *pe,size_t esz){
 		s=strlen(p);
 		if(*p=='\"'&&(p5=expr_astrscan(p,s,&sz))){
 			for(char *p4=p5;p4-p5<sz;++p4){
-				p1=xmalloc(5);
+				p1=xmalloc_nullable(5);
+				check_nullptr(ep,p1,goto fail);
 				p1[0]='0';
 				p1[1]='x';
 				p1[2]=ntoc[*p4>>4];
 				p1[3]=ntoc[*p4&15];
 				p1[4]=0;
-				p3=xrealloc(p3,(++len+1)*sizeof(char *));
-				p3[len-1]=p1;
+				p7=xrealloc_nullable(p3,(len+2)*sizeof(char *));
+				check_nullptr(ep,p7,goto fail);
+				p3=p7;
+				p3[len++]=p1;
 			}
 			free(p5);
 		}else if(*p=='{'){
@@ -1259,48 +1324,62 @@ static char **expr_sep(struct expr *restrict ep,const char *pe,size_t esz){
 				if(step<0.0)step=-step;
 				if(f<=t)
 				do {
-					xasprintf(&p1,"%.64lg",f);
-					p3=xrealloc(p3,(++len+1)*sizeof(char *));
-					p3[len-1]=p1;
+					check_nullptr(ep,xasprintf_nullable(&p1,"%.64lg",f)>=0,goto fail);
+					p7=xrealloc_nullable(p3,(len+2)*sizeof(char *));
+					check_nullptr(ep,p7,goto fail);
+					p3=p7;
+					p3[len++]=p1;
 					f+=step;
 				}while(f<=t);
 				else
 				do {
-					xasprintf(&p1,"%.64lg",f);
-					p3=xrealloc(p3,(++len+1)*sizeof(char *));
-					p3[len-1]=p1;
+					check_nullptr(ep,xasprintf_nullable(&p1,"%.64lg",f)>=0,goto fail);
+					p7=xrealloc_nullable(p3,(len+2)*sizeof(char *));
+					check_nullptr(ep,p7,goto fail);
+					p3=p7;
+					p3[len++]=p1;
 					f-=step;
 				}while(f>=t);
 				continue;
 			}
 integer:
 			diff=(from>to?from-to:to-from);
-			p3=xrealloc(p3,(len+diff/istep+1+1)*sizeof(char *));
+			p7=xrealloc_nullable(p3,(len+diff/istep+1+1)*sizeof(char *));
+			check_nullptr(ep,p7,goto fail);
+			p3=p7;
 			if(from<=to)
 			do {
-				xasprintf(&p1,"%ld",from);
-				p3[++len-1]=p1;
+				check_nullptr(ep,xasprintf_nullable(&p1,"%ld",from)>=0,goto fail);
+				p3[len++]=p1;
 				from+=istep;
 			}while(from<=to);
 			else
 			do {
-				xasprintf(&p1,"%ld",from);
-				p3[++len-1]=p1;
+				check_nullptr(ep,xasprintf_nullable(&p1,"%ld",from)>=0,goto fail);
+				p3[len++]=p1;
 				from-=istep;
 			}while(from>=to);
 		}else{
 normal:
-			p1=xmalloc(s+1);
+			p1=xmalloc_nullable(s+1);
+			check_nullptr(ep,p1,goto fail);
 			p1[s]=0;
 			memcpy(p1,p,s);
-			p3=xrealloc(p3,(++len+1)*sizeof(char *));
-			p3[len-1]=p1;
+			p7=xrealloc_nullable(p3,(len+2)*sizeof(char *));
+			check_nullptr(ep,p7,goto fail);
+			p3=p7;
+			p3[len++]=p1;
 		}
 	}
 	if(p3)p3[len]=NULL;
 	free(p6);
 	return p3;
 fail:
+	//	printf("\nlen %zu p3[len-1]=%s\n",len,p3[len-1]);
+	if(p3){
+		p3[len]=NULL;
+		expr_free2(p3);
+	}
 	free(p6);
 	return NULL;
 }
@@ -1609,12 +1688,14 @@ pterr:
 			return NULL;
 		}
 		v0=expr_newvar(ep);
+		check_nullptr(ep,v0,return NULL);
 		expr_addop(ep,v0,un.uaddr,kp->op,0);
 		e=p+1;
 		goto vend;
 	}
 	if(asym&&p-e==asymlen&&!memcmp(e,asym,p-e)){
 		v0=expr_newvar(ep);
+		check_nullptr(ep,v0,return NULL);
 		expr_addinput(ep,v0);
 		e=p;
 		goto vend;
@@ -1654,6 +1735,7 @@ pterr:
 				return NULL;
 			}
 			v0=expr_newvar(ep);
+			check_nullptr(ep,v0,return NULL);
 			expr_addza(ep,v0,sv->zafunc,flag);
 			e=p+2;
 			break;
@@ -1673,11 +1755,13 @@ pterr:
 			break;
 		case EXPR_CONSTANT:
 			v0=expr_newvar(ep);
+			check_nullptr(ep,v0,return NULL);
 			expr_addconst(ep,v0,sv->value);
 			e=p;
 			break;
 		case EXPR_VARIABLE:
 			v0=expr_newvar(ep);
+			check_nullptr(ep,v0,return NULL);
 			expr_addcopy(ep,v0,(void *)sv->addr);
 			e=p;
 			break;
@@ -1704,6 +1788,7 @@ pterr:
 				return NULL;
 			}
 			v0=expr_newvar(ep);
+			check_nullptr(ep,v0,return NULL);
 			switch(type){
 				case EXPR_MDFUNCTION:
 					expr_addmd(ep,v0,un.em,flag);
@@ -1724,6 +1809,7 @@ number:
 	r0=expr_atod(e,p-e,&un.v);
 	if(r0==1){
 		v0=expr_newvar(ep);
+		check_nullptr(ep,v0,return NULL);
 		expr_addconst(ep,v0,un.v);
 		e=p;
 		goto vend;
@@ -1996,6 +2082,7 @@ tnv:
 					goto err;
 				}
 				v2=expr_createvar(ep,e,p1-e);
+				check_nullptr(ep,v2,goto err);
 				expr_addcopy(ep,v2,v1);
 				e=p1;
 				if(e>=endp)continue;
@@ -2480,7 +2567,6 @@ static struct expr_inst *expr_findconst(const struct expr *restrict ep,struct ex
 }
 static void expr_optimize_contadd(struct expr *restrict ep){
 	double sum;
-	double *nv;
 	struct expr_inst *rip;
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
 		if(!ip->dst
@@ -2508,14 +2594,12 @@ static void expr_optimize_contadd(struct expr *restrict ep){
 			ip->dst=NULL;
 			expr_writeconsts(ep);
 		}else {
-			nv=expr_newvar(ep);
-			ip->un.src=nv;
 			if(sum<0.0){
-				*nv=-sum;
+				*ip->un.src=-sum;
 				ip->op=EXPR_SUB;
 			}
 			else {
-				*nv=sum;
+				*ip->un.src=sum;
 				ip->op=EXPR_ADD;
 			}
 		}
@@ -2524,7 +2608,6 @@ static void expr_optimize_contadd(struct expr *restrict ep){
 }
 static void expr_optimize_contsh(struct expr *restrict ep){
 	double sum;
-	double *nv;
 	struct expr_inst *rip;
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
 		if(!ip->dst
@@ -2552,14 +2635,12 @@ static void expr_optimize_contsh(struct expr *restrict ep){
 			ip->dst=NULL;
 			expr_writeconsts(ep);
 		}else {
-			nv=expr_newvar(ep);
-			ip->un.src=nv;
 			if(sum<0.0){
-				*nv=-sum;
+				*ip->un.src=-sum;
 				ip->op=EXPR_SHR;
 			}
 			else {
-				*nv=sum;
+				*ip->un.src=sum;
 				ip->op=EXPR_SHL;
 			}
 		}
@@ -2568,7 +2649,6 @@ static void expr_optimize_contsh(struct expr *restrict ep){
 }
 static void expr_optimize_contmul(struct expr *restrict ep,enum expr_op op){
 	double sum;
-	double *nv;
 	struct expr_inst *rip;
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
 		if(!ip->dst
@@ -2714,9 +2794,7 @@ static void expr_optimize_contmul(struct expr *restrict ep,enum expr_op op){
 			ip->dst=NULL;
 			expr_writeconsts(ep);
 		}else {
-			nv=expr_newvar(ep);
-			*nv=sum;
-			ip->un.src=nv;
+			*ip->un.src=sum;
 		}
 	}
 	expr_optimize_completed(ep);

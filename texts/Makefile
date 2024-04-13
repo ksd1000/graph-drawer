@@ -1,5 +1,5 @@
 CC := gcc
-CFLAG := -Wall -Ofast
+CFLAG := -Wall -Ofast -fPIC
 LFLAG := -lc -lm
 #kernel := $(shell uname -r)
 all: text.o sbmp.o

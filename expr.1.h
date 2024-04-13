@@ -97,6 +97,7 @@ EXPR_END
 #define EXPR_EDBASE(d) (((union expr_double *)(d))->rd.base)
 #define EXPR_EDEXP(d) (((union expr_double *)(d))->rd.exp)
 #define EXPR_EDSIGN(d) (((union expr_double *)(d))->rd.sign)
+#define EXPR_EDIVAL(d) (((union expr_double *)(d))->ival)
 struct expr;
 struct expr_symset;
 struct expr_suminfo {

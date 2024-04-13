@@ -14,18 +14,19 @@
 #include <limits.h>
 #include <err.h>
 #include "expr.h"
+#define NDEBUG
+#include <assert.h>
 #define printval(x) fprintf(stderr,#x ":%lu\n",x)
 #define printvall(x) fprintf(stderr,#x ":%ld\n",x)
 #define printvald(x) fprintf(stderr,#x ":%lf\n",x)
 #define SYMDIM(sp) (*(size_t *)((sp)->str+(sp)->strlen+1))
-#define check_nullptr(ep,v,act) {\
+#define check_nullptr(ep,v,act) (\
+{\
 	if(!(v)){\
 		ep->error=EXPR_EMEM;\
 		act;\
 	}\
-}
-#define NDEBUG
-#include <assert.h>
+})
 static const char *eerror[]={
 	[0]="Unknown error",
 	[EXPR_ESYMBOL]="Unknown symbol",
@@ -493,6 +494,15 @@ static double expr_prev(double x){
 	--((struct s_eb*)&x)->eb;
 	return x;
 }
+static double expr_popcount(double x){
+	return (double)__builtin_popcountl(EXPR_EDIVAL(&x));
+}
+static double expr_popcountb(double x){
+	return (double)__builtin_popcountl(EXPR_EDBASE(&x));
+}
+static double expr_popcounte(double x){
+	return (double)__builtin_popcountl(EXPR_EDEXP(&x));
+}
 #define expr_not(x) expr_xor2(x,9007199254740991.0/* 2^53-1*/)
 static double expr_fact(double x){
 	double sum=1.0;
@@ -785,6 +795,9 @@ const struct expr_builtin_symbol expr_bsyms[]={
 	REGFSYM(nearbyint),
 	REGFSYM2("next",expr_next),
 	REGFSYM2("prev",expr_prev),
+	REGFSYM2("popcount",expr_popcount),
+	REGFSYM2("popcountb",expr_popcountb),
+	REGFSYM2("popcounte",expr_popcounte),
 	REGFSYM(rint),
 	REGFSYM(round),
 	REGFSYM2("sign",expr_sign),
@@ -1041,6 +1054,8 @@ static void expr_freemdinfo(struct expr_mdinfo *p){
 }
 void expr_free(struct expr *restrict ep){
 	struct expr_inst *ip,*endp;
+	struct expr *ep0=(struct expr *)ep;
+start:
 	if(ep->data){
 		ip=ep->data;
 		endp=ip+ep->size;
@@ -1085,7 +1100,16 @@ void expr_free(struct expr *restrict ep){
 			free(ep->vars[i]);
 		free(ep->vars);
 	}
-	if(ep->freeable)free(ep);
+	switch(ep->freeable){
+		case 1:
+			free(ep0);
+			break;
+		case 2:
+			++ep;
+			goto start;
+		default:
+			break;
+	}
 }
 #define EXTEND_SIZE 1
 __attribute__((noinline))
@@ -1229,11 +1253,12 @@ static int expr_atod2(const char *str,double *dst){
 }
 static int expr_atod(const char *str,size_t sz,double *dst){
 	int ret;
-	char *p=xmalloc(sz+1);
+	char *p0=xmalloc_nullable(sz+1),*p;
+	p=p0?p0:alloca(sz+1);
 	p[sz]=0;
 	memcpy(p,str,sz);
 	ret=expr_atod2(p,dst);
-	free(p);
+	if(p0)free(p0);
 	return ret;
 }
 static char *expr_tok(char *restrict str,char **restrict saveptr){
@@ -1383,7 +1408,6 @@ fail:
 	free(p6);
 	return NULL;
 }
-
 static struct expr_mdinfo *expr_getmdinfo(struct expr *restrict ep,const char *e0,size_t sz,const char *e,size_t esz,const char *asym,void *func,size_t dim,int ifep){
 	char **v=expr_sep(ep,e,esz);
 	char **p;
@@ -1402,13 +1426,17 @@ static struct expr_mdinfo *expr_getmdinfo(struct expr *restrict ep,const char *e
 		ep->error=EXPR_ENEA;
 		goto err1;
 	}
-	em=xmalloc(sizeof(struct expr_mdinfo));
+	em=xmalloc_nullable(sizeof(struct expr_mdinfo));
+	check_nullptr(ep,em,goto err1);
 	em->dim=i;
 
 	em->un.func=func;
-	em->eps=xmalloc(em->dim*sizeof(struct expr));
-	em->args=NULL;
-	if(!ifep)em->args=xmalloc(em->dim*sizeof(double));
+	em->eps=xmalloc_nullable(em->dim*sizeof(struct expr));
+	check_nullptr(ep,em->eps,goto err15);
+	if(!ifep){
+		em->args=xmalloc_nullable(em->dim*sizeof(double));
+		check_nullptr(ep,em->args,goto err175);
+	}else em->args=NULL;
 	for(i=0;i<em->dim;++i){
 		if(init_expr(em->eps+i,v[i],asym,ep->sset)<0){
 			for(ssize_t k=i-1;k>=0;--k)
@@ -1422,7 +1450,9 @@ err2:
 	if(em->args)free(em->args);
 	ep->error=em->eps[i].error;
 	memcpy(ep->errinfo,em->eps[i].errinfo,EXPR_SYMLEN);
+err175:
 	free(em->eps);
+err15:
 	free(em);
 err1:
 	expr_free2(v);
@@ -1468,16 +1498,19 @@ evmd:
 		}
 		fp=sym.es->un.mdfunc;
 	}else if((sym.ebs=expr_bsym_search(v[5],ssz))){
-		if(sym.ebs->type!=EXPR_MDFUNCTION||sym.ebs->dim)goto evmd;
+		if(sym.ebs->type!=EXPR_MDFUNCTION||sym.ebs->dim)
+			goto evmd;
 		fp=sym.ebs->un.mdfunc;
 	}else {
 		memcpy(ep->errinfo,v[5],ssz);
 		ep->error=EXPR_ESYMBOL;
 		goto err0;
 	}
-	ev=xmalloc(sizeof(struct expr_vmdinfo));
+	ev=xmalloc_nullable(sizeof(struct expr_vmdinfo));
+	check_nullptr(ep,ev,goto err0);
 	if(max>0){
-		ev->args=xmalloc(max*sizeof(double));
+		ev->args=xmalloc_nullable(max*sizeof(double));
+		check_nullptr(ep,ev->args,goto err05);
 		ev->max=max;
 	}else {
 		ev->args=NULL;
@@ -1485,6 +1518,7 @@ evmd:
 	}
 	ev->func=fp;
 	sset=new_expr_symset();
+	check_nullptr(ep,sset,goto err075);
 	expr_symset_add(sset,v[0],EXPR_VARIABLE,&ev->index);
 	expr_symset_copy(sset,ep->sset);
 	ev->from=new_expr(v[1],asym,ep->sset,&ep->error,ep->errinfo);
@@ -1506,8 +1540,11 @@ err3:
 err2:
 	expr_free(ev->from);
 err1:
-	free(ev);
 	expr_symset_free(sset);
+err075:
+	if(ev->args)free(ev->args);
+err05:
+	free(ev);
 err0:
 	expr_free2(v);
 	return NULL;
@@ -1529,9 +1566,11 @@ static struct expr_suminfo *expr_getsuminfo(struct expr *restrict ep,const char 
 		ep->error=EXPR_ENEA;
 		goto err0;
 	}
-	es=xmalloc(sizeof(struct expr_suminfo));
+	es=xmalloc_nullable(sizeof(struct expr_suminfo));
+	check_nullptr(ep,es,goto err0);
 //	sum(sym_index,from,to,step,expression)
 	sset=new_expr_symset();
+	check_nullptr(ep,sset,goto err05);
 	expr_symset_add(sset,v[0],EXPR_VARIABLE,&es->index);
 	expr_symset_copy(sset,ep->sset);
 	es->from=new_expr(v[1],asym,ep->sset,&ep->error,ep->errinfo);
@@ -1552,8 +1591,9 @@ err3:
 err2:
 	expr_free(es->from);
 err1:
-	free(es);
 	expr_symset_free(sset);
+err05:
+	free(es);
 err0:
 	expr_free2(v);
 	return NULL;
@@ -1574,7 +1614,8 @@ static struct expr_branchinfo *expr_getbranchinfo(struct expr *restrict ep,const
 		ep->error=EXPR_ENEA;
 		goto err0;
 	}
-	eb=xmalloc(sizeof(struct expr_branchinfo));
+	eb=xmalloc_nullable(sizeof(struct expr_branchinfo));
+	check_nullptr(ep,eb,goto err0);
 //	while(cond,body,value)
 	eb->cond=new_expr(v[0],asym,ep->sset,&ep->error,ep->errinfo);
 	if(!eb->cond)goto err1;
@@ -1835,7 +1876,8 @@ struct expr_vnode {
 };
 static struct expr_vnode *expr_vn(double *v,enum expr_op op,unsigned int unary){
 	struct expr_vnode *p;
-	p=xmalloc(sizeof(struct expr_vnode));
+	p=xmalloc_nullable(sizeof(struct expr_vnode));
+	if(!p)return NULL;
 	p->next=NULL;
 	p->v=v;
 	p->op=op;
@@ -1846,7 +1888,8 @@ static struct expr_vnode *expr_vnadd(struct expr_vnode *vp,double *v,enum expr_o
 	struct expr_vnode *p;
 	if(!vp)return expr_vn(v,op,unary);
 	for(p=vp;p->next;p=p->next);
-	p->next=xmalloc(sizeof(struct expr_vnode));
+	p->next=xmalloc_nullable(sizeof(struct expr_vnode));
+	if(!p->next)return NULL;
 	p->next->v=v;
 	p->next->op=op;
 	p->next->unary=unary;
@@ -1953,7 +1996,9 @@ eev:
 	}
 	v1=expr_getvalue(ep,e,endp,&e,asym,asymlen);
 	if(!v1)goto err;
-	ev=expr_vnadd(ev,v1,op,unary);
+	p=expr_vnadd(ev,v1,op,unary);
+	check_nullptr(ep,p,goto err);
+	ev=p;
 	if(e>=endp)goto end2;
 	op=EXPR_END;
 rescan:
@@ -2440,7 +2485,8 @@ static char *expr_stpcpy_nospace(char *restrict s1,const char *restrict s2){
 static void expr_optimize(struct expr *restrict ep);
 int init_expr5(struct expr *restrict ep,const char *e,const char *asym,struct expr_symset *esp,int flag){
 	double *p;
-	char *ebuf,*r;
+	char *ebuf,*r,*p0;
+	size_t len;
 	/*ep->data=NULL;
 	ep->vars=NULL;
 	ep->sset_shouldfree=0;
@@ -2452,11 +2498,12 @@ int init_expr5(struct expr *restrict ep,const char *e,const char *asym,struct ex
 	ep->sset=esp;
 	ep->iflag=(short)flag;
 	if(e){
-		ebuf=xmalloc(strlen(e)+1);
+		p0=xmalloc_nullable(len=strlen(e)+1);
+		ebuf=p0?p0:alloca(len);
 		r=expr_stpcpy_nospace(ebuf,e);
 		//ebuf[r]='k';
 		p=expr_scan(ep,ebuf,r,asym,asym?strlen(asym):0);
-		free(ebuf);
+		if(p0)free(p0);
 		if(ep->sset_shouldfree){
 			expr_symset_free(ep->sset);
 			ep->sset=esp;
@@ -2477,23 +2524,37 @@ int init_expr5(struct expr *restrict ep,const char *e,const char *asym,struct ex
 int init_expr(struct expr *restrict ep,const char *e,const char *asym,struct expr_symset *esp){
 	return init_expr5(ep,e,asym,esp,0);
 }
-struct expr *new_expr6(const char *e,const char *asym,struct expr_symset *esp,int flag,int *error,char errinfo[EXPR_SYMLEN]){
-
-	struct expr *ep=xmalloc(sizeof(struct expr));
-	if(init_expr5(ep,e,asym,esp,flag)){
-		if(error)*error=ep->error;
-		if(errinfo)memcpy(errinfo,ep->errinfo,EXPR_SYMLEN);
-		free(ep);
+struct expr *new_expr7(const char *e,const char *asym,struct expr_symset *esp,int flag,int n,int *error,char errinfo[EXPR_SYMLEN]){
+	struct expr *ep,*ep0;
+	if(n<1)n=1;
+	ep=ep0=xmalloc_nullable(n*sizeof(struct expr));
+	if(!ep){
+		if(error)*error=EXPR_EMEM;
+		if(errinfo)memset(errinfo,0,EXPR_SYMLEN);
 		return NULL;
 	}
+	do if(init_expr5(ep,e,asym,esp,flag)){
+		if(error)*error=ep->error;
+		if(errinfo)memcpy(errinfo,ep->errinfo,EXPR_SYMLEN);
+		if(!(flag&EXPR_IF_INSTANT_FREE))while(--ep>=ep0){
+			expr_free(ep);
+		}
+		free(ep0);
+		return NULL;
+	}else {
+		ep->freeable=2;
+		++ep;
+	}while(--n);
+	ep[-1].freeable=1;
 	if(flag&EXPR_IF_INSTANT_FREE)
-		free(ep);
-	else
-		ep->freeable=1;
-	return ep;
+		free(ep0);
+	return ep0;
+}
+struct expr *new_expr6(const char *e,const char *asym,struct expr_symset *esp,int flag,int *error,char errinfo[EXPR_SYMLEN]){
+	return new_expr7(e,asym,esp,flag,1,error,errinfo);
 }
 struct expr *new_expr(const char *e,const char *asym,struct expr_symset *esp,int *error,char errinfo[EXPR_SYMLEN]){
-	return new_expr6(e,asym,esp,0,error,errinfo);
+	return new_expr7(e,asym,esp,0,1,error,errinfo);
 }
 double expr_calc5(const char *e,const char *asym,double input,struct expr_symset *esp,int flag){
 	struct expr ep[1];

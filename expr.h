@@ -97,6 +97,7 @@ EXPR_END
 #define EXPR_EDBASE(d) (((union expr_double *)(d))->rd.base)
 #define EXPR_EDEXP(d) (((union expr_double *)(d))->rd.exp)
 #define EXPR_EDSIGN(d) (((union expr_double *)(d))->rd.sign)
+#define EXPR_EDIVAL(d) (((union expr_double *)(d))->ival)
 struct expr;
 struct expr_symset;
 struct expr_suminfo {
@@ -236,6 +237,7 @@ void expr_symset_copy(struct expr_symset *restrict dst,const struct expr_symset 
 struct expr_symset *expr_symset_clone(const struct expr_symset *restrict ep);
 int init_expr5(struct expr *restrict ep,const char *e,const char *asym,struct expr_symset *esp,int flag);
 int init_expr(struct expr *restrict ep,const char *e,const char *asym,struct expr_symset *esp);
+struct expr *new_expr7(const char *e,const char *asym,struct expr_symset *esp,int flag,int n,int *error,char errinfo[EXPR_SYMLEN]);
 struct expr *new_expr6(const char *e,const char *asym,struct expr_symset *esp,int flag,int *error,char errinfo[EXPR_SYMLEN]);
 struct expr *new_expr(const char *e,const char *asym,struct expr_symset *esp,int *error,char errinfo[EXPR_SYMLEN]);
 double expr_calc5(const char *e,const char *asym,double input,struct expr_symset *esp,int flag);

@@ -76,6 +76,7 @@ const struct eproj {
 	int expect;
 } eprojs[]={
 	{"2+hshdjxjdjxhxhx",EXPR_ESYMBOL},
+	{"xor(2,3,5,gg,8)",EXPR_ESYMBOL},
 	{"5->sum",EXPR_ESYMBOL},
 	{"sum(",EXPR_EPT},
 	{"sum",EXPR_EFP},
@@ -94,6 +95,7 @@ const struct eproj {
 	{"5-->pi",EXPR_EDS},
 	{"5-->t",EXPR_EDS},
 	{"vmd(k,1,10,1,k,rand,0)",EXPR_EVMD},
+	{"med({1..1000000000000000})",EXPR_EMEM},
 	{NULL}
 };
 void errcheck(const char *e,int expect){
@@ -139,5 +141,6 @@ int main(int argc,char **argv){
 		check(p->e,p->expect);
 	for(const struct eproj *p=eprojs;p->e;++p)
 		errcheck(p->e,p->expect);
+	new_expr7("t^3+sin(t)+sum(n,0,100,1,sin(n*t))","t",NULL,EXPR_IF_INSTANT_FREE,1250,NULL,NULL);
 	return 0;
 }

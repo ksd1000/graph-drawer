@@ -817,28 +817,39 @@ const struct expr_builtin_symbol expr_bsyms[]={
 	REGCSYM(DBL_MAX),
 	REGCSYM(DBL_MIN),
 	REGCSYM(DBL_EPSILON),
-	REGCSYM(HUGE_VAL),
 	REGCSYM(FLT_MAX),
 	REGCSYM(FLT_MIN),
 	REGCSYM(FLT_EPSILON),
+	REGCSYM(HUGE_VAL),
 	REGCSYM(HUGE_VALF),
 	REGCSYM(INFINITY),
-	REGCSYM2("inf",INFINITY),
 	REGCSYM(NAN),
-	REGCSYM2("nan",NAN),
+	REGCSYM2("1_pi",M_1_PI),
+	REGCSYM2("2_pi",M_2_PI),
+	REGCSYM2("2_sqrtpi",M_2_SQRTPI),
+	REGCSYM2("C",0.577215664901532860606512090082402431042),
+	REGCSYM2("c",299792458.0),
 	REGCSYM2("e",M_E),
+	REGCSYM2("e0",8.8541878128e-12),
+	REGCSYM2("e1",1.602176634e-19),
+	REGCSYM2("G",6.67430e-11),
+	REGCSYM2("h",6.62607015e-34),
+	REGCSYM2("inf",INFINITY),
+	REGCSYM2("k",1.380649e-23),
 	REGCSYM2("log2e",M_LOG2E),
 	REGCSYM2("log10e",M_LOG10E),
 	REGCSYM2("ln2",M_LN2),
 	REGCSYM2("ln10",M_LN10),
+	REGCSYM2("N_A",6.02214076e+23),
+	REGCSYM2("nan",NAN),
 	REGCSYM2("pi",M_PI),
 	REGCSYM2("pi_2",M_PI_2),
 	REGCSYM2("pi_4",M_PI_4),
-	REGCSYM2("1_pi",M_1_PI),
-	REGCSYM2("2_pi",M_2_PI),
-	REGCSYM2("2_sqrtpi",M_2_SQRTPI),
+	REGCSYM2("R",8.31446261815234),
 	REGCSYM2("sqrt2",M_SQRT2),
 	REGCSYM2("sqrt1_2",M_SQRT1_2),
+	REGCSYM2("sqrc",89875517873681764.0),
+	REGCSYM2("u0",1.25663706212e-6),
 
 	REGMDSYM2("add",expr_add,0),
 	REGMDSYM2("and",expr_and,0),
@@ -2120,8 +2131,9 @@ tnv:
 				goto err;
 				}
 				if((p1-e==asymlen&&!memcmp(e,asym,p1-e))
-				||(expr_bsym_search(e,p1-e)
-				||(ep->sset&&expr_symset_search(ep->sset,e,p1-e)))){
+				//||expr_bsym_search(e,p1-e)
+				||(ep->sset&&expr_symset_search(ep->sset,e,p1-e))
+				){
 					ep->error=EXPR_EDS;
 					memcpy(ep->errinfo,e,p1-e);
 					goto err;

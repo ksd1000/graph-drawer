@@ -342,43 +342,52 @@ void expr_sort(double *v,size_t n){
 			return;
 	}
 }
-#define CALLOGIC(a,b,_s) (((a)!=0.0) _s ((b)!=0.0))
-#define CALBLOGIC(_sign_cal,_sign_zero,_zero_val) \
-	uint64_t x2,x1;\
-	int64_t expdiff=EXPR_EDEXP(&a)-EXPR_EDEXP(&b);\
-	double swapbuf;\
-	if(expdiff<0L){\
-		swapbuf=a;\
-		a=b;\
-		b=swapbuf;\
-		expdiff=-expdiff;\
-	}\
-	if(expdiff>52L)goto zero;\
+#define LOGIC(a,b,_s) (((a)!=0.0) _s ((b)!=0.0))
+#define LOGIC_BIT(a,b,_op_cal,_op_zero,_zero_val) \
+	if(expdiff>52L)\
+		return EXPR_EDSIGN(&a) _op_zero EXPR_EDSIGN(&b)?-( _zero_val):(_zero_val);\
 	x2=(EXPR_EDBASE(&b)|(1UL<<52UL))>>expdiff;\
 	x1=EXPR_EDBASE(&a)|(1UL<<52UL);\
-	x1 _sign_cal x2;\
+	x1 _op_cal x2;\
 	if(x1){\
 		x2=63UL-__builtin_clzl(x1);\
 		x1&=~(1UL<<x2);\
 		x2=52UL-x2;\
-		if(EXPR_EDEXP(&a)<x2)goto zero;\
+		if(EXPR_EDEXP(&a)<x2)\
+			return EXPR_EDSIGN(&a) _op_zero EXPR_EDSIGN(&b)?-( _zero_val):(_zero_val);\
 		EXPR_EDBASE(&a)=x1<<x2;\
 		EXPR_EDEXP(&a)-=x2;\
 	}else {\
 		a=EXPR_EDSIGN(&a)?-0.0:0.0;\
 	}\
-	EXPR_EDSIGN(&a) _sign_cal EXPR_EDSIGN(&b);\
-	return a;\
-zero:\
-	return EXPR_EDSIGN(&a) _sign_zero EXPR_EDSIGN(&b)?-( _zero_val):(_zero_val)
+	EXPR_EDSIGN(&a) _op_cal EXPR_EDSIGN(&b);\
+	return a
 double expr_and2(double a,double b){
-	CALBLOGIC(&=,&&,0.0);
+	uint64_t x2,x1;
+	int64_t expdiff=EXPR_EDEXP(&a)-EXPR_EDEXP(&b);
+	if(expdiff<0L){
+		expdiff=-expdiff;
+		LOGIC_BIT(b,a,&=,&&,0.0);
+	}
+	LOGIC_BIT(a,b,&=,&&,0.0);
 }
 double expr_or2(double a,double b){
-	CALBLOGIC(|=,||,a>=0.0?a:-a);
+	uint64_t x2,x1;
+	int64_t expdiff=EXPR_EDEXP(&a)-EXPR_EDEXP(&b);
+	if(expdiff<0L){
+		expdiff=-expdiff;
+		LOGIC_BIT(b,a,|=,||,a>=0.0?a:-a);
+	}
+	LOGIC_BIT(a,b,|=,||,a>=0.0?a:-a);
 }
 double expr_xor2(double a,double b){
-	CALBLOGIC(^=,^,a>=0.0?a:-a);
+	uint64_t x2,x1;
+	int64_t expdiff=EXPR_EDEXP(&a)-EXPR_EDEXP(&b);
+	if(expdiff<0L){
+		expdiff=-expdiff;
+		LOGIC_BIT(b,a,^=,^,a>=0.0?a:-a);
+	}
+	LOGIC_BIT(a,b,^=,^,a>=0.0?a:-a);
 }
 static double expr_rand(size_t n,double *args){
 	//assert(n==2);
@@ -386,33 +395,33 @@ static double expr_rand(size_t n,double *args){
 }
 #define expr_add2(a,b) ((a)+(b))
 #define expr_mul2(a,b) ((a)*(b))
-#define CALMDLOGIC(_symbol)\
+#define CALMD(_symbol)\
 	double ret=*(args++);\
-	while(--n>0){\
+	while(--n){\
 		ret= _symbol (ret,*args);\
 		++args;\
 	}\
 	return ret
 static double expr_and(size_t n,double *args){
-	CALMDLOGIC(expr_and2);
+	CALMD(expr_and2);
 }
 static double expr_or(size_t n,double *args){
-	CALMDLOGIC(expr_or2);
+	CALMD(expr_or2);
 }
 static double expr_xor(size_t n,double *args){
-	CALMDLOGIC(expr_xor2);
+	CALMD(expr_xor2);
 }
 static double expr_gcd(size_t n,double *args){
-	CALMDLOGIC(expr_gcd2);
+	CALMD(expr_gcd2);
 }
 static double expr_lcm(size_t n,double *args){
-	CALMDLOGIC(expr_lcm2);
+	CALMD(expr_lcm2);
 }
 static double expr_add(size_t n,double *args){
-	CALMDLOGIC(expr_add2);
+	CALMD(expr_add2);
 }
 static double expr_mul(size_t n,double *args){
-	CALMDLOGIC(expr_mul2);
+	CALMD(expr_mul2);
 }
 static double expr_cmp(size_t n,double *args){
 	return (double)memcmp(args,args+1,sizeof(double));
@@ -503,7 +512,7 @@ static double expr_popcountb(double x){
 static double expr_popcounte(double x){
 	return (double)__builtin_popcountl(EXPR_EDEXP(&x));
 }
-#define expr_not(x) expr_xor2(x,9007199254740991.0/* 2^53-1*/)
+#define expr_not(x) expr_xor2(9007199254740991.0/* 2^53-1*/,(x))
 static double expr_fact(double x){
 	double sum=1.0;
 	x=floor(x);
@@ -665,10 +674,13 @@ static double expr_rooti(size_t n,const struct expr *args,double input){
 	//root2(expression)
 	//root2(expression,from)
 	//root2(expression,from,epsilon)
-	double epsilon=DBL_EPSILON,from=1.0,swapbuf;
+	//root2(expression,from,epsilon,depsilon)
+	double epsilon=DBL_EPSILON,depsilon=FLT_EPSILON,from=1.0,swapbuf;
 	switch(n){
+		case 4:
+			depsilon=fabs(expr_eval(args+3,input));
 		case 3:
-			epsilon=fabs(expr_eval(args+4,input));
+			epsilon=fabs(expr_eval(args+2,input));
 		case 2:
 			from=expr_eval(args+1,input);
 		case 1:
@@ -677,11 +689,11 @@ static double expr_rooti(size_t n,const struct expr *args,double input){
 			return NAN;
 	}
 	for(;;){
-		swapbuf=expr_multilevel_derivate(args,from,1,epsilon);
-		if(fabs(swapbuf)==0.0){
-			if(fabs(expr_eval(args,from))<=epsilon)
-				return from;
-			break;
+		swapbuf=expr_multilevel_derivate(args,from,1,depsilon);
+		if(swapbuf==0.0){
+			//if(fabs(expr_eval(args,from))<=epsilon)
+			return from;
+			//break;
 		}
 		swapbuf=from-expr_eval(args,from)/swapbuf;
 		if(fabs(from-swapbuf)<=epsilon)return swapbuf;
@@ -2289,6 +2301,10 @@ void expr_symset_free(struct expr_symset *restrict esp){
 		expr_symbol_free(esp->syms);
 	if(esp->freeable)free(esp);
 }
+void expr_symset_wipe(struct expr_symset *restrict esp){
+	expr_symset_free(esp);
+	init_expr_symset(esp);
+}
 static int expr_firstdiff(const char *restrict s1,const char *restrict s2,size_t len){
 	int r;
 	do {
@@ -2302,7 +2318,7 @@ static int expr_strdiff(const char *restrict s1,size_t len1,const char *restrict
 	if(len1==len2){
 		r=memcmp(s1,s2,len1);
 		if(!r)return 0;
-		*sum=r;
+		*sum=expr_firstdiff(s1,s2,len1);
 		return 1;
 	}
 	*sum=expr_firstdiff(s1,s2,len1<len2?len1:len2);
@@ -2842,17 +2858,17 @@ static void expr_optimize_contmul(struct expr *restrict ep,enum expr_op op){
 						0.0;
 					break;
 				case EXPR_ANDL:
-					sum=CALLOGIC(sum,*ip->un.src,&&)?
+					sum=LOGIC(sum,*ip->un.src,&&)?
 						1.0:
 						0.0;
 					break;
 				case EXPR_ORL:
-					sum=CALLOGIC(sum,*ip->un.src,||)?
+					sum=LOGIC(sum,*ip->un.src,||)?
 						1.0:
 						0.0;
 					break;
 				case EXPR_XORL:
-					sum=CALLOGIC(sum,*ip->un.src,^)?
+					sum=LOGIC(sum,*ip->un.src,^)?
 						1.0:
 						0.0;
 					break;
@@ -3631,17 +3647,17 @@ double expr_eval(const struct expr *restrict ep,double input){
 					0.0;
 				break;
 			case EXPR_ANDL:
-				*ip->dst=CALLOGIC(*ip->dst,*ip->un.src,&&)?
+				*ip->dst=LOGIC(*ip->dst,*ip->un.src,&&)?
 					1.0:
 					0.0;
 				break;
 			case EXPR_ORL:
-				*ip->dst=CALLOGIC(*ip->dst,*ip->un.src,||)?
+				*ip->dst=LOGIC(*ip->dst,*ip->un.src,||)?
 					1.0:
 					0.0;
 				break;
 			case EXPR_XORL:
-				*ip->dst=CALLOGIC(*ip->dst,*ip->un.src,^)?
+				*ip->dst=LOGIC(*ip->dst,*ip->un.src,^)?
 					1.0:
 					0.0;
 				break;

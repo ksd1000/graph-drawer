@@ -5,7 +5,9 @@
 #include <unistd.h>
 #include "expr.h"
 #include <time.h>
+#include <assert.h>
 #include <err.h>
+struct expr_symset es=EXPR_SYMSET_INITIALIZER;
 const struct proj {
 	const char *e;
 	double expect;
@@ -92,7 +94,7 @@ const struct eproj {
 	{"drand48(2)",EXPR_EZAFP},
 	{"drand48(",EXPR_EZAFP},
 	{"drand48",EXPR_EZAFP},
-	{"5-->pi",EXPR_EDS},
+	{"5-->defined_symbol",EXPR_EDS},
 	{"5-->t",EXPR_EDS},
 	{"vmd(k,1,10,1,k,rand,0)",EXPR_EVMD},
 	{"med({1..1000000000000000})",EXPR_EMEM},
@@ -101,7 +103,7 @@ const struct eproj {
 void errcheck(const char *e,int expect){
 	int error;
 	printf("checking %s --- expect \"%s\"",e,expr_error(expect));
-	if(new_expr6(e,"t",NULL,EXPR_IF_INSTANT_FREE,&error,NULL)){
+	if(new_expr6(e,"t",&es,EXPR_IF_INSTANT_FREE,&error,NULL)){
 		printf("\nerror! %s should be \"%s\" but ok\n",e,expr_error(expect));
 		goto ab;
 	}else if(error!=expect){
@@ -137,10 +139,14 @@ ab:
 int main(int argc,char **argv){
 	srand48(time(NULL)+getpid());
 	expr_calc5("t+2","t",3,NULL,0);
+	expr_symset_add(&es,"defined_symbol",EXPR_CONSTANT,2304.0);
 	for(const struct proj *p=projs;p->e;++p)
 		check(p->e,p->expect);
 	for(const struct eproj *p=eprojs;p->e;++p)
 		errcheck(p->e,p->expect);
 	new_expr7("t^3+sin(t)+sum(n,0,100,1,sin(n*t))","t",NULL,EXPR_IF_INSTANT_FREE,1250,NULL,NULL);
+	assert(es.size==1);
+	assert(es.depth==1);
+	expr_symset_wipe(&es);
 	return 0;
 }

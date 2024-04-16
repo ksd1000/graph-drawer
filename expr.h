@@ -60,6 +60,7 @@ EXPR_VMD,
 EXPR_HOT,
 EXPR_END
 };
+#define EXPR_SYMSET_INITIALIZER {NULL,0UL,0UL,0UL,0}
 #define EXPR_SYMLEN 64
 #ifndef EXPR_SYMNEXT
 #define EXPR_SYMNEXT 14
@@ -226,6 +227,7 @@ struct expr_inst *expr_addop(struct expr *restrict ep,double *dst,void *src,enum
 void init_expr_symset(struct expr_symset *restrict esp);
 struct expr_symset *new_expr_symset(void);
 void expr_symset_free(struct expr_symset *restrict esp);
+void expr_symset_wipe(struct expr_symset *restrict esp);
 struct expr_symbol *expr_symset_add(struct expr_symset *restrict esp,const char *sym,int type,...);
 struct expr_symbol *expr_symset_addl(struct expr_symset *restrict esp,const char *sym,size_t symlen,int type,...);
 struct expr_symbol *expr_symset_vadd(struct expr_symset *restrict esp,const char *sym,int type,va_list ap);

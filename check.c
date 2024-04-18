@@ -96,7 +96,7 @@ const struct eproj {
 	{"drand48",EXPR_EZAFP},
 	{"5-->defined_symbol",EXPR_EDS},
 	{"5-->t",EXPR_EDS},
-	{"vmd(k,1,10,1,k,rand,0)",EXPR_EVMD},
+	{"vmd(k,1,10,1,k,cmp,0)",EXPR_EVMD},
 	{"med({1..1000000000000000})",EXPR_EMEM},
 	{NULL}
 };
@@ -120,12 +120,12 @@ void check(const char *e,double expect){
 	double r;
 	//static int k=0;if(k++==39)exit(0);
 	printf("checking %s --- expect %lg",e,expect);
-	r=expr_calc5(e,"t",0,NULL,0);
+	r=expr_calc5(e,"t",0,NULL,EXPR_IF_NOOPTIMIZE);
 	if(memcmp(&r,&expect,sizeof(double))){
 		printf("\nerror! %s should be %lg but %lg\n",e,expect,r);
 		goto ab;
 	}
-	r=expr_calc5(e,"t",0,NULL,EXPR_IF_NOOPTIMIZE);
+	r=expr_calc5(e,"t",0,NULL,0);
 	if(memcmp(&r,&expect,sizeof(double))){
 		printf("\noptimization error! %s should be %lg but %lg\n",e,expect,r);
 		goto ab;

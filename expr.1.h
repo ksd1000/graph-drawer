@@ -103,7 +103,7 @@ EXPR_END
 struct expr;
 struct expr_symset;
 struct expr_suminfo {
-	struct expr *from,*to,*step,*ep;
+	struct expr *fromep,*toep,*stepep,*ep;
 	volatile double index;
 };
 struct expr_branchinfo {
@@ -120,7 +120,7 @@ struct expr_mdinfo {
 	size_t dim;
 };
 struct expr_vmdinfo {
-	struct expr *from,*to,*step,*ep;
+	struct expr *fromep,*toep,*stepep,*ep;
 	ssize_t max;
 	double (*func)(size_t,double *);
 	double *args;

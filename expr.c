@@ -378,7 +378,7 @@ double expr_or2(double a,double b){
 	int64_t expdiff=EXPR_EDEXP(&a)-EXPR_EDEXP(&b);
 	if(expdiff<0L){
 		expdiff=-expdiff;
-		LOGIC_BIT(b,a,|=,||,a>=0.0?a:-a);
+		LOGIC_BIT(b,a,|=,||,a>=0.0?b:-b);
 	}
 	LOGIC_BIT(a,b,|=,||,a>=0.0?a:-a);
 }
@@ -387,13 +387,9 @@ double expr_xor2(double a,double b){
 	int64_t expdiff=EXPR_EDEXP(&a)-EXPR_EDEXP(&b);
 	if(expdiff<0L){
 		expdiff=-expdiff;
-		LOGIC_BIT(b,a,^=,^,a>=0.0?a:-a);
+		LOGIC_BIT(b,a,^=,^,a>=0.0?b:-b);
 	}
 	LOGIC_BIT(a,b,^=,^,a>=0.0?a:-a);
-}
-static double expr_rand(size_t n,double *args){
-	//assert(n==2);
-	return args[0]+(args[1]-args[0])*drand48();
 }
 #define expr_add2(a,b) ((a)+(b))
 #define expr_mul2(a,b) ((a)*(b))
@@ -497,6 +493,48 @@ struct s_eb {
 	uint64_t eb:63;
 	uint64_t sign:1;
 };
+static double expr_ldr(size_t n,double *args){
+	union {
+		double *r;
+		double dr;
+	} un;
+	un.dr=*args;
+	return un.r[(size_t)*(++args)];
+}
+static double expr_str(size_t n,double *args){
+	union {
+		double *r;
+		double dr;
+	} un;
+	un.dr=*args;
+	un.r+=(size_t)*(++args);
+	return *un.r=*(++args);
+}
+static double expr_malloc(double x){
+	union {
+		double *r;
+		double dr;
+	} un;
+	un.r=xmalloc_nullable((size_t)fabs(x)*sizeof(double));
+	return un.dr;
+}
+static double expr_xmalloc(double x){
+	union {
+		double *r;
+		double dr;
+	} un;
+	un.r=xmalloc((size_t)fabs(x)*sizeof(double));
+	return un.dr;
+}
+static double expr_xfree(double x){
+	union {
+		void *r;
+		double dr;
+	} un;
+	un.dr=x;
+	free(un.r);
+	return 0.0;
+}
 static double expr_next(double x){
 	++((struct s_eb*)&x)->eb;
 	return x;
@@ -753,9 +791,11 @@ static double expr_hypot(size_t n,double *args){
 #define REGFSYM(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.func=s},.type=EXPR_FUNCTION,.flag=EXPR_SF_INJECTION}
 #define REGCSYM(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.value=s},.type=EXPR_CONSTANT}
 #define REGFSYM2(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SF_INJECTION}
+#define REGFSYM2_NI(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=0}
 #define REGZASYM2(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.zafunc=sym},.type=EXPR_ZAFUNCTION,.flag=0}
-#define REGMDSYM2(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdfunc=sym},.dim=d,.type=EXPR_MDFUNCTION}
-#define REGMDEPSYM2(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdepfunc=sym},.dim=d,.type=EXPR_MDEPFUNCTION}
+#define REGMDSYM2(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdfunc=sym},.dim=d,.type=EXPR_MDFUNCTION,.flag=EXPR_SF_INJECTION}
+#define REGMDSYM2_NI(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdfunc=sym},.dim=d,.type=EXPR_MDFUNCTION,.flag=0}
+#define REGMDEPSYM2(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdepfunc=sym},.dim=d,.type=EXPR_MDEPFUNCTION,.flag=EXPR_SF_INJECTION}
 #define REGCSYM2(s,val) {.strlen=sizeof(s)-1,.str=s,.un={.value=val},.type=EXPR_CONSTANT}
 #define REGKEY(s,op,dim,desc) {s,op,dim,sizeof(s)-1,desc}
 const struct expr_builtin_keyword expr_keywords[]={
@@ -778,6 +818,43 @@ const struct expr_builtin_keyword expr_keywords[]={
 	{NULL}
 };
 const struct expr_builtin_symbol expr_bsyms[]={
+	REGCSYM(DBL_MAX),
+	REGCSYM(DBL_MIN),
+	REGCSYM(DBL_EPSILON),
+	REGCSYM(FLT_MAX),
+	REGCSYM(FLT_MIN),
+	REGCSYM(FLT_EPSILON),
+	REGCSYM(HUGE_VAL),
+	REGCSYM(HUGE_VALF),
+	REGCSYM(INFINITY),
+	REGCSYM(NAN),
+	REGCSYM2("1_pi",M_1_PI),
+	REGCSYM2("2_pi",M_2_PI),
+	REGCSYM2("2_sqrtpi",M_2_SQRTPI),
+	REGCSYM2("C",0.577215664901532860606512090082402431042),
+	REGCSYM2("c",299792458.0),
+	REGCSYM2("e",M_E),
+	REGCSYM2("e0",8.8541878128e-12),
+	REGCSYM2("e1",1.602176634e-19),
+	REGCSYM2("G",6.67430e-11),
+	REGCSYM2("h",6.62607015e-34),
+	REGCSYM2("inf",INFINITY),
+	REGCSYM2("k",1.380649e-23),
+	REGCSYM2("log2e",M_LOG2E),
+	REGCSYM2("log10e",M_LOG10E),
+	REGCSYM2("ln2",M_LN2),
+	REGCSYM2("ln10",M_LN10),
+	REGCSYM2("N_A",6.02214076e+23),
+	REGCSYM2("nan",NAN),
+	REGCSYM2("pi",M_PI),
+	REGCSYM2("pi_2",M_PI_2),
+	REGCSYM2("pi_4",M_PI_4),
+	REGCSYM2("R",8.31446261815234),
+	REGCSYM2("sqrt2",M_SQRT2),
+	REGCSYM2("sqrt1_2",M_SQRT1_2),
+	REGCSYM2("sqrc",89875517873681764.0),
+	REGCSYM2("u0",1.25663706212e-6),
+
 	REGFSYM2("abs",fabs),
 	REGFSYM(acos),
 	REGFSYM(acosh),
@@ -824,46 +901,14 @@ const struct expr_builtin_symbol expr_bsyms[]={
 	REGFSYM(trunc),
 	REGFSYM(y0),
 	REGFSYM(y1),
+
 	REGZASYM(drand48),
 	REGZASYM2("lrand48",expr_lrand48),
 	REGZASYM2("mrand48",expr_mrand48),
 
-	REGCSYM(DBL_MAX),
-	REGCSYM(DBL_MIN),
-	REGCSYM(DBL_EPSILON),
-	REGCSYM(FLT_MAX),
-	REGCSYM(FLT_MIN),
-	REGCSYM(FLT_EPSILON),
-	REGCSYM(HUGE_VAL),
-	REGCSYM(HUGE_VALF),
-	REGCSYM(INFINITY),
-	REGCSYM(NAN),
-	REGCSYM2("1_pi",M_1_PI),
-	REGCSYM2("2_pi",M_2_PI),
-	REGCSYM2("2_sqrtpi",M_2_SQRTPI),
-	REGCSYM2("C",0.577215664901532860606512090082402431042),
-	REGCSYM2("c",299792458.0),
-	REGCSYM2("e",M_E),
-	REGCSYM2("e0",8.8541878128e-12),
-	REGCSYM2("e1",1.602176634e-19),
-	REGCSYM2("G",6.67430e-11),
-	REGCSYM2("h",6.62607015e-34),
-	REGCSYM2("inf",INFINITY),
-	REGCSYM2("k",1.380649e-23),
-	REGCSYM2("log2e",M_LOG2E),
-	REGCSYM2("log10e",M_LOG10E),
-	REGCSYM2("ln2",M_LN2),
-	REGCSYM2("ln10",M_LN10),
-	REGCSYM2("N_A",6.02214076e+23),
-	REGCSYM2("nan",NAN),
-	REGCSYM2("pi",M_PI),
-	REGCSYM2("pi_2",M_PI_2),
-	REGCSYM2("pi_4",M_PI_4),
-	REGCSYM2("R",8.31446261815234),
-	REGCSYM2("sqrt2",M_SQRT2),
-	REGCSYM2("sqrt1_2",M_SQRT1_2),
-	REGCSYM2("sqrc",89875517873681764.0),
-	REGCSYM2("u0",1.25663706212e-6),
+	REGFSYM2_NI("malloc",expr_malloc),
+	REGFSYM2_NI("xmalloc",expr_xmalloc),
+	REGFSYM2_NI("free",expr_xfree),
 
 	REGMDSYM2("add",expr_add,0),
 	REGMDSYM2("and",expr_and,0),
@@ -885,7 +930,9 @@ const struct expr_builtin_symbol expr_bsyms[]={
 	REGMDSYM2("mode",expr_mode,0),
 	REGMDSYM2("mul",expr_mul,0),
 	REGMDSYM2("nfact",expr_nfact,2ul),
-	REGMDSYM2("rand",expr_rand,2ul),
+
+	REGMDSYM2_NI("ldr",expr_ldr,2ul),
+	REGMDSYM2_NI("str",expr_str,3ul),
 
 	REGMDEPSYM2("andl",expr_andl,0),
 	REGMDEPSYM2("orl",expr_orl,0),
@@ -1049,16 +1096,16 @@ char *expr_astrscan(const char *s,size_t sz,size_t *outsz){
 }
 static void expr_freesuminfo(struct expr_suminfo *p){
 	expr_free(p->ep);
-	expr_free(p->from);
-	expr_free(p->to);
-	expr_free(p->step);
+	expr_free(p->fromep);
+	expr_free(p->toep);
+	expr_free(p->stepep);
 	free(p);
 }
 static void expr_freevmdinfo(struct expr_vmdinfo *p){
 	expr_free(p->ep);
-	expr_free(p->from);
-	expr_free(p->to);
-	expr_free(p->step);
+	expr_free(p->fromep);
+	expr_free(p->toep);
+	expr_free(p->stepep);
 	if(p->args)
 		free(p->args);
 	free(p);
@@ -1077,49 +1124,48 @@ static void expr_freemdinfo(struct expr_mdinfo *p){
 		free(p->args);
 	free(p);
 }
+static void expr_freedata(struct expr_inst *restrict data,size_t size){
+	struct expr_inst *ip=data,*endp=data+size;
+	for(;ip<endp;++ip){
+		switch(ip->op){
+			case EXPR_SUM:
+			case EXPR_INT:
+			case EXPR_PROD:
+			case EXPR_SUP:
+			case EXPR_INF:
+			case EXPR_ANDN:
+			case EXPR_ORN:
+			case EXPR_XORN:
+			case EXPR_GCDN:
+			case EXPR_LCMN:
+			case EXPR_FOR:
+			case EXPR_LOOP:
+				expr_freesuminfo(ip->un.es);
+				break;
+			case EXPR_MD:
+			case EXPR_ME:
+				expr_freemdinfo(ip->un.em);
+				break;
+			case EXPR_VMD:
+				expr_freevmdinfo(ip->un.ev);
+				break;
+			case EXPR_IF:
+			case EXPR_WHILE:
+				expr_freebranchinfo(ip->un.eb);
+				break;
+			case EXPR_HOT:
+				expr_free(ip->un.hotfunc);
+				break;
+			default:
+				break;
+		}
+	}
+	free(data);
+}
 void expr_free(struct expr *restrict ep){
-	struct expr_inst *ip,*endp;
 	struct expr *ep0=(struct expr *)ep;
 start:
-	if(ep->data){
-		ip=ep->data;
-		endp=ip+ep->size;
-		for(;ip<endp;++ip){
-			switch(ip->op){
-				case EXPR_SUM:
-				case EXPR_INT:
-				case EXPR_PROD:
-				case EXPR_SUP:
-				case EXPR_INF:
-				case EXPR_ANDN:
-				case EXPR_ORN:
-				case EXPR_XORN:
-				case EXPR_GCDN:
-				case EXPR_LCMN:
-				case EXPR_FOR:
-				case EXPR_LOOP:
-					expr_freesuminfo(ip->un.es);
-					break;
-				case EXPR_MD:
-				case EXPR_ME:
-					expr_freemdinfo(ip->un.em);
-					break;
-				case EXPR_VMD:
-					expr_freevmdinfo(ip->un.ev);
-					break;
-				case EXPR_IF:
-				case EXPR_WHILE:
-					expr_freebranchinfo(ip->un.eb);
-					break;
-				case EXPR_HOT:
-					expr_free(ip->un.hotfunc);
-					break;
-				default:
-					break;
-			}
-		}
-		free(ep->data);
-	}
+	if(ep->data)expr_freedata(ep->data,ep->size);
 	if(ep->vars){
 		for(size_t i=0;i<ep->vsize;++i)
 			free(ep->vars[i]);
@@ -1483,7 +1529,7 @@ err1:
 	expr_free2(v);
 	return NULL;
 }
-static struct expr_vmdinfo *expr_getvmdinfo(struct expr *restrict ep,const char *e0,size_t sz,const char *e,size_t esz,const char *asym){
+static struct expr_vmdinfo *expr_getvmdinfo(struct expr *restrict ep,const char *e0,size_t sz,const char *e,size_t esz,const char *asym,int *flag){
 	char **v=expr_sep(ep,e,esz);
 	char **p;
 	struct expr_vmdinfo *ev;
@@ -1522,10 +1568,12 @@ evmd:
 			goto err0;
 		}
 		fp=sym.es->un.mdfunc;
+		*flag=sym.es->flag;
 	}else if((sym.ebs=expr_bsym_search(v[5],ssz))){
 		if(sym.ebs->type!=EXPR_MDFUNCTION||sym.ebs->dim)
 			goto evmd;
 		fp=sym.ebs->un.mdfunc;
+		*flag=sym.ebs->flag;
 	}else {
 		memcpy(ep->errinfo,v[5],ssz);
 		ep->error=EXPR_ESYMBOL;
@@ -1546,12 +1594,12 @@ evmd:
 	check_nullptr(ep,sset,goto err075);
 	expr_symset_add(sset,v[0],EXPR_VARIABLE,&ev->index);
 	expr_symset_copy(sset,ep->sset);
-	ev->from=new_expr(v[1],asym,ep->sset,&ep->error,ep->errinfo);
-	if(!ev->from)goto err1;
-	ev->to=new_expr(v[2],asym,sset,&ep->error,ep->errinfo);
-	if(!ev->to)goto err2;
-	ev->step=new_expr(v[3],asym,sset,&ep->error,ep->errinfo);
-	if(!ev->step)goto err3;
+	ev->fromep=new_expr(v[1],asym,ep->sset,&ep->error,ep->errinfo);
+	if(!ev->fromep)goto err1;
+	ev->toep=new_expr(v[2],asym,sset,&ep->error,ep->errinfo);
+	if(!ev->toep)goto err2;
+	ev->stepep=new_expr(v[3],asym,sset,&ep->error,ep->errinfo);
+	if(!ev->stepep)goto err3;
 	ev->ep=new_expr(v[4],asym,sset,&ep->error,ep->errinfo);
 	if(!ev->ep)goto err4;
 
@@ -1559,11 +1607,11 @@ evmd:
 	expr_symset_free(sset);
 	return ev;
 err4:
-	expr_free(ev->step);
+	expr_free(ev->stepep);
 err3:
-	expr_free(ev->to);
+	expr_free(ev->toep);
 err2:
-	expr_free(ev->from);
+	expr_free(ev->fromep);
 err1:
 	expr_symset_free(sset);
 err075:
@@ -1598,23 +1646,23 @@ static struct expr_suminfo *expr_getsuminfo(struct expr *restrict ep,const char 
 	check_nullptr(ep,sset,goto err05);
 	expr_symset_add(sset,v[0],EXPR_VARIABLE,&es->index);
 	expr_symset_copy(sset,ep->sset);
-	es->from=new_expr(v[1],asym,ep->sset,&ep->error,ep->errinfo);
-	if(!es->from)goto err1;
-	es->to=new_expr(v[2],asym,sset,&ep->error,ep->errinfo);
-	if(!es->to)goto err2;
-	es->step=new_expr(v[3],asym,sset,&ep->error,ep->errinfo);
-	if(!es->step)goto err3;
+	es->fromep=new_expr(v[1],asym,ep->sset,&ep->error,ep->errinfo);
+	if(!es->fromep)goto err1;
+	es->toep=new_expr(v[2],asym,sset,&ep->error,ep->errinfo);
+	if(!es->toep)goto err2;
+	es->stepep=new_expr(v[3],asym,sset,&ep->error,ep->errinfo);
+	if(!es->stepep)goto err3;
 	es->ep=new_expr(v[4],asym,sset,&ep->error,ep->errinfo);
 	if(!es->ep)goto err4;
 	expr_free2(v);
 	expr_symset_free(sset);
 	return es;
 err4:
-	expr_free(es->step);
+	expr_free(es->stepep);
 err3:
-	expr_free(es->to);
+	expr_free(es->toep);
 err2:
-	expr_free(es->from);
+	expr_free(es->fromep);
 err1:
 	expr_symset_free(sset);
 err05:
@@ -1738,13 +1786,14 @@ pterr:
 		e=p;
 		p=expr_findpair(e,endp);
 		if(!p)goto pterr;
+		flag=0;
 		switch(kp->op){
 			case EXPR_IF:
 			case EXPR_WHILE:
 				un.eb=expr_getbranchinfo(ep,p2,e-p2,e,p-e+1,asym);
 				break;
 			case EXPR_VMD:
-				un.ev=expr_getvmdinfo(ep,p2,e-p2,e,p-e+1,asym);
+				un.ev=expr_getvmdinfo(ep,p2,e-p2,e,p-e+1,asym,&flag);
 				break;
 			default:
 				un.es=expr_getsuminfo(ep,p2,e-p2,e,p-e+1,asym);
@@ -1755,7 +1804,7 @@ pterr:
 		}
 		v0=expr_newvar(ep);
 		check_nullptr(ep,v0,return NULL);
-		expr_addop(ep,v0,un.uaddr,kp->op,0);
+		expr_addop(ep,v0,un.uaddr,kp->op,flag);
 		e=p+1;
 		goto vend;
 	}
@@ -2518,6 +2567,7 @@ static char *expr_stpcpy_nospace(char *restrict s1,const char *restrict s2){
 	return s1;
 }
 static void expr_optimize(struct expr *restrict ep);
+static int expr_constexpr(struct expr *restrict ep,double *except);
 int init_expr5(struct expr *restrict ep,const char *e,const char *asym,struct expr_symset *esp,int flag){
 	double *p;
 	char *ebuf,*r,*p0;
@@ -2550,8 +2600,19 @@ int init_expr5(struct expr *restrict ep,const char *e,const char *asym,struct ex
 			return -1;
 		}
 	}
-	if(!(flag&EXPR_IF_NOOPTIMIZE))
+	if(!(flag&EXPR_IF_NOOPTIMIZE)){
 		expr_optimize(ep);
+		if(ep->size>1&&ep->vlength>0&&
+		expr_constexpr(ep,NULL)){
+			p=*ep->vars;
+			*p=expr_eval(ep,0.0);
+			expr_freedata(ep->data,ep->size);
+			ep->data=NULL;
+			ep->size=0;
+			ep->length=0;
+			expr_addend(ep,p);
+		}
+	}
 	if(flag&EXPR_IF_INSTANT_FREE)
 		expr_free(ep);
 	return 0;
@@ -2628,6 +2689,41 @@ static void expr_writeconsts(struct expr *restrict ep){
 		}
 	}
 }
+#define SRCCASES EXPR_COPY:\
+		case EXPR_ADD:\
+		case EXPR_SUB:\
+		case EXPR_MUL:\
+		case EXPR_DIV:\
+		case EXPR_MOD:\
+		case EXPR_POW:\
+		case EXPR_AND:\
+		case EXPR_OR:\
+		case EXPR_XOR:\
+		case EXPR_SHL:\
+		case EXPR_SHR:\
+		case EXPR_GT:\
+		case EXPR_GE:\
+		case EXPR_LT:\
+		case EXPR_LE:\
+		case EXPR_SGE:\
+		case EXPR_SLE:\
+		case EXPR_SEQ:\
+		case EXPR_SNE:\
+		case EXPR_EQ:\
+		case EXPR_NE:\
+		case EXPR_ANDL:\
+		case EXPR_ORL:\
+		case EXPR_XORL:\
+		case EXPR_NEXT
+static int expr_usesrc(enum expr_op op){
+	switch(op){
+		case SRCCASES:
+			return 1;
+		default:
+			return 0;
+	}
+}
+
 static void expr_optimize_completed(struct expr *restrict ep){
 	struct expr_inst *cip=ep->data;
 	for(struct expr_inst *ip=cip;ip-ep->data<ep->size;++ip){
@@ -2649,8 +2745,6 @@ static int expr_modified(const struct expr *restrict ep,double *v){
 	}
 	return 0;
 }
-static int expr_usesrc(enum expr_op op);
-
 static struct expr_inst *expr_findconst(const struct expr *restrict ep,struct expr_inst *ip){
 	double *s=ip->dst;
 	for(--ip;ip>=ep->data;--ip){
@@ -2665,8 +2759,7 @@ static void expr_optimize_contadd(struct expr *restrict ep){
 	double sum;
 	struct expr_inst *rip;
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
-		if(!ip->dst
-			||!expr_modified(ep,ip->dst)
+		if(!expr_modified(ep,ip->dst)
 			||(ip->op!=EXPR_ADD&&ip->op!=EXPR_SUB)
 			||expr_modified(ep,ip->un.src)
 			)continue;
@@ -2706,8 +2799,7 @@ static void expr_optimize_contsh(struct expr *restrict ep){
 	double sum;
 	struct expr_inst *rip;
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
-		if(!ip->dst
-			||!expr_modified(ep,ip->dst)
+		if(!expr_modified(ep,ip->dst)
 			||(ip->op!=EXPR_SHL&&ip->op!=EXPR_SHR)
 			||expr_modified(ep,ip->un.src)
 			)continue;
@@ -2747,8 +2839,7 @@ static void expr_optimize_contmul(struct expr *restrict ep,enum expr_op op){
 	double sum;
 	struct expr_inst *rip;
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
-		if(!ip->dst
-			||!expr_modified(ep,ip->dst)
+		if(!expr_modified(ep,ip->dst)
 			||ip->op!=op
 			||expr_modified(ep,ip->un.src)
 			)continue;
@@ -2885,10 +2976,7 @@ static void expr_optimize_contmul(struct expr *restrict ep,enum expr_op op){
 						sum+=*ip1->un.src;
 						break;
 					}
-					if(EXPR_EDSIGN(&sum))
-						EXPR_EDIVAL(&sum)-=(int64_t)*ip1->un.src;
-					else
-						EXPR_EDIVAL(&sum)+=(int64_t)*ip1->un.src;
+					EXPR_EDIVAL(&sum)+=(int64_t)*ip1->un.src;
 					break;
 				default:
 					abort();
@@ -3002,6 +3090,7 @@ static int expr_side(enum expr_op op){
 		case EXPR_ANDL:
 		case EXPR_ORL:
 		case EXPR_XORL:
+		case EXPR_NEXT:
 			return 0;
 		default:
 			return 1;
@@ -3035,61 +3124,32 @@ static int expr_override(enum expr_op op){
 			return 0;
 	}
 }
-static int expr_usesrc(enum expr_op op){
-	switch(op){
-		case EXPR_COPY:
-		case EXPR_ADD:
-		case EXPR_SUB:
-		case EXPR_MUL:
-		case EXPR_DIV:
-		case EXPR_MOD:
-		case EXPR_POW:
-		case EXPR_AND:
-		case EXPR_OR:
-		case EXPR_XOR:
-		case EXPR_SHL:
-		case EXPR_SHR:
-		case EXPR_GT:
-		case EXPR_GE:
-		case EXPR_LT:
-		case EXPR_LE:
-		case EXPR_SGE:
-		case EXPR_SLE:
-		case EXPR_SEQ:
-		case EXPR_SNE:
-		case EXPR_EQ:
-		case EXPR_NE:
-		case EXPR_ANDL:
-		case EXPR_ORL:
-		case EXPR_XORL:
-			return 1;
-		default:
-			return 0;
-	}
-}
+
+#define SUMCASES EXPR_SUM:\
+		case EXPR_INT:\
+		case EXPR_PROD:\
+		case EXPR_SUP:\
+		case EXPR_INF:\
+		case EXPR_ANDN:\
+		case EXPR_ORN:\
+		case EXPR_XORN:\
+		case EXPR_GCDN:\
+		case EXPR_LCMN:\
+		case EXPR_FOR:\
+		case EXPR_LOOP
 static int expr_usesum(enum expr_op op){
 	switch(op){
-		case EXPR_SUM:
-		case EXPR_INT:
-		case EXPR_PROD:
-		case EXPR_SUP:
-		case EXPR_INF:
-		case EXPR_ANDN:
-		case EXPR_ORN:
-		case EXPR_XORN:
-		case EXPR_GCDN:
-		case EXPR_LCMN:
-		case EXPR_FOR:
-		case EXPR_LOOP:
+		case SUMCASES:
 				return 1;
 		default:
 				return 0;
 	}
 }
+#define MDCASES EXPR_MD:\
+		case EXPR_ME
 static int expr_usemd(enum expr_op op){
 	switch(op){
-		case EXPR_MD:
-		case EXPR_ME:
+		case MDCASES:
 				return 1;
 		default:
 				return 0;
@@ -3103,10 +3163,11 @@ static int expr_usevmd(enum expr_op op){
 				return 0;
 	}
 }
+#define BRANCHCASES EXPR_IF:\
+		case EXPR_WHILE
 static int expr_usebranch(enum expr_op op){
 	switch(op){
-		case EXPR_IF:
-		case EXPR_WHILE:
+		case BRANCHCASES:
 				return 1;
 		default:
 				return 0;
@@ -3130,19 +3191,260 @@ static int expr_vused(struct expr_inst *ip1,double *v){
 	}
 	return 0;
 }
+static int expr_constexpr(struct expr *restrict ep,double *except){
+	for(struct expr_inst *ip=ep->data;;++ip){
+		if(!expr_varofep(ep,ip->dst)&&ip->dst!=except)return 0;
+		switch(ip->op){
+			case EXPR_CALL:
+			case EXPR_ZA:
+			case EXPR_HOT:
+				if(ip->flag&EXPR_SF_INJECTION)
+					break;
+			case EXPR_INPUT:
+			case EXPR_MD:
+			case EXPR_ME:
+			case EXPR_VMD:
+			case EXPR_SUM:
+			case EXPR_INT:
+			case EXPR_PROD:
+			case EXPR_SUP:
+			case EXPR_INF:
+			case EXPR_ANDN:
+			case EXPR_ORN:
+			case EXPR_XORN:
+			case EXPR_GCDN:
+			case EXPR_LCMN:
+			case EXPR_FOR:
+			case EXPR_LOOP:
+			case EXPR_IF:
+			case EXPR_WHILE:
+				return 0;
+			case SRCCASES:
+				if(!expr_varofep(ep,ip->un.src)&&
+					ip->un.src!=except)
+					return 0;
+				break;
+			case EXPR_END:
+				return 1;
+			default:
+				break;
+		}
+	}
+}
+#define CALSUM(_op,_do,_init,_neg,dest)\
+			case _op :\
+				neg=0;\
+				from=expr_eval(ip->un.es->fromep,input);\
+				to=expr_eval(ip->un.es->toep,input);\
+				if(from>to){\
+					step=from;\
+					from=to;\
+					to=step;\
+					neg=1;\
+				}\
+				step=expr_eval(ip->un.es->stepep,input);\
+				if(step<0){\
+					step=-step;\
+					neg^=1;\
+				}\
+				_init ;\
+				for(ip->un.es->index=from;\
+					ip->un.es->index<=to;\
+					ip->un.es->index+=step){\
+					y=expr_eval(ip->un.es->ep,input) ;\
+					_do ;\
+				}\
+				if(neg)sum= _neg ;\
+				*dest=sum;\
+				break
+#define CALSUM_INSWITCH(dest) CALSUM(EXPR_SUM,sum+=y,sum=0.0,-sum,dest);\
+			CALSUM(EXPR_INT,sum+=step*y,sum=0.0;from+=step/2.0,-sum,dest);\
+			CALSUM(EXPR_PROD,sum*=y,sum=1.0,1.0/sum,dest);\
+			CALSUM(EXPR_SUP,if(y>sum)sum=y,sum=DBL_MIN,sum,dest);\
+			CALSUM(EXPR_INF,if(y<sum)sum=y,sum=DBL_MAX,sum,dest);\
+			CALSUM(EXPR_ANDN,sum=sum!=DBL_MAX?expr_and2(sum,y):y,sum=DBL_MAX,sum,dest);\
+			CALSUM(EXPR_ORN,sum=sum!=0.0?expr_or2(sum,y):y,sum=0.0,sum,dest);\
+			CALSUM(EXPR_XORN,sum=sum!=0.0?expr_xor2(sum,y):y,sum=0.0,sum,dest);\
+			CALSUM(EXPR_GCDN,sum=sum!=DBL_MAX?expr_gcd2(sum,y):y,sum=DBL_MAX,sum,dest);\
+			CALSUM(EXPR_LCMN,sum=sum!=1.0?expr_lcm2(sum,y):y,sum=1.0,sum,dest);\
+\
+			case EXPR_FOR:\
+				ip->un.es->index=\
+				expr_eval(ip->un.es->fromep,input);\
+				to=expr_eval(ip->un.es->toep,input);\
+				if(to<0.0)to=-to;\
+				while(to!=0.0){\
+					expr_eval(ip->un.es->stepep,input);\
+					to=expr_eval(ip->un.es->toep,input);\
+					if(to<0.0)to=-to;\
+				}\
+				*dest=expr_eval(ip->un.es->ep,input);\
+				break;\
+			case EXPR_LOOP:\
+				ip->un.es->index=\
+				expr_eval(ip->un.es->fromep,input);\
+				to=expr_eval(ip->un.es->toep,input);\
+				if(to<0)to=-to;\
+				for(;to>0.0;to-=1.0){\
+					expr_eval(ip->un.es->stepep,input);\
+				}\
+				*dest=expr_eval(ip->un.es->ep,input);\
+				break
+#define CALMD_INSWITCH(dest) case EXPR_MD:\
+				ap=ip->un.em->args;\
+				endp=ap+ip->un.em->dim;\
+				epp=ip->un.em->eps;\
+				for(;ap<endp;++ap)\
+					*ap=expr_eval(epp++,input);\
+				*dest=ip->un.em->un.func(ip->un.em->dim,ip->un.em->args);\
+				break;\
+			case EXPR_ME:\
+				*dest=ip->un.em->un.funcep(ip->un.em->dim,ip->un.em->eps,input);\
+				break
+static double expr_vmdeval(struct expr_vmdinfo *restrict ev,double input);
+static int expr_optimize_constexpr(struct expr *restrict ep){
+	double result;
+	union {
+		struct {
+			double _sum,_step,_from,_to,_y;
+			int _neg;
+		} s0;
+		struct {
+			double *_ap,*_endp;
+			struct expr *_epp,*_endp1;
+		} s1;
+	} un;
+#define sum (un.s0._sum)
+#define from (un.s0._from)
+#define to (un.s0._to)
+#define step (un.s0._step)
+#define y (un.s0._y)
+#define neg (un.s0._neg)
+#define ap (un.s1._ap)
+#define endp (un.s1._endp)
+#define endp1 (un.s1._endp1)
+#define epp (un.s1._epp)
+	static const double input=0.0;
+	struct expr *hep;
+	int r=0;
+	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
+		switch(ip->op){
+			case SUMCASES:
+				if(!(expr_constexpr(ip->un.es->fromep,NULL)&&
+				expr_constexpr(ip->un.es->toep,(double *)&ip->un.es->index)&&
+				expr_constexpr(ip->un.es->stepep,(double *)&ip->un.es->index)&&
+				expr_constexpr(ip->un.es->ep,(double *)&ip->un.es->index)))
+					continue;
+				switch(ip->op){
+					CALSUM_INSWITCH((&result));
+					default:
+						abort();
+				}
+				expr_freesuminfo(ip->un.es);
+				ip->op=EXPR_CONST;
+				ip->un.value=result;
+				r=1;
+				break;
+			case MDCASES:
+				if(!(ip->flag&EXPR_SF_INJECTION))
+					continue;
+				epp=ip->un.em->eps;
+				endp1=epp+ip->un.em->dim;
+				for(;epp<endp1;++epp){
+					if(!expr_constexpr(epp,NULL))
+						goto force_continue;
+				}
+				switch(ip->op){
+					CALMD_INSWITCH((&result));
+					default:
+						abort();
+				}
+				expr_freemdinfo(ip->un.em);
+				ip->op=EXPR_CONST;
+				ip->un.value=result;
+				r=1;
+				break;
+			case EXPR_VMD:
+				if(!(ip->flag&EXPR_SF_INJECTION))
+					continue;
+				if(!(expr_constexpr(ip->un.ev->fromep,NULL)&&
+				expr_constexpr(ip->un.ev->toep,(double *)&ip->un.ev->index)&&
+				expr_constexpr(ip->un.ev->stepep,(double *)&ip->un.ev->index)&&
+				expr_constexpr(ip->un.ev->ep,(double *)&ip->un.ev->index)))
+					continue;
+				result=expr_vmdeval(ip->un.ev,input);
+				expr_freevmdinfo(ip->un.ev);
+				ip->op=EXPR_CONST;
+				ip->un.value=result;
+				r=1;
+				break;
+			case EXPR_WHILE:
+				if(!expr_constexpr(ip->un.eb->cond,NULL)||
+					expr_eval(ip->un.eb->cond,input)!=0.0)
+					continue;
+				hep=ip->un.eb->value;
+				expr_free(ip->un.eb->cond);
+				expr_free(ip->un.eb->body);
+				goto free_eb;
+			case EXPR_IF:
+				if(!expr_constexpr(ip->un.eb->cond,NULL))
+					continue;
+				result=expr_eval(ip->un.eb->cond,input);
+				expr_free(ip->un.eb->cond);
+				if(result!=0.0){
+					hep=ip->un.eb->body;
+					expr_free(ip->un.eb->value);
+				}else {
+					hep=ip->un.eb->value;
+					expr_free(ip->un.eb->body);
+				}
+free_eb:
+				free(ip->un.eb);
+				ip->op=EXPR_HOT;
+				ip->un.hotfunc=hep;
+				ip->flag=0;
+				r=1;
+			case EXPR_HOT:
+				if(!expr_constexpr(ip->un.hotfunc,NULL))
+					continue;
+				result=expr_eval(ip->un.hotfunc,input);
+				expr_free(ip->un.hotfunc);
+				ip->op=EXPR_CONST;
+				ip->un.value=result;
+				ip->flag=0;
+				r=1;
+				break;
+			default:
+				break;
+		}
+force_continue:
+		continue;
+	}
+	return r;
+#undef sum
+#undef from
+#undef to
+#undef step
+#undef y
+#undef neg
+#undef ap
+#undef endp
+#undef endp1
+#undef epp
+}
 static int expr_vcheck_ep(struct expr_inst *ip0,double *v){
 	if(expr_vused(ip0,v))return 1;
 	for(struct expr_inst *ip=ip0;ip->op!=EXPR_END;++ip){
 		if(expr_usesum(ip->op)&&(
-			expr_vcheck_ep(ip->un.es->from->data,v)||
-			expr_vcheck_ep(ip->un.es->to->data,v)||
-			expr_vcheck_ep(ip->un.es->step->data,v)||
+			expr_vcheck_ep(ip->un.es->fromep->data,v)||
+			expr_vcheck_ep(ip->un.es->toep->data,v)||
+			expr_vcheck_ep(ip->un.es->stepep->data,v)||
 			expr_vcheck_ep(ip->un.es->ep->data,v)
 			))return 1;
 		if(expr_usevmd(ip->op)&&(
-			expr_vcheck_ep(ip->un.ev->from->data,v)||
-			expr_vcheck_ep(ip->un.ev->to->data,v)||
-			expr_vcheck_ep(ip->un.ev->step->data,v)||
+			expr_vcheck_ep(ip->un.ev->fromep->data,v)||
+			expr_vcheck_ep(ip->un.ev->toep->data,v)||
+			expr_vcheck_ep(ip->un.ev->stepep->data,v)||
 			expr_vcheck_ep(ip->un.ev->ep->data,v)
 			))return 1;
 		if(expr_usebranch(ip->op)&&(
@@ -3163,6 +3465,35 @@ static int expr_vcheck_ep(struct expr_inst *ip0,double *v){
 	return 0;
 }
 
+static int expr_optimize_mulpow2n(struct expr *restrict ep){
+	int r=0;
+	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
+		switch(ip->op){
+			case EXPR_MUL:
+			case EXPR_DIV:
+				break;
+			default:
+				continue;
+		}
+		if(expr_modified(ep,ip->un.src)||
+			EXPR_EDSIGN(ip->un.src)||
+			EXPR_EDBASE(ip->un.src))
+			continue;
+		switch(ip->op){
+			case EXPR_MUL:
+				*ip->un.src=(double)(EXPR_EDEXP(ip->un.src)-1023);
+				break;
+			case EXPR_DIV:
+				*ip->un.src=-(double)(EXPR_EDEXP(ip->un.src)-1023);
+				break;
+			default:
+				abort();
+		}
+		ip->op=EXPR_SHL;
+		r=1;
+	}
+	return r;
+}
 static void expr_optimize_unused(struct expr *restrict ep){
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
 
@@ -3484,10 +3815,12 @@ static int expr_optimize_once(struct expr *restrict ep){
 	expr_optimize_contmul(ep,EXPR_ORL);
 	//expr_optimize_contmul(ep,EXPR_COPY);
 
+	r|=expr_optimize_mulpow2n(ep);
 	r|=expr_optimize_zero(ep);
 	//r|=expr_optimize_copy2const(ep);
 	expr_optimize_copyadd(ep);
 	expr_optimize_unused(ep);
+	r|=expr_optimize_constexpr(ep);
 	expr_optimize_copyend(ep);
 	return r;
 }
@@ -3507,9 +3840,9 @@ __attribute__((noinline))
 static double expr_vmdeval(struct expr_vmdinfo *restrict ev,double input){
 	ssize_t max=ev->max;
 	double *args,*ap,from,to,step;
-	step=fabs(expr_eval(ev->step,input));
-	from=expr_eval(ev->from,input);
-	to=expr_eval(ev->to,input);
+	step=fabs(expr_eval(ev->stepep,input));
+	from=expr_eval(ev->fromep,input);
+	to=expr_eval(ev->toep,input);
 	if(max<=0){
 		if(step==0.0)return NAN;
 		max=1;
@@ -3546,8 +3879,25 @@ static double expr_vmdeval(struct expr_vmdinfo *restrict ev,double input){
 	return ev->func(ap-args,args);
 }
 double expr_eval(const struct expr *restrict ep,double input){
-	double step,sum,from,to,y;
-	int neg;
+	union {
+		struct {
+			double _sum,_step,_from,_to,_y;
+			int _neg;
+		} s0;
+		struct {
+			double *_ap,*_endp;
+			struct expr *_epp;
+		} s1;
+	} un;
+#define sum (un.s0._sum)
+#define from (un.s0._from)
+#define to (un.s0._to)
+#define step (un.s0._step)
+#define y (un.s0._y)
+#define neg (un.s0._neg)
+#define ap (un.s1._ap)
+#define endp (un.s1._endp)
+#define epp (un.s1._epp)
 	for(struct expr_inst *ip=ep->data;;++ip){
 		assert(ip->op>=EXPR_COPY);
 		assert(ip->op<=EXPR_END);
@@ -3598,10 +3948,7 @@ double expr_eval(const struct expr *restrict ep,double input){
 				EXPR_EDEXP(ip->dst)-=(int64_t)*ip->un.src;
 				break;
 			case EXPR_NEXT:
-				if(EXPR_EDSIGN(ip->dst))
-					EXPR_EDIVAL(ip->dst)-=(int64_t)*ip->un.src;
-				else
-					EXPR_EDIVAL(ip->dst)+=(int64_t)*ip->un.src;
+				EXPR_EDIVAL(ip->dst)+=(int64_t)*ip->un.src;
 				break;
 			case EXPR_NEG:
 				*ip->dst=-*ip->dst;
@@ -3687,66 +4034,7 @@ double expr_eval(const struct expr *restrict ep,double input){
 					1.0:
 					0.0;
 				break;
-				
-#define CALSUM(_op,_do,_init,_neg)\
-			case _op :\
-				neg=0;\
-				from=expr_eval(ip->un.es->from,input);\
-				to=expr_eval(ip->un.es->to,input);\
-				if(from>to){\
-					step=from;\
-					from=to;\
-					to=step;\
-					neg=1;\
-				}\
-				step=expr_eval(ip->un.es->step,input);\
-				if(step<0){\
-					step=-step;\
-					neg^=1;\
-				}\
-				_init ;\
-				for(ip->un.es->index=from;\
-					ip->un.es->index<=to;\
-					ip->un.es->index+=step){\
-					y=expr_eval(ip->un.es->ep,input) ;\
-					_do ;\
-				}\
-				if(neg)sum= _neg ;\
-				*ip->dst=sum;\
-				break
-			CALSUM(EXPR_SUM,sum+=y,sum=0.0,-sum);
-			CALSUM(EXPR_INT,sum+=step*y,sum=0.0;from+=step/2.0,-sum);
-			CALSUM(EXPR_PROD,sum*=y,sum=1.0,1.0/sum);
-			CALSUM(EXPR_SUP,if(y>sum)sum=y,sum=DBL_MIN,sum);
-			CALSUM(EXPR_INF,if(y<sum)sum=y,sum=DBL_MAX,sum);
-			CALSUM(EXPR_ANDN,sum=sum!=DBL_MAX?expr_and2(sum,y):y,sum=DBL_MAX,sum);
-			CALSUM(EXPR_ORN,sum=sum!=0.0?expr_or2(sum,y):y,sum=0.0,sum);
-			CALSUM(EXPR_XORN,sum=sum!=0.0?expr_xor2(sum,y):y,sum=0.0,sum);
-			CALSUM(EXPR_GCDN,sum=sum!=DBL_MAX?expr_gcd2(sum,y):y,sum=DBL_MAX,sum);
-			CALSUM(EXPR_LCMN,sum=sum!=1.0?expr_lcm2(sum,y):y,sum=1.0,sum);
-
-			case EXPR_FOR:
-				ip->un.es->index=
-				expr_eval(ip->un.es->from,input);//init
-				to=expr_eval(ip->un.es->to,input);//cond
-				if(to<0.0)to=-to;
-				while(to!=0.0){
-					expr_eval(ip->un.es->step,input);//every time
-					to=expr_eval(ip->un.es->to,input);//cond
-					if(to<0.0)to=-to;
-				}
-				*ip->dst=expr_eval(ip->un.es->ep,input);
-				break;
-			case EXPR_LOOP:
-				ip->un.es->index=
-				expr_eval(ip->un.es->from,input);//init
-				to=expr_eval(ip->un.es->to,input);//times
-				if(to<0)to=-to;
-				for(;to>0.0;to-=1.0){
-					expr_eval(ip->un.es->step,input);//every time
-				}
-				*ip->dst=expr_eval(ip->un.es->ep,input);
-				break;
+			CALSUM_INSWITCH(ip->dst);
 			case EXPR_IF:
 				*ip->dst=
 				expr_eval(ip->un.eb->cond,input)!=0.0?
@@ -3762,17 +4050,7 @@ double expr_eval(const struct expr *restrict ep,double input){
 			case EXPR_ZA:
 				*ip->dst=ip->un.zafunc();
 				break;
-			case EXPR_MD:
-				for(size_t i=0;i<ip->un.em->dim;++i)
-					ip->un.em->args[i]=
-						expr_eval(
-						ip->un.em->eps+i,input);
-				
-				*ip->dst=ip->un.em->un.func(ip->un.em->dim,ip->un.em->args);
-				break;
-			case EXPR_ME:
-				*ip->dst=ip->un.em->un.funcep(ip->un.em->dim,ip->un.em->eps,input);
-				break;
+			CALMD_INSWITCH(ip->dst);
 			case EXPR_VMD:
 				*ip->dst=expr_vmdeval(ip->un.ev,input);
 				break;
@@ -3783,4 +4061,13 @@ double expr_eval(const struct expr *restrict ep,double input){
 				return *ip->dst;
 		}
 	}
+#undef sum
+#undef from
+#undef to
+#undef step
+#undef y
+#undef neg
+#undef ap
+#undef endp
+#undef epp
 }

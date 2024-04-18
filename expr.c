@@ -89,19 +89,21 @@ static int expr_operator(char c){
 		case '(':
 		case ')':
 		case ',':
+		case ';':
 		case '<':
 		case '>':
 		case '=':
 		case '!':
 		case '&':
 		case '|':
+		case '#':
 			return 1;
 		default:
 			return 0;
 	}
 }
 //static const char spaces[]={" \t\r\f\n\v"};
-//static const char special[]={"+-*/%^(),<>=!&|"};
+//static const char special[]={"+-*/%^(),;<>=!&|"};
 
 //#define MEMORY_LEAK_CHECK
 
@@ -2185,7 +2187,12 @@ tnv:
 				}
 			}else op=EXPR_POW;
 			goto end1;
+		case '#':
+			op=EXPR_NEXT;
+			++e;
+			goto end1;
 		case ',':
+		case ';':
 			op=EXPR_COPY;
 			++e;
 			goto end1;
@@ -2256,7 +2263,7 @@ end2:
 	expr_do_unary(ep,ev,4);
 	while(expr_do_unary(ep,ev,2)&&expr_do_unary(ep,ev,4));
 	SETPREC3(EXPR_MUL,EXPR_DIV,EXPR_MOD)
-	SETPREC2(EXPR_ADD,EXPR_SUB)
+	SETPREC3(EXPR_ADD,EXPR_SUB,EXPR_NEXT)
 	SETPREC2(EXPR_SHL,EXPR_SHR)
 	SETPREC6(EXPR_LT,EXPR_LE,EXPR_GT,EXPR_GE,EXPR_SLE,EXPR_SGE)
 	SETPREC4(EXPR_SEQ,EXPR_SNE,EXPR_EQ,EXPR_NE)
@@ -2683,11 +2690,11 @@ static void expr_optimize_contadd(struct expr *restrict ep){
 			ip->dst=NULL;
 			expr_writeconsts(ep);
 		}else {
-			if(sum<0.0){
+			/*if(sum<0.0){
 				*ip->un.src=-sum;
 				ip->op=EXPR_SUB;
 			}
-			else {
+			else */{
 				*ip->un.src=sum;
 				ip->op=EXPR_ADD;
 			}
@@ -2724,11 +2731,11 @@ static void expr_optimize_contsh(struct expr *restrict ep){
 			ip->dst=NULL;
 			expr_writeconsts(ep);
 		}else {
-			if(sum<0.0){
+			/*if(sum<0.0){
 				*ip->un.src=-sum;
 				ip->op=EXPR_SHR;
 			}
-			else {
+			else */{
 				*ip->un.src=sum;
 				ip->op=EXPR_SHL;
 			}
@@ -2806,71 +2813,82 @@ static void expr_optimize_contmul(struct expr *restrict ep,enum expr_op op){
 					sum=*ip1->un.src;
 					break;
 				case EXPR_GT:
-					sum=sum>*ip->un.src?
+					sum=sum>*ip1->un.src?
 						1.0:
 						0.0;
 					break;
 				case EXPR_LT:
-					sum=sum<*ip->un.src?
+					sum=sum<*ip1->un.src?
 						1.0:
 						0.0;
 					break;
 				case EXPR_SGE:
-					sum=sum>=*ip->un.src?
+					sum=sum>=*ip1->un.src?
 						1.0:
 						0.0;
 					break;
 				case EXPR_SLE:
-					sum=sum<=*ip->un.src?
+					sum=sum<=*ip1->un.src?
 						1.0:
 						0.0;
 					break;
 				case EXPR_GE:
-					sum=sum>=*ip->un.src
-					||expr_equal(sum,*ip->un.src)?
+					sum=sum>=*ip1->un.src
+					||expr_equal(sum,*ip1->un.src)?
 						1.0:
 						0.0;
 					break;
 				case EXPR_LE:
-					sum=sum<=*ip->un.src
-					||expr_equal(sum,*ip->un.src)?
+					sum=sum<=*ip1->un.src
+					||expr_equal(sum,*ip1->un.src)?
 						1.0:
 						0.0;
 					break;
 				case EXPR_SEQ:
-					sum=sum==*ip->un.src?
+					sum=sum==*ip1->un.src?
 						1.0:
 						0.0;
 					break;
 				case EXPR_SNE:
-					sum=sum!=*ip->un.src?
+					sum=sum!=*ip1->un.src?
 						1.0:
 						0.0;
 					break;
 				case EXPR_EQ:
-					sum=expr_equal(sum,*ip->un.src)?
+					sum=expr_equal(sum,*ip1->un.src)?
 						1.0:
 						0.0;
 					break;
 				case EXPR_NE:
-					sum=!expr_equal(sum,*ip->un.src)?
+					sum=!expr_equal(sum,*ip1->un.src)?
 						1.0:
 						0.0;
 					break;
 				case EXPR_ANDL:
-					sum=LOGIC(sum,*ip->un.src,&&)?
+					sum=LOGIC(sum,*ip1->un.src,&&)?
 						1.0:
 						0.0;
 					break;
 				case EXPR_ORL:
-					sum=LOGIC(sum,*ip->un.src,||)?
+					sum=LOGIC(sum,*ip1->un.src,||)?
 						1.0:
 						0.0;
 					break;
 				case EXPR_XORL:
-					sum=LOGIC(sum,*ip->un.src,^)?
+					sum=LOGIC(sum,*ip1->un.src,^)?
 						1.0:
 						0.0;
+					break;
+				case EXPR_NEXT:
+					if(!rip){
+						printvald(*ip1->un.src);
+						sum+=*ip1->un.src;
+						break;
+					}
+					if(EXPR_EDSIGN(&sum))
+						EXPR_EDIVAL(&sum)-=(int64_t)*ip1->un.src;
+					else
+						EXPR_EDIVAL(&sum)+=(int64_t)*ip1->un.src;
 					break;
 				default:
 					abort();
@@ -2896,6 +2914,7 @@ static double expr_zero_element(enum expr_op op){
 		case EXPR_XOR:
 		case EXPR_SHL:
 		case EXPR_SHR:
+		case EXPR_NEXT:
 			return 0.0;
 		case EXPR_MUL:
 		case EXPR_DIV:
@@ -3445,6 +3464,7 @@ static int expr_optimize_once(struct expr *restrict ep){
 	expr_optimize_contmul(ep,EXPR_DIV);
 	expr_optimize_contmul(ep,EXPR_MOD);
 	expr_optimize_contadd(ep);
+	expr_optimize_contmul(ep,EXPR_NEXT);
 	expr_optimize_contsh(ep);
 	expr_optimize_contmul(ep,EXPR_LT);
 	expr_optimize_contmul(ep,EXPR_LE);
@@ -3576,6 +3596,12 @@ double expr_eval(const struct expr *restrict ep,double input){
 				break;
 			case EXPR_SHR:
 				EXPR_EDEXP(ip->dst)-=(int64_t)*ip->un.src;
+				break;
+			case EXPR_NEXT:
+				if(EXPR_EDSIGN(ip->dst))
+					EXPR_EDIVAL(ip->dst)-=(int64_t)*ip->un.src;
+				else
+					EXPR_EDIVAL(ip->dst)+=(int64_t)*ip->un.src;
 				break;
 			case EXPR_NEG:
 				*ip->dst=-*ip->dst;

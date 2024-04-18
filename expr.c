@@ -510,6 +510,15 @@ static double expr_str(size_t n,double *args){
 	un.r+=(size_t)*(++args);
 	return *un.r=*(++args);
 }
+double expr_isfinite(double x){
+	return EXPR_EDEXP(&x)!=2047?1.0:0.0;
+}
+double expr_isinf(double x){
+	return !EXPR_EDBASE(&x)&&EXPR_EDEXP(&x)==2047?1.0:0.0;
+}
+double expr_isnan(double x){
+	return EXPR_EDBASE(&x)&&EXPR_EDEXP(&x)==2047?1.0:0.0;
+}
 static double expr_malloc(double x){
 	union {
 		double *r;
@@ -534,6 +543,12 @@ static double expr_xfree(double x){
 	un.dr=x;
 	free(un.r);
 	return 0.0;
+}
+static double expr_dexp(double x){
+	return (double)EXPR_EDEXP(&x);
+}
+static double expr_dbase(double x){
+	return (double)EXPR_EDBASE(&x);
 }
 static double expr_next(double x){
 	++((struct s_eb*)&x)->eb;
@@ -866,6 +881,8 @@ const struct expr_builtin_symbol expr_bsyms[]={
 	REGFSYM(ceil),
 	REGFSYM(cos),
 	REGFSYM(cosh),
+	REGFSYM2("dbase",expr_dbase),
+	REGFSYM2("dexp",expr_dexp),
 	REGFSYM2("dfact",expr_dfact),
 	REGFSYM(erf),
 	REGFSYM(exp),
@@ -874,6 +891,9 @@ const struct expr_builtin_symbol expr_bsyms[]={
 	REGFSYM(fabs),
 	REGFSYM2("fact",expr_fact),
 	REGFSYM(floor),
+	REGFSYM2("isfinite",expr_isfinite),
+	REGFSYM2("isinf",expr_isinf),
+	REGFSYM2("isnan",expr_isnan),
 	REGFSYM(j0),
 	REGFSYM(j1),
 	REGFSYM(lgamma),

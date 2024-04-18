@@ -3484,8 +3484,7 @@ static int expr_vcheck_ep(struct expr_inst *ip0,double *v){
 	}
 	return 0;
 }
-
-static int expr_optimize_mulpow2n(struct expr *restrict ep){
+/*static int expr_optimize_mulpow2n(struct expr *restrict ep){
 	int r=0;
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
 		switch(ip->op){
@@ -3513,7 +3512,8 @@ static int expr_optimize_mulpow2n(struct expr *restrict ep){
 		r=1;
 	}
 	return r;
-}
+}*/
+//2 bugs
 static void expr_optimize_unused(struct expr *restrict ep){
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
 
@@ -3835,7 +3835,7 @@ static int expr_optimize_once(struct expr *restrict ep){
 	expr_optimize_contmul(ep,EXPR_ORL);
 	//expr_optimize_contmul(ep,EXPR_COPY);
 
-	r|=expr_optimize_mulpow2n(ep);
+	//r|=expr_optimize_mulpow2n(ep);
 	r|=expr_optimize_zero(ep);
 	//r|=expr_optimize_copy2const(ep);
 	expr_optimize_copyadd(ep);

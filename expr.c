@@ -1450,6 +1450,8 @@ static int expr_atod(const char *str,size_t sz,double *dst){
 	return ret;
 }
 static char *expr_tok(char *restrict str,char **restrict saveptr){
+	char *s0=(char *)str;
+	int instr=0;
 	if(str){
 		*saveptr=str;
 	}else if(!**saveptr)return NULL;
@@ -1457,14 +1459,22 @@ static char *expr_tok(char *restrict str,char **restrict saveptr){
 		str=*saveptr;
 	}
 	while(**saveptr){
-		if(**saveptr==','){
-			**saveptr=0;
-			++(*saveptr);
-			return str;
-		}
-		if(**saveptr=='('){
-			*saveptr=(char *)expr_findpair(*saveptr,*saveptr+strlen(*saveptr));
-			if(!*saveptr)return NULL;
+		switch(**saveptr){
+			case '\"':
+				if(*saveptr>s0&&(*saveptr)[-1]=='\\')
+					break;
+				instr^=1;
+				break;
+			case ',':
+				if(instr)break;
+				**saveptr=0;
+				++(*saveptr);
+				return str;
+			case '(':
+				*saveptr=(char *)expr_findpair(*saveptr,*saveptr+strlen(*saveptr));
+				if(!*saveptr)return NULL;
+			default:
+				break;
 		}
 		++(*saveptr);
 	}
@@ -1827,7 +1837,7 @@ err0:
 }
 static double *expr_scan(struct expr *restrict ep,const char *e,const char *endp,const char *asym,size_t asymlen);
 static double *expr_getvalue(struct expr *restrict ep,const char *e,const char *endp,const char **_p,const char *asym,size_t asymlen){
-	const char *p,*p2;
+	const char *p,*p2,*e1=NULL;
 	double *v0=NULL,*v1;
 	int r0;
 	union {
@@ -1880,6 +1890,9 @@ envp:
 			expr_addread(ep,v0,v1);
 			e=p+1;
 			goto vend;
+		case '&':
+			e1=++e;
+			break;
 		case '0' ... '9':
 			goto number;
 		case '.':
@@ -2005,7 +2018,11 @@ envp:
 		case EXPR_VARIABLE:
 			v0=expr_newvar(ep);
 			cknp(ep,v0,return NULL);
-			expr_addcopy(ep,v0,(void *)sv->addr);
+			if(e1){
+				expr_addconst(ep,v0,sv->value);
+				e1=NULL;
+			}else
+				expr_addcopy(ep,v0,sv->addr);
 			e=p;
 			break;
 		case EXPR_MDFUNCTION:
@@ -2066,6 +2083,11 @@ symerr:
 	ep->error=EXPR_ESYMBOL;
 	return NULL;
 vend:
+	if(e1){
+		memcpy(ep->errinfo,e1,minc(p-e1,EXPR_SYMLEN));
+		ep->error=EXPR_ETNV;
+		return NULL;
+	}
 	while(e<endp&&*e=='['){
 		double *v2;
 		p=expr_findpair_bracket(e,endp);

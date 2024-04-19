@@ -190,8 +190,8 @@ struct expr_symset {
 	int freeable;
 };
 struct expr {
-	double **vars;
 	struct expr_inst *data;
+	double **vars;
 	struct expr_symset *sset;
 	size_t size,length,vsize,vlength;
 	int error;

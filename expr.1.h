@@ -83,6 +83,7 @@ EXPR_END
 #define EXPR_EVMD 12
 #define EXPR_EMEM 13
 #define EXPR_EUSN 14
+#define EXPR_ENC 15
 
 #define EXPR_CONSTANT 0
 #define EXPR_VARIABLE 1
@@ -189,10 +190,19 @@ struct expr_symset {
 	size_t size,depth,length;
 	int freeable;
 };
+struct expr_resource {
+	struct expr_resource *next;
+	union {
+		void *uaddr;
+		double *addr;
+		char *str;
+	} un;
+};
 struct expr {
 	struct expr_inst *data;
 	double **vars;
 	struct expr_symset *sset;
+	struct expr_resource *res,*tail;
 	size_t size,length,vsize,vlength;
 	int error;
 	short iflag;

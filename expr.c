@@ -61,6 +61,7 @@ static const char *eerror[]={
 	[EXPR_EVMD]="Not a multi-demension function with dim 0",
 	[EXPR_EMEM]="Cannot allocate memory",
 	[EXPR_EUSN]="Unexpected symbol or number",
+	[EXPR_ENC]="Not a constant expression"
 };
 const static char ntoc[]={"0123456789abcdefg"};
 const char *expr_error(int error){
@@ -132,7 +133,7 @@ static int expr_operator(char c){
 static volatile _Atomic int count=0;
 static void xfree(void *p){
 	free(p);
-	--count;
+	if(p)--count;
 }
 static void __attribute__((destructor)) show(void){
 	warnx("MEMORY LEAK COUNT:%d",count);
@@ -151,7 +152,7 @@ static void *xmalloc_nullable(size_t size){
 }
 static void *xrealloc_nullable(void *old,size_t size){
 #ifdef MEMORY_LEAK_CHECK
-	void *r=realloc(old,size);
+	void *r=old?realloc(old,size):malloc(size);
 	if(!r)return NULL;
 	if(!old)++count;
 	return r;
@@ -197,7 +198,7 @@ static void *xrealloc(void *old,size_t size){
 			"CANNOT REALLOCATE MEMORY",old,size);
 		goto ab;
 	}
-	r=realloc(old,size);
+	r=old?realloc(old,size):malloc(size);
 	if(!r){
 		warn("IN xrealloc(old=%p,size=%zu)\n"
 			"CANNOT REALLOCATE MEMORY",old,size);
@@ -893,6 +894,7 @@ const struct expr_builtin_keyword expr_keywords[]={
 	REGKEY("while",EXPR_WHILE,3,"cond,body,value"),
 	REGKEY("if",EXPR_IF,3,"cond,if_value,else_value"),
 	REGKEY("vmd",EXPR_VMD,7,"index_name,start_index,end_index,index_step,element,md_symbol,max_dim"),
+	REGKEY("double",EXPR_CONST,1,"constant_expression count"),
 	{NULL}
 };
 const struct expr_builtin_symbol expr_bsyms[]={
@@ -1153,13 +1155,21 @@ fail:
 	}
 	return buf-buf0;
 }
+static const char *expr_findpair_dmark(const char *c,const char *endp){
+	++c;
+	for(;c<endp;++c){
+		if(*c=='\"'&&c[-1]!='\\')
+			return c;
+	}
+	return NULL;
+}
 size_t expr_strscan(const char *s,size_t sz,char *buf){
 	char *buf0=buf;
 	const char *p,*endp=s+sz;
 	if(!sz||*s!='\"')return 0;
 	for(;;){
 	while(s<endp&&*s!='\"'&&!expr_space(*s))++s;
-	if(!(s<endp))return buf-buf0;
+	if(s>=endp)return buf-buf0;
 	++s;
 	p=s;
 	do {
@@ -1252,12 +1262,19 @@ static void expr_freedata(struct expr_inst *restrict data,size_t size){
 }
 void expr_free(struct expr *restrict ep){
 	struct expr *ep0=(struct expr *)ep;
+	struct expr_resource *erp,*erp1;
 start:
 	if(ep->data)expr_freedata(ep->data,ep->size);
 	if(ep->vars){
 		for(size_t i=0;i<ep->vsize;++i)
 			free(ep->vars[i]);
 		free(ep->vars);
+	}
+	for(erp=ep->res;erp;){
+		free(erp->un.uaddr);
+		erp1=erp;
+		erp=erp->next;
+		free(erp1);
 	}
 	switch(ep->freeable){
 		case 1:
@@ -1331,6 +1348,20 @@ static struct expr_inst *expr_addconst(struct expr *restrict ep,double *dst,doub
 	struct expr_inst *r=expr_addop(ep,dst,NULL,EXPR_CONST,0);
 	r->un.value=val;
 	return r;
+}
+static struct expr_resource *expr_newres(struct expr *restrict ep){
+	struct expr_resource *p;
+	if(!ep->res){
+		return ep->res=xmalloc_nullable(sizeof(struct expr_resource));
+	}
+	p=ep->tail?ep->tail:ep->res;
+	while(p->next)p=p->next;
+	p->next=xmalloc_nullable(sizeof(struct expr_resource));
+	if(!p->next)return NULL;
+	p=p->next;
+	p->next=NULL;
+	ep->tail=p;
+	return p;
 }
 static double *expr_newvar(struct expr *restrict ep){
 	double *r=xmalloc_nullable(sizeof(double)),**p;
@@ -1842,6 +1873,7 @@ static double *expr_getvalue(struct expr *restrict ep,const char *e,const char *
 	int r0;
 	union {
 		double v;
+		double *addr;
 		void *uaddr;
 		struct expr *ep;
 		struct expr_suminfo *es;
@@ -1852,6 +1884,7 @@ static double *expr_getvalue(struct expr *restrict ep,const char *e,const char *
 	union {
 		const struct expr_symbol *es;
 		const struct expr_builtin_symbol *ebs;
+		struct expr_resource *er;
 	} sym;
 	const union expr_symvalue *sv;
 	int type,flag;
@@ -1888,6 +1921,19 @@ envp:
 			v0=expr_newvar(ep);
 			cknp(ep,v0,return NULL);
 			expr_addread(ep,v0,v1);
+			e=p+1;
+			goto vend;
+		case '\"':
+			p=expr_findpair_dmark(e,endp);
+			if(!p)goto pterr;
+			un.uaddr=expr_astrscan(e,endp-e,&dim);
+			if(!un.uaddr)break;
+			sym.er=expr_newres(ep);
+			cknp(ep,sym.er,free(un.uaddr);return NULL);
+			sym.er->un.str=un.uaddr;
+			v0=expr_newvar(ep);
+			cknp(ep,v0,return NULL);
+			expr_addconst(ep,v0,un.v);
 			e=p+1;
 			goto vend;
 		case '&':
@@ -1929,6 +1975,29 @@ envp:
 		if(!p)goto pterr;
 		flag=0;
 		switch(kp->op){
+			case EXPR_CONST:
+				un.ep=new_expr9(e+1,p-e-1,asym,asymlen,ep->sset,0,1,&ep->error,ep->errinfo);
+				if(!un.ep)return NULL;
+				if(!expr_isconst(un.ep)){
+					expr_free(un.ep);
+					ep->error=EXPR_ENC;
+					memcpy(ep->errinfo,e+1,minc(p-e-1,EXPR_SYMLEN));
+					return NULL;
+				}
+				dim=(size_t)fabs(expr_eval(un.ep,0.0));
+				expr_free(un.ep);
+				if(dim<0)dim=-dim;
+				dim*=sizeof(double);
+				v0=expr_newvar(ep);
+				cknp(ep,v0,return NULL);
+				un.addr=xmalloc_nullable(dim);
+				cknp(ep,un.addr,return NULL);
+				sym.er=expr_newres(ep);
+				cknp(ep,sym.er,free(un.addr);return NULL);
+				sym.er->un.addr=un.addr;
+				expr_addconst(ep,v0,un.v);
+				e=p+1;
+				goto vend;
 			case EXPR_IF:
 			case EXPR_WHILE:
 				un.eb=expr_getbranchinfo(ep,p2,e-p2,e,p-e+1,asym);
@@ -2766,10 +2835,10 @@ struct expr_symset *expr_symset_clone(const struct expr_symset *restrict ep){
 	expr_symset_copy(es,ep);
 	return es;
 }
-static char *expr_stpcpy_nospace(char *restrict s1,const char *restrict s2){
+static char *expr_stpcpy_nospace(char *restrict s1,const char *restrict s2,const char *endp){
 	const char *s20=s2;
 	int instr=0;
-	for(;*s2;++s2){
+	for(;s2<endp;++s2){
 		if(*s2=='\"'&&s2>s20&&s2[-1]!='\\')instr^=1;
 		if(!instr&&expr_space(*s2))continue;
 		*(s1++)=*s2;
@@ -2778,11 +2847,13 @@ static char *expr_stpcpy_nospace(char *restrict s1,const char *restrict s2){
 	return s1;
 }
 static void expr_optimize(struct expr *restrict ep);
-static int expr_constexpr(struct expr *restrict ep,double *except);
-int init_expr5(struct expr *restrict ep,const char *e,const char *asym,struct expr_symset *esp,int flag){
+static int expr_constexpr(const struct expr *restrict ep,double *except);
+int expr_isconst(const struct expr *restrict ep){
+	return expr_constexpr(ep,NULL);
+}
+int init_expr7(struct expr *restrict ep,const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag){
 	double *p;
 	char *ebuf,*r,*p0;
-	size_t len;
 	/*ep->data=NULL;
 	ep->vars=NULL;
 	ep->sset_shouldfree=0;
@@ -2794,11 +2865,11 @@ int init_expr5(struct expr *restrict ep,const char *e,const char *asym,struct ex
 	ep->sset=esp;
 	ep->iflag=(short)flag;
 	if(e){
-		p0=xmalloc_nullable(len=strlen(e)+1);
-		ebuf=p0?p0:alloca(len);
-		r=expr_stpcpy_nospace(ebuf,e);
+		p0=xmalloc_nullable(len+1);
+		ebuf=p0?p0:alloca(len+1);
+		r=expr_stpcpy_nospace(ebuf,e,e+len);
 		//ebuf[r]='k';
-		p=expr_scan(ep,ebuf,r,asym,asym?strlen(asym):0);
+		p=expr_scan(ep,ebuf,r,asym,asym?asymlen:0);
 		if(p0)free(p0);
 		if(ep->sset_shouldfree){
 			expr_symset_free(ep->sset);
@@ -2814,7 +2885,7 @@ int init_expr5(struct expr *restrict ep,const char *e,const char *asym,struct ex
 	if(!(flag&EXPR_IF_NOOPTIMIZE)){
 		expr_optimize(ep);
 		if(ep->size>1&&ep->vlength>0&&
-		expr_constexpr(ep,NULL)){
+		expr_isconst(ep)){
 			p=*ep->vars;
 			*p=expr_eval(ep,0.0);
 			expr_freedata(ep->data,ep->size);
@@ -2828,10 +2899,13 @@ int init_expr5(struct expr *restrict ep,const char *e,const char *asym,struct ex
 		expr_free(ep);
 	return 0;
 }
+int init_expr5(struct expr *restrict ep,const char *e,const char *asym,struct expr_symset *esp,int flag){
+	return init_expr7(ep,e,e?strlen(e):0,asym,asym?strlen(asym):0,esp,0);
+}
 int init_expr(struct expr *restrict ep,const char *e,const char *asym,struct expr_symset *esp){
 	return init_expr5(ep,e,asym,esp,0);
 }
-struct expr *new_expr7(const char *e,const char *asym,struct expr_symset *esp,int flag,int n,int *error,char errinfo[EXPR_SYMLEN]){
+struct expr *new_expr9(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,int n,int *error,char errinfo[EXPR_SYMLEN]){
 	struct expr *ep,*ep0;
 	if(n<1)n=1;
 	ep=ep0=xmalloc_nullable(n*sizeof(struct expr));
@@ -2840,7 +2914,7 @@ struct expr *new_expr7(const char *e,const char *asym,struct expr_symset *esp,in
 		if(errinfo)memset(errinfo,0,EXPR_SYMLEN);
 		return NULL;
 	}
-	do if(init_expr5(ep,e,asym,esp,flag)){
+	do if(init_expr7(ep,e,len,asym,asymlen,esp,flag)){
 		if(error)*error=ep->error;
 		if(errinfo)memcpy(errinfo,ep->errinfo,EXPR_SYMLEN);
 		if(!(flag&EXPR_IF_INSTANT_FREE))while(--ep>=ep0){
@@ -2856,6 +2930,9 @@ struct expr *new_expr7(const char *e,const char *asym,struct expr_symset *esp,in
 	if(flag&EXPR_IF_INSTANT_FREE)
 		free(ep0);
 	return ep0;
+}
+struct expr *new_expr7(const char *e,const char *asym,struct expr_symset *esp,int flag,int n,int *error,char errinfo[EXPR_SYMLEN]){
+	return new_expr9(e,e?strlen(e):0,asym,asym?strlen(asym):0,esp,flag,1,error,errinfo);
 }
 struct expr *new_expr6(const char *e,const char *asym,struct expr_symset *esp,int flag,int *error,char errinfo[EXPR_SYMLEN]){
 	return new_expr7(e,asym,esp,flag,1,error,errinfo);
@@ -3407,7 +3484,7 @@ static int expr_vused(struct expr_inst *ip1,double *v){
 	}
 	return 0;
 }
-static int expr_constexpr(struct expr *restrict ep,double *except){
+static int expr_constexpr(const struct expr *restrict ep,double *except){
 	for(struct expr_inst *ip=ep->data;;++ip){
 		if(!expr_varofep(ep,ip->dst)&&ip->dst!=except)return 0;
 		switch(ip->op){

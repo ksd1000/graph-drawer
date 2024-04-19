@@ -83,6 +83,7 @@ EXPR_END
 #define EXPR_EVMD 12
 #define EXPR_EMEM 13
 #define EXPR_EUSN 14
+#define EXPR_ENC 15
 
 #define EXPR_CONSTANT 0
 #define EXPR_VARIABLE 1
@@ -189,10 +190,19 @@ struct expr_symset {
 	size_t size,depth,length;
 	int freeable;
 };
+struct expr_resource {
+	struct expr_resource *next;
+	union {
+		void *uaddr;
+		double *addr;
+		char *str;
+	} un;
+};
 struct expr {
 	struct expr_inst *data;
 	double **vars;
 	struct expr_symset *sset;
+	struct expr_resource *res,*tail;
 	size_t size,length,vsize,vlength;
 	int error;
 	short iflag;
@@ -245,8 +255,11 @@ struct expr_symbol *expr_symset_search(const struct expr_symset *restrict esp,co
 struct expr_symbol *expr_symset_rsearch(const struct expr_symset *restrict esp,void *addr);
 void expr_symset_copy(struct expr_symset *restrict dst,const struct expr_symset *restrict src);
 struct expr_symset *expr_symset_clone(const struct expr_symset *restrict ep);
+int expr_isconst(const struct expr *restrict ep);
+int init_expr7(struct expr *restrict ep,const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag);
 int init_expr5(struct expr *restrict ep,const char *e,const char *asym,struct expr_symset *esp,int flag);
 int init_expr(struct expr *restrict ep,const char *e,const char *asym,struct expr_symset *esp);
+struct expr *new_expr9(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,int n,int *error,char errinfo[EXPR_SYMLEN]);
 struct expr *new_expr7(const char *e,const char *asym,struct expr_symset *esp,int flag,int n,int *error,char errinfo[EXPR_SYMLEN]);
 struct expr *new_expr6(const char *e,const char *asym,struct expr_symset *esp,int flag,int *error,char errinfo[EXPR_SYMLEN]);
 struct expr *new_expr(const char *e,const char *asym,struct expr_symset *esp,int *error,char errinfo[EXPR_SYMLEN]);

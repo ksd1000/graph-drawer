@@ -84,6 +84,7 @@ EXPR_END
 #define EXPR_EMEM 13
 #define EXPR_EUSN 14
 #define EXPR_ENC 15
+#define EXPR_ECTA 16
 
 #define EXPR_CONSTANT 0
 #define EXPR_VARIABLE 1
@@ -105,6 +106,15 @@ EXPR_END
 #define EXPR_EDEXP(d) (((union expr_double *)(d))->rd.exp)
 #define EXPR_EDSIGN(d) (((union expr_double *)(d))->rd.sign)
 #define EXPR_EDIVAL(d) (((union expr_double *)(d))->ival)
+#define expr_cast(x,type) \
+	({\
+		union {\
+			__typeof(x) _x;\
+			__typeof(type) _o;\
+		} _un;\
+		_un._x=(x);\
+		_un._o;\
+	})
 struct expr;
 struct expr_symset;
 struct expr_suminfo {

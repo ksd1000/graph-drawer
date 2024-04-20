@@ -20,8 +20,9 @@
 #define printvall(x) fprintf(stderr,#x ":%ld\n",x)
 #define printvald(x) fprintf(stderr,#x ":%lf\n",x)
 #define SYMDIM(sp) (*(size_t *)((sp)->str+(sp)->strlen+1))
-#define cknp(ep,v,act) (\
-{\
+#define cast(X,T) expr_cast(X,T)
+#define cknp(ep,v,act) \
+({\
 	if(!(v)){\
 		ep->error=EXPR_EMEM;\
 		act;\
@@ -61,7 +62,8 @@ static const char *eerror[]={
 	[EXPR_EVMD]="Not a multi-demension function with dim 0",
 	[EXPR_EMEM]="Cannot allocate memory",
 	[EXPR_EUSN]="Unexpected symbol or number",
-	[EXPR_ENC]="Not a constant expression"
+	[EXPR_ENC]="Not a constant expression",
+	[EXPR_ECTA]="Cannot take address"
 };
 const static char ntoc[]={"0123456789abcdefg"};
 const char *expr_error(int error){
@@ -940,10 +942,16 @@ const struct expr_builtin_symbol expr_bsyms[]={
 	REGFSYM2("abs",fabs),
 	REGFSYM(acos),
 	REGFSYM(acosh),
+	REGFSYM2("arccos",acos),
+	REGFSYM2("arcosh",acosh),
 	REGFSYM(asin),
 	REGFSYM(asinh),
+	REGFSYM2("arcsin",asin),
+	REGFSYM2("arsinh",asinh),
 	REGFSYM(atan),
 	REGFSYM(atanh),
+	REGFSYM2("arctan",atan),
+	REGFSYM2("artanh",atanh),
 	REGFSYM(cbrt),
 	REGFSYM(ceil),
 	REGFSYM(cos),
@@ -1868,7 +1876,7 @@ err0:
 }
 static double *expr_scan(struct expr *restrict ep,const char *e,const char *endp,const char *asym,size_t asymlen);
 static double *expr_getvalue(struct expr *restrict ep,const char *e,const char *endp,const char **_p,const char *asym,size_t asymlen){
-	const char *p,*p2,*e1=NULL;
+	const char *p,*p2;
 	double *v0=NULL,*v1;
 	int r0;
 	union {
@@ -1937,8 +1945,41 @@ envp:
 			e=p+1;
 			goto vend;
 		case '&':
-			e1=++e;
-			break;
+			p=expr_getsym(++e,endp);
+			if(p==e){
+				ep->error=EXPR_ECTA;
+				*ep->errinfo=*e;
+				return NULL;
+			}
+			if(!ep->sset||!(sym.es=expr_symset_search(ep->sset,e,p-e))){
+				sym.ebs=expr_bsym_search(e,p-e);
+				if(sym.ebs){
+					type=sym.ebs->type;
+					un.uaddr=sym.ebs->un.uaddr;
+				}else {
+ecta:
+					ep->error=EXPR_ECTA;
+					memcpy(ep->errinfo,e,minc(p-e,EXPR_SYMLEN));
+					return NULL;
+				}
+			}else {
+				type=sym.es->type;
+				un.uaddr=sym.es->un.uaddr;
+			}
+			switch(type){
+				case EXPR_CONSTANT:
+				case EXPR_MDFUNCTION:
+				case EXPR_MDEPFUNCTION:
+				case EXPR_HOTFUNCTION:
+					goto ecta;
+				default:
+					break;
+			}
+			v0=expr_newvar(ep);
+			cknp(ep,v0,return NULL);
+			expr_addconst(ep,v0,un.v);
+			e=p;
+			goto vend;
 		case '0' ... '9':
 			goto number;
 		case '.':
@@ -2087,11 +2128,7 @@ envp:
 		case EXPR_VARIABLE:
 			v0=expr_newvar(ep);
 			cknp(ep,v0,return NULL);
-			if(e1){
-				expr_addconst(ep,v0,sv->value);
-				e1=NULL;
-			}else
-				expr_addcopy(ep,v0,sv->addr);
+			expr_addcopy(ep,v0,sv->addr);
 			e=p;
 			break;
 		case EXPR_MDFUNCTION:
@@ -2152,11 +2189,6 @@ symerr:
 	ep->error=EXPR_ESYMBOL;
 	return NULL;
 vend:
-	if(e1){
-		memcpy(ep->errinfo,e1,minc(p-e1,EXPR_SYMLEN));
-		ep->error=EXPR_ETNV;
-		return NULL;
-	}
 	while(e<endp&&*e=='['){
 		double *v2;
 		p=expr_findpair_bracket(e,endp);
@@ -2380,11 +2412,12 @@ rescan:
 			if(e+1<endp&&e[1]=='>'){
 				const struct expr_symbol *esp=NULL;
 				const char *p1;
+				double *v2;
 				e+=2;
 				p1=expr_getsym(e,endp);
 				if(p1==e){
-					if(*e=='['){
-						double *v2;
+					switch(*e){
+						case '[':
 						p1=expr_findpair_bracket(e,endp);
 						if(!p1)goto pterr;
 						if(p1==e+1){
@@ -2401,6 +2434,22 @@ envp:
 						expr_addwrite(ep,v1,v2);
 						e=p1+1;
 						goto bracket_end;
+						case '(':
+						p1=expr_findpair(e,endp);
+						if(p1+1>=endp||p1[1]!='[')
+							break;
+						e1=e;
+						goto multi_dim;
+						case '&':
+						if(e+1>=endp)
+							break;
+						p1=expr_getsym(e+1,endp);
+						if(p1==e+1||*p1!='[')break;
+						e1=e;
+						--p1;
+						goto multi_dim;
+						default:
+						break;
 					}
 					if(expr_operator(*e)){
 						*ep->errinfo=*e;
@@ -2424,7 +2473,7 @@ envp:
 				e1=e;
 				e=p1;
 				if(*e=='['){
-					double *v2,*v3;
+					double *v3;
 					p1=expr_findpair_bracket(e,endp);
 					if(!p1)goto pterr;
 					if(p1==e+1)goto envp;

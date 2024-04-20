@@ -62,6 +62,7 @@ EXPR_HOT,
 EXPR_READ,
 EXPR_WRITE,
 EXPR_OFF,
+EXPR_ALO,
 EXPR_END
 };
 #define EXPR_SYMSET_INITIALIZER {NULL,0UL,0UL,0UL,0}
@@ -145,6 +146,7 @@ union expr_inst_op2{
 	double *src;
 	void *uaddr;
 	double value;
+	ssize_t zd;
 	struct expr *hotfunc;
 	double (*func)(double);
 	double (*zafunc)(void);

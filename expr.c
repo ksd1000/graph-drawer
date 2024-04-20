@@ -46,6 +46,7 @@
 	__auto_type _a=(a);\
 	_a<(const_expr)?_a:(const_expr);\
 })
+#define mincc(c1,c2) ((c1)<(c2)?(c1):(c2))
 static const char *eerror[]={
 	[0]="Unknown error",
 	[EXPR_ESYMBOL]="Unknown symbol",
@@ -897,6 +898,7 @@ const struct expr_builtin_keyword expr_keywords[]={
 	REGKEY("if",EXPR_IF,3,"cond,if_value,else_value"),
 	REGKEY("vmd",EXPR_VMD,7,"index_name,start_index,end_index,index_step,element,md_symbol,max_dim"),
 	REGKEY("double",EXPR_CONST,1,"constant_expression count"),
+	REGKEY("alloca",EXPR_ALO,2,"nmemb,[constant_expression size]"),
 	{NULL}
 };
 const struct expr_builtin_symbol expr_bsyms[]={
@@ -1355,6 +1357,11 @@ static struct expr_inst *expr_addhot(struct expr *restrict ep,double *dst,struct
 static struct expr_inst *expr_addconst(struct expr *restrict ep,double *dst,double val){
 	struct expr_inst *r=expr_addop(ep,dst,NULL,EXPR_CONST,0);
 	r->un.value=val;
+	return r;
+}
+static struct expr_inst *expr_addalo(struct expr *restrict ep,double *dst,ssize_t zd){
+	struct expr_inst *r=expr_addop(ep,dst,NULL,EXPR_ALO,0);
+	r->un.zd=zd;
 	return r;
 }
 static struct expr_resource *expr_newres(struct expr *restrict ep){
@@ -1874,6 +1881,21 @@ err0:
 	expr_free2(v);
 	return NULL;
 }
+static double expr_consteval(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *sset,int *error,char *errinfo){
+	struct expr *ep;
+	double r;
+	ep=new_expr9(e,len,asym,asymlen,sset,0,1,error,errinfo);
+	if(!ep)return NAN;
+	if(!expr_isconst(ep)){
+		expr_free(ep);
+		*error=EXPR_ENC;
+		memcpy(errinfo,e,minc(len,EXPR_SYMLEN));
+		return NAN;
+	}
+	r=expr_eval(ep,0.0);
+	expr_free(ep);
+	return r;
+}
 static double *expr_scan(struct expr *restrict ep,const char *e,const char *endp,const char *asym,size_t asymlen);
 static double *expr_getvalue(struct expr *restrict ep,const char *e,const char *endp,const char **_p,const char *asym,size_t asymlen){
 	const char *p,*p2;
@@ -1888,11 +1910,13 @@ static double *expr_getvalue(struct expr *restrict ep,const char *e,const char *
 		struct expr_branchinfo *eb;
 		struct expr_mdinfo *em;
 		struct expr_vmdinfo *ev;
+		char **vv1;
 	} un;
 	union {
 		const struct expr_symbol *es;
 		const struct expr_builtin_symbol *ebs;
 		struct expr_resource *er;
+		char **vv;
 	} sym;
 	const union expr_symvalue *sv;
 	int type,flag;
@@ -2017,17 +2041,9 @@ ecta:
 		flag=0;
 		switch(kp->op){
 			case EXPR_CONST:
-				un.ep=new_expr9(e+1,p-e-1,asym,asymlen,ep->sset,0,1,&ep->error,ep->errinfo);
-				if(!un.ep)return NULL;
-				if(!expr_isconst(un.ep)){
-					expr_free(un.ep);
-					ep->error=EXPR_ENC;
-					memcpy(ep->errinfo,e+1,minc(p-e-1,EXPR_SYMLEN));
-					return NULL;
-				}
-				dim=(size_t)fabs(expr_eval(un.ep,0.0));
-				expr_free(un.ep);
-				if(dim<0)dim=-dim;
+				un.v=expr_consteval(e+1,p-e-1,asym,asymlen,ep->sset,&ep->error,ep->errinfo);
+				if(ep->error)return NULL;
+				dim=(size_t)fabs(un.v);
 				dim*=sizeof(double);
 				v0=expr_newvar(ep);
 				cknp(ep,v0,return NULL);
@@ -2037,6 +2053,31 @@ ecta:
 				cknp(ep,sym.er,free(un.addr);return NULL);
 				sym.er->un.addr=un.addr;
 				expr_addconst(ep,v0,un.v);
+				e=p+1;
+				goto vend;
+			case EXPR_ALO:
+				sym.vv=expr_sep(ep,e,p-e+1);
+				if(!sym.vv)return NULL;
+				for(un.vv1=sym.vv;*un.vv1;++un.vv1);
+				switch(un.vv1-sym.vv){
+					case 1:
+						dim=1;
+						break;
+					case 2:
+						un.v=expr_consteval(sym.vv[1],strlen(sym.vv[1]),asym,asymlen,ep->sset,&ep->error,ep->errinfo);
+						if(ep->error)return NULL;
+						dim=(size_t)fabs(un.v);
+						break;
+					default:
+						expr_free2(sym.vv);
+						ep->error=EXPR_ENEA;
+						memcpy(ep->errinfo,"alloca",mincc(6,EXPR_SYMLEN));
+						return NULL;
+				}
+				v0=expr_scan(ep,sym.vv[0],sym.vv[0]+strlen(sym.vv[0]),asym,asymlen);
+				expr_free2(sym.vv);
+				if(!v0)return NULL;
+				expr_addalo(ep,v0,(ssize_t)dim);
 				e=p+1;
 				goto vend;
 			case EXPR_IF:
@@ -3441,6 +3482,7 @@ static int expr_side(enum expr_op op){
 		case EXPR_XORL:
 		case EXPR_NEXT:
 		case EXPR_OFF:
+		case EXPR_ALO:
 			return 0;
 		default:
 			return 1;
@@ -3571,6 +3613,7 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 			case EXPR_WHILE:
 			case EXPR_READ:
 			case EXPR_WRITE:
+			case EXPR_ALO:
 				return 0;
 			case SRCCASES:
 				if(!expr_varofep(ep,ip->un.src)&&
@@ -4242,6 +4285,7 @@ double expr_eval(const struct expr *restrict ep,double input){
 			struct expr *_epp;
 		} s1;
 		double *dp;
+		void *up;
 		double d;
 	} un;
 #define sum (un.s0._sum)
@@ -4422,6 +4466,11 @@ double expr_eval(const struct expr *restrict ep,double input){
 			case EXPR_WRITE:
 				un.d=*ip->un.src;
 				*un.dp=*ip->dst;
+				break;
+			case EXPR_ALO:
+				//printvall((ssize_t)*ip->dst*ip->un.zd);
+				un.up=alloca((ssize_t)*ip->dst*ip->un.zd);
+				*ip->dst=un.d;
 				break;
 			case EXPR_END:
 				return *ip->dst;

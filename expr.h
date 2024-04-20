@@ -246,7 +246,7 @@ double expr_and2(double a,double b);
 double expr_or2(double a,double b);
 double expr_xor2(double a,double b);
 void expr_contract(void *buf,size_t size);
-__attribute__((noreturn)) double expr_explode(void);
+__attribute__((noreturn)) void expr_explode(void);
 double expr_isfinite(double x);
 double expr_isinf(double x);
 double expr_isnan(double x);

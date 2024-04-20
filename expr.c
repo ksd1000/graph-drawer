@@ -473,7 +473,7 @@ void expr_contract(void *buf,size_t size){
 	if(p!=endp)
 		*endp=0;
 }
-__attribute__((noreturn)) double expr_explode(void){
+__attribute__((noreturn)) void expr_explode(void){
 	void *r;
 	size_t sz=((size_t)SSIZE_MAX+1)/2;
 	do {
@@ -701,6 +701,17 @@ static double expr_popcountb(double x){
 }
 static double expr_popcounte(double x){
 	return (double)__builtin_popcountl(EXPR_EDEXP(&x));
+}
+static double expr_assert(double x){
+	if(x==0.0)abort();
+	return x;
+}
+static double expr_exit(double x){
+	exit((int)x);
+}
+static double expr_exitif(double x){
+	if(x!=0.0)exit((int)x);
+	return x;
 }
 #define expr_not(x) expr_xor2(9007199254740991.0/* 2^53-1*/,(x))
 static double expr_fact(double x){
@@ -1068,11 +1079,15 @@ const struct expr_builtin_symbol expr_bsyms[]={
 	REGFSYM(y0),
 	REGFSYM(y1),
 
+	REGZASYM2("abort",(double (*)(void))abort),
 	REGZASYM(drand48),
 	REGZASYM2("lrand48",expr_lrand48),
 	REGZASYM2("mrand48",expr_mrand48),
-	REGZASYM2("explode",expr_explode),
+	REGZASYM2("explode",(double (*)(void))expr_explode),
 
+	REGFSYM2_NI("assert",expr_assert),
+	REGFSYM2_NI("exit",expr_exit),
+	REGFSYM2_NI("exitif",expr_exitif),
 	REGFSYM2_NI("malloc",expr_malloc),
 	REGFSYM2_NI("xmalloc",expr_xmalloc),
 	REGFSYM2_NI("new",expr_new),

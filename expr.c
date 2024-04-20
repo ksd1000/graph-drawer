@@ -20,6 +20,9 @@
 #define printvall(x) fprintf(stderr,#x ":%ld\n",x)
 #define printvald(x) fprintf(stderr,#x ":%lf\n",x)
 #define SYMDIM(sp) (*(size_t *)((sp)->str+(sp)->strlen+1))
+#ifndef PAGE_SIZE
+#define PAGE_SIZE 4096
+#endif
 #define cast(X,T) expr_cast(X,T)
 #define cknp(ep,v,act) \
 ({\
@@ -68,9 +71,12 @@ static const char *eerror[]={
 };
 const static char ntoc[]={"0123456789abcdefg"};
 const char *expr_error(int error){
-	if(error<0)error=-error;
-	if(error>=(sizeof(eerror)/sizeof(*eerror)))return eerror[0];
-	else return eerror[error];
+	switch(error){
+		default:
+			error=0;
+		case 0 ... sizeof(eerror)/sizeof(*eerror)-1:
+			return eerror[error];
+	}
 }
 static __attribute__((always_inline)) int expr_equal(double a,double b){
 	double absa,absb,absamb;
@@ -257,7 +263,16 @@ double expr_gcd2(double x,double y){
 double expr_lcm2(double x,double y){
 	return x*y/expr_gcd2(x,y);
 }
-
+void expr_mirror(double *buf,size_t size){
+	double *out=buf+size-1,swapbuf;
+	while(out>buf){
+		swapbuf=*out;
+		*out=*buf;
+		*buf=swapbuf;
+		--out;
+		++buf;
+	}
+}
 void expr_fry(double *v,size_t n){
 	size_t r;
 	double swapbuf;
@@ -449,6 +464,26 @@ static double expr_mul(size_t n,double *args){
 static double expr_cmp(size_t n,double *args){
 	return (double)memcmp(args,args+1,sizeof(double));
 }
+void expr_contract(void *buf,size_t size){
+	char *p=(char *)buf,*endp=(char *)buf+size-1;
+	while(p<=endp){
+		*p=0;
+		p+=PAGE_SIZE;
+	}
+	if(p!=endp)
+		*endp=0;
+}
+__attribute__((noreturn)) double expr_explode(void){
+	void *r;
+	size_t sz=((size_t)SSIZE_MAX+1)/2;
+	do {
+		while((r=xmalloc_nullable(sz))){
+			expr_contract(r,sz);
+		}
+		sz>>=1ul;
+	}while(sz);
+	abort();
+}
 static double expr_lrand48(void){
 	return (double)lrand48();
 }
@@ -518,6 +553,40 @@ struct s_eb {
 	uint64_t eb:63;
 	uint64_t sign:1;
 };
+static double expr_bfry(size_t n,const struct expr *args,double input){
+	expr_fry(cast(expr_eval(args,input),double *),(size_t)fabs(expr_eval(args+1,input)));
+	return 0.0;
+}
+static double expr_bmirror(size_t n,const struct expr *args,double input){
+	expr_mirror(cast(expr_eval(args,input),double *),(size_t)fabs(expr_eval(args+1,input)));
+	return 0.0;
+}
+static double expr_bsort(size_t n,const struct expr *args,double input){
+	expr_sort(cast(expr_eval(args,input),double *),(size_t)fabs(expr_eval(args+1,input)));
+	return 0.0;
+}
+static double expr_bhsort(size_t n,const struct expr *args,double input){
+	void *r;
+	r=expr_sort3(cast(expr_eval(args,input),double *),(size_t)fabs(expr_eval(args+1,input)),xmalloc_nullable);
+	if(r){
+		free(r);
+		return 0.0;
+	}else {
+		return -1.0;
+	}
+}
+static double expr_bxsort(size_t n,const struct expr *args,double input){
+	free(expr_sort3(cast(expr_eval(args,input),double *),(size_t)fabs(expr_eval(args+1,input)),xmalloc));
+	return 0.0;
+}
+static double expr_bsort_old(size_t n,const struct expr *args,double input){
+	expr_sort_old(cast(expr_eval(args,input),double *),(size_t)fabs(expr_eval(args+1,input)));
+	return 0.0;
+}
+static double expr_bcontract(size_t n,const struct expr *args,double input){
+	expr_contract(cast(expr_eval(args,input),double *),(size_t)fabs(expr_eval(args+1,input)));
+	return 0.0;
+}
 static double expr_ldr(size_t n,const struct expr *args,double input){
 	union {
 		double *r;
@@ -544,7 +613,7 @@ static double expr_memset(size_t n,const struct expr *args,double input){
 	double val;
 	un.dr=expr_eval(args,input);
 	val=expr_eval(++args,input);
-	endp=un.r+(ssize_t)expr_eval(++args,input);
+	endp=un.r+(size_t)expr_eval(++args,input);
 	while(un.r<endp){
 		*un.r=val;
 		++un.r;
@@ -1002,6 +1071,7 @@ const struct expr_builtin_symbol expr_bsyms[]={
 	REGZASYM(drand48),
 	REGZASYM2("lrand48",expr_lrand48),
 	REGZASYM2("mrand48",expr_mrand48),
+	REGZASYM2("explode",expr_explode),
 
 	REGFSYM2_NI("malloc",expr_malloc),
 	REGFSYM2_NI("xmalloc",expr_xmalloc),
@@ -1032,8 +1102,15 @@ const struct expr_builtin_symbol expr_bsyms[]={
 
 	REGMDEPSYM2_NI("ldr",expr_ldr,2ul),
 	REGMDEPSYM2_NI("str",expr_str,3ul),
-	REGMDEPSYM2_NI("memset",expr_memset,3ul),
 	REGMDEPSYM2_NI("bzero",expr_bzero,2ul),
+	REGMDEPSYM2_NI("contract",expr_bcontract,2ul),
+	REGMDEPSYM2_NI("fry",expr_bfry,2ul),
+	REGMDEPSYM2_NI("memset",expr_memset,3ul),
+	REGMDEPSYM2_NI("mirror",expr_bmirror,2ul),
+	REGMDEPSYM2_NI("sort",expr_bsort,2ul),
+	REGMDEPSYM2_NI("hsort",expr_bhsort,2ul),
+	REGMDEPSYM2_NI("xsort",expr_bxsort,2ul),
+	REGMDEPSYM2_NI("sort_old",expr_bsort_old,2ul),
 
 	REGMDEPSYM2("andl",expr_andl,0),
 	REGMDEPSYM2("orl",expr_orl,0),

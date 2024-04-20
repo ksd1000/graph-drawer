@@ -343,7 +343,7 @@ create:
 		top->val=*p;
 	}
 	expr_sort3_write(&v,dnp);
-	return dnp;
+	return dnp;//return for free
 }
 void expr_sort_old(double *restrict v,size_t n){
 	double swapbuf;

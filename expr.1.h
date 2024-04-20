@@ -101,7 +101,8 @@ EXPR_END
 #define EXPR_IF_INSTANT_FREE 2
 
 #define EXPR_IF_EXTEND_MASK (\
-		EXPR_IF_INSTANT_FREE)
+		EXPR_IF_INSTANT_FREE\
+		)
 
 #define EXPR_EDBASE(d) (((union expr_double *)(d))->rd.base)
 #define EXPR_EDEXP(d) (((union expr_double *)(d))->rd.exp)
@@ -180,7 +181,7 @@ struct expr_symbol {
 	struct expr_symbol *next[EXPR_SYMNEXT];
 	unsigned int length;
 	unsigned short strlen;
-	char type,flag;
+	unsigned char type,flag;
 	char str[];
 }/* __attribute__((packed))*/;
 //_Static_assert(sizeof(struct expr_symbol)-EXPR_SYMNEXT*sizeof(struct expr_symbol *)==16,"symbol size error");
@@ -218,7 +219,7 @@ struct expr {
 	size_t size,length,vsize,vlength;
 	int error;
 	short iflag;
-	char freeable,sset_shouldfree;
+	unsigned char freeable,sset_shouldfree;
 	char errinfo[EXPR_SYMLEN];
 };
 struct expr_rawdouble {

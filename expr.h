@@ -101,7 +101,8 @@ EXPR_END
 #define EXPR_IF_INSTANT_FREE 2
 
 #define EXPR_IF_EXTEND_MASK (\
-		EXPR_IF_INSTANT_FREE)
+		EXPR_IF_INSTANT_FREE\
+		)
 
 #define EXPR_EDBASE(d) (((union expr_double *)(d))->rd.base)
 #define EXPR_EDEXP(d) (((union expr_double *)(d))->rd.exp)
@@ -180,7 +181,7 @@ struct expr_symbol {
 	struct expr_symbol *next[EXPR_SYMNEXT];
 	unsigned int length;
 	unsigned short strlen;
-	char type,flag;
+	unsigned char type,flag;
 	char str[];
 }/* __attribute__((packed))*/;
 //_Static_assert(sizeof(struct expr_symbol)-EXPR_SYMNEXT*sizeof(struct expr_symbol *)==16,"symbol size error");
@@ -218,7 +219,7 @@ struct expr {
 	size_t size,length,vsize,vlength;
 	int error;
 	short iflag;
-	char freeable,sset_shouldfree;
+	unsigned char freeable,sset_shouldfree;
 	char errinfo[EXPR_SYMLEN];
 };
 struct expr_rawdouble {
@@ -239,7 +240,7 @@ double expr_gcd2(double x,double y);
 double expr_lcm2(double x,double y);
 void expr_mirror(double *buf,size_t size);
 void expr_fry(double *v,size_t n);
-void *expr_sort3(double *v,size_t n,void *(*allocator)(size_t));
+void *expr_sort3(double *restrict v,size_t n,void *(*allocator)(size_t));
 void expr_sort_old(double *restrict v,size_t n);
 void expr_sort(double *v,size_t n);
 double expr_and2(double a,double b);
@@ -276,6 +277,7 @@ int init_expr5(struct expr *restrict ep,const char *e,const char *asym,struct ex
 int init_expr(struct expr *restrict ep,const char *e,const char *asym,struct expr_symset *esp);
 struct expr *new_expr9(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,int n,int *error,char errinfo[EXPR_SYMLEN]);
 struct expr *new_expr7(const char *e,const char *asym,struct expr_symset *esp,int flag,int n,int *error,char errinfo[EXPR_SYMLEN]);
+struct expr *new_expr8(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,int *error,char errinfo[EXPR_SYMLEN]);
 struct expr *new_expr6(const char *e,const char *asym,struct expr_symset *esp,int flag,int *error,char errinfo[EXPR_SYMLEN]);
 struct expr *new_expr(const char *e,const char *asym,struct expr_symset *esp,int *error,char errinfo[EXPR_SYMLEN]);
 double expr_calc5(const char *e,const char *asym,double input,struct expr_symset *esp,int flag);

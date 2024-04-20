@@ -1901,13 +1901,13 @@ evmd:
 	cknp(ep,sset,goto err075);
 	expr_symset_add(sset,v[0],EXPR_VARIABLE,&ev->index);
 	expr_symset_copy(sset,ep->sset);
-	ev->fromep=new_expr8(v[1],strlen(v[1]),asym,asymlen,ep->sset,ep->iflag&EXPR_IF_EXTEND_MASK,&ep->error,ep->errinfo);
+	ev->fromep=new_expr8(v[1],strlen(v[1]),asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo);
 	if(!ev->fromep)goto err1;
-	ev->toep=new_expr8(v[2],strlen(v[2]),asym,asymlen,sset,ep->iflag&EXPR_IF_EXTEND_MASK,&ep->error,ep->errinfo);
+	ev->toep=new_expr8(v[2],strlen(v[2]),asym,asymlen,sset,ep->iflag,&ep->error,ep->errinfo);
 	if(!ev->toep)goto err2;
-	ev->stepep=new_expr8(v[3],strlen(v[3]),asym,asymlen,sset,ep->iflag&EXPR_IF_EXTEND_MASK,&ep->error,ep->errinfo);
+	ev->stepep=new_expr8(v[3],strlen(v[3]),asym,asymlen,sset,ep->iflag,&ep->error,ep->errinfo);
 	if(!ev->stepep)goto err3;
-	ev->ep=new_expr8(v[4],strlen(v[4]),asym,asymlen,sset,ep->iflag&EXPR_IF_EXTEND_MASK,&ep->error,ep->errinfo);
+	ev->ep=new_expr8(v[4],strlen(v[4]),asym,asymlen,sset,ep->iflag,&ep->error,ep->errinfo);
 	if(!ev->ep)goto err4;
 
 	expr_free2(v);
@@ -1953,13 +1953,13 @@ static struct expr_suminfo *expr_getsuminfo(struct expr *restrict ep,const char 
 	cknp(ep,sset,goto err05);
 	expr_symset_add(sset,v[0],EXPR_VARIABLE,&es->index);
 	expr_symset_copy(sset,ep->sset);
-	es->fromep=new_expr8(v[1],strlen(v[1]),asym,asymlen,ep->sset,ep->iflag&EXPR_IF_EXTEND_MASK,&ep->error,ep->errinfo);
+	es->fromep=new_expr8(v[1],strlen(v[1]),asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo);
 	if(!es->fromep)goto err1;
-	es->toep=new_expr8(v[2],strlen(v[2]),asym,asymlen,sset,ep->iflag&EXPR_IF_EXTEND_MASK,&ep->error,ep->errinfo);
+	es->toep=new_expr8(v[2],strlen(v[2]),asym,asymlen,sset,ep->iflag,&ep->error,ep->errinfo);
 	if(!es->toep)goto err2;
-	es->stepep=new_expr8(v[3],strlen(v[3]),asym,asymlen,sset,ep->iflag&EXPR_IF_EXTEND_MASK,&ep->error,ep->errinfo);
+	es->stepep=new_expr8(v[3],strlen(v[3]),asym,asymlen,sset,ep->iflag,&ep->error,ep->errinfo);
 	if(!es->stepep)goto err3;
-	es->ep=new_expr8(v[4],strlen(v[4]),asym,asymlen,sset,ep->iflag&EXPR_IF_EXTEND_MASK,&ep->error,ep->errinfo);
+	es->ep=new_expr8(v[4],strlen(v[4]),asym,asymlen,sset,ep->iflag,&ep->error,ep->errinfo);
 	if(!es->ep)goto err4;
 	expr_free2(v);
 	expr_symset_free(sset);
@@ -1997,11 +1997,11 @@ static struct expr_branchinfo *expr_getbranchinfo(struct expr *restrict ep,const
 	eb=xmalloc_nullable(sizeof(struct expr_branchinfo));
 	cknp(ep,eb,goto err0);
 //	while(cond,body,value)
-	eb->cond=new_expr8(v[0],strlen(v[0]),asym,asymlen,ep->sset,ep->iflag&EXPR_IF_EXTEND_MASK,&ep->error,ep->errinfo);
+	eb->cond=new_expr8(v[0],strlen(v[0]),asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo);
 	if(!eb->cond)goto err1;
-	eb->body=new_expr8(v[1],strlen(v[1]),asym,asymlen,ep->sset,ep->iflag&EXPR_IF_EXTEND_MASK,&ep->error,ep->errinfo);
+	eb->body=new_expr8(v[1],strlen(v[1]),asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo);
 	if(!eb->body)goto err2;
-	eb->value=new_expr8(v[2],strlen(v[2]),asym,asymlen,ep->sset,ep->iflag&EXPR_IF_EXTEND_MASK,&ep->error,ep->errinfo);
+	eb->value=new_expr8(v[2],strlen(v[2]),asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo);
 	if(!eb->value)goto err3;
 	expr_free2(v);
 	return eb;

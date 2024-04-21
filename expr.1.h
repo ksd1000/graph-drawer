@@ -57,6 +57,7 @@ EXPR_FOR,
 EXPR_ZA,
 EXPR_MD,
 EXPR_ME,
+EXPR_MEP,
 EXPR_VMD,
 EXPR_HOT,
 EXPR_READ,
@@ -96,6 +97,7 @@ EXPR_END
 #define EXPR_ZAFUNCTION 6
 //expr symbol flag
 #define EXPR_SF_INJECTION 1
+#define EXPR_SF_WRITEIP 1
 //expr initial flag
 #define EXPR_IF_NOOPTIMIZE 1
 #define EXPR_IF_INSTANT_FREE 2
@@ -129,6 +131,7 @@ struct expr_branchinfo {
 struct expr_mdinfo {
 	struct expr *eps;
 	double *args;
+	const char *e;
 	union {
 		double (*func)(size_t,double *);
 		double (*funcep)(size_t,
@@ -213,6 +216,7 @@ struct expr_resource {
 };
 struct expr {
 	struct expr_inst *data;
+	struct expr_inst *ip;
 	double **vars;
 	struct expr_symset *sset;
 	struct expr_resource *res,*tail;
@@ -232,5 +236,5 @@ union expr_double {
 	uint64_t ival;
 	struct expr_rawdouble rd;
 };
-extern const struct expr_builtin_symbol expr_bsyms[];
+extern const struct expr_builtin_symbol expr_symbols[];
 extern const struct expr_builtin_keyword expr_keywords[];

@@ -50,6 +50,50 @@
 	_a<(const_expr)?_a:(const_expr);\
 })
 #define mincc(c1,c2) ((c1)<(c2)?(c1):(c2))
+#define SUMCASES EXPR_SUM:\
+		case EXPR_INT:\
+		case EXPR_PROD:\
+		case EXPR_SUP:\
+		case EXPR_INF:\
+		case EXPR_ANDN:\
+		case EXPR_ORN:\
+		case EXPR_XORN:\
+		case EXPR_GCDN:\
+		case EXPR_LCMN:\
+		case EXPR_FOR:\
+		case EXPR_LOOP
+#define MDCASES EXPR_MD:\
+		case EXPR_ME:\
+		case EXPR_MEP
+#define SRCCASES EXPR_COPY:\
+		case EXPR_ADD:\
+		case EXPR_SUB:\
+		case EXPR_MUL:\
+		case EXPR_DIV:\
+		case EXPR_MOD:\
+		case EXPR_POW:\
+		case EXPR_AND:\
+		case EXPR_OR:\
+		case EXPR_XOR:\
+		case EXPR_SHL:\
+		case EXPR_SHR:\
+		case EXPR_GT:\
+		case EXPR_GE:\
+		case EXPR_LT:\
+		case EXPR_LE:\
+		case EXPR_SGE:\
+		case EXPR_SLE:\
+		case EXPR_SEQ:\
+		case EXPR_SNE:\
+		case EXPR_EQ:\
+		case EXPR_NE:\
+		case EXPR_ANDL:\
+		case EXPR_ORL:\
+		case EXPR_XORL:\
+		case EXPR_NEXT:\
+		case EXPR_OFF
+#define BRANCHCASES EXPR_IF:\
+		case EXPR_WHILE
 static const char *eerror[]={
 	[0]="Unknown error",
 	[EXPR_ESYMBOL]="Unknown symbol",
@@ -309,7 +353,7 @@ void *expr_sort3(double *restrict v,size_t n,void *(*allocator)(size_t)){
 	double *endp=v+n;
 	size_t depth,dep;
 	if(allocator){
-		dnp=allocator(n*(sizeof(struct dnode)));
+		dnp=allocator(n*sizeof(struct dnode));
 		if(!dnp)return NULL;
 		expr_fry(v,n);
 	}else {
@@ -612,6 +656,15 @@ static double expr_bcontract(size_t n,const struct expr *args,double input){
 	expr_contract(cast(expr_eval(args,input),double *),(size_t)fabs(expr_eval(args+1,input)));
 	return 0.0;
 }
+static double expr_bassert(size_t n,const struct expr *args,double input){
+	double x=expr_eval(args,input);
+	if(x==0.0){
+		warnx("assertion \"%s\" failed.",args->ip->un.em->e);
+		warnx("ABORTING");
+		abort();
+	}
+	return x;
+}
 static double expr_ldr(size_t n,const struct expr *args,double input){
 	union {
 		double *r;
@@ -704,6 +757,88 @@ static double expr_xfree(double x){
 	free(un.r);
 	return 0.0;
 }
+#define RMEM(sym,type)\
+static double sym(double x){\
+	union {\
+		type *r;\
+		double dr;\
+	} un;\
+	un.dr=x;\
+	return (double)*un.r;\
+}
+#define ZMEM(sym,type)\
+static double sym(double x){\
+	union {\
+		type *r;\
+		double dr;\
+	} un;\
+	un.dr=x;\
+	*un.r=(type)0;\
+	return 0.0;\
+}
+#define WMEM(sym,type)\
+static double sym(size_t n,const struct expr *args,double input){\
+	union {\
+		type *r;\
+		double dr;\
+	} un;\
+	double v;\
+	un.dr=expr_eval(args,input);\
+	v=expr_eval(args+1,input);\
+	*un.r=(type)v;\
+	return v;\
+}
+RMEM(expr_r8,int8_t)
+RMEM(expr_r16,int16_t)
+RMEM(expr_r32,int32_t)
+RMEM(expr_r64,int64_t)
+RMEM(expr_rm,intmax_t)
+RMEM(expr_rp,intptr_t)
+RMEM(expr_rz,ssize_t)
+RMEM(expr_r8u,uint8_t)
+RMEM(expr_r16u,uint16_t)
+RMEM(expr_r32u,uint32_t)
+RMEM(expr_r64u,uint64_t)
+RMEM(expr_rmu,uintmax_t)
+RMEM(expr_rpu,uintptr_t)
+RMEM(expr_rzu,size_t)
+RMEM(expr_rf,float)
+RMEM(expr_rl,long double)
+ZMEM(expr_z8,int8_t)
+ZMEM(expr_z16,int16_t)
+ZMEM(expr_z32,int32_t)
+ZMEM(expr_z64,int64_t)
+ZMEM(expr_zm,intmax_t)
+ZMEM(expr_zp,intptr_t)
+ZMEM(expr_zz,ssize_t)
+ZMEM(expr_z8u,uint8_t)
+ZMEM(expr_z16u,uint16_t)
+ZMEM(expr_z32u,uint32_t)
+ZMEM(expr_z64u,uint64_t)
+ZMEM(expr_zmu,uintmax_t)
+ZMEM(expr_zpu,uintptr_t)
+ZMEM(expr_zzu,size_t)
+ZMEM(expr_zf,float)
+ZMEM(expr_zl,long double)
+WMEM(expr_w8,int8_t)
+WMEM(expr_w16,int16_t)
+WMEM(expr_w32,int32_t)
+WMEM(expr_w64,int64_t)
+WMEM(expr_wm,intmax_t)
+WMEM(expr_wp,intptr_t)
+WMEM(expr_wz,ssize_t)
+WMEM(expr_w8u,uint8_t)
+WMEM(expr_w16u,uint16_t)
+WMEM(expr_w32u,uint32_t)
+WMEM(expr_w64u,uint64_t)
+WMEM(expr_wmu,uintmax_t)
+WMEM(expr_wpu,uintptr_t)
+WMEM(expr_wzu,size_t)
+WMEM(expr_wf,float)
+WMEM(expr_wl,long double)
+#define REGRMEM(s) REGFSYM2_NI("r" #s,expr_r##s)
+#define REGZMEM(s) REGFSYM2_NI("z" #s,expr_z##s)
+#define REGWMEM(s) REGMDEPSYM2_NI("w" #s,expr_w##s,2ul)
 static double expr_dexp(double x){
 	return (double)EXPR_EDEXP(&x);
 }
@@ -727,9 +862,8 @@ static double expr_popcountb(double x){
 static double expr_popcounte(double x){
 	return (double)__builtin_popcountl(EXPR_EDEXP(&x));
 }
-static double expr_assert(double x){
-	if(x==0.0)abort();
-	return x;
+static double expr_system(double x){
+	return (double)system(cast(x,const char *));
 }
 static double expr_exit(double x){
 	exit((int)x);
@@ -983,6 +1117,7 @@ static double expr_hypot(size_t n,double *args){
 #define REGMDSYM2_NI(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdfunc=sym},.dim=d,.type=EXPR_MDFUNCTION,.flag=0}
 #define REGMDEPSYM2(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdepfunc=sym},.dim=d,.type=EXPR_MDEPFUNCTION,.flag=EXPR_SF_INJECTION}
 #define REGMDEPSYM2_NI(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdepfunc=sym},.dim=d,.type=EXPR_MDEPFUNCTION,.flag=0}
+#define REGMDEPSYM2_NIW(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdepfunc=sym},.dim=d,.type=EXPR_MDEPFUNCTION,.flag=EXPR_SF_WRITEIP}
 #define REGCSYM2(s,val) {.strlen=sizeof(s)-1,.str=s,.un={.value=val},.type=EXPR_CONSTANT}
 #define REGKEY(s,op,dim,desc) {s,op,dim,sizeof(s)-1,desc}
 const struct expr_builtin_keyword expr_keywords[]={
@@ -1003,10 +1138,11 @@ const struct expr_builtin_keyword expr_keywords[]={
 	REGKEY("if",EXPR_IF,3,"cond,if_value,else_value"),
 	REGKEY("vmd",EXPR_VMD,7,"index_name,start_index,end_index,index_step,element,md_symbol,[constant_expression max_dim]"),
 	REGKEY("double",EXPR_CONST,1,"constant_expression count"),
+	REGKEY("byte",EXPR_COPY,1,"constant_expression count"),
 	REGKEY("alloca",EXPR_ALO,2,"nmemb,[constant_expression size]"),
 	{NULL}
 };
-const struct expr_builtin_symbol expr_bsyms[]={
+const struct expr_builtin_symbol expr_symbols[]={
 	REGCSYM(DBL_MAX),
 	REGCSYM(DBL_MIN),
 	REGCSYM(DBL_EPSILON),
@@ -1019,6 +1155,7 @@ const struct expr_builtin_symbol expr_bsyms[]={
 	REGCSYM(HUGE_VALF),
 	REGCSYM(INFINITY),
 	REGCSYM(NAN),
+	REGCSYM2("NULL",(double)(size_t)NULL),
 	REGCSYM2("1_pi",M_1_PI),
 	REGCSYM2("2_pi",M_2_PI),
 	REGCSYM2("2_sqrtpi",M_2_SQRTPI),
@@ -1110,7 +1247,6 @@ const struct expr_builtin_symbol expr_bsyms[]={
 	REGZASYM2("mrand48",expr_mrand48),
 	REGZASYM2("explode",(double (*)(void))expr_explode),
 
-	REGFSYM2_NI("assert",expr_assert),
 	REGFSYM2_NI("exit",expr_exit),
 	REGFSYM2_NI("exitif",expr_exitif),
 	REGFSYM2_NI("malloc",expr_malloc),
@@ -1118,6 +1254,7 @@ const struct expr_builtin_symbol expr_bsyms[]={
 	REGFSYM2_NI("new",expr_new),
 	REGFSYM2_NI("xnew",expr_xnew),
 	REGFSYM2_NI("free",expr_xfree),
+	REGFSYM2_NI("system",expr_system),
 
 	REGMDSYM2("add",expr_add,0),
 	REGMDSYM2("and",expr_and,0),
@@ -1140,6 +1277,7 @@ const struct expr_builtin_symbol expr_bsyms[]={
 	REGMDSYM2("mul",expr_mul,0),
 	REGMDSYM2("nfact",expr_nfact,2ul),
 
+	REGMDEPSYM2_NIW("assert",expr_bassert,1ul),
 	REGMDEPSYM2_NI("ldr",expr_ldr,2ul),
 	REGMDEPSYM2_NI("str",expr_str,3ul),
 	REGMDEPSYM2_NI("bzero",expr_bzero,2ul),
@@ -1151,6 +1289,55 @@ const struct expr_builtin_symbol expr_bsyms[]={
 	REGMDEPSYM2_NI("hsort",expr_bhsort,2ul),
 	REGMDEPSYM2_NI("xsort",expr_bxsort,2ul),
 	REGMDEPSYM2_NI("sort_old",expr_bsort_old,2ul),
+
+	REGRMEM(8),
+	REGRMEM(16),
+	REGRMEM(32),
+	REGRMEM(64),
+	REGRMEM(m),
+	REGRMEM(p),
+	REGRMEM(z),
+	REGRMEM(8u),
+	REGRMEM(16u),
+	REGRMEM(32u),
+	REGRMEM(64u),
+	REGRMEM(mu),
+	REGRMEM(pu),
+	REGRMEM(zu),
+	REGRMEM(f),
+	REGRMEM(l),
+	REGZMEM(8),
+	REGZMEM(16),
+	REGZMEM(32),
+	REGZMEM(64),
+	REGZMEM(m),
+	REGZMEM(p),
+	REGZMEM(z),
+	REGZMEM(8u),
+	REGZMEM(16u),
+	REGZMEM(32u),
+	REGZMEM(64u),
+	REGZMEM(mu),
+	REGZMEM(pu),
+	REGZMEM(zu),
+	REGZMEM(f),
+	REGZMEM(l),
+	REGWMEM(8),
+	REGWMEM(16),
+	REGWMEM(32),
+	REGWMEM(64),
+	REGWMEM(m),
+	REGWMEM(p),
+	REGWMEM(z),
+	REGWMEM(8u),
+	REGWMEM(16u),
+	REGWMEM(32u),
+	REGWMEM(64u),
+	REGWMEM(mu),
+	REGWMEM(pu),
+	REGWMEM(zu),
+	REGWMEM(f),
+	REGWMEM(l),
 
 	REGMDEPSYM2("andl",expr_andl,0),
 	REGMDEPSYM2("orl",expr_orl,0),
@@ -1164,24 +1351,22 @@ const struct expr_builtin_symbol expr_bsyms[]={
 	REGMDEPSYM2("rooti",expr_rooti,0),
 	{.str=NULL}
 };
-const struct expr_builtin_symbol *expr_bsym_search(const char *sym,size_t sz){
-	for(const struct expr_builtin_symbol *p=expr_bsyms;p->str;++p){
+const struct expr_builtin_symbol *expr_builtin_symbol_search(const char *sym,size_t sz){
+	for(const struct expr_builtin_symbol *p=expr_symbols;p->str;++p){
 		if(sz==p->strlen&&!memcmp(p->str,sym,sz)){
 			return p;
 		}
 	}
 	return NULL;
 }
-const struct expr_builtin_symbol *expr_bsym_rsearch(void *addr){
-	for(const struct expr_builtin_symbol *p=expr_bsyms;p->str;++p){
+const struct expr_builtin_symbol *expr_builtin_symbol_rsearch(void *addr){
+	for(const struct expr_builtin_symbol *p=expr_symbols;p->str;++p){
 		if(p->un.uaddr==addr){
 			return p;
 		}
 	}
 	return NULL;
 }
-
-
 static size_t expr_strcopy(const char *s,size_t sz,char *buf){
 	const char *s0=s,*p,*s1;
 	char *buf0=buf,v;
@@ -1345,37 +1530,24 @@ static void expr_freemdinfo(struct expr_mdinfo *p){
 	for(size_t i=0;i<p->dim;++i)
 		expr_free(p->eps+i);
 	free(p->eps);
-	if(p->args)
-		free(p->args);
+	if(p->args)free(p->args);
+	if(p->e)free((void *)p->e);
 	free(p);
 }
 static void expr_freedata(struct expr_inst *restrict data,size_t size){
 	struct expr_inst *ip=data,*endp=data+size;
 	for(;ip<endp;++ip){
 		switch(ip->op){
-			case EXPR_SUM:
-			case EXPR_INT:
-			case EXPR_PROD:
-			case EXPR_SUP:
-			case EXPR_INF:
-			case EXPR_ANDN:
-			case EXPR_ORN:
-			case EXPR_XORN:
-			case EXPR_GCDN:
-			case EXPR_LCMN:
-			case EXPR_FOR:
-			case EXPR_LOOP:
+			case SUMCASES:
 				expr_freesuminfo(ip->un.es);
 				break;
-			case EXPR_MD:
-			case EXPR_ME:
+			case MDCASES:
 				expr_freemdinfo(ip->un.em);
 				break;
 			case EXPR_VMD:
 				expr_freevmdinfo(ip->un.ev);
 				break;
-			case EXPR_IF:
-			case EXPR_WHILE:
+			case BRANCHCASES:
 				expr_freebranchinfo(ip->un.eb);
 				break;
 			case EXPR_HOT:
@@ -1467,6 +1639,9 @@ static struct expr_inst *expr_addmd(struct expr *restrict ep,double *dst,struct 
 }
 static struct expr_inst *expr_addme(struct expr *restrict ep,double *dst,struct expr_mdinfo *em,int flag){
 	return expr_addop(ep,dst,em,EXPR_ME,flag);
+}
+static struct expr_inst *expr_addmep(struct expr *restrict ep,double *dst,struct expr_mdinfo *em,int flag){
+	return expr_addop(ep,dst,em,EXPR_MEP,flag);
 }
 static struct expr_inst *expr_addhot(struct expr *restrict ep,double *dst,struct expr *hot,int flag){
 	return expr_addop(ep,dst,hot,EXPR_HOT,flag);
@@ -1771,7 +1946,7 @@ fail:
 }
 static struct expr_mdinfo *expr_getmdinfo(struct expr *restrict ep,const char *e0,size_t sz,const char *e,size_t esz,const char *asym,size_t asymlen,void *func,size_t dim,int ifep){
 	char **v=expr_sep(ep,e,esz);
-	char **p;
+	char **p,*pe;
 	size_t i;
 	struct expr_mdinfo *em;
 	if(!v){
@@ -1789,14 +1964,27 @@ static struct expr_mdinfo *expr_getmdinfo(struct expr *restrict ep,const char *e
 	}
 	em=xmalloc_nullable(sizeof(struct expr_mdinfo));
 	cknp(ep,em,goto err1);
+	em->e=NULL;
+	em->args=NULL;
 	em->dim=i;
 	em->un.func=func;
 	em->eps=xmalloc_nullable(em->dim*sizeof(struct expr));
 	cknp(ep,em->eps,goto err15);
-	if(!ifep){
-		em->args=xmalloc_nullable(em->dim*sizeof(double));
-		cknp(ep,em->args,goto err175);
-	}else em->args=NULL;
+	switch(ifep){
+		case 0:
+			em->args=xmalloc_nullable(em->dim*sizeof(double));
+			cknp(ep,em->args,goto err175);
+			break;
+		default:
+			sz+=esz;
+			pe=xmalloc_nullable(sz+1);
+			cknp(ep,pe,goto err175);
+			memcpy(pe,e0,sz);
+			pe[sz]=0;
+			em->e=pe;
+		case 1:
+		break;
+	}
 	for(i=0;i<em->dim;++i){
 		if(init_expr7(em->eps+i,v[i],strlen(v[i]),asym,asymlen,ep->sset,ep->iflag)<0){
 			for(ssize_t k=i-1;k>=0;--k)
@@ -1808,6 +1996,7 @@ static struct expr_mdinfo *expr_getmdinfo(struct expr *restrict ep,const char *e
 	return em;
 err2:
 	if(em->args)free(em->args);
+	if(em->e)free((void *)em->e);
 	ep->error=em->eps[i].error;
 	memcpy(ep->errinfo,em->eps[i].errinfo,EXPR_SYMLEN);
 err175:
@@ -1876,7 +2065,7 @@ evmd:
 		}
 		fp=sym.es->un.mdfunc;
 		*flag=sym.es->flag;
-	}else if((sym.ebs=expr_bsym_search(v[5],ssz))){
+	}else if((sym.ebs=expr_builtin_symbol_search(v[5],ssz))){
 		if(sym.ebs->type!=EXPR_MDFUNCTION||sym.ebs->dim)
 			goto evmd;
 		fp=sym.ebs->un.mdfunc;
@@ -2075,6 +2264,13 @@ envp:
 			expr_addread(ep,v0,v1);
 			e=p+1;
 			goto vend;
+		case '\'':
+			if(e+2>=endp||e[2]!='\'')break;
+			v0=expr_newvar(ep);
+			cknp(ep,v0,return NULL);
+			expr_addconst(ep,v0,(double)((unsigned char *)e)[1]);
+			e+=3;
+			goto vend;
 		case '\"':
 			p=expr_findpair_dmark(e,endp);
 			if(!p)goto pterr;
@@ -2096,7 +2292,7 @@ envp:
 				return NULL;
 			}
 			if(!ep->sset||!(sym.es=expr_symset_search(ep->sset,e,p-e))){
-				sym.ebs=expr_bsym_search(e,p-e);
+				sym.ebs=expr_builtin_symbol_search(e,p-e);
 				if(sym.ebs){
 					type=sym.ebs->type;
 					un.uaddr=sym.ebs->un.uaddr;
@@ -2160,11 +2356,15 @@ ecta:
 		if(!p)goto pterr;
 		flag=0;
 		switch(kp->op){
+			case EXPR_COPY:
+				dim=1;
+				goto use_byte;
 			case EXPR_CONST:
+				dim=sizeof(double);
+use_byte:
 				un.v=expr_consteval(e+1,p-e-1,asym,asymlen,ep->sset,&ep->error,ep->errinfo);
 				if(ep->error)return NULL;
-				dim=(size_t)fabs(un.v);
-				dim*=sizeof(double);
+				dim*=(size_t)fabs(un.v);
 				v0=expr_newvar(ep);
 				cknp(ep,v0,return NULL);
 				un.addr=xmalloc_nullable(dim);
@@ -2200,16 +2400,17 @@ ecta:
 				expr_addalo(ep,v0,(ssize_t)dim);
 				e=p+1;
 				goto vend;
-			case EXPR_IF:
-			case EXPR_WHILE:
+			case BRANCHCASES:
 				un.eb=expr_getbranchinfo(ep,p2,e-p2,e,p-e+1,asym,asymlen);
 				break;
 			case EXPR_VMD:
 				un.ev=expr_getvmdinfo(ep,p2,e-p2,e,p-e+1,asym,asymlen,&flag);
 				break;
-			default:
+			case SUMCASES:
 				un.es=expr_getsuminfo(ep,p2,e-p2,e,p-e+1,asym,asymlen);
 				break;
+			default:
+				abort();
 		}
 		if(!un.uaddr){
 			return NULL;
@@ -2238,7 +2439,7 @@ ecta:
 		}
 		sv=&sym.es->un;
 		flag=sym.es->flag;
-	}else if((sym.ebs=expr_bsym_search(e,p-e))){
+	}else if((sym.ebs=expr_builtin_symbol_search(e,p-e))){
 		type=sym.ebs->type;
 		sv=&sym.ebs->un;
 		dim=sym.ebs->dim;
@@ -2310,7 +2511,7 @@ ecta:
 					un.em=expr_getmdinfo(ep,p2,e-p2,e,p-e+1,asym,asymlen,sv->mdfunc,dim,0);
 				break;
 				case EXPR_MDEPFUNCTION:
-					un.em=expr_getmdinfo(ep,p2,e-p2,e,p-e+1,asym,asymlen,sv->mdepfunc,dim,1);
+					un.em=expr_getmdinfo(ep,p2,e-p2,e,p-e+1,asym,asymlen,sv->mdepfunc,dim,1+!!(flag&EXPR_SF_WRITEIP));
 				break;
 			}
 			if(!un.em){
@@ -2323,7 +2524,8 @@ ecta:
 					expr_addmd(ep,v0,un.em,flag);
 					break;
 				case EXPR_MDEPFUNCTION:
-					expr_addme(ep,v0,un.em,flag);
+					(flag&EXPR_SF_WRITEIP?expr_addmep:expr_addme)
+					(ep,v0,un.em,flag);
 					break;
 			}
 			e=p+1;
@@ -2627,7 +2829,7 @@ envp:
 				if(ep->sset)
 				esp=expr_symset_search(ep->sset,e,p1-e);
 				if(!esp){
-					if(expr_bsym_search(e,p1-e))
+					if(expr_builtin_symbol_search(e,p1-e))
 						goto tnv;
 					ep->error=EXPR_ESYMBOL;
 					memcpy(ep->errinfo,e,p1-e);
@@ -2681,7 +2883,7 @@ bracket_end:
 				goto err;
 				}
 				if((p1-e==asymlen&&!memcmp(e,asym,p1-e))
-				//||expr_bsym_search(e,p1-e)
+				//||expr_builtin_symbol_search(e,p1-e)
 				||(ep->sset&&expr_symset_search(ep->sset,e,p1-e))
 				){
 					ep->error=EXPR_EDS;
@@ -3200,33 +3402,7 @@ static void expr_writeconsts(struct expr *restrict ep){
 		}
 	}
 }
-#define SRCCASES EXPR_COPY:\
-		case EXPR_ADD:\
-		case EXPR_SUB:\
-		case EXPR_MUL:\
-		case EXPR_DIV:\
-		case EXPR_MOD:\
-		case EXPR_POW:\
-		case EXPR_AND:\
-		case EXPR_OR:\
-		case EXPR_XOR:\
-		case EXPR_SHL:\
-		case EXPR_SHR:\
-		case EXPR_GT:\
-		case EXPR_GE:\
-		case EXPR_LT:\
-		case EXPR_LE:\
-		case EXPR_SGE:\
-		case EXPR_SLE:\
-		case EXPR_SEQ:\
-		case EXPR_SNE:\
-		case EXPR_EQ:\
-		case EXPR_NE:\
-		case EXPR_ANDL:\
-		case EXPR_ORL:\
-		case EXPR_XORL:\
-		case EXPR_NEXT:\
-		case EXPR_OFF
+
 static int expr_usesrc(enum expr_op op){
 	switch(op){
 		case SRCCASES:
@@ -3618,23 +3794,10 @@ static int expr_override(enum expr_op op){
 		case EXPR_COPY:
 		case EXPR_INPUT:
 		case EXPR_CONST:
-		case EXPR_IF:
-		case EXPR_WHILE:
-		case EXPR_SUM:
-		case EXPR_INT:
-		case EXPR_PROD:
-		case EXPR_SUP:
-		case EXPR_INF:
-		case EXPR_ANDN:
-		case EXPR_ORN:
-		case EXPR_XORN:
-		case EXPR_GCDN:
-		case EXPR_LCMN:
-		case EXPR_LOOP:
-		case EXPR_FOR:
+		case BRANCHCASES:
+		case SUMCASES:
 		case EXPR_ZA:
-		case EXPR_MD:
-		case EXPR_ME:
+		case MDCASES:
 		case EXPR_VMD:
 		case EXPR_READ:
 			return 1;
@@ -3643,18 +3806,7 @@ static int expr_override(enum expr_op op){
 	}
 }
 
-#define SUMCASES EXPR_SUM:\
-		case EXPR_INT:\
-		case EXPR_PROD:\
-		case EXPR_SUP:\
-		case EXPR_INF:\
-		case EXPR_ANDN:\
-		case EXPR_ORN:\
-		case EXPR_XORN:\
-		case EXPR_GCDN:\
-		case EXPR_LCMN:\
-		case EXPR_FOR:\
-		case EXPR_LOOP
+
 static int expr_usesum(enum expr_op op){
 	switch(op){
 		case SUMCASES:
@@ -3663,8 +3815,7 @@ static int expr_usesum(enum expr_op op){
 				return 0;
 	}
 }
-#define MDCASES EXPR_MD:\
-		case EXPR_ME
+
 static int expr_usemd(enum expr_op op){
 	switch(op){
 		case MDCASES:
@@ -3681,8 +3832,7 @@ static int expr_usevmd(enum expr_op op){
 				return 0;
 	}
 }
-#define BRANCHCASES EXPR_IF:\
-		case EXPR_WHILE
+
 static int expr_usebranch(enum expr_op op){
 	switch(op){
 		case BRANCHCASES:
@@ -3719,23 +3869,10 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 				if(ip->flag&EXPR_SF_INJECTION)
 					break;
 			case EXPR_INPUT:
-			case EXPR_MD:
-			case EXPR_ME:
+			case MDCASES:
 			case EXPR_VMD:
-			case EXPR_SUM:
-			case EXPR_INT:
-			case EXPR_PROD:
-			case EXPR_SUP:
-			case EXPR_INF:
-			case EXPR_ANDN:
-			case EXPR_ORN:
-			case EXPR_XORN:
-			case EXPR_GCDN:
-			case EXPR_LCMN:
-			case EXPR_FOR:
-			case EXPR_LOOP:
-			case EXPR_IF:
-			case EXPR_WHILE:
+			case SUMCASES:
+			case BRANCHCASES:
 			case EXPR_READ:
 			case EXPR_WRITE:
 			case EXPR_ALO:
@@ -3819,6 +3956,8 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 					*ap=expr_eval(epp++,input);\
 				*dest=ip->un.em->un.func(ip->un.em->dim,ip->un.em->args);\
 				break;\
+			case EXPR_MEP:\
+				ip->un.em->eps->ip=ip;\
 			case EXPR_ME:\
 				*dest=ip->un.em->un.funcep(ip->un.em->dim,ip->un.em->eps,input);\
 				break
@@ -4593,7 +4732,6 @@ double expr_eval(const struct expr *restrict ep,double input){
 				*un.dp=*ip->dst;
 				break;
 			case EXPR_ALO:
-				//printvall((ssize_t)*ip->dst*ip->un.zd);
 				un.up=alloca((ssize_t)*ip->dst*ip->un.zd);
 				*ip->dst=un.d;
 				break;

@@ -3750,39 +3750,13 @@ static void expr_optimize_const(struct expr *restrict ep){
 }
 static int expr_side(enum expr_op op){
 	switch(op){
-		case EXPR_COPY:
+		case SRCCASES:
 		case EXPR_INPUT:
 		case EXPR_CONST:
-		case EXPR_ADD:
-		case EXPR_SUB:
-		case EXPR_MUL:
-		case EXPR_DIV:
-		case EXPR_MOD:
-		case EXPR_POW:
-		case EXPR_AND:
-		case EXPR_OR:
-		case EXPR_XOR:
-		case EXPR_SHL:
-		case EXPR_SHR:
 		case EXPR_NEG:
 		case EXPR_NOT:
 		case EXPR_NOTL:
 		case EXPR_TSTL:
-		case EXPR_GT:
-		case EXPR_GE:
-		case EXPR_LT:
-		case EXPR_LE:
-		case EXPR_SGE:
-		case EXPR_SLE:
-		case EXPR_SEQ:
-		case EXPR_SNE:
-		case EXPR_EQ:
-		case EXPR_NE:
-		case EXPR_ANDL:
-		case EXPR_ORL:
-		case EXPR_XORL:
-		case EXPR_NEXT:
-		case EXPR_OFF:
 		case EXPR_ALO:
 			return 0;
 		default:

@@ -1786,6 +1786,26 @@ static const char *expr_findpair_bracket(const char *c,const char *endp){
 err:
 	return NULL;
 }
+static const char *expr_findpair_brace(const char *c,const char *endp){
+	size_t lv=0;
+	if(*c!='{')goto err;
+	while(c<endp){
+		switch(*c){
+			case '{':
+				++lv;
+				break;
+			case '}':
+				--lv;
+				if(!lv)return c;
+				break;
+			default:
+				break;
+		}
+		++c;
+	}
+err:
+	return NULL;
+}
 static const char *expr_unfindpair(const char *e,const char *c){
 	size_t lv=0;
 	if(*c!=')')goto err;
@@ -2216,10 +2236,31 @@ err0:
 	expr_free2(v);
 	return NULL;
 }
-static struct expr_branchinfo *expr_getbranchinfo(struct expr *restrict ep,const char *e0,size_t sz,const char *e,size_t esz,const char *asym,size_t asymlen){
-	char **v=expr_sep(ep,e,esz);
+struct branch {
+	const char *cond;
+	const char *body;
+	const char *value;
+	size_t scond;
+	size_t sbody;
+	size_t svalue;
+};
+static struct expr_branchinfo *expr_getbranchinfo(struct expr *restrict ep,const char *e0,size_t sz,const char *e,size_t esz,struct branch *b,const char *asym,size_t asymlen){
+	char **v=NULL;
 	char **p;
 	struct expr_branchinfo *eb;
+	if(b){
+	eb=xmalloc_nullable(sizeof(struct expr_branchinfo));
+	cknp(ep,eb,goto err0);
+//	while(cond,body,value)
+	eb->cond=new_expr8(b->cond,b->scond,asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo);
+	if(!eb->cond)goto err1;
+	eb->body=new_expr8(b->body,b->sbody,asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo);
+	if(!eb->body)goto err2;
+	eb->value=new_expr8(b->value,b->svalue,asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo);
+	if(!eb->value)goto err3;
+	return eb;
+	}
+	v=expr_sep(ep,e,esz);
 	if(!v){
 		return NULL;
 	}
@@ -2250,7 +2291,7 @@ err2:
 err1:
 	free(eb);
 err0:
-	expr_free2(v);
+	if(v)expr_free2(v);
 	return NULL;
 }
 
@@ -2275,6 +2316,7 @@ static double *expr_getvalue(struct expr *restrict ep,const char *e,const char *
 		const struct expr_builtin_symbol *ebs;
 		struct expr_resource *er;
 		char **vv;
+		struct branch *b;
 	} sym;
 	const union expr_symvalue *sv;
 	int type,flag;
@@ -2450,7 +2492,40 @@ use_byte:
 				e=p+1;
 				goto vend;
 			case BRANCHCASES:
-				un.eb=expr_getbranchinfo(ep,p2,e-p2,e,p-e+1,asym,asymlen);
+				if(p+1<endp&&p[1]=='{'){
+					sym.b=alloca(sizeof(struct branch));
+					sym.b->cond=e+1;
+					sym.b->scond=p-e-1;
+					e=p+1;
+					p=expr_findpair_brace(p+1,endp);
+					if(!p)goto pterr;
+					sym.b->body=e+1;
+					sym.b->sbody=p-e-1;
+					if(++p<endp)switch(*p){
+						case 'e':
+							if(p+4>=endp||memcmp(p+1,"lse{",4)){
+						default:
+								goto vzero;
+							}
+							p+=4;
+						case '{':
+							e=p;
+							p=expr_findpair_brace(e,endp);
+							if(!p)goto pterr;
+							sym.b->value=e+1;
+							sym.b->svalue=p-e-1;
+							break;
+					}else {
+vzero:
+						--p;
+						sym.b->value="NAN";
+						sym.b->svalue=3;
+					}
+					if(!sym.b->scond||!sym.b->sbody||!sym.b->svalue)
+						goto envp;
+					un.eb=expr_getbranchinfo(ep,NULL,0,NULL,0,sym.b,asym,asymlen);
+				}else
+				un.eb=expr_getbranchinfo(ep,p2,e-p2,e,p-e+1,NULL,asym,asymlen);
 				break;
 			case EXPR_VMD:
 				un.ev=expr_getvmdinfo(ep,p2,e-p2,e,p-e+1,asym,asymlen,&flag);
@@ -4561,6 +4636,7 @@ static double expr_vmdeval(struct expr_vmdinfo *restrict ev,double input){
 	}
 	return ev->func(ap-args,args);
 }
+__attribute__((noinline))
 double expr_eval(const struct expr *restrict ep,double input){
 	union {
 		struct {
@@ -4732,7 +4808,7 @@ double expr_eval(const struct expr *restrict ep,double input){
 				break;
 			case EXPR_WHILE:
 				while(expr_eval(ip->un.eb->cond,input)!=0.0)
-				expr_eval(ip->un.eb->body,input);
+					expr_eval(ip->un.eb->body,input);
 				*ip->dst=
 				expr_eval(ip->un.eb->value,input);
 				break;

@@ -861,6 +861,40 @@ static double expr_prev(double x){
 	--((struct s_eb*)&x)->eb;
 	return x;
 }
+static double expr_frame(void){
+	union {
+		void *r;
+		double d;
+	} un;
+	un.r=__builtin_frame_address(0);
+	return un.d;
+}
+static double expr_asdouble(double x){
+	union {
+		int64_t d;
+		uint64_t u;
+		double v;
+	} un;
+	if(x<0.0)un.d=(int64_t)x;
+	else un.u=(uint64_t)x;
+	return un.v;
+}
+static double expr_asint(double x){
+	union {
+		int64_t d;
+		double v;
+	} un;
+	un.v=x;
+	return (double)un.d;
+}
+static double expr_asuint(double x){
+	union {
+		uint64_t u;
+		double v;
+	} un;
+	un.v=x;
+	return (double)un.u;
+}
 static double expr_popcount(double x){
 	return (double)__builtin_popcountl(EXPR_EDIVAL(&x));
 }
@@ -1197,6 +1231,9 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGFSYM(acosh),
 	REGFSYM2("arccos",acos),
 	REGFSYM2("arcosh",acosh),
+	REGFSYM2("asdouble",expr_asdouble),
+	REGFSYM2("asint",expr_asint),
+	REGFSYM2("asuint",expr_asuint),
 	REGFSYM(asin),
 	REGFSYM(asinh),
 	REGFSYM2("arcsin",asin),
@@ -1253,6 +1290,7 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGZASYM2("abort",(double (*)(void))abort),
 	REGZASYM2("errno",expr_errno),
 	REGZASYM(drand48),
+	REGZASYM2("frame",expr_frame),
 	REGZASYM2("lrand48",expr_lrand48),
 	REGZASYM2("mrand48",expr_mrand48),
 	REGZASYM2("explode",(double (*)(void))expr_explode),

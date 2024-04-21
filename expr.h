@@ -97,7 +97,7 @@ EXPR_END
 #define EXPR_ZAFUNCTION 6
 //expr symbol flag
 #define EXPR_SF_INJECTION 1
-#define EXPR_SF_WRITEIP 1
+#define EXPR_SF_WRITEIP 2
 //expr initial flag
 #define EXPR_IF_NOOPTIMIZE 1
 #define EXPR_IF_INSTANT_FREE 2

@@ -13,6 +13,7 @@
 #include <float.h>
 #include <limits.h>
 #include <err.h>
+#include <errno.h>
 #include "expr.h"
 #define NDEBUG
 #include <assert.h>
@@ -757,6 +758,13 @@ static double expr_xfree(double x){
 	free(un.r);
 	return 0.0;
 }
+static double expr_errno(void){
+	return (double)errno;
+}
+static double expr_serrno(double x){
+	errno=(__typeof(errno))x;
+	return x;
+}
 #define RMEM(sym,type)\
 static double sym(double x){\
 	union {\
@@ -1106,6 +1114,7 @@ static double expr_hypot(size_t n,double *args){
 	}
 	return sqrt(ret);
 }
+//regs
 //#define REGSYM(s) {#s,s}
 #define REGZASYM(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.zafunc=s},.type=EXPR_ZAFUNCTION,.flag=0}
 #define REGFSYM(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.func=s},.type=EXPR_FUNCTION,.flag=EXPR_SF_INJECTION}
@@ -1242,6 +1251,7 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGFSYM(y1),
 
 	REGZASYM2("abort",(double (*)(void))abort),
+	REGZASYM2("errno",expr_errno),
 	REGZASYM(drand48),
 	REGZASYM2("lrand48",expr_lrand48),
 	REGZASYM2("mrand48",expr_mrand48),
@@ -1254,6 +1264,7 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGFSYM2_NI("new",expr_new),
 	REGFSYM2_NI("xnew",expr_xnew),
 	REGFSYM2_NI("free",expr_xfree),
+	REGFSYM2_NI("serrno",expr_serrno),
 	REGFSYM2_NI("system",expr_system),
 
 	REGMDSYM2("add",expr_add,0),

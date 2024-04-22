@@ -42,6 +42,7 @@ EXPR_NOTL,
 EXPR_TSTL,
 EXPR_IF,
 EXPR_WHILE,
+EXPR_DO,
 EXPR_SUM,
 EXPR_INT,
 EXPR_PROD,
@@ -64,6 +65,8 @@ EXPR_READ,
 EXPR_WRITE,
 EXPR_OFF,
 EXPR_ALO,
+EXPR_SJ,
+EXPR_LJ,
 EXPR_END
 };
 #define EXPR_SYMSET_INITIALIZER {NULL,0UL,0UL,0UL,0}
@@ -178,7 +181,6 @@ union expr_symvalue {
 	double (*mdepfunc)(size_t,
 		const struct expr *,double);
 };
-//_Static_assert(sizeof(union expr_symvalue)==8,"symbol_value size error");
 struct expr_symbol {
 	union expr_symvalue un;
 	struct expr_symbol *next[EXPR_SYMNEXT];
@@ -186,8 +188,7 @@ struct expr_symbol {
 	unsigned short strlen;
 	unsigned char type,flag;
 	char str[];
-}/* __attribute__((packed))*/;
-//_Static_assert(sizeof(struct expr_symbol)-EXPR_SYMNEXT*sizeof(struct expr_symbol *)==16,"symbol size error");
+};
 struct expr_builtin_symbol {
 	union expr_symvalue un;
 	const char *str;
@@ -276,6 +277,8 @@ struct expr_symbol *expr_symset_rsearch(const struct expr_symset *restrict esp,v
 void expr_symset_copy(struct expr_symset *restrict dst,const struct expr_symset *restrict src);
 struct expr_symset *expr_symset_clone(const struct expr_symset *restrict ep);
 int expr_isconst(const struct expr *restrict ep);
+int init_expr_const(struct expr *restrict ep,double val);
+struct expr *new_expr_const(double val);
 int init_expr7(struct expr *restrict ep,const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag);
 int init_expr5(struct expr *restrict ep,const char *e,const char *asym,struct expr_symset *esp,int flag);
 int init_expr(struct expr *restrict ep,const char *e,const char *asym,struct expr_symset *esp);

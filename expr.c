@@ -14,6 +14,7 @@
 #include <limits.h>
 #include <err.h>
 #include <errno.h>
+#include <setjmp.h>
 #include "expr.h"
 #define NDEBUG
 #include <assert.h>
@@ -95,6 +96,13 @@
 		case EXPR_OFF
 #define BRANCHCASES EXPR_IF:\
 		case EXPR_WHILE
+#define HOTCASES EXPR_DO:\
+		case EXPR_HOT
+struct expr_jmpbuf {
+	struct expr_inst **ipp;
+	struct expr_inst *ip;
+	jmp_buf jb;
+};
 static const char *eerror[]={
 	[0]="Unknown error",
 	[EXPR_ESYMBOL]="Unknown symbol",
@@ -1120,7 +1128,6 @@ static double expr_orl(size_t n,const struct expr *args,double input){
 static double expr_max(size_t n,double *args){
 	double ret=DBL_MIN;
 	while(n>0){
-		//printf("%lf\n",*args);
 		if(*args>ret)ret=*args;
 		--n;
 		++args;
@@ -1130,7 +1137,6 @@ static double expr_max(size_t n,double *args){
 static double expr_min(size_t n,double *args){
 	double ret=DBL_MAX;
 	while(n>0){
-		//printf("%lf\n",*args);
 		if(*args<ret)ret=*args;
 		--n;
 		++args;
@@ -1141,7 +1147,6 @@ static double expr_min(size_t n,double *args){
 static double expr_hypot(size_t n,double *args){
 	double ret=0;
 	while(n>0){
-		//printf("%lf\n",*args);
 		ret+=*args**args;
 		--n;
 		++args;
@@ -1182,7 +1187,10 @@ const struct expr_builtin_keyword expr_keywords[]={
 	REGKEY("vmd",EXPR_VMD,7,"index_name,start_index,end_index,index_step,element,md_symbol,[constant_expression max_dim]"),
 	REGKEY("double",EXPR_CONST,1,"constant_expression count"),
 	REGKEY("byte",EXPR_COPY,1,"constant_expression count"),
+	REGKEY("jmpbuf",EXPR_INPUT,1,"constant_expression count"),
 	REGKEY("alloca",EXPR_ALO,2,"nmemb,[constant_expression size]"),
+	REGKEY("setjmp",EXPR_SJ,1,"jmp_buf"),
+	REGKEY("longjmp",EXPR_LJ,2,"jmp_buf,val"),
 	{NULL}
 };
 const struct expr_builtin_symbol expr_symbols[]={
@@ -1197,6 +1205,7 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGCSYM(HUGE_VAL),
 	REGCSYM(HUGE_VALF),
 	REGCSYM(INFINITY),
+	REGCSYM2("JBLEN",(double)sizeof(struct expr_jmpbuf)),
 	REGCSYM(NAN),
 	REGCSYM2("NULL",(double)(size_t)NULL),
 	REGCSYM2("1_pi",M_1_PI),
@@ -1599,7 +1608,7 @@ static void expr_freedata(struct expr_inst *restrict data,size_t size){
 			case BRANCHCASES:
 				expr_freebranchinfo(ip->un.eb);
 				break;
-			case EXPR_HOT:
+			case HOTCASES:
 				expr_free(ip->un.hotfunc);
 				break;
 			default:
@@ -1664,6 +1673,12 @@ static struct expr_inst *expr_addcopy(struct expr *restrict ep,double *dst,doubl
 }
 static struct expr_inst *expr_addcall(struct expr *restrict ep,double *dst,double (*func)(double),int flag){
 	return expr_addop(ep,dst,func,EXPR_CALL,flag);
+}
+static struct expr_inst *expr_addlj(struct expr *restrict ep,double *dst,double *src){
+	return expr_addop(ep,dst,src,EXPR_LJ,0);
+}
+static struct expr_inst *expr_addsj(struct expr *restrict ep,double *dst){
+	return expr_addop(ep,dst,NULL,EXPR_SJ,0);
 }
 static struct expr_inst *expr_addneg(struct expr *restrict ep,double *dst){
 	return expr_addop(ep,dst,NULL,EXPR_NEG,0);
@@ -1888,9 +1903,7 @@ static char *expr_tok(char *restrict str,char **restrict saveptr){
 	return str;
 }
 static void expr_free2(char **buf){
-	//size_t i=0;
 	for(char **p=buf;*p;++p){
-	//	printf("freeing %zuth %p(%s)\n",++i,*p,*p);
 		free(*p);
 	}
 	free(buf);
@@ -2005,7 +2018,6 @@ normal:
 	free(p6);
 	return p3;
 fail:
-	//	printf("\nlen %zu p3[len-1]=%s\n",len,p3[len-1]);
 	if(p3){
 		p3[len]=NULL;
 		expr_free2(p3);
@@ -2249,16 +2261,24 @@ static struct expr_branchinfo *expr_getbranchinfo(struct expr *restrict ep,const
 	char **p;
 	struct expr_branchinfo *eb;
 	if(b){
-	eb=xmalloc_nullable(sizeof(struct expr_branchinfo));
-	cknp(ep,eb,goto err0);
-//	while(cond,body,value)
-	eb->cond=new_expr8(b->cond,b->scond,asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo);
-	if(!eb->cond)goto err1;
-	eb->body=new_expr8(b->body,b->sbody,asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo);
-	if(!eb->body)goto err2;
-	eb->value=new_expr8(b->value,b->svalue,asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo);
-	if(!eb->value)goto err3;
-	return eb;
+		eb=xmalloc_nullable(sizeof(struct expr_branchinfo));
+		cknp(ep,eb,goto err0);
+	//	while(cond,body,value)
+		eb->cond=new_expr8(b->cond,b->scond,asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo);
+		if(!eb->cond)goto err1;
+		eb->body=new_expr8(b->body,b->sbody,asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo);
+		if(!eb->body)goto err2;
+		if(b->svalue){
+			eb->value=new_expr8(b->value,b->svalue,asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo);
+			if(!eb->value)goto err3;
+		}else {
+			eb->value=new_expr_const(NAN);
+			if(!eb->value){
+				ep->error=EXPR_EMEM;
+				goto err3;
+			}
+		}
+		return eb;
 	}
 	v=expr_sep(ep,e,esz);
 	if(!v){
@@ -2302,7 +2322,6 @@ static double *expr_getvalue(struct expr *restrict ep,const char *e,const char *
 	int r0;
 	union {
 		double v;
-		double *addr;
 		void *uaddr;
 		struct expr *ep;
 		struct expr_suminfo *es;
@@ -2447,6 +2466,9 @@ ecta:
 		if(!p)goto pterr;
 		flag=0;
 		switch(kp->op){
+			case EXPR_INPUT:
+				dim=sizeof(struct expr_jmpbuf);
+				goto use_byte;
 			case EXPR_COPY:
 				dim=1;
 				goto use_byte;
@@ -2458,11 +2480,11 @@ use_byte:
 				dim*=(size_t)fabs(un.v);
 				v0=expr_newvar(ep);
 				cknp(ep,v0,return NULL);
-				un.addr=xmalloc_nullable(dim);
-				cknp(ep,un.addr,return NULL);
+				un.uaddr=xmalloc_nullable(dim);
+				cknp(ep,un.uaddr,return NULL);
 				sym.er=expr_newres(ep);
-				cknp(ep,sym.er,free(un.addr);return NULL);
-				sym.er->un.addr=un.addr;
+				cknp(ep,sym.er,free(un.uaddr);return NULL);
+				sym.er->un.uaddr=un.uaddr;
 				expr_addconst(ep,v0,un.v);
 				e=p+1;
 				goto vend;
@@ -2489,6 +2511,33 @@ use_byte:
 				expr_free2(sym.vv);
 				if(!v0)return NULL;
 				expr_addalo(ep,v0,(ssize_t)dim);
+				e=p+1;
+				goto vend;
+			case EXPR_SJ:
+				v0=expr_scan(ep,e+1,p,asym,asymlen);
+				if(!v0)return NULL;
+				expr_addsj(ep,v0);
+				e=p+1;
+				goto vend;
+			case EXPR_LJ:
+				sym.vv=expr_sep(ep,e,p-e+1);
+				if(!sym.vv)return NULL;
+				for(un.vv1=sym.vv;*un.vv1;++un.vv1);
+				if(un.vv1-sym.vv!=2){
+					expr_free2(sym.vv);
+					ep->error=EXPR_ENEA;
+					memcpy(ep->errinfo,"longjmp",mincc(7,EXPR_SYMLEN));
+					return NULL;
+				}
+				v0=expr_scan(ep,sym.vv[0],sym.vv[0]+strlen(sym.vv[0]),asym,asymlen);
+				if(!v0){
+					expr_free2(sym.vv);
+					return NULL;
+				}
+				v1=expr_scan(ep,sym.vv[1],sym.vv[1]+strlen(sym.vv[1]),asym,asymlen);
+				expr_free2(sym.vv);
+				if(!v0)return NULL;
+				expr_addlj(ep,v0,v1);
 				e=p+1;
 				goto vend;
 			case BRANCHCASES:
@@ -2518,10 +2567,9 @@ use_byte:
 					}else {
 vzero:
 						--p;
-						sym.b->value="NAN";
-						sym.b->svalue=3;
+						sym.b->svalue=0;
 					}
-					if(!sym.b->scond||!sym.b->sbody||!sym.b->svalue)
+					if(!sym.b->scond||!sym.b->sbody)
 						goto envp;
 					un.eb=expr_getbranchinfo(ep,NULL,0,NULL,0,sym.b,asym,asymlen);
 				}else
@@ -3218,7 +3266,6 @@ static struct expr_symbol **expr_symset_findtail(struct expr_symset *restrict es
 	for(p=esp->syms;;++dep){
 		if(!expr_strdiff(sym,symlen,p->str,p->strlen,&r))return NULL;
 		modi(r,EXPR_SYMNEXT)
-		//printf("diff:%d\n",r);
 		if(p->next[r]){
 			p=p->next[r];
 		}else {
@@ -3398,6 +3445,29 @@ static int expr_constexpr(const struct expr *restrict ep,double *except);
 int expr_isconst(const struct expr *restrict ep){
 	return expr_constexpr(ep,NULL);
 }
+int init_expr_const(struct expr *restrict ep,double val){
+	double *v;
+	memset(ep,0,sizeof(struct expr));
+	v=expr_newvar(ep);
+	if(!v){
+		expr_free(ep);
+		ep->error=EXPR_EMEM;
+		return -1;
+	}
+	*v=val;
+	expr_addend(ep,v);
+	return 0;
+}
+struct expr *new_expr_const(double val){
+	struct expr *r=xmalloc_nullable(sizeof(struct expr));
+	if(!r)return NULL;
+	if(init_expr_const(r,val)<0){
+		free(r);
+		return NULL;
+	}
+	r->freeable=1;
+	return r;
+}
 int init_expr7(struct expr *restrict ep,const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag){
 	double *p;
 	char *ebuf,*r,*p0;
@@ -3461,7 +3531,7 @@ struct expr *new_expr9(const char *e,size_t len,const char *asym,size_t asymlen,
 		if(errinfo)memset(errinfo,0,EXPR_SYMLEN);
 		return NULL;
 	}
-	do if(init_expr7(ep,e,len,asym,asymlen,esp,flag)){
+	do if(init_expr7(ep,e,len,asym,asymlen,esp,flag)<0){
 		if(error)*error=ep->error;
 		if(errinfo)memcpy(errinfo,ep->errinfo,EXPR_SYMLEN);
 		if(!(flag&EXPR_IF_INSTANT_FREE))while(--ep>=ep0){
@@ -3532,6 +3602,7 @@ static int expr_usesrc(enum expr_op op){
 		case SRCCASES:
 		case EXPR_READ:
 		case EXPR_WRITE:
+		case EXPR_LJ:
 			return 1;
 		default:
 			return 0;
@@ -3971,9 +4042,12 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 			case EXPR_VMD:
 			case SUMCASES:
 			case BRANCHCASES:
+			case EXPR_DO:
 			case EXPR_READ:
 			case EXPR_WRITE:
 			case EXPR_ALO:
+			case EXPR_SJ:
+			case EXPR_LJ:
 				return 0;
 			case SRCCASES:
 				if(!expr_varofep(ep,ip->un.src)&&
@@ -4137,9 +4211,19 @@ static int expr_optimize_constexpr(struct expr *restrict ep){
 				r=1;
 				break;
 			case EXPR_WHILE:
-				if(!expr_constexpr(ip->un.eb->cond,NULL)||
-					expr_eval(ip->un.eb->cond,input)!=0.0)
+				if(!expr_constexpr(ip->un.eb->cond,NULL))
 					continue;
+				if(expr_eval(ip->un.eb->cond,input)!=0.0){
+					hep=ip->un.eb->body;
+					expr_free(ip->un.eb->cond);
+					expr_free(ip->un.eb->value);
+					free(ip->un.eb);
+					ip->op=EXPR_DO;
+					ip->un.hotfunc=hep;
+					ip->flag=0;
+					r=1;
+					break;
+				}
 				hep=ip->un.eb->value;
 				expr_free(ip->un.eb->cond);
 				expr_free(ip->un.eb->body);
@@ -4193,6 +4277,7 @@ force_continue:
 static int expr_vcheck_ep(struct expr_inst *ip0,double *v){
 	if(expr_vused(ip0,v))return 1;
 	for(struct expr_inst *ip=ip0;ip->op!=EXPR_END;++ip){
+		if(ip->op==EXPR_LJ)return 1;
 		if(expr_usesum(ip->op)&&(
 			expr_vcheck_ep(ip->un.es->fromep->data,v)||
 			expr_vcheck_ep(ip->un.es->toep->data,v)||
@@ -4647,6 +4732,14 @@ double expr_eval(const struct expr *restrict ep,double input){
 			double *_ap,*_endp;
 			struct expr *_epp;
 		} s1;
+		struct {
+			union {
+				double d;
+				struct expr_jmpbuf *jp;
+			} un;
+			struct expr_inst *cip;
+		} s2;
+		struct expr_jmpbuf *jp;
 		double *dp;
 		void *up;
 		double d;
@@ -4812,6 +4905,8 @@ double expr_eval(const struct expr *restrict ep,double input){
 				*ip->dst=
 				expr_eval(ip->un.eb->value,input);
 				break;
+			case EXPR_DO:
+				for(;;)expr_eval(ip->un.hotfunc,*ip->dst);
 			case EXPR_ZA:
 				*ip->dst=ip->un.zafunc();
 				break;
@@ -4834,6 +4929,17 @@ double expr_eval(const struct expr *restrict ep,double input){
 				un.up=alloca((ssize_t)*ip->dst*ip->un.zd);
 				*ip->dst=un.d;
 				break;
+			case EXPR_SJ:
+				un.d=*ip->dst;
+				un.jp->ipp=&ip;
+				un.jp->ip=ip;
+				*ip->dst=(double)setjmp(un.jp->jb);
+				break;
+			case EXPR_LJ:
+				un.s2.cip=ip;
+				un.s2.un.d=*ip->dst;
+				*un.s2.un.jp->ipp=un.s2.un.jp->ip;
+				longjmp(un.s2.un.jp->jb,(int)*un.s2.cip->un.src);
 			case EXPR_END:
 				return *ip->dst;
 		}

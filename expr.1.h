@@ -42,6 +42,7 @@ EXPR_NOTL,
 EXPR_TSTL,
 EXPR_IF,
 EXPR_WHILE,
+EXPR_DO,
 EXPR_SUM,
 EXPR_INT,
 EXPR_PROD,
@@ -64,6 +65,8 @@ EXPR_READ,
 EXPR_WRITE,
 EXPR_OFF,
 EXPR_ALO,
+EXPR_SJ,
+EXPR_LJ,
 EXPR_END
 };
 #define EXPR_SYMSET_INITIALIZER {NULL,0UL,0UL,0UL,0}
@@ -178,7 +181,6 @@ union expr_symvalue {
 	double (*mdepfunc)(size_t,
 		const struct expr *,double);
 };
-//_Static_assert(sizeof(union expr_symvalue)==8,"symbol_value size error");
 struct expr_symbol {
 	union expr_symvalue un;
 	struct expr_symbol *next[EXPR_SYMNEXT];
@@ -186,8 +188,7 @@ struct expr_symbol {
 	unsigned short strlen;
 	unsigned char type,flag;
 	char str[];
-}/* __attribute__((packed))*/;
-//_Static_assert(sizeof(struct expr_symbol)-EXPR_SYMNEXT*sizeof(struct expr_symbol *)==16,"symbol size error");
+};
 struct expr_builtin_symbol {
 	union expr_symvalue un;
 	const char *str;

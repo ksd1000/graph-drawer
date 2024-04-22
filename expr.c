@@ -662,7 +662,7 @@ static double expr_bsort_old(size_t n,const struct expr *args,double input){
 	return 0.0;
 }
 static double expr_bcontract(size_t n,const struct expr *args,double input){
-	expr_contract(cast(expr_eval(args,input),double *),(size_t)fabs(expr_eval(args+1,input)));
+	expr_contract(cast(expr_eval(args,input),void *),(size_t)fabs(expr_eval(args+1,input)));
 	return 0.0;
 }
 static double expr_bassert(size_t n,const struct expr *args,double input){

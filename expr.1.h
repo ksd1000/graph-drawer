@@ -230,7 +230,9 @@ struct expr_resource {
 		void *uaddr;
 		double *addr;
 		char *str;
+		struct expr *ep;
 	} un;
+	int type;
 };
 struct expr {
 	struct expr_inst *data;

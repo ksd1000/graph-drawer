@@ -686,6 +686,14 @@ static double expr_bassert(size_t n,const struct expr *args,double input){
 	}
 	return x;
 }
+static double expr_beval(size_t n,const struct expr *args,double input){
+	union {
+		const struct expr *r;
+		double dr;
+	} un;
+	un.dr=expr_eval(args,input);
+	return expr_eval(un.r,expr_eval(args+1,input));
+}
 static double expr_ldr(size_t n,const struct expr *args,double input){
 	union {
 		double *r;
@@ -998,19 +1006,7 @@ static double expr_multi_derivate(size_t n,const struct expr *args,double input)
 	return expr_multilevel_derivate(args,input,(long)level,epsilon);
 }
 
-static double expr_strlen(size_t n,const struct expr *args,double input){
-	return (double)n;
-}
-static double expr_strchr(size_t n,const struct expr *args,double input){
-	double c=expr_eval(args,input);
-	const struct expr *s0=++args;
-	while(--n){
-		if(expr_eval(args,input)==c)
-			return (double)(args-s0);
-		++args;
-	}
-	return -1.0;
-}
+
 static double expr_root(size_t n,const struct expr *args,double input){
 	//root(expression)
 	//root(expression,from)
@@ -1358,6 +1354,7 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGMDEPSYM2_NI("str",expr_str,3ul),
 	REGMDEPSYM2_NI("bzero",expr_bzero,2ul),
 	REGMDEPSYM2_NI("contract",expr_bcontract,2ul),
+	REGMDEPSYM2_NI("eval",expr_beval,2ul),
 	REGMDEPSYM2_NI("fry",expr_bfry,2ul),
 	REGMDEPSYM2_NI("memset",expr_memset,3ul),
 	REGMDEPSYM2_NI("mirror",expr_bmirror,2ul),
@@ -1420,8 +1417,6 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGMDEPSYM2("piece",expr_piece,0),
 	REGMDEPSYM2("d",expr_derivate,0),
 	REGMDEPSYM2("dn",expr_multi_derivate,0),
-	REGMDEPSYM2("strchr",expr_strchr,0),
-	REGMDEPSYM2("strlen",expr_strlen,0),
 	REGMDEPSYM2("root",expr_root,0),
 	REGMDEPSYM2("root2",expr_root2,0),
 	REGMDEPSYM2("rooti",expr_rooti,0),
@@ -1646,7 +1641,14 @@ start:
 		xfree(ep->vars);
 	}
 	for(erp=ep->res;erp;){
-		xfree(erp->un.uaddr);
+		switch(erp->type){
+			case EXPR_HOTFUNCTION:
+				expr_free(erp->un.ep);
+				break;
+			default:
+				xfree(erp->un.uaddr);
+				break;
+		}
 		erp1=erp;
 		erp=erp->next;
 		xfree(erp1);
@@ -2398,6 +2400,8 @@ envp:
 			e+=2;
 			dim=1;
 		case '{':
+			r0=0;
+block:
 			p=expr_findpair_brace(e,endp);
 			if(!p)goto pterr;
 			if(p==e+1)goto envp;
@@ -2405,7 +2409,15 @@ envp:
 			cknp(ep,v0,return NULL);
 			un.ep=new_expr8(e+1,p-e-1,asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo);
 			if(!un.ep)return NULL;
-			expr_addop(ep,v0,un.ep,dim?EXPR_DO:EXPR_EP,0);
+			if(r0){
+				sym.er=expr_newres(ep);
+				cknp(ep,sym.er,expr_free(un.ep);return NULL);
+				sym.er->un.ep=un.ep;
+				sym.er->type=EXPR_HOTFUNCTION;
+				expr_addconst(ep,v0,un.v);
+			}else {
+				expr_addop(ep,v0,un.ep,dim?EXPR_DO:EXPR_EP,0);
+			}
 			e=p+1;
 			goto vend;
 		case '[':
@@ -2434,12 +2446,28 @@ envp:
 			sym.er=expr_newres(ep);
 			cknp(ep,sym.er,xfree(un.uaddr);return NULL);
 			sym.er->un.str=un.uaddr;
+			sym.er->type=EXPR_CONSTANT;
 			v0=expr_newvar(ep);
 			cknp(ep,v0,return NULL);
 			expr_addconst(ep,v0,un.v);
 			e=p+1;
 			goto vend;
 		case '&':
+			if(e+1<endp)switch(e[1]){
+				case '#':
+					v0=expr_newvar(ep);
+					cknp(ep,v0,return NULL);
+					un.ep=(struct expr *)ep;
+					expr_addconst(ep,v0,un.v);
+					e+=2;
+					goto vend;
+				case '{':
+					r0=1;
+					++e;
+					goto block;
+				default:
+					break;
+			}
 			p=expr_getsym(++e,endp);
 			if(p==e){
 				ep->error=EXPR_ECTA;
@@ -2559,6 +2587,7 @@ use_byte:
 				un.uaddr=xmalloc_nullable(dim);
 				cknp(ep,un.uaddr,return NULL);
 				sym.er=expr_newres(ep);
+				sym.er->type=EXPR_CONSTANT;
 				cknp(ep,sym.er,xfree(un.uaddr);return NULL);
 				sym.er->un.uaddr=un.uaddr;
 				expr_addconst(ep,v0,un.v);

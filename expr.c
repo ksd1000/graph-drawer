@@ -93,11 +93,14 @@
 		case EXPR_ORL:\
 		case EXPR_XORL:\
 		case EXPR_NEXT:\
+		case EXPR_DIFF:\
 		case EXPR_OFF
 #define BRANCHCASES EXPR_IF:\
+		case EXPR_DOW:\
 		case EXPR_WHILE
 #define HOTCASES EXPR_DO:\
-		case EXPR_HOT
+		case EXPR_HOT:\
+		case EXPR_EP
 struct expr_jmpbuf {
 	struct expr_inst **ipp;
 	struct expr_inst *ip;
@@ -122,7 +125,7 @@ static const char *eerror[]={
 	[EXPR_ENC]="Not a constant expression",
 	[EXPR_ECTA]="Cannot take address"
 };
-const static char ntoc[]={"0123456789abcdefg"};
+//const static char ntoc[]={"0123456789abcdefg"};
 const char *expr_error(int error){
 	switch(error){
 		default:
@@ -181,6 +184,8 @@ static int expr_operator(char c){
 		case '#':
 		case '[':
 		case ']':
+		case '{':
+		case '}':
 			return 1;
 		default:
 			return 0;
@@ -193,14 +198,9 @@ static int expr_operator(char c){
 
 #ifdef MEMORY_LEAK_CHECK
 static volatile _Atomic int count=0;
-static void xfree(void *p){
-	free(p);
-	if(p)--count;
-}
 static void __attribute__((destructor)) show(void){
 	warnx("MEMORY LEAK COUNT:%d",count);
 }
-#define free(p) xfree(p)
 #endif
 static void *xmalloc_nullable(size_t size){
 #ifdef MEMORY_LEAK_CHECK
@@ -210,6 +210,13 @@ static void *xmalloc_nullable(size_t size){
 	return r;
 #else
 	return malloc(size);
+#endif
+}
+static void xfree(void *p){
+	if(!p)abort();
+	free(p);
+#ifdef MEMORY_LEAK_CHECK
+	--count;
 #endif
 }
 static void *xrealloc_nullable(void *old,size_t size){
@@ -573,7 +580,7 @@ static double expr_med(size_t n,double *args){
 	return n&1ul?args[n>>1ul]:(n>>=1ul,(args[n]+args[n-1])/2);
 }
 static double expr_hmed(size_t n,double *args){
-	free(expr_sort3(args,n,xmalloc));
+	xfree(expr_sort3(args,n,xmalloc));
 	return n&1ul?args[n>>1ul]:(n>>=1ul,(args[n]+args[n-1])/2);
 }
 static double expr_med_old(size_t n,double *args){
@@ -585,7 +592,7 @@ static double expr_gmed(size_t n,double *args){
 	return n&1ul?args[n>>1ul]:(n>>=1ul,sqrt(args[n]*args[n-1]));
 }
 static double expr_hgmed(size_t n,double *args){
-	free(expr_sort3(args,n,xmalloc));
+	xfree(expr_sort3(args,n,xmalloc));
 	return n&1ul?args[n>>1ul]:(n>>=1ul,sqrt(args[n]*args[n-1]));
 }
 static double expr_gmed_old(size_t n,double *args){
@@ -597,7 +604,7 @@ static double expr_mode0(size_t n,double *args,int heap){
 	double *endp=args+n;
 	size_t maxn=1;
 	if(heap)
-		free(expr_sort3(args,n,xmalloc));
+		xfree(expr_sort3(args,n,xmalloc));
 	else
 		expr_sort(args,n);
 	cnt=max=*(args++);
@@ -647,14 +654,14 @@ static double expr_bhsort(size_t n,const struct expr *args,double input){
 	void *r;
 	r=expr_sort3(cast(expr_eval(args,input),double *),(size_t)fabs(expr_eval(args+1,input)),xmalloc_nullable);
 	if(r){
-		free(r);
+		xfree(r);
 		return 0.0;
 	}else {
 		return -1.0;
 	}
 }
 static double expr_bxsort(size_t n,const struct expr *args,double input){
-	free(expr_sort3(cast(expr_eval(args,input),double *),(size_t)fabs(expr_eval(args+1,input)),xmalloc));
+	xfree(expr_sort3(cast(expr_eval(args,input),double *),(size_t)fabs(expr_eval(args+1,input)),xmalloc));
 	return 0.0;
 }
 static double expr_bsort_old(size_t n,const struct expr *args,double input){
@@ -668,7 +675,12 @@ static double expr_bcontract(size_t n,const struct expr *args,double input){
 static double expr_bassert(size_t n,const struct expr *args,double input){
 	double x=expr_eval(args,input);
 	if(x==0.0){
-		warnx("assertion \"%s\" failed.",args->ip->un.em->e);
+		const char *p,*e;
+		e=args->ip->un.em->e;
+		p=strchr(e,'(');
+		if(p){
+		}else p=e;
+		warnx("assertion %s failed.",p);
 		warnx("ABORTING");
 		abort();
 	}
@@ -763,7 +775,7 @@ static double expr_xfree(double x){
 		double dr;
 	} un;
 	un.dr=x;
-	free(un.r);
+	xfree(un.r);
 	return 0.0;
 }
 static double expr_errno(void){
@@ -874,7 +886,10 @@ static double expr_frame(void){
 		void *r;
 		double d;
 	} un;
-	un.r=__builtin_frame_address(0);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wframe-address"
+	un.r=__builtin_frame_address(1);
+#pragma GCC diagnostic pop
 	return un.d;
 }
 static double expr_asdouble(double x){
@@ -1169,28 +1184,31 @@ static double expr_hypot(size_t n,double *args){
 #define REGCSYM2(s,val) {.strlen=sizeof(s)-1,.str=s,.un={.value=val},.type=EXPR_CONSTANT}
 #define REGKEY(s,op,dim,desc) {s,op,dim,sizeof(s)-1,desc}
 const struct expr_builtin_keyword expr_keywords[]={
-	REGKEY("sum",EXPR_SUM,5,"index_name,start_index,end_index,index_step,addend"),
-	REGKEY("int",EXPR_INT,5,"integral_var_name,upper_limit,lower_limit,epsilon,integrand"),
-	REGKEY("prod",EXPR_PROD,5,"index_name,start_index,end_index,index_step,factor"),
-	REGKEY("pai",EXPR_PROD,5,"index_name,start_index,end_index,index_step,factor"),
-	REGKEY("sup",EXPR_SUP,5,"index_name,start_index,end_index,index_step,element"),
-	REGKEY("infi",EXPR_INF,5,"index_name,start_index,end_index,index_step,element"),
-	REGKEY("andn",EXPR_ANDN,5,"index_name,start_index,end_index,index_step,element"),
-	REGKEY("orn",EXPR_ORN,5,"index_name,start_index,end_index,index_step,element"),
-	REGKEY("xorn",EXPR_XORN,5,"index_name,start_index,end_index,index_step,element"),
-	REGKEY("gcdn",EXPR_GCDN,5,"index_name,start_index,end_index,index_step,element"),
-	REGKEY("lcmn",EXPR_LCMN,5,"index_name,start_index,end_index,index_step,element"),
-	REGKEY("for",EXPR_FOR,5,"var_name,start_var,cond,body,value"),
-	REGKEY("loop",EXPR_LOOP,5,"var_name,start_var,count,body,value"),
-	REGKEY("while",EXPR_WHILE,3,"cond,body,value"),
-	REGKEY("if",EXPR_IF,3,"cond,if_value,else_value"),
-	REGKEY("vmd",EXPR_VMD,7,"index_name,start_index,end_index,index_step,element,md_symbol,[constant_expression max_dim]"),
-	REGKEY("double",EXPR_CONST,1,"constant_expression count"),
-	REGKEY("byte",EXPR_COPY,1,"constant_expression count"),
-	REGKEY("jmpbuf",EXPR_INPUT,1,"constant_expression count"),
-	REGKEY("alloca",EXPR_ALO,2,"nmemb,[constant_expression size]"),
-	REGKEY("setjmp",EXPR_SJ,1,"jmp_buf"),
-	REGKEY("longjmp",EXPR_LJ,2,"jmp_buf,val"),
+	REGKEY("sum",EXPR_SUM,5,"sum(index_name,start_index,end_index,index_step,addend)"),
+	REGKEY("int",EXPR_INT,5,"int(integral_var_name,upper_limit,lower_limit,epsilon,integrand)"),
+	REGKEY("prod",EXPR_PROD,5,"prod(index_name,start_index,end_index,index_step,factor)"),
+	REGKEY("pai",EXPR_PROD,5,"pai(index_name,start_index,end_index,index_step,factor)"),
+	REGKEY("sup",EXPR_SUP,5,"sup(index_name,start_index,end_index,index_step,element)"),
+	REGKEY("infi",EXPR_INF,5,"infi(index_name,start_index,end_index,index_step,element)"),
+	REGKEY("andn",EXPR_ANDN,5,"andn(index_name,start_index,end_index,index_step,element)"),
+	REGKEY("orn",EXPR_ORN,5,"orn(index_name,start_index,end_index,index_step,element)"),
+	REGKEY("xorn",EXPR_XORN,5,"xorn(index_name,start_index,end_index,index_step,element)"),
+	REGKEY("gcdn",EXPR_GCDN,5,"gcdn(index_name,start_index,end_index,index_step,element)"),
+	REGKEY("lcmn",EXPR_LCMN,5,"lcmn(index_name,start_index,end_index,index_step,element)"),
+	REGKEY("for",EXPR_FOR,5,"for(var_name,start_var,cond,body,value)"),
+	REGKEY("loop",EXPR_LOOP,5,"loop(var_name,start_var,count,body,value)"),
+	REGKEY("while",EXPR_WHILE,3,"while(cond,body,value) while(cond){body}[{value}]"),
+	REGKEY("do",EXPR_DO,1,"do(body) do{body}"),
+	REGKEY("dowhile",EXPR_DOW,3,"dowhile(cond,body,value) dowhile(cond){body}[{value}]"),
+	REGKEY("if",EXPR_IF,3,"if(cond,if_value,else_value) if(cond){body}[[else]{value}]"),
+	REGKEY("vmd",EXPR_VMD,7,"vmd(index_name,start_index,end_index,index_step,element,md_symbol,[constant_expression max_dim])"),
+	REGKEY("const",EXPR_CONST,2,"const(name,constant_expression value)"),
+	REGKEY("double",EXPR_BL,1,"double(constant_expression count)"),
+	REGKEY("byte",EXPR_COPY,1,"byte(constant_expression count)"),
+	REGKEY("jmpbuf",EXPR_INPUT,1,"jmpbuf(constant_expression count)"),
+	REGKEY("alloca",EXPR_ALO,2,"alloca(nmemb,[constant_expression size])"),
+	REGKEY("setjmp",EXPR_SJ,1,"setjmp(jmp_buf)"),
+	REGKEY("longjmp",EXPR_LJ,2,"longjmp(jmp_buf,val)"),
 	{NULL}
 };
 const struct expr_builtin_symbol expr_symbols[]={
@@ -1557,7 +1575,7 @@ char *expr_astrscan(const char *s,size_t sz,size_t *outsz){
 	*outsz=expr_strscan(s,sz,buf);
 	buf[*outsz]=0;
 	if(!*buf){
-		free(buf);
+		xfree(buf);
 		return NULL;
 	}
 	return buf;
@@ -1567,7 +1585,7 @@ static void expr_freesuminfo(struct expr_suminfo *p){
 	expr_free(p->fromep);
 	expr_free(p->toep);
 	expr_free(p->stepep);
-	free(p);
+	xfree(p);
 }
 static void expr_freevmdinfo(struct expr_vmdinfo *p){
 	expr_free(p->ep);
@@ -1575,22 +1593,22 @@ static void expr_freevmdinfo(struct expr_vmdinfo *p){
 	expr_free(p->toep);
 	expr_free(p->stepep);
 	if(p->args)
-		free(p->args);
-	free(p);
+		xfree(p->args);
+	xfree(p);
 }
 static void expr_freebranchinfo(struct expr_branchinfo *p){
 	expr_free(p->cond);
 	expr_free(p->body);
 	expr_free(p->value);
-	free(p);
+	xfree(p);
 }
 static void expr_freemdinfo(struct expr_mdinfo *p){
 	for(size_t i=0;i<p->dim;++i)
 		expr_free(p->eps+i);
-	free(p->eps);
-	if(p->args)free(p->args);
-	if(p->e)free((void *)p->e);
-	free(p);
+	xfree(p->eps);
+	if(p->args)xfree(p->args);
+	if(p->e)xfree((void *)p->e);
+	xfree(p);
 }
 static void expr_freedata(struct expr_inst *restrict data,size_t size){
 	struct expr_inst *ip=data,*endp=data+size;
@@ -1615,7 +1633,7 @@ static void expr_freedata(struct expr_inst *restrict data,size_t size){
 				break;
 		}
 	}
-	free(data);
+	xfree(data);
 }
 void expr_free(struct expr *restrict ep){
 	struct expr *ep0=(struct expr *)ep;
@@ -1624,18 +1642,18 @@ start:
 	if(ep->data)expr_freedata(ep->data,ep->size);
 	if(ep->vars){
 		for(size_t i=0;i<ep->vsize;++i)
-			free(ep->vars[i]);
-		free(ep->vars);
+			xfree(ep->vars[i]);
+		xfree(ep->vars);
 	}
 	for(erp=ep->res;erp;){
-		free(erp->un.uaddr);
+		xfree(erp->un.uaddr);
 		erp1=erp;
 		erp=erp->next;
-		free(erp1);
+		xfree(erp1);
 	}
 	switch(ep->freeable){
 		case 1:
-			free(ep0);
+			xfree(ep0);
 			break;
 		case 2:
 			++ep;
@@ -1654,7 +1672,7 @@ struct expr_inst *expr_addop(struct expr *restrict ep,double *dst,void *src,enum
 	}
 	ip=ep->data+ep->size++;
 	ip->op=op;
-	ip->dst=dst;
+	ip->dst.dst=dst;
 	ip->un.uaddr=src;
 	ip->flag=flag;
 	return ip;
@@ -1672,7 +1690,7 @@ static struct expr_inst *expr_addcopy(struct expr *restrict ep,double *dst,doubl
 	return expr_addop(ep,dst,src,EXPR_COPY,0);
 }
 static struct expr_inst *expr_addcall(struct expr *restrict ep,double *dst,double (*func)(double),int flag){
-	return expr_addop(ep,dst,func,EXPR_CALL,flag);
+	return expr_addop(ep,dst,func,EXPR_BL,flag);
 }
 static struct expr_inst *expr_addlj(struct expr *restrict ep,double *dst,double *src){
 	return expr_addop(ep,dst,src,EXPR_LJ,0);
@@ -1741,7 +1759,7 @@ static double *expr_newvar(struct expr *restrict ep){
 		p=xrealloc_nullable(ep->vars,
 			(ep->vlength+=EXTEND_SIZE)*sizeof(double *));
 		if(!p){
-			free(r);
+			xfree(r);
 			return NULL;
 		}
 		ep->vars=p;
@@ -1749,6 +1767,15 @@ static double *expr_newvar(struct expr *restrict ep){
 	*(ep->vars+ep->vsize++)=r;
 	*r=NAN;
 	return r;
+}
+static int expr_createconst(struct expr *restrict ep,const char *symbol,size_t symlen,double val){
+	if(!ep->sset_shouldfree){
+		if(!ep->sset)ep->sset=new_expr_symset();
+		else ep->sset=expr_symset_clone(ep->sset);
+		ep->sset_shouldfree=1;
+	}
+	return expr_symset_addl(ep->sset,symbol,symlen,EXPR_CONSTANT,val)?
+	0:-1;
 }
 static double *expr_createvar(struct expr *restrict ep,const char *symbol,size_t symlen){
 	double *r=expr_newvar(ep);
@@ -1868,7 +1895,7 @@ static int expr_atod(const char *str,size_t sz,double *dst){
 	p[sz]=0;
 	memcpy(p,str,sz);
 	ret=expr_atod2(p,dst);
-	if(p0)free(p0);
+	if(p0)xfree(p0);
 	return ret;
 }
 static char *expr_tok(char *restrict str,char **restrict saveptr){
@@ -1904,14 +1931,14 @@ static char *expr_tok(char *restrict str,char **restrict saveptr){
 }
 static void expr_free2(char **buf){
 	for(char **p=buf;*p;++p){
-		free(*p);
+		xfree(*p);
 	}
-	free(buf);
+	xfree(buf);
 }
 static char **expr_sep(struct expr *restrict ep,const char *pe,size_t esz){
-	char *p,*p1,*p2,**p3=NULL,*p5,*e,*p6;
+	char *p,*p1,*p2,**p3=NULL,/*p5,*/*e,*p6;
 	void *p7;
-	size_t len=0,s,sz;
+	size_t len=0,s/*,sz*/;
 	p6=e=xmalloc_nullable(esz+1);
 	cknp(ep,e,return NULL);
 	memcpy(e,pe,esz);
@@ -1934,7 +1961,7 @@ static char **expr_sep(struct expr *restrict ep,const char *pe,size_t esz){
 	}
 	for(p=expr_tok(e,&p2);p;p=expr_tok(NULL,&p2)){
 		s=strlen(p);
-		if(*p=='\"'&&(p5=expr_astrscan(p,s,&sz))){
+		/*if(*p=='\"'&&(p5=expr_astrscan(p,s,&sz))){
 			for(char *p4=p5;p4-p5<sz;++p4){
 				p1=xmalloc_nullable(5);
 				cknp(ep,p1,goto fail);
@@ -1948,8 +1975,8 @@ static char **expr_sep(struct expr *restrict ep,const char *pe,size_t esz){
 				p3=p7;
 				p3[len++]=p1;
 			}
-			free(p5);
-		}else if(*p=='{'){
+			xfree(p5);
+		}else */if(*p=='{'){
 			long from,to,istep=1;
 			size_t diff;
 			double f,t,step;
@@ -2015,14 +2042,14 @@ normal:
 		}
 	}
 	if(p3)p3[len]=NULL;
-	free(p6);
+	xfree(p6);
 	return p3;
 fail:
 	if(p3){
 		p3[len]=NULL;
 		expr_free2(p3);
 	}
-	free(p6);
+	xfree(p6);
 	return NULL;
 }
 static struct expr_mdinfo *expr_getmdinfo(struct expr *restrict ep,const char *e0,size_t sz,const char *e,size_t esz,const char *asym,size_t asymlen,void *func,size_t dim,int ifep){
@@ -2076,14 +2103,14 @@ static struct expr_mdinfo *expr_getmdinfo(struct expr *restrict ep,const char *e
 	expr_free2(v);
 	return em;
 err2:
-	if(em->args)free(em->args);
-	if(em->e)free((void *)em->e);
+	if(em->args)xfree(em->args);
+	if(em->e)xfree((void *)em->e);
 	ep->error=em->eps[i].error;
 	memcpy(ep->errinfo,em->eps[i].errinfo,EXPR_SYMLEN);
 err175:
-	free(em->eps);
+	xfree(em->eps);
 err15:
-	free(em);
+	xfree(em);
 err1:
 	expr_free2(v);
 	return NULL;
@@ -2192,9 +2219,9 @@ err2:
 err1:
 	expr_symset_free(sset);
 err075:
-	if(ev->args)free(ev->args);
+	if(ev->args)xfree(ev->args);
 err05:
-	free(ev);
+	xfree(ev);
 err0:
 	expr_free2(v);
 	return NULL;
@@ -2243,7 +2270,7 @@ err2:
 err1:
 	expr_symset_free(sset);
 err05:
-	free(es);
+	xfree(es);
 err0:
 	expr_free2(v);
 	return NULL;
@@ -2309,7 +2336,7 @@ err3:
 err2:
 	expr_free(eb->cond);
 err1:
-	free(eb);
+	xfree(eb);
 err0:
 	if(v)expr_free2(v);
 	return NULL;
@@ -2337,7 +2364,9 @@ static double *expr_getvalue(struct expr *restrict ep,const char *e,const char *
 		char **vv;
 		struct branch *b;
 	} sym;
-	const union expr_symvalue *sv;
+	union {
+		const union expr_symvalue *sv;
+	} sv;
 	int type,flag;
 	size_t dim=0;
 	if(*e=='+')++e;
@@ -2361,6 +2390,22 @@ envp:
 			}
 			v0=expr_scan(ep,e+1,p,asym,asymlen);
 			if(!v0)return NULL;
+			e=p+1;
+			goto vend;
+		case 'd':
+			if(e+2>endp||e[1]!='o'||e[2]!='{')
+				break;
+			e+=2;
+			dim=1;
+		case '{':
+			p=expr_findpair_brace(e,endp);
+			if(!p)goto pterr;
+			if(p==e+1)goto envp;
+			v0=expr_newvar(ep);
+			cknp(ep,v0,return NULL);
+			un.ep=new_expr8(e+1,p-e-1,asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo);
+			if(!un.ep)return NULL;
+			expr_addop(ep,v0,un.ep,dim?EXPR_DO:EXPR_EP,0);
 			e=p+1;
 			goto vend;
 		case '[':
@@ -2387,7 +2432,7 @@ envp:
 			un.uaddr=expr_astrscan(e,endp-e,&dim);
 			if(!un.uaddr)break;
 			sym.er=expr_newres(ep);
-			cknp(ep,sym.er,free(un.uaddr);return NULL);
+			cknp(ep,sym.er,xfree(un.uaddr);return NULL);
 			sym.er->un.str=un.uaddr;
 			v0=expr_newvar(ep);
 			cknp(ep,v0,return NULL);
@@ -2466,13 +2511,44 @@ ecta:
 		if(!p)goto pterr;
 		flag=0;
 		switch(kp->op){
+			case EXPR_CONST:
+				sym.vv=expr_sep(ep,e,p-e+1);
+				if(!sym.vv)return NULL;
+				for(un.vv1=sym.vv;*un.vv1;++un.vv1);
+				switch(un.vv1-sym.vv){
+					case 1:
+						un.v=0.0;
+						break;
+					case 2:
+						un.v=expr_consteval(sym.vv[1],strlen(sym.vv[1]),asym,asymlen,ep->sset,&ep->error,ep->errinfo);
+						if(ep->error)goto c_fail;
+						break;
+					default:
+						ep->error=EXPR_ENEA;
+						memcpy(ep->errinfo,"const",mincc(5,EXPR_SYMLEN));
+c_fail:
+						expr_free2(sym.vv);
+						return NULL;
+				}
+				if(ep->sset&&expr_symset_search(ep->sset,sym.vv[0],dim=strlen(sym.vv[0]))){
+					ep->error=EXPR_EDS;
+					memcpy(ep->errinfo,sym.vv[0],minc(dim,EXPR_SYMLEN));
+					goto c_fail;
+				}
+				r0=expr_createconst(ep,sym.vv[0],dim,un.v);
+				expr_free2(sym.vv);
+				cknp(ep,!r0,return NULL);
+				v0=expr_newvar(ep);
+				expr_addconst(ep,v0,un.v);
+				e=p+1;
+				goto vend;
 			case EXPR_INPUT:
 				dim=sizeof(struct expr_jmpbuf);
 				goto use_byte;
 			case EXPR_COPY:
 				dim=1;
 				goto use_byte;
-			case EXPR_CONST:
+			case EXPR_BL:
 				dim=sizeof(double);
 use_byte:
 				un.v=expr_consteval(e+1,p-e-1,asym,asymlen,ep->sset,&ep->error,ep->errinfo);
@@ -2483,7 +2559,7 @@ use_byte:
 				un.uaddr=xmalloc_nullable(dim);
 				cknp(ep,un.uaddr,return NULL);
 				sym.er=expr_newres(ep);
-				cknp(ep,sym.er,free(un.uaddr);return NULL);
+				cknp(ep,sym.er,xfree(un.uaddr);return NULL);
 				sym.er->un.uaddr=un.uaddr;
 				expr_addconst(ep,v0,un.v);
 				e=p+1;
@@ -2498,14 +2574,13 @@ use_byte:
 						break;
 					case 2:
 						un.v=expr_consteval(sym.vv[1],strlen(sym.vv[1]),asym,asymlen,ep->sset,&ep->error,ep->errinfo);
-						if(ep->error)return NULL;
+						if(ep->error)goto c_fail;
 						dim=(size_t)fabs(un.v);
 						break;
 					default:
-						expr_free2(sym.vv);
 						ep->error=EXPR_ENEA;
 						memcpy(ep->errinfo,"alloca",mincc(6,EXPR_SYMLEN));
-						return NULL;
+						goto c_fail;
 				}
 				v0=expr_scan(ep,sym.vv[0],sym.vv[0]+strlen(sym.vv[0]),asym,asymlen);
 				expr_free2(sym.vv);
@@ -2575,6 +2650,17 @@ vzero:
 				}else
 				un.eb=expr_getbranchinfo(ep,p2,e-p2,e,p-e+1,NULL,asym,asymlen);
 				break;
+			case EXPR_DO:
+				p=expr_findpair(e,endp);
+				if(!p)goto pterr;
+				if(p==e+1)goto envp;
+				v0=expr_newvar(ep);
+				cknp(ep,v0,return NULL);
+				un.ep=new_expr8(e+1,p-e-1,asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo);
+				if(!un.ep)return NULL;
+				expr_addop(ep,v0,un.ep,EXPR_DO,0);
+				e=p+1;
+				goto vend;
 			case EXPR_VMD:
 				un.ev=expr_getvmdinfo(ep,p2,e-p2,e,p-e+1,asym,asymlen,&flag);
 				break;
@@ -2609,67 +2695,93 @@ vzero:
 			default:
 				break;
 		}
-		sv=&sym.es->un;
+		sv.sv=&sym.es->un;
 		flag=sym.es->flag;
 	}else if((sym.ebs=expr_builtin_symbol_search(e,p-e))){
 		type=sym.ebs->type;
-		sv=&sym.ebs->un;
+		sv.sv=&sym.ebs->un;
 		dim=sym.ebs->dim;
 		flag=sym.ebs->flag;
 	}else goto number;
 	switch(type){
 		case EXPR_FUNCTION:
-			if(*p!='('){
+			if(p>=endp||*p!='('){
 				memcpy(ep->errinfo,e,p-e);
 				ep->error=EXPR_EFP;
 				return NULL;
 			}
-			v0=expr_getvalue(ep,p,endp,&e,asym,asymlen);
+			e=p;
+			p=expr_findpair(e,endp);
+			if(!p)goto pterr;
+			if(p==e+1)goto envp;
+			v0=expr_scan(ep,e+1,p,asym,asymlen);
 			if(!v0)return NULL;
-			expr_addcall(ep,v0,sv->func,flag);
+			expr_addcall(ep,v0,sv.sv->func,flag);
+			e=p+1;
 			break;
 		case EXPR_ZAFUNCTION:
-			if(*p!='('||p+1>=endp||p[1]!=')'){
+			if(p+1>=endp||*p!='('||p[1]!=')'){
 				memcpy(ep->errinfo,e,p-e);
 				ep->error=EXPR_EZAFP;
 				return NULL;
 			}
 			v0=expr_newvar(ep);
 			cknp(ep,v0,return NULL);
-			expr_addza(ep,v0,sv->zafunc,flag);
+			expr_addza(ep,v0,sv.sv->zafunc,flag);
 			e=p+2;
 			break;
 		case EXPR_HOTFUNCTION:
-			if(*p!='('){
+			if(p>=endp||*p!='('){
 				memcpy(ep->errinfo,e,p-e);
 				ep->error=EXPR_EFP;
 				return NULL;
 			}
-			v0=expr_getvalue(ep,p,endp,&e,asym,asymlen);
+			e=p;
+			p=expr_findpair(e,endp);
+			if(!p)goto pterr;
+			if(p==e+1)goto envp;
+			v0=expr_scan(ep,e+1,p,asym,asymlen);
 			if(!v0)return NULL;
-			p2=sv->hotexpr+strlen(sv->hotexpr);
-			un.ep=new_expr8(sv->hotexpr,p2-sv->hotexpr,p2+1,
+			p2=sv.sv->hotexpr+strlen(sv.sv->hotexpr);
+			un.ep=new_expr8(sv.sv->hotexpr,p2-sv.sv->hotexpr,p2+1,
 			strlen(p2+1),ep->sset,
 			ep->iflag
 			,&ep->error,ep->errinfo);
 			if(!un.ep)return NULL;
 			expr_addhot(ep,v0,un.ep,flag);
+			e=p+1;
 			break;
 		case EXPR_CONSTANT:
 			v0=expr_newvar(ep);
 			cknp(ep,v0,return NULL);
-			expr_addconst(ep,v0,sv->value);
+			expr_addconst(ep,v0,sv.sv->value);
 			e=p;
 			break;
 		case EXPR_VARIABLE:
 			v0=expr_newvar(ep);
 			cknp(ep,v0,return NULL);
-			expr_addcopy(ep,v0,sv->addr);
+			expr_addcopy(ep,v0,sv.sv->addr);
 			e=p;
+			if(e<endp&&*e=='('){
+				if(e+1<endp&&e[1]==')'){
+					v1=expr_newvar(ep);
+					cknp(ep,v1,return NULL);
+					expr_addop(ep,v1,v0,EXPR_ZAP,0);
+					e+=2;
+				}else {
+					p=expr_findpair(e,endp);
+					if(!p)goto pterr;
+					v1=expr_scan(ep,e+1,p,asym,asymlen);
+					if(!v1)return NULL;
+					expr_addop(ep,v1,v0,EXPR_BLP,0);
+					e=p+1;
+				}
+				v0=v1;
+			}
 			break;
 		case EXPR_MDFUNCTION:
 		case EXPR_MDEPFUNCTION:
-			if(*p!='('){
+			if(p>=endp||*p!='('){
 				memcpy(ep->errinfo,e,p-e);
 				ep->error=EXPR_EFP;
 				return NULL;
@@ -2680,10 +2792,10 @@ vzero:
 			if(!p)goto pterr;
 			switch(type){
 				case EXPR_MDFUNCTION:
-					un.em=expr_getmdinfo(ep,p2,e-p2,e,p-e+1,asym,asymlen,sv->mdfunc,dim,0);
+					un.em=expr_getmdinfo(ep,p2,e-p2,e,p-e+1,asym,asymlen,sv.sv->mdfunc,dim,0);
 				break;
 				case EXPR_MDEPFUNCTION:
-					un.em=expr_getmdinfo(ep,p2,e-p2,e,p-e+1,asym,asymlen,sv->mdepfunc,dim,1+!!(flag&EXPR_SF_WRITEIP));
+					un.em=expr_getmdinfo(ep,p2,e-p2,e,p-e+1,asym,asymlen,sv.sv->mdepfunc,dim,1+!!(flag&EXPR_SF_WRITEIP));
 				break;
 			}
 			if(!un.em){
@@ -2815,13 +2927,13 @@ static void expr_vnunion(struct expr *restrict ep,struct expr_vnode *ev){
 	p=ev->next;
 	ev->next=ev->next->next;
 
-	free(p);
+	xfree(p);
 }
 static void expr_vnfree(struct expr_vnode *vp){
 	struct expr_vnode *p;
 	while(vp){
 		p=vp->next;
-		free(vp);
+		xfree(vp);
 		vp=p;
 	}
 }
@@ -3098,8 +3210,12 @@ bracket_end:
 			}else op=EXPR_POW;
 			goto end1;
 		case '#':
-			op=EXPR_NEXT;
 			++e;
+			if(e<endp&&*e=='#'){
+				op=EXPR_DIFF;
+				++e;
+			}
+			else op=EXPR_NEXT;
 			goto end1;
 		case ';':
 			if(e+1==endp)continue;
@@ -3178,8 +3294,10 @@ end2:
 	expr_do_unary(ep,ev,4);
 	while(expr_do_unary(ep,ev,2)&&expr_do_unary(ep,ev,4));
 	SETPREC3(EXPR_MUL,EXPR_DIV,EXPR_MOD)
-	SETPREC3(EXPR_ADD,EXPR_SUB,EXPR_NEXT)
+	SETPREC2(EXPR_ADD,EXPR_SUB)
 	SETPREC2(EXPR_SHL,EXPR_SHR)
+	SETPREC1(EXPR_NEXT)
+	SETPREC1(EXPR_DIFF)
 	SETPREC6(EXPR_LT,EXPR_LE,EXPR_GT,EXPR_GE,EXPR_SLE,EXPR_SGE)
 	SETPREC4(EXPR_SEQ,EXPR_SNE,EXPR_EQ,EXPR_NE)
 	SETPREC1(EXPR_AND)
@@ -3216,12 +3334,12 @@ static void expr_symbol_free(struct expr_symbol *restrict esp){
 		if(!esp->next[i])continue;
 		expr_symbol_free(esp->next[i]);
 	}
-	free(esp);
+	xfree(esp);
 }
 void expr_symset_free(struct expr_symset *restrict esp){
 	if(esp->syms)
 		expr_symbol_free(esp->syms);
-	if(esp->freeable)free(esp);
+	if(esp->freeable)xfree(esp);
 }
 void expr_symset_wipe(struct expr_symset *restrict esp){
 	expr_symset_free(esp);
@@ -3352,7 +3470,7 @@ struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const cha
 			ep->un.zafunc=va_arg(ap,double (*)(void));
 			break;
 		default:
-			free(ep);
+			xfree(ep);
 			return NULL;
 	}
 
@@ -3462,7 +3580,7 @@ struct expr *new_expr_const(double val){
 	struct expr *r=xmalloc_nullable(sizeof(struct expr));
 	if(!r)return NULL;
 	if(init_expr_const(r,val)<0){
-		free(r);
+		xfree(r);
 		return NULL;
 	}
 	r->freeable=1;
@@ -3486,7 +3604,7 @@ int init_expr7(struct expr *restrict ep,const char *e,size_t len,const char *asy
 		ebuf=p0?p0:alloca(len+1);
 		r=expr_stpcpy_nospace(ebuf,e,e+len);
 		p=expr_scan(ep,ebuf,r,asym,asym?asymlen:0);
-		if(p0)free(p0);
+		if(p0)xfree(p0);
 		if(ep->sset_shouldfree){
 			expr_symset_free(ep->sset);
 			ep->sset=esp;
@@ -3537,7 +3655,7 @@ struct expr *new_expr9(const char *e,size_t len,const char *asym,size_t asymlen,
 		if(!(flag&EXPR_IF_INSTANT_FREE))while(--ep>=ep0){
 			expr_free(ep);
 		}
-		free(ep0);
+		xfree(ep0);
 		return NULL;
 	}else {
 		ep->freeable=2;
@@ -3545,7 +3663,7 @@ struct expr *new_expr9(const char *e,size_t len,const char *asym,size_t asymlen,
 	}while(--n);
 	ep[-1].freeable=1;
 	if(flag&EXPR_IF_INSTANT_FREE)
-		free(ep0);
+		xfree(ep0);
 	return ep0;
 }
 struct expr *new_expr7(const char *e,const char *asym,struct expr_symset *esp,int flag,int n,int *error,char errinfo[EXPR_SYMLEN]){
@@ -3579,30 +3697,31 @@ double expr_calc3(const char *e,const char *asym,double input){
 double expr_calc(const char *e){
 	return expr_calc5(e,NULL,0.0,NULL,0);
 }
-static int expr_varofep(const struct expr *restrict ep,double *v){
+static size_t expr_varofep(const struct expr *restrict ep,double *v){
 	for(size_t i=0;i<ep->vsize;++i){
 		if(ep->vars[i]==v){
-			return 1;
+			return i+1;
 		}
 	}
 	return 0;
 }
 static void expr_writeconsts(struct expr *restrict ep){
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
-		if(ip->op==EXPR_CONST&&ip->dst&&
-			expr_varofep(ep,ip->dst)
+		if(ip->op==EXPR_CONST&&ip->dst.dst&&
+			expr_varofep(ep,ip->dst.dst)
 			){
-			*ip->dst=ip->un.value;
+			*ip->dst.dst=ip->un.value;
 		}
 	}
 }
-
 static int expr_usesrc(enum expr_op op){
 	switch(op){
 		case SRCCASES:
 		case EXPR_READ:
 		case EXPR_WRITE:
 		case EXPR_LJ:
+		case EXPR_BLP:
+		case EXPR_ZAP:
 			return 1;
 		default:
 			return 0;
@@ -3612,7 +3731,7 @@ static int expr_usesrc(enum expr_op op){
 static void expr_optimize_completed(struct expr *restrict ep){
 	struct expr_inst *cip=ep->data;
 	for(struct expr_inst *ip=cip;ip-ep->data<ep->size;++ip){
-		if(ip->dst){
+		if(ip->dst.dst){
 			if(ip>cip)
 				memcpy(cip,ip,sizeof(struct expr_inst));
 			++cip;
@@ -3624,17 +3743,17 @@ static int expr_modified(const struct expr *restrict ep,double *v){
 	if(!expr_varofep(ep,v))
 		return 1;
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
-		if(ip->dst==v&&ip->op!=EXPR_CONST){
+		if(ip->dst.dst==v&&ip->op!=EXPR_CONST){
 			return 1;
 		}
 	}
 	return 0;
 }
 static struct expr_inst *expr_findconst(const struct expr *restrict ep,struct expr_inst *ip){
-	double *s=ip->dst;
+	double *s=ip->dst.dst;
 	for(--ip;ip>=ep->data;--ip){
 		if(expr_usesrc(ip->op)&&ip->un.src==s)break;
-		if(ip->dst!=s)continue;
+		if(ip->dst.dst!=s)continue;
 		if(ip->op==EXPR_CONST)return ip;
 		else break;
 	}
@@ -3644,13 +3763,13 @@ static void expr_optimize_contadd(struct expr *restrict ep){
 	double sum;
 	struct expr_inst *rip;
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
-		if(!expr_modified(ep,ip->dst)
+		if(!expr_modified(ep,ip->dst.dst)
 			||(ip->op!=EXPR_ADD&&ip->op!=EXPR_SUB)
 			||expr_modified(ep,ip->un.src)
 			)continue;
 		sum=ip->op==EXPR_ADD?*ip->un.src:-*ip->un.src;
 		for(struct expr_inst *ip1=ip+1;ip1->op!=EXPR_END;++ip1){
-			if(ip1->dst!=ip->dst)continue;
+			if(ip1->dst.dst!=ip->dst.dst)continue;
 			if(ip1->op!=EXPR_ADD
 				&&ip1->op!=EXPR_SUB
 				)break;
@@ -3659,13 +3778,13 @@ static void expr_optimize_contadd(struct expr *restrict ep){
 					sum+=*ip1->un.src;
 				else
 					sum-=*ip1->un.src;
-				ip1->dst=NULL;
+				ip1->dst.dst=NULL;
 			}
 		}
 		rip=expr_findconst(ep,ip);
 		if(rip){
 			rip->un.value+=sum;
-			ip->dst=NULL;
+			ip->dst.dst=NULL;
 			expr_writeconsts(ep);
 		}else {
 			/*if(sum<0.0){
@@ -3677,6 +3796,7 @@ static void expr_optimize_contadd(struct expr *restrict ep){
 				ip->op=EXPR_ADD;
 			}
 		}
+		continue;
 	}
 	expr_optimize_completed(ep);
 }
@@ -3684,13 +3804,13 @@ static void expr_optimize_contsh(struct expr *restrict ep){
 	double sum;
 	struct expr_inst *rip;
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
-		if(!expr_modified(ep,ip->dst)
+		if(!expr_modified(ep,ip->dst.dst)
 			||(ip->op!=EXPR_SHL&&ip->op!=EXPR_SHR)
 			||expr_modified(ep,ip->un.src)
 			)continue;
 		sum=ip->op==EXPR_SHL?*ip->un.src:-*ip->un.src;
 		for(struct expr_inst *ip1=ip+1;ip1->op!=EXPR_END;++ip1){
-			if(ip1->dst!=ip->dst)continue;
+			if(ip1->dst.dst!=ip->dst.dst)continue;
 			if(ip1->op!=EXPR_SHL
 				&&ip1->op!=EXPR_SHR
 				)break;
@@ -3699,13 +3819,13 @@ static void expr_optimize_contsh(struct expr *restrict ep){
 					sum+=*ip1->un.src;
 				else
 					sum-=*ip1->un.src;
-				ip1->dst=NULL;
+				ip1->dst.dst=NULL;
 			}
 		}
 		rip=expr_findconst(ep,ip);
 		if(rip){
 			EXPR_EDEXP(&rip->un.value)+=(int64_t)sum;
-			ip->dst=NULL;
+			ip->dst.dst=NULL;
 			expr_writeconsts(ep);
 		}else {
 			/*if(sum<0.0){
@@ -3717,6 +3837,7 @@ static void expr_optimize_contsh(struct expr *restrict ep){
 				ip->op=EXPR_SHL;
 			}
 		}
+		continue;
 	}
 	expr_optimize_completed(ep);
 }
@@ -3724,7 +3845,8 @@ static void expr_optimize_contmul(struct expr *restrict ep,enum expr_op op){
 	double sum;
 	struct expr_inst *rip;
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
-		if(!expr_modified(ep,ip->dst)
+		if(!ip->dst.dst
+			||!expr_modified(ep,ip->dst.dst)
 			||ip->op!=op
 			||expr_modified(ep,ip->un.src)
 			)continue;
@@ -3745,6 +3867,7 @@ static void expr_optimize_contmul(struct expr *restrict ep,enum expr_op op){
 				case EXPR_SEQ:
 				case EXPR_SNE:
 				case EXPR_NE:
+				case EXPR_DIFF:
 				case EXPR_OFF:
 					continue;
 				default:
@@ -3753,7 +3876,7 @@ static void expr_optimize_contmul(struct expr *restrict ep,enum expr_op op){
 			sum=*ip->un.src;
 		}
 		for(struct expr_inst *ip1=ip+!rip;ip1->op!=EXPR_END;++ip1){
-			if(ip1->dst!=ip->dst)continue;
+			if(ip1->dst.dst!=ip->dst.dst)continue;
 			if(ip1->op!=op)break;
 			if(!expr_modified(ep,(double *)ip1->un.src)){
 			switch(op){
@@ -3859,23 +3982,26 @@ static void expr_optimize_contmul(struct expr *restrict ep,enum expr_op op){
 				case EXPR_NEXT:
 					if(!rip){
 						sum+=*ip1->un.src;
-						break;
-					}
+					}else
 					EXPR_EDIVAL(&sum)+=(int64_t)*ip1->un.src;
+					break;
+				case EXPR_DIFF:
+					sum=(double)(EXPR_EDIVAL(&sum)-*ip->un.isrc);
 					break;
 				default:
 					abort();
 			}
-				ip1->dst=NULL;
+				ip1->dst.dst=NULL;
 			}
 		}
 		if(rip){
 			rip->un.value=sum;
-			ip->dst=NULL;
+			ip->dst.dst=NULL;
 			expr_writeconsts(ep);
 		}else {
 			*ip->un.src=sum;
 		}
+		continue;
 	}
 	expr_optimize_completed(ep);
 }
@@ -3926,7 +4052,7 @@ static int expr_optimize_zero(struct expr *restrict ep){
 					||expr_modified(ep,ip->un.src)
 					)continue;
 				if(ze==*ip->un.src){
-					ip->dst=NULL;
+					ip->dst.dst=NULL;
 					r=1;
 				}
 				break;
@@ -3934,11 +4060,14 @@ static int expr_optimize_zero(struct expr *restrict ep){
 	}
 	return r;
 }
+//oconst
 static void expr_optimize_const(struct expr *restrict ep){
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
-		if(ip->op==EXPR_CONST&&!expr_modified(ep,ip->dst)){
-			*ip->dst=ip->un.value;
-			ip->dst=NULL;
+		if(ip->op==EXPR_CONST&&!expr_modified(ep,ip->dst.dst)){
+			/*if(!(ip->flag&EXPR_SF_INJECTION)){
+				*ip->dst.dst=ip->un.value;
+			}*/
+			ip->dst.dst=NULL;
 		}
 	}
 	expr_optimize_completed(ep);
@@ -3966,6 +4095,8 @@ static int expr_override(enum expr_op op){
 		case BRANCHCASES:
 		case SUMCASES:
 		case EXPR_ZA:
+		case EXPR_ZAP:
+		case EXPR_EP:
 		case MDCASES:
 		case EXPR_VMD:
 		case EXPR_READ:
@@ -4010,16 +4141,24 @@ static int expr_usebranch(enum expr_op op){
 				return 0;
 	}
 }
+static int expr_usehot(enum expr_op op){
+	switch(op){
+		case HOTCASES:
+				return 1;
+		default:
+				return 0;
+	}
+}
 static int expr_vused(struct expr_inst *ip1,double *v){
 	int ov;
 	for(;;++ip1){
 		ov=expr_override(ip1->op);
 		if((expr_usesrc(ip1->op)&&ip1->un.src==v)
-			||(ip1->dst==v&&!ov)
+			||(ip1->dst.dst==v&&!ov)
 		){
 			return 1;
 		}
-		if(ip1->dst==v&&ov){
+		if(ip1->dst.dst==v&&ov){
 			return 0;
 		}
 		if(ip1->op==EXPR_END){
@@ -4030,9 +4169,9 @@ static int expr_vused(struct expr_inst *ip1,double *v){
 }
 static int expr_constexpr(const struct expr *restrict ep,double *except){
 	for(struct expr_inst *ip=ep->data;;++ip){
-		if(!expr_varofep(ep,ip->dst)&&ip->dst!=except)return 0;
+		if(!expr_varofep(ep,ip->dst.dst)&&ip->dst.dst!=except)return 0;
 		switch(ip->op){
-			case EXPR_CALL:
+			case EXPR_BL:
 			case EXPR_ZA:
 			case EXPR_HOT:
 				if(ip->flag&EXPR_SF_INJECTION)
@@ -4043,11 +4182,14 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 			case SUMCASES:
 			case BRANCHCASES:
 			case EXPR_DO:
+			case EXPR_EP:
 			case EXPR_READ:
 			case EXPR_WRITE:
 			case EXPR_ALO:
 			case EXPR_SJ:
 			case EXPR_LJ:
+			case EXPR_BLP:
+			case EXPR_ZAP:
 				return 0;
 			case SRCCASES:
 				if(!expr_varofep(ep,ip->un.src)&&
@@ -4175,6 +4317,7 @@ static int expr_optimize_constexpr(struct expr *restrict ep){
 				expr_freesuminfo(ip->un.es);
 				ip->op=EXPR_CONST;
 				ip->un.value=result;
+				expr_writeconsts(ep);
 				r=1;
 				break;
 			case MDCASES:
@@ -4193,7 +4336,9 @@ static int expr_optimize_constexpr(struct expr *restrict ep){
 				}
 				expr_freemdinfo(ip->un.em);
 				ip->op=EXPR_CONST;
+				ip->flag=0;
 				ip->un.value=result;
+				expr_writeconsts(ep);
 				r=1;
 				break;
 			case EXPR_VMD:
@@ -4207,17 +4352,20 @@ static int expr_optimize_constexpr(struct expr *restrict ep){
 				result=expr_vmdeval(ip->un.ev,input);
 				expr_freevmdinfo(ip->un.ev);
 				ip->op=EXPR_CONST;
+				ip->flag=0;
 				ip->un.value=result;
+				expr_writeconsts(ep);
 				r=1;
 				break;
 			case EXPR_WHILE:
 				if(!expr_constexpr(ip->un.eb->cond,NULL))
 					continue;
 				if(expr_eval(ip->un.eb->cond,input)!=0.0){
+endless:
 					hep=ip->un.eb->body;
 					expr_free(ip->un.eb->cond);
 					expr_free(ip->un.eb->value);
-					free(ip->un.eb);
+					xfree(ip->un.eb);
 					ip->op=EXPR_DO;
 					ip->un.hotfunc=hep;
 					ip->flag=0;
@@ -4228,6 +4376,12 @@ static int expr_optimize_constexpr(struct expr *restrict ep){
 				expr_free(ip->un.eb->cond);
 				expr_free(ip->un.eb->body);
 				goto free_eb;
+			case EXPR_DOW:
+				if(!expr_constexpr(ip->un.eb->cond,NULL))
+					continue;
+				if(expr_eval(ip->un.eb->cond,input)!=0.0)
+					goto endless;
+				break;
 			case EXPR_IF:
 				if(!expr_constexpr(ip->un.eb->cond,NULL))
 					continue;
@@ -4241,18 +4395,20 @@ static int expr_optimize_constexpr(struct expr *restrict ep){
 					expr_free(ip->un.eb->body);
 				}
 free_eb:
-				free(ip->un.eb);
-				ip->op=EXPR_HOT;
+				xfree(ip->un.eb);
+				ip->op=EXPR_EP;
 				ip->un.hotfunc=hep;
 				ip->flag=0;
 				r=1;
 			case EXPR_HOT:
+			case EXPR_EP:
 				if(!expr_constexpr(ip->un.hotfunc,NULL))
 					continue;
 				result=expr_eval(ip->un.hotfunc,input);
 				expr_free(ip->un.hotfunc);
 				ip->op=EXPR_CONST;
 				ip->un.value=result;
+				expr_writeconsts(ep);
 				ip->flag=0;
 				r=1;
 				break;
@@ -4301,7 +4457,7 @@ static int expr_vcheck_ep(struct expr_inst *ip0,double *v){
 					return 1;
 			}
 		}
-		if(ip->op==EXPR_HOT&&(
+		if(expr_usehot(ip->op)&&(
 			expr_vcheck_ep(ip->un.hotfunc->data,v)
 			))return 1;
 	}
@@ -4340,10 +4496,10 @@ static int expr_vcheck_ep(struct expr_inst *ip0,double *v){
 static void expr_optimize_unused(struct expr *restrict ep){
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
 
-		if(!expr_varofep(ep,ip->dst)
+		if(!expr_varofep(ep,ip->dst.dst)
 			||expr_side(ip->op))continue;
-		if(!expr_vcheck_ep(ip+1,ip->dst)){
-			ip->dst=NULL;
+		if(!expr_vcheck_ep(ip+1,ip->dst.dst)){
+			ip->dst.dst=NULL;
 		}
 	}
 	expr_optimize_completed(ep);
@@ -4360,7 +4516,7 @@ static void expr_optimize_constneg(struct expr *restrict ep){
 				continue;
 		}
 		for(struct expr_inst *ip1=ip-1;ip>=ep->data;--ip1){
-			if(ip1->dst!=ip->dst)continue;
+			if(ip1->dst.dst!=ip->dst.dst)continue;
 			if(ip1->op!=EXPR_CONST)break;
 			switch(ip->op){
 				case EXPR_NEG:
@@ -4381,7 +4537,7 @@ static void expr_optimize_constneg(struct expr *restrict ep){
 					continue;
 			}
 			expr_writeconsts(ep);
-			ip->dst=NULL;
+			ip->dst.dst=NULL;
 			break;
 		}
 	}
@@ -4390,7 +4546,7 @@ static void expr_optimize_constneg(struct expr *restrict ep){
 
 static int expr_injection_optype(enum expr_op op){
 	switch(op){
-		case EXPR_CALL:
+		case EXPR_BL:
 		case EXPR_ZA:
 		case EXPR_HOT:
 			return 1;
@@ -4409,18 +4565,19 @@ static int expr_optimize_injection(struct expr *restrict ep){
 			if(ip->op==EXPR_ZA){
 				ip->un.value=ip->un.zafunc();
 				ip->op=EXPR_CONST;
+				ip->flag=0;
 				expr_writeconsts(ep);
 				r=1;
 				continue;
 			}
 		for(struct expr_inst *ip1=ip-1;ip1>=ep->data;--ip1){
-			if(ip1->dst!=ip->dst)continue;
+			if(ip1->dst.dst!=ip->dst.dst)continue;
 			if(ip1->op==EXPR_INPUT&&
-				!expr_vcheck_ep(ip+1,ip->dst))
+				!expr_vcheck_ep(ip+1,ip->dst.dst))
 				goto delete;
 			if(ip1->op!=EXPR_CONST)break;
 			switch(ip->op){
-				case EXPR_CALL:
+				case EXPR_BL:
 					ip1->un.value=ip->un.func(ip1->un.value);
 					break;
 				case EXPR_HOT:
@@ -4433,7 +4590,7 @@ static int expr_optimize_injection(struct expr *restrict ep){
 			expr_writeconsts(ep);
 delete:
 			r=1;
-			ip->dst=NULL;
+			ip->dst.dst=NULL;
 			break;
 		}
 	}
@@ -4444,12 +4601,12 @@ static void expr_optimize_copyadd(struct expr *restrict ep){
 	struct expr_inst *ip2;
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
 		if(ip->op!=EXPR_COPY||
-			!expr_varofep(ep,ip->dst)
-			||expr_vcheck_ep(ip+1,ip->dst))continue;
+			!expr_varofep(ep,ip->dst.dst)
+			||expr_vcheck_ep(ip+1,ip->dst.dst))continue;
 		ip2=NULL;
 		for(struct expr_inst *ip1=ip+1;ip1->op!=EXPR_END;++ip1){
-			if(ip1->dst==ip->dst)goto fail;
-			if(!expr_usesrc(ip1->op)||ip1->un.src!=ip->dst)continue;
+			if(ip1->dst.dst==ip->dst.dst)goto fail;
+			if(!expr_usesrc(ip1->op)||ip1->un.src!=ip->dst.dst)continue;
 			if(ip2){
 fail:
 				ip2=NULL;
@@ -4459,7 +4616,7 @@ fail:
 		}
 		if(ip2){
 			ip2->un.src=ip->un.src;
-			ip->dst=NULL;
+			ip->dst.dst=NULL;
 		}
 	}
 	expr_optimize_completed(ep);
@@ -4469,12 +4626,13 @@ fail:
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
 		if(ip->op!=EXPR_COPY
 			//||
-			//!expr_varofep(ep,ip->dst)||
+			//!expr_varofep(ep,ip->dst.dst)||
 			//!expr_varofep(ep,ip->un.src)
 			)continue;
 		if(!expr_modified(ep,ip->un.src)){
 			ip->op=EXPR_CONST;
 			ip->un.value=*ip->un.src;
+			expr_writeconsts(ep);
 			r=1;
 		}
 	}
@@ -4488,17 +4646,17 @@ static void expr_optimize_copyend(struct expr *restrict ep){
 	for(;ip->op!=EXPR_END;++ip){
 		lip=ip;
 	}
-	if(lip&&lip->op==EXPR_COPY&&lip->dst==ip->dst&&
-		expr_varofep(ep,lip->dst)
+	if(lip&&lip->op==EXPR_COPY&&lip->dst.dst==ip->dst.dst&&
+		expr_varofep(ep,lip->dst.dst)
 		){
-		ip->dst=lip->un.src;
-		lip->dst=NULL;
+		ip->dst.dst=lip->un.src;
+		lip->dst.dst=NULL;
 	}
 	expr_optimize_completed(ep);
 }
 static void expr_optimize_strongorder_and_notl(struct expr *restrict ep){
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
-		if(ip[1].dst!=ip->dst)continue;
+		if(ip[1].dst.dst!=ip->dst.dst)continue;
 		switch(ip[1].op){
 			case EXPR_NOTL:
 			case EXPR_TSTL:
@@ -4548,19 +4706,19 @@ static void expr_optimize_strongorder_and_notl(struct expr *restrict ep){
 			default:
 				abort();
 		}
-		(++ip)->dst=NULL;
+		(++ip)->dst.dst=NULL;
 	}
 	expr_optimize_completed(ep);
 }
 static void expr_optimize_contneg(struct expr *restrict ep){
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
-		if(ip[1].dst!=ip->dst)continue;
+		if(ip[1].dst.dst!=ip->dst.dst)continue;
 		switch(ip->op){
 			case EXPR_NOT:
 			case EXPR_NEG:
 				if(ip[1].op==ip->op){
-					ip->dst=NULL;
-					(++ip)->dst=NULL;
+					ip->dst.dst=NULL;
+					(++ip)->dst.dst=NULL;
 				}
 				break;
 			case EXPR_TSTL:
@@ -4571,7 +4729,7 @@ static void expr_optimize_contneg(struct expr *restrict ep){
 						goto from_tstl_to_neg;
 					case EXPR_NOTL:
 					case EXPR_TSTL:
-						(ip++)->dst=NULL;
+						(ip++)->dst.dst=NULL;
 						break;
 					default:
 						break;
@@ -4581,7 +4739,7 @@ static void expr_optimize_contneg(struct expr *restrict ep){
 				switch(ip[1].op){
 					case EXPR_NOT:
 from_tstl_to_not:
-						if(ip[2].dst==ip->dst)
+						if(ip[2].dst.dst==ip->dst.dst)
 						switch(ip[2].op){
 							case EXPR_NOTL:
 								ip->un.value=0;
@@ -4590,8 +4748,8 @@ from_tstl_to_not:
 								ip->un.value=1;
 notl_tstl:
 								ip->op=EXPR_CONST;
-								(++ip)->dst=NULL;
-								(++ip)->dst=NULL;
+								(++ip)->dst.dst=NULL;
+								(++ip)->dst.dst=NULL;
 								expr_writeconsts(ep);
 							default:
 								break;
@@ -4600,11 +4758,11 @@ notl_tstl:
 					case EXPR_NEG:
 
 from_tstl_to_neg:
-						if(ip[2].dst==ip->dst)
+						if(ip[2].dst.dst==ip->dst.dst)
 						switch(ip[2].op){
 							case EXPR_NOTL:
 							case EXPR_TSTL:
-								(++ip)->dst=NULL;
+								(++ip)->dst.dst=NULL;
 							default:
 								break;
 						}
@@ -4612,7 +4770,7 @@ from_tstl_to_neg:
 					case EXPR_NOTL:
 						ip->op=EXPR_TSTL;
 					case EXPR_TSTL:
-						(++ip)->dst=NULL;
+						(++ip)->dst.dst=NULL;
 						break;
 					default:
 						break;
@@ -4632,14 +4790,14 @@ static int expr_optimize_once(struct expr *restrict ep){
 	expr_optimize_contneg(ep);
 	expr_optimize_strongorder_and_notl(ep);
 	r|=expr_optimize_injection(ep);
-
 	expr_optimize_contmul(ep,EXPR_POW);
 	expr_optimize_contmul(ep,EXPR_MUL);
 	expr_optimize_contmul(ep,EXPR_DIV);
 	expr_optimize_contmul(ep,EXPR_MOD);
 	expr_optimize_contadd(ep);
-	expr_optimize_contmul(ep,EXPR_NEXT);
 	expr_optimize_contsh(ep);
+	expr_optimize_contmul(ep,EXPR_NEXT);
+	expr_optimize_contmul(ep,EXPR_DIFF);
 	expr_optimize_contmul(ep,EXPR_LT);
 	expr_optimize_contmul(ep,EXPR_LE);
 	expr_optimize_contmul(ep,EXPR_GT);
@@ -4737,10 +4895,9 @@ double expr_eval(const struct expr *restrict ep,double input){
 				double d;
 				struct expr_jmpbuf *jp;
 			} un;
-			struct expr_inst *cip;
+			int val;
 		} s2;
 		struct expr_jmpbuf *jp;
-		double *dp;
 		void *up;
 		double d;
 	} un;
@@ -4758,143 +4915,146 @@ double expr_eval(const struct expr *restrict ep,double input){
 		assert(ip->op<=EXPR_END);
 		switch(ip->op){
 			case EXPR_COPY:
-				*ip->dst=*ip->un.src;
+				*ip->dst.dst=*ip->un.src;
 				break;
 			case EXPR_INPUT:
-				*ip->dst=input;
+				*ip->dst.dst=input;
 				break;
-			case EXPR_CALL:
-				*ip->dst=ip->un.func(*ip->dst);
+			case EXPR_BL:
+				*ip->dst.dst=ip->un.func(*ip->dst.dst);
 				break;
 			case EXPR_CONST:
-				*ip->dst=ip->un.value;
+				*ip->dst.dst=ip->un.value;
 				break;
 			case EXPR_ADD:
-				*ip->dst+=*ip->un.src;
+				*ip->dst.dst+=*ip->un.src;
 				break;
 			case EXPR_SUB:
-				*ip->dst-=*ip->un.src;
+				*ip->dst.dst-=*ip->un.src;
 				break;
 			case EXPR_MUL:
-				*ip->dst*=*ip->un.src;
+				*ip->dst.dst*=*ip->un.src;
 				break;
 			case EXPR_DIV:
-				*ip->dst/=*ip->un.src;
+				*ip->dst.dst/=*ip->un.src;
 				break;
 			case EXPR_MOD:
-				*ip->dst=fmod(*ip->dst,*ip->un.src);
+				*ip->dst.dst=fmod(*ip->dst.dst,*ip->un.src);
 				break;
 			case EXPR_POW:
-				*ip->dst=pow(*ip->dst,*ip->un.src);
+				*ip->dst.dst=pow(*ip->dst.dst,*ip->un.src);
 				break;
 			case EXPR_AND:
-				*ip->dst=expr_and2(*ip->dst,*ip->un.src);
+				*ip->dst.dst=expr_and2(*ip->dst.dst,*ip->un.src);
 				break;
 			case EXPR_OR:
-				*ip->dst=expr_or2(*ip->dst,*ip->un.src);
+				*ip->dst.dst=expr_or2(*ip->dst.dst,*ip->un.src);
 				break;
 			case EXPR_XOR:
-				*ip->dst=expr_xor2(*ip->dst,*ip->un.src);
+				*ip->dst.dst=expr_xor2(*ip->dst.dst,*ip->un.src);
 				break;
 			case EXPR_SHL:
-				EXPR_EDEXP(ip->dst)+=(int64_t)*ip->un.src;
+				ip->dst.rdst->exp+=(int64_t)*ip->un.src;
 				break;
 			case EXPR_SHR:
-				EXPR_EDEXP(ip->dst)-=(int64_t)*ip->un.src;
+				ip->dst.rdst->exp-=(int64_t)*ip->un.src;
 				break;
 			case EXPR_NEXT:
-				EXPR_EDIVAL(ip->dst)+=(int64_t)*ip->un.src;
+				*ip->dst.idst+=(int64_t)*ip->un.src;
+				break;
+			case EXPR_DIFF:
+				*ip->dst.dst=(double)(*ip->dst.idst-*ip->un.isrc);
 				break;
 			case EXPR_OFF:
-				EXPR_EDIVAL(ip->dst)+=(int64_t)*ip->un.src*(int64_t)sizeof(double);
+				*ip->dst.idst+=(int64_t)*ip->un.src*(int64_t)sizeof(double);
 				break;
 			case EXPR_NEG:
-				*ip->dst=-*ip->dst;
+				*ip->dst.dst=-*ip->dst.dst;
 				break;
 			case EXPR_NOT:
-				*ip->dst=expr_not(*ip->dst);
+				*ip->dst.dst=expr_not(*ip->dst.dst);
 				break;
 			case EXPR_NOTL:
-				*ip->dst=(*ip->dst==0.0)?
+				*ip->dst.dst=(*ip->dst.dst==0.0)?
 					1.0:
 					0.0;
 				break;
 			case EXPR_TSTL:
-				*ip->dst=(*ip->dst!=0.0)?
+				*ip->dst.dst=(*ip->dst.dst!=0.0)?
 					1.0:
 					0.0;
 				break;
 			case EXPR_GT:
-				*ip->dst=*ip->dst>*ip->un.src?
+				*ip->dst.dst=*ip->dst.dst>*ip->un.src?
 					1.0:
 					0.0;
 				break;
 			case EXPR_LT:
-				*ip->dst=*ip->dst<*ip->un.src?
+				*ip->dst.dst=*ip->dst.dst<*ip->un.src?
 					1.0:
 					0.0;
 				break;
 			case EXPR_SGE:
-				*ip->dst=*ip->dst>=*ip->un.src?
+				*ip->dst.dst=*ip->dst.dst>=*ip->un.src?
 					1.0:
 					0.0;
 				break;
 			case EXPR_SLE:
-				*ip->dst=*ip->dst<=*ip->un.src?
+				*ip->dst.dst=*ip->dst.dst<=*ip->un.src?
 					1.0:
 					0.0;
 				break;
 			case EXPR_GE:
-				*ip->dst=*ip->dst>=*ip->un.src
-				||expr_equal(*ip->dst,*ip->un.src)?
+				*ip->dst.dst=*ip->dst.dst>=*ip->un.src
+				||expr_equal(*ip->dst.dst,*ip->un.src)?
 					1.0:
 					0.0;
 				break;
 			case EXPR_LE:
-				*ip->dst=*ip->dst<=*ip->un.src
-				||expr_equal(*ip->dst,*ip->un.src)?
+				*ip->dst.dst=*ip->dst.dst<=*ip->un.src
+				||expr_equal(*ip->dst.dst,*ip->un.src)?
 					1.0:
 					0.0;
 				break;
 
 			case EXPR_SEQ:
-				*ip->dst=*ip->dst==*ip->un.src?
+				*ip->dst.dst=*ip->dst.dst==*ip->un.src?
 					1.0:
 					0.0;
 				break;
 			case EXPR_SNE:
-				*ip->dst=*ip->dst!=*ip->un.src?
+				*ip->dst.dst=*ip->dst.dst!=*ip->un.src?
 					1.0:
 					0.0;
 				break;
 			case EXPR_EQ:
-				*ip->dst=expr_equal(*ip->dst,*ip->un.src)?
+				*ip->dst.dst=expr_equal(*ip->dst.dst,*ip->un.src)?
 					1.0:
 					0.0;
 				break;
 			case EXPR_NE:
-				*ip->dst=!expr_equal(*ip->dst,*ip->un.src)?
+				*ip->dst.dst=!expr_equal(*ip->dst.dst,*ip->un.src)?
 					1.0:
 					0.0;
 				break;
 			case EXPR_ANDL:
-				*ip->dst=LOGIC(*ip->dst,*ip->un.src,&&)?
+				*ip->dst.dst=LOGIC(*ip->dst.dst,*ip->un.src,&&)?
 					1.0:
 					0.0;
 				break;
 			case EXPR_ORL:
-				*ip->dst=LOGIC(*ip->dst,*ip->un.src,||)?
+				*ip->dst.dst=LOGIC(*ip->dst.dst,*ip->un.src,||)?
 					1.0:
 					0.0;
 				break;
 			case EXPR_XORL:
-				*ip->dst=LOGIC(*ip->dst,*ip->un.src,^)?
+				*ip->dst.dst=LOGIC(*ip->dst.dst,*ip->un.src,^)?
 					1.0:
 					0.0;
 				break;
-			CALSUM_INSWITCH(ip->dst);
+			CALSUM_INSWITCH(ip->dst.dst);
 			case EXPR_IF:
-				*ip->dst=
+				*ip->dst.dst=
 				expr_eval(ip->un.eb->cond,input)!=0.0?
 				expr_eval(ip->un.eb->body,input):
 				expr_eval(ip->un.eb->value,input);
@@ -4902,46 +5062,60 @@ double expr_eval(const struct expr *restrict ep,double input){
 			case EXPR_WHILE:
 				while(expr_eval(ip->un.eb->cond,input)!=0.0)
 					expr_eval(ip->un.eb->body,input);
-				*ip->dst=
+				*ip->dst.dst=
+				expr_eval(ip->un.eb->value,input);
+				break;
+			case EXPR_DOW:
+				do
+					expr_eval(ip->un.eb->body,input);
+				while(expr_eval(ip->un.eb->cond,input)!=0.0);
+				*ip->dst.dst=
 				expr_eval(ip->un.eb->value,input);
 				break;
 			case EXPR_DO:
-				for(;;)expr_eval(ip->un.hotfunc,*ip->dst);
+				for(;;)expr_eval(ip->un.hotfunc,input);
 			case EXPR_ZA:
-				*ip->dst=ip->un.zafunc();
+				*ip->dst.dst=ip->un.zafunc();
 				break;
-			CALMD_INSWITCH(ip->dst);
+			CALMD_INSWITCH(ip->dst.dst);
 			case EXPR_VMD:
-				*ip->dst=expr_vmdeval(ip->un.ev,input);
+				*ip->dst.dst=expr_vmdeval(ip->un.ev,input);
+				break;
+			case EXPR_EP:
+				*ip->dst.dst=expr_eval(ip->un.hotfunc,input);
 				break;
 			case EXPR_HOT:
-				*ip->dst=expr_eval(ip->un.hotfunc,*ip->dst);
+				*ip->dst.dst=expr_eval(ip->un.hotfunc,*ip->dst.dst);
+				break;
+			case EXPR_BLP:
+				*ip->dst.dst=(*ip->un.func2)(*ip->dst.dst);
+				break;
+			case EXPR_ZAP:
+				*ip->dst.dst=(*ip->un.zafunc2)();
 				break;
 			case EXPR_READ:
-				un.d=*ip->un.src;
-				*ip->dst=*un.dp;
+				*ip->dst.dst=**ip->un.src2;
 				break;
 			case EXPR_WRITE:
-				un.d=*ip->un.src;
-				*un.dp=*ip->dst;
+				**ip->un.src2=*ip->dst.dst;
 				break;
 			case EXPR_ALO:
-				un.up=alloca((ssize_t)*ip->dst*ip->un.zd);
-				*ip->dst=un.d;
+				un.up=alloca((ssize_t)*ip->dst.dst*ip->un.zd);
+				*ip->dst.dst=un.d;
 				break;
 			case EXPR_SJ:
-				un.d=*ip->dst;
+				un.d=*ip->dst.dst;
 				un.jp->ipp=&ip;
 				un.jp->ip=ip;
-				*ip->dst=(double)setjmp(un.jp->jb);
+				*ip->dst.dst=(double)setjmp(un.jp->jb);
 				break;
 			case EXPR_LJ:
-				un.s2.cip=ip;
-				un.s2.un.d=*ip->dst;
+				un.s2.val=(int)*ip->un.src;
+				un.s2.un.d=*ip->dst.dst;
 				*un.s2.un.jp->ipp=un.s2.un.jp->ip;
-				longjmp(un.s2.un.jp->jb,(int)*un.s2.cip->un.src);
+				longjmp(un.s2.un.jp->jb,un.s2.val);
 			case EXPR_END:
-				return *ip->dst;
+				return *ip->dst.dst;
 		}
 	}
 #undef sum

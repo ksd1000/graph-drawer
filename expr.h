@@ -10,7 +10,7 @@ enum expr_op {
 EXPR_COPY=0,
 EXPR_INPUT,
 EXPR_CONST,
-EXPR_CALL,
+EXPR_BL,
 EXPR_ADD,
 EXPR_SUB,
 EXPR_MUL,
@@ -36,6 +36,7 @@ EXPR_ANDL,
 EXPR_ORL,
 EXPR_XORL,
 EXPR_NEXT,
+EXPR_DIFF,
 EXPR_NEG,
 EXPR_NOT,
 EXPR_NOTL,
@@ -43,6 +44,7 @@ EXPR_TSTL,
 EXPR_IF,
 EXPR_WHILE,
 EXPR_DO,
+EXPR_DOW,
 EXPR_SUM,
 EXPR_INT,
 EXPR_PROD,
@@ -60,7 +62,10 @@ EXPR_MD,
 EXPR_ME,
 EXPR_MEP,
 EXPR_VMD,
+EXPR_EP,
 EXPR_HOT,
+EXPR_BLP,
+EXPR_ZAP,
 EXPR_READ,
 EXPR_WRITE,
 EXPR_OFF,
@@ -149,22 +154,34 @@ struct expr_vmdinfo {
 	double *args;
 	volatile double index;
 };
-union expr_inst_op2{
-	double *src;
-	void *uaddr;
-	double value;
-	ssize_t zd;
-	struct expr *hotfunc;
-	double (*func)(double);
-	double (*zafunc)(void);
-	struct expr_suminfo *es;
-	struct expr_branchinfo *eb;
-	struct expr_mdinfo *em;
-	struct expr_vmdinfo *ev;
-};
+struct expr_rawdouble {
+	uint64_t base:52;
+	uint64_t exp:11;
+	uint64_t sign:1;
+} __attribute__((packed));
 struct expr_inst {
-	double *dst;
-	union expr_inst_op2 un;
+	union {
+		double *dst;
+		int64_t *idst;
+		struct expr_rawdouble *rdst;
+	} dst;
+	union {
+		double *src;
+		int64_t *isrc;
+		double **src2;
+		void *uaddr;
+		double value;
+		ssize_t zd;
+		struct expr *hotfunc;
+		double (*func)(double);
+		double (**func2)(double);
+		double (*zafunc)(void);
+		double (**zafunc2)(void);
+		struct expr_suminfo *es;
+		struct expr_branchinfo *eb;
+		struct expr_mdinfo *em;
+		struct expr_vmdinfo *ev;
+	} un;
 	enum expr_op op;
 	int flag;
 };
@@ -227,14 +244,11 @@ struct expr {
 	unsigned char freeable,sset_shouldfree;
 	char errinfo[EXPR_SYMLEN];
 };
-struct expr_rawdouble {
-	uint64_t base:52;
-	uint64_t exp:11;
-	uint64_t sign:1;
-} __attribute__((packed));
+
 union expr_double {
 	double val;
-	uint64_t ival;
+	int64_t ival;
+	uint64_t uval;
 	struct expr_rawdouble rd;
 };
 extern const struct expr_builtin_symbol expr_symbols[];

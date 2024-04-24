@@ -1196,6 +1196,7 @@ const struct expr_builtin_keyword expr_keywords[]={
 	REGKEY("setjmp",EXPR_SJ,1,"setjmp(jmp_buf)"),
 	REGKEY("longjmp",EXPR_LJ,2,"longjmp(jmp_buf,val)"),
 	REGKEY("eval",EXPR_EVAL,2,"eval(ep,input)"),
+	REGKEY("decl",EXPR_ADD,2,"decl(name,[constant_expression flag])"),
 	{NULL}
 };
 const struct expr_builtin_symbol expr_symbols[]={
@@ -1204,6 +1205,10 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGCSYM(DBL_EPSILON),
 	REGCSYM2("DBL_SHIFT",(double)__builtin_ctzl(sizeof(double))),
 	REGCSYM2("DBL_SIZE",(double)sizeof(double)),
+	REGCSYM(EXPR_SF_INJECTION),
+	REGCSYM(EXPR_SF_WRITEIP),
+	REGCSYM(EXPR_SF_PMD),
+	REGCSYM(EXPR_SF_PME),
 	REGCSYM(FLT_MAX),
 	REGCSYM(FLT_MIN),
 	REGCSYM(FLT_EPSILON),
@@ -1603,6 +1608,9 @@ static void expr_freedata(struct expr_inst *restrict data,size_t size){
 				expr_freesuminfo(ip->un.es);
 				break;
 			case MDCASES:
+			case EXPR_PMD:
+			case EXPR_PME:
+			case EXPR_PMEP:
 				expr_freemdinfo(ip->un.em);
 				break;
 			case EXPR_VMD:
@@ -1760,23 +1768,24 @@ static double *expr_newvar(struct expr *restrict ep){
 	*r=NAN;
 	return r;
 }
-static int expr_createconst(struct expr *restrict ep,const char *symbol,size_t symlen,double val){
+static int expr_detach(struct expr *restrict ep){
 	if(!ep->sset_shouldfree){
 		if(!ep->sset)ep->sset=new_expr_symset();
 		else ep->sset=expr_symset_clone(ep->sset);
+		if(!ep->sset)return -1;
 		ep->sset_shouldfree=1;
 	}
+	return 0;
+}
+static int expr_createconst(struct expr *restrict ep,const char *symbol,size_t symlen,double val){
+	cknp(ep,expr_detach(ep)>=0,return -1);
 	return expr_symset_addl(ep->sset,symbol,symlen,EXPR_CONSTANT,val)?
 	0:-1;
 }
 static double *expr_createvar(struct expr *restrict ep,const char *symbol,size_t symlen){
 	double *r=expr_newvar(ep);
 	if(!r)return NULL;
-	if(!ep->sset_shouldfree){
-		if(!ep->sset)ep->sset=new_expr_symset();
-		else ep->sset=expr_symset_clone(ep->sset);
-		ep->sset_shouldfree=1;
-	}
+	cknp(ep,expr_detach(ep)>=0,return NULL);
 	expr_symset_addl(ep->sset,symbol,symlen,EXPR_VARIABLE,r);
 	return r;
 }
@@ -2358,6 +2367,7 @@ static double *expr_getvalue(struct expr *restrict ep,const char *e,const char *
 	} sym;
 	union {
 		const union expr_symvalue *sv;
+		struct expr_symbol *es;
 	} sv;
 	int type,flag;
 	size_t dim=0;
@@ -2501,8 +2511,6 @@ ecta:
 			}
 			switch(type){
 				case EXPR_CONSTANT:
-				case EXPR_MDFUNCTION:
-				case EXPR_MDEPFUNCTION:
 				case EXPR_HOTFUNCTION:
 					goto ecta;
 				default:
@@ -2597,6 +2605,43 @@ c_fail:
 				r0=expr_createconst(ep,sym.vv[0],dim,un.v);
 				expr_free2(sym.vv);
 				cknp(ep,!r0,return NULL);
+				v0=expr_newvar(ep);
+				expr_addconst(ep,v0,un.v);
+				e=p+1;
+				goto vend;
+			case EXPR_ADD:
+				sym.vv=expr_sep(ep,e,p-e+1);
+				if(!sym.vv)return NULL;
+				for(un.vv1=sym.vv;*un.vv1;++un.vv1);
+				switch(un.vv1-sym.vv){
+					case 1:
+						un.v=0.0;
+						break;
+					case 2:
+						un.v=expr_consteval(sym.vv[1],strlen(sym.vv[1]),asym,asymlen,ep->sset,&ep->error,ep->errinfo);
+						if(ep->error)goto c_fail;
+						break;
+					default:
+						ep->error=EXPR_ENEA;
+						memcpy(ep->errinfo,"decl",mincc(4,EXPR_SYMLEN));
+						goto c_fail;
+				}
+				cknp(ep,expr_detach(ep)>=0,goto c_fail);
+				if(!ep->sset||!(sv.es=expr_symset_search(ep->sset,sym.vv[0],dim=strlen(sym.vv[0])))){
+					ep->error=expr_builtin_symbol_search(sym.vv[0],dim)?
+						EXPR_ETNV:EXPR_ESYMBOL;
+					memcpy(ep->errinfo,sym.vv[0],minc(dim,EXPR_SYMLEN));
+					goto c_fail;
+				}else switch(sv.es->type){
+					case EXPR_VARIABLE:
+						break;
+					default:
+						ep->error=EXPR_ETNV;
+						memcpy(ep->errinfo,sym.vv[0],minc(dim,EXPR_SYMLEN));
+						goto c_fail;
+				}
+				expr_free2(sym.vv);
+				sv.es->flag=(int)un.v;
 				v0=expr_newvar(ep);
 				expr_addconst(ep,v0,un.v);
 				e=p+1;
@@ -2820,19 +2865,37 @@ found:
 			v0=expr_newvar(ep);
 			cknp(ep,v0,return NULL);
 			expr_addcopy(ep,v0,sv.sv->addr);
+			p2=e;
 			e=p;
 			if(e<endp&&*e=='('){
+				if(flag&EXPR_SF_PMD){
+					p=expr_findpair(e,endp);
+					if(!p)goto pterr;
+					un.em=expr_getmdinfo(ep,p2,e-p2,e,p-e+1,asym,asymlen,NULL,0,0);
+					if(!un.em)return NULL;
+					expr_addop(ep,v0,un.em,EXPR_PMD,0);
+					e=p+1;
+					break;
+				}else if(flag&EXPR_SF_PME){
+					p=expr_findpair(e,endp);
+					if(!p)goto pterr;
+					un.em=expr_getmdinfo(ep,p2,e-p2,e,p-e+1,asym,asymlen,NULL,0,1+!!(flag&EXPR_SF_WRITEIP));
+					if(!un.em)return NULL;
+					expr_addop(ep,v0,un.em,(flag&EXPR_SF_WRITEIP)?EXPR_PMEP:EXPR_PME,0);
+					e=p+1;
+					break;
+				}
 				if(e+1<endp&&e[1]==')'){
 					v1=expr_newvar(ep);
 					cknp(ep,v1,return NULL);
-					expr_addop(ep,v1,v0,EXPR_ZAP,0);
+					expr_addop(ep,v1,v0,EXPR_PZA,0);
 					e+=2;
 				}else {
 					p=expr_findpair(e,endp);
 					if(!p)goto pterr;
 					v1=expr_scan(ep,e+1,p,asym,asymlen);
 					if(!v1)return NULL;
-					expr_addop(ep,v1,v0,EXPR_BLP,0);
+					expr_addop(ep,v1,v0,EXPR_PBL,0);
 					e=p+1;
 				}
 				v0=v1;
@@ -3779,8 +3842,8 @@ static int expr_usesrc(enum expr_op op){
 		case EXPR_READ:
 		case EXPR_WRITE:
 		case EXPR_LJ:
-		case EXPR_BLP:
-		case EXPR_ZAP:
+		case EXPR_PBL:
+		case EXPR_PZA:
 			return 1;
 		default:
 			return 0;
@@ -4154,7 +4217,7 @@ static int expr_override(enum expr_op op){
 		case BRANCHCASES:
 		case SUMCASES:
 		case EXPR_ZA:
-		case EXPR_ZAP:
+		case EXPR_PZA:
 		case EXPR_EP:
 		case MDCASES:
 		case EXPR_VMD:
@@ -4248,8 +4311,11 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 			case EXPR_ALO:
 			case EXPR_SJ:
 			case EXPR_LJ:
-			case EXPR_BLP:
-			case EXPR_ZAP:
+			case EXPR_PBL:
+			case EXPR_PZA:
+			case EXPR_PMD:
+			case EXPR_PME:
+			case EXPR_PMEP:
 				return 0;
 			case SRCCASES:
 				if(!expr_varofep(ep,ip->un.src)&&
@@ -5150,11 +5216,24 @@ double expr_eval(const struct expr *restrict ep,double input){
 			case EXPR_HOT:
 				*ip->dst.dst=expr_eval(ip->un.hotfunc,*ip->dst.dst);
 				break;
-			case EXPR_BLP:
+			case EXPR_PBL:
 				*ip->dst.dst=(*ip->un.func2)(*ip->dst.dst);
 				break;
-			case EXPR_ZAP:
+			case EXPR_PZA:
 				*ip->dst.dst=(*ip->un.zafunc2)();
+				break;
+			case EXPR_PMD:
+				ap=ip->un.em->args;
+				endp=ap+ip->un.em->dim;
+				epp=ip->un.em->eps;
+				for(;ap<endp;++ap)
+					*ap=expr_eval(epp++,input);
+				*ip->dst.dst=(*ip->dst.md2)(ip->un.em->dim,ip->un.em->args);
+				break;
+			case EXPR_PMEP:
+				ip->un.em->eps->ip=ip;
+			case EXPR_PME:
+				*ip->dst.dst=(*ip->dst.me2)(ip->un.em->dim,ip->un.em->eps,input);
 				break;
 			case EXPR_READ:
 				*ip->dst.dst=**ip->un.src2;

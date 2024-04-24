@@ -65,8 +65,11 @@ EXPR_VMD,
 EXPR_EP,
 EXPR_EVAL,
 EXPR_HOT,
-EXPR_BLP,
-EXPR_ZAP,
+EXPR_PBL,
+EXPR_PZA,
+EXPR_PMD,
+EXPR_PME,
+EXPR_PMEP,
 EXPR_READ,
 EXPR_WRITE,
 EXPR_OFF,
@@ -107,6 +110,8 @@ EXPR_END
 //expr symbol flag
 #define EXPR_SF_INJECTION 1
 #define EXPR_SF_WRITEIP 2
+#define EXPR_SF_PMD 4
+#define EXPR_SF_PME 8
 //expr initial flag
 #define EXPR_IF_NOOPTIMIZE 1
 #define EXPR_IF_INSTANT_FREE 2
@@ -165,6 +170,9 @@ struct expr_inst {
 		double *dst;
 		int64_t *idst;
 		struct expr_rawdouble *rdst;
+		double (**md2)(size_t,double *);
+		double (**me2)(size_t,
+			const struct expr *,double);
 	} dst;
 	union {
 		double *src;

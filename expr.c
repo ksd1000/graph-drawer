@@ -1207,6 +1207,7 @@ const struct expr_builtin_keyword expr_keywords[]={
 const struct expr_builtin_symbol expr_symbols[]={
 	REGCSYM(DBL_MAX),
 	REGCSYM(DBL_MIN),
+	REGCSYM(DBL_TRUE_MIN),
 	REGCSYM(DBL_EPSILON),
 	REGCSYM2("DBL_SHIFT",(double)__builtin_ctzl(sizeof(double))),
 	REGCSYM2("DBL_SIZE",(double)sizeof(double)),
@@ -4030,6 +4031,7 @@ static void expr_optimize_contmul(struct expr *restrict ep,enum expr_op op){
 				case EXPR_SEQ:
 				case EXPR_SNE:
 				case EXPR_NE:
+				case EXPR_NEXT:
 				case EXPR_DIFF:
 				case EXPR_OFF:
 					continue;
@@ -4143,9 +4145,6 @@ static void expr_optimize_contmul(struct expr *restrict ep,enum expr_op op){
 						0.0;
 					break;
 				case EXPR_NEXT:
-					if(!rip){
-						sum+=*ip1->un.src;
-					}else
 					EXPR_EDIVAL(&sum)+=(int64_t)*ip1->un.src;
 					break;
 				case EXPR_DIFF:

@@ -2340,7 +2340,7 @@ static double *expr_scan(struct expr *restrict ep,const char *e,const char *endp
 static double *expr_getvalue(struct expr *restrict ep,const char *e,const char *endp,const char **_p,const char *asym,size_t asymlen){
 	const char *p,*p2;
 	double *v0=NULL,*v1;
-	int r0;
+	int r0,builtin=0;
 	union {
 		double v;
 		void *uaddr;
@@ -2387,7 +2387,7 @@ envp:
 			e=p+1;
 			goto vend;
 		case '_':
-			if(e+9>=endp&&memcmp(e+1,"_builtin_",9))
+			if(e+9>=endp||memcmp(e+1,"_builtin_",9))
 				break;
 			e+=10;
 			p=expr_getsym(e,endp);
@@ -2399,8 +2399,8 @@ envp:
 				}
 				goto symerr;
 			}
-			type=1;
-			goto builtin;
+			builtin=1;
+			break;
 		case 'd':
 			if(e+2>endp||e[1]!='o'||e[2]!='{')
 				break;
@@ -2523,34 +2523,35 @@ ecta:
 			break;
 	}
 	p=expr_getsym(e,endp);
-	if(asym&&p-e==asymlen&&!memcmp(e,asym,p-e)){
-		v0=expr_newvar(ep);
-		cknp(ep,v0,return NULL);
-		expr_addinput(ep,v0);
-		e=p;
-		goto vend;
-	}
-	if(ep->sset&&(sym.es=expr_symset_search(ep->sset,e,p-e))){
-		type=sym.es->type;
-		switch(type){
-			case EXPR_MDFUNCTION:
-			case EXPR_MDEPFUNCTION:
-				dim=SYMDIM(sym.es);
-			default:
-				break;
+	if(!builtin){
+		if(asym&&p-e==asymlen&&!memcmp(e,asym,p-e)){
+			v0=expr_newvar(ep);
+			cknp(ep,v0,return NULL);
+			expr_addinput(ep,v0);
+			e=p;
+			goto vend;
 		}
-		sv.sv=&sym.es->un;
-		flag=sym.es->flag;
-		goto found;
-	}else if((sym.ebs=expr_builtin_symbol_search(e,p-e))){
+		if(ep->sset&&(sym.es=expr_symset_search(ep->sset,e,p-e))){
+			type=sym.es->type;
+			switch(type){
+				case EXPR_MDFUNCTION:
+				case EXPR_MDEPFUNCTION:
+					dim=SYMDIM(sym.es);
+				default:
+					break;
+			}
+			sv.sv=&sym.es->un;
+			flag=sym.es->flag;
+			goto found;
+		}
+	}
+	if((sym.ebs=expr_builtin_symbol_search(e,p-e))){
 		type=sym.ebs->type;
 		sv.sv=&sym.ebs->un;
 		dim=sym.ebs->dim;
 		flag=sym.ebs->flag;
 		goto found;
 	}
-	type=0;
-builtin:
 	for(const struct expr_builtin_keyword *kp=expr_keywords;
 			kp->str;++kp){
 		if(p-e!=kp->strlen||memcmp(e,kp->str,p-e))
@@ -2756,8 +2757,7 @@ vzero:
 		e=p+1;
 		goto vend;
 	}
-	if(type)goto symerr;
-	else goto number;
+	goto number;
 found:
 	switch(type){
 		case EXPR_FUNCTION:

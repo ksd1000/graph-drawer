@@ -152,5 +152,15 @@ int main(int argc,char **argv){
 	assert(es.size==1);
 	assert(es.depth==1);
 	expr_symset_wipe(&es);
+	for(const struct expr_builtin_keyword *p=expr_keywords;;++p){
+		if(!p->str){
+			break;
+		}
+		if(expr_builtin_symbol_search(p->str,p->strlen)){
+			printf("conflict %s\n",p->str);
+			printf("ABORTING\n");
+			abort();
+		}
+	}
 	return 0;
 }

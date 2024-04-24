@@ -99,6 +99,7 @@ EXPR_END
 #define EXPR_EUSN 14
 #define EXPR_ENC 15
 #define EXPR_ECTA 16
+#define EXPR_ESAF 17
 
 #define EXPR_CONSTANT 0
 #define EXPR_VARIABLE 1

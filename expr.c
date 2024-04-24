@@ -123,7 +123,8 @@ static const char *eerror[]={
 	[EXPR_EMEM]="Cannot allocate memory",
 	[EXPR_EUSN]="Unexpected symbol or number",
 	[EXPR_ENC]="Not a constant expression",
-	[EXPR_ECTA]="Cannot take address"
+	[EXPR_ECTA]="Cannot take address",
+	[EXPR_ESAF]="Static assertion failed"
 };
 //const static char ntoc[]={"0123456789abcdefg"};
 const char *expr_error(int error){
@@ -1197,6 +1198,7 @@ const struct expr_builtin_keyword expr_keywords[]={
 	REGKEY("longjmp",EXPR_LJ,2,"longjmp(jmp_buf,val)"),
 	REGKEY("eval",EXPR_EVAL,2,"eval(ep,input)"),
 	REGKEY("decl",EXPR_ADD,2,"decl(name,[constant_expression flag])"),
+	REGKEY("static_assert",EXPR_SUB,1,"static_assert(constant_expression cond)"),
 	{NULL}
 };
 const struct expr_builtin_symbol expr_symbols[]={
@@ -2641,9 +2643,10 @@ c_fail:
 						goto c_fail;
 				}
 				expr_free2(sym.vv);
+				flag=sv.es->flag;
 				sv.es->flag=(int)un.v;
 				v0=expr_newvar(ep);
-				expr_addconst(ep,v0,un.v);
+				expr_addconst(ep,v0,flag);
 				e=p+1;
 				goto vend;
 			case EXPR_INPUT:
@@ -2666,6 +2669,19 @@ use_byte:
 				sym.er->type=EXPR_CONSTANT;
 				cknp(ep,sym.er,xfree(un.uaddr);return NULL);
 				sym.er->un.uaddr=un.uaddr;
+				expr_addconst(ep,v0,un.v);
+				e=p+1;
+				goto vend;
+			case EXPR_SUB:
+				un.v=expr_consteval(e+1,p-e-1,asym,asymlen,ep->sset,&ep->error,ep->errinfo);
+				if(ep->error)return NULL;
+				if(un.v==0.0){
+					ep->error=EXPR_ESAF;
+					memcpy(ep->errinfo,e+1,minc(p-e-1,EXPR_SYMLEN));
+					return NULL;
+				}
+				v0=expr_newvar(ep);
+				cknp(ep,v0,return NULL);
 				expr_addconst(ep,v0,un.v);
 				e=p+1;
 				goto vend;

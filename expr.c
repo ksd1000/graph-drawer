@@ -2056,22 +2056,29 @@ fail:
 	return NULL;
 }
 static struct expr_mdinfo *expr_getmdinfo(struct expr *restrict ep,const char *e0,size_t sz,const char *e,size_t esz,const char *asym,size_t asymlen,void *func,size_t dim,int ifep){
-	char **v=expr_sep(ep,e,esz);
-	char **p,*pe;
+	char **v,**p;
+	char *pe;
+	char *v1=NULL;
 	size_t i;
 	struct expr_mdinfo *em;
-	if(!v){
-		return NULL;
-	}
-	p=v;
-	while(*p){
-		++p;
-	}
-	i=p-v;
-	if(dim&&i!=dim){
-		memcpy(ep->errinfo,e0,sz);
-		ep->error=EXPR_ENEA;
-		goto err1;
+	if(dim==1){
+		v1=xmalloc_nullable(esz+1);
+		cknp(ep,v1,return NULL);
+		memcpy(v1,e,esz);
+		v1[esz]=0;
+		v=&v1;
+		i=1;
+	}else {
+		v=expr_sep(ep,e,esz);
+		if(!v)return NULL;
+		p=v;
+		while(*p)++p;
+		i=p-v;
+		if(dim&&i!=dim){
+			memcpy(ep->errinfo,e0,sz);
+			ep->error=EXPR_ENEA;
+			goto err1;
+		}
 	}
 	em=xmalloc_nullable(sizeof(struct expr_mdinfo));
 	cknp(ep,em,goto err1);
@@ -2103,7 +2110,8 @@ static struct expr_mdinfo *expr_getmdinfo(struct expr *restrict ep,const char *e
 			goto err2;
 		}
 	}
-	expr_free2(v);
+	if(v1)xfree(v1);
+	else expr_free2(v);
 	return em;
 err2:
 	if(em->args)xfree(em->args);
@@ -2115,7 +2123,8 @@ err175:
 err15:
 	xfree(em);
 err1:
-	expr_free2(v);
+	if(v1)xfree(v1);
+	else expr_free2(v);
 	return NULL;
 }
 static double expr_consteval(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *sset,int *error,char *errinfo){

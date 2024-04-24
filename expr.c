@@ -1641,7 +1641,7 @@ start:
 		xfree(ep->vars);
 	}
 	for(erp=ep->res;erp;){
-		switch(erp->type){
+		if(erp->un.uaddr)switch(erp->type){
 			case EXPR_HOTFUNCTION:
 				expr_free(erp->un.ep);
 				break;
@@ -2127,18 +2127,30 @@ err1:
 	else expr_free2(v);
 	return NULL;
 }
-static double expr_consteval(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *sset,int *error,char *errinfo){
+static int expr_seizeres(struct expr *restrict dst,struct expr *restrict src){
+	struct expr_resource *drp;
+	for(struct expr_resource *srp=src->res;srp;srp=srp->next){
+		drp=expr_newres(dst);
+		cknp(dst,drp,return -1);
+		drp->type=srp->type;
+		drp->un.uaddr=srp->un.uaddr;
+		srp->un.uaddr=NULL;
+	}
+	return 0;
+}
+static double expr_consteval(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *sset,struct expr *restrict parent){
 	struct expr *ep;
 	double r;
-	ep=new_expr9(e,len,asym,asymlen,sset,0,1,error,errinfo);
+	ep=new_expr9(e,len,asym,asymlen,sset,0,1,&parent->error,parent->errinfo);
 	if(!ep)return NAN;
 	if(!expr_isconst(ep)){
 		expr_free(ep);
-		*error=EXPR_ENC;
-		memcpy(errinfo,e,minc(len,EXPR_SYMLEN));
+		parent->error=EXPR_ENC;
+		memcpy(parent->errinfo,e,minc(len,EXPR_SYMLEN));
 		return NAN;
 	}
 	r=expr_eval(ep,0.0);
+	expr_seizeres(parent,ep);
 	expr_free(ep);
 	return r;
 }
@@ -2166,7 +2178,7 @@ static struct expr_vmdinfo *expr_getvmdinfo(struct expr *restrict ep,const char 
 			max=0;
 			break;
 		case 7:
-			max=(ssize_t)expr_consteval(v[6],strlen(v[6]),asym,asymlen,ep->sset,&ep->error,ep->errinfo);
+			max=(ssize_t)expr_consteval(v[6],strlen(v[6]),asym,asymlen,ep->sset,ep);
 			if(ep->error)goto err0;
 			if(max<0)max=-max;
 			break;
@@ -2598,7 +2610,7 @@ ecta:
 						un.v=0.0;
 						break;
 					case 2:
-						un.v=expr_consteval(sym.vv[1],strlen(sym.vv[1]),asym,asymlen,ep->sset,&ep->error,ep->errinfo);
+						un.v=expr_consteval(sym.vv[1],strlen(sym.vv[1]),asym,asymlen,ep->sset,ep);
 						if(ep->error)goto c_fail;
 						break;
 					default:
@@ -2629,7 +2641,7 @@ c_fail:
 						un.v=0.0;
 						break;
 					case 2:
-						un.v=expr_consteval(sym.vv[1],strlen(sym.vv[1]),asym,asymlen,ep->sset,&ep->error,ep->errinfo);
+						un.v=expr_consteval(sym.vv[1],strlen(sym.vv[1]),asym,asymlen,ep->sset,ep);
 						if(ep->error)goto c_fail;
 						break;
 					default:
@@ -2667,7 +2679,7 @@ c_fail:
 			case EXPR_BL:
 				dim=sizeof(double);
 use_byte:
-				un.v=expr_consteval(e+1,p-e-1,asym,asymlen,ep->sset,&ep->error,ep->errinfo);
+				un.v=expr_consteval(e+1,p-e-1,asym,asymlen,ep->sset,ep);
 				if(ep->error)return NULL;
 				dim*=(size_t)fabs(un.v);
 				v0=expr_newvar(ep);
@@ -2682,7 +2694,7 @@ use_byte:
 				e=p+1;
 				goto vend;
 			case EXPR_SUB:
-				un.v=expr_consteval(e+1,p-e-1,asym,asymlen,ep->sset,&ep->error,ep->errinfo);
+				un.v=expr_consteval(e+1,p-e-1,asym,asymlen,ep->sset,ep);
 				if(ep->error)return NULL;
 				if(un.v==0.0){
 					ep->error=EXPR_ESAF;
@@ -2703,7 +2715,7 @@ use_byte:
 						dim=1;
 						break;
 					case 2:
-						un.v=expr_consteval(sym.vv[1],strlen(sym.vv[1]),asym,asymlen,ep->sset,&ep->error,ep->errinfo);
+						un.v=expr_consteval(sym.vv[1],strlen(sym.vv[1]),asym,asymlen,ep->sset,ep);
 						if(ep->error)goto c_fail;
 						dim=(size_t)fabs(un.v);
 						break;
@@ -2741,7 +2753,7 @@ use_byte:
 				}
 				v1=expr_scan(ep,sym.vv[1],sym.vv[1]+strlen(sym.vv[1]),asym,asymlen);
 				expr_free2(sym.vv);
-				if(!v0)return NULL;
+				if(!v1)return NULL;
 				expr_addlj(ep,v0,v1);
 				e=p+1;
 				goto vend;
@@ -2762,7 +2774,7 @@ use_byte:
 				}
 				v1=expr_scan(ep,sym.vv[0],sym.vv[0]+strlen(sym.vv[0]),asym,asymlen);
 				expr_free2(sym.vv);
-				if(!v0)return NULL;
+				if(!v1)return NULL;
 				expr_addop(ep,v0,v1,EXPR_EVAL,0);
 				e=p+1;
 				goto vend;
@@ -2884,12 +2896,12 @@ found:
 			v0=expr_newvar(ep);
 			cknp(ep,v0,return NULL);
 			expr_addconst(ep,v0,sv.sv->value);
-			e=p;
-			break;
+			goto treat_as_variable;
 		case EXPR_VARIABLE:
 			v0=expr_newvar(ep);
 			cknp(ep,v0,return NULL);
 			expr_addcopy(ep,v0,sv.sv->addr);
+treat_as_variable:
 			p2=e;
 			e=p;
 			if(e<endp&&*e=='('){
@@ -3869,6 +3881,7 @@ static int expr_usesrc(enum expr_op op){
 		case EXPR_LJ:
 		case EXPR_PBL:
 		case EXPR_PZA:
+		case EXPR_EVAL:
 			return 1;
 		default:
 			return 0;
@@ -4266,6 +4279,9 @@ static int expr_usesum(enum expr_op op){
 static int expr_usemd(enum expr_op op){
 	switch(op){
 		case MDCASES:
+		case EXPR_PMD:
+		case EXPR_PME:
+		case EXPR_PMEP:
 				return 1;
 		default:
 				return 0;

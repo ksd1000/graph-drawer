@@ -1169,35 +1169,38 @@ static double expr_hypot(size_t n,double *args){
 #define REGMDEPSYM2_NI(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdepfunc=sym},.dim=d,.type=EXPR_MDEPFUNCTION,.flag=0}
 #define REGMDEPSYM2_NIW(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdepfunc=sym},.dim=d,.type=EXPR_MDEPFUNCTION,.flag=EXPR_SF_WRITEIP}
 #define REGCSYM2(s,val) {.strlen=sizeof(s)-1,.str=s,.un={.value=val},.type=EXPR_CONSTANT}
-#define REGKEY(s,op,dim,desc) {s,op,dim,sizeof(s)-1,desc}
+#define REGKEY(s,op,dim,desc) {s,op,0,sizeof(s)-1,desc}
+#define REGKEYS(s,op,dim,desc) {s,op,EXPR_KF_SUBEXPR,sizeof(s)-1,desc}
+#define REGKEYC(s,op,dim,desc) {s,op,EXPR_KF_SEPCOMMA,sizeof(s)-1,desc}
+#define REGKEYSC(s,op,dim,desc) {s,op,EXPR_KF_SUBEXPR|EXPR_KF_SEPCOMMA,sizeof(s)-1,desc}
 const struct expr_builtin_keyword expr_keywords[]={
-	REGKEY("sum",EXPR_SUM,5,"sum(index_name,start_index,end_index,index_step,addend)"),
-	REGKEY("int",EXPR_INT,5,"int(integral_var_name,upper_limit,lower_limit,epsilon,integrand)"),
-	REGKEY("prod",EXPR_PROD,5,"prod(index_name,start_index,end_index,index_step,factor)"),
-	REGKEY("pai",EXPR_PROD,5,"pai(index_name,start_index,end_index,index_step,factor)"),
-	REGKEY("sup",EXPR_SUP,5,"sup(index_name,start_index,end_index,index_step,element)"),
-	REGKEY("infi",EXPR_INF,5,"infi(index_name,start_index,end_index,index_step,element)"),
-	REGKEY("andn",EXPR_ANDN,5,"andn(index_name,start_index,end_index,index_step,element)"),
-	REGKEY("orn",EXPR_ORN,5,"orn(index_name,start_index,end_index,index_step,element)"),
-	REGKEY("xorn",EXPR_XORN,5,"xorn(index_name,start_index,end_index,index_step,element)"),
-	REGKEY("gcdn",EXPR_GCDN,5,"gcdn(index_name,start_index,end_index,index_step,element)"),
-	REGKEY("lcmn",EXPR_LCMN,5,"lcmn(index_name,start_index,end_index,index_step,element)"),
-	REGKEY("for",EXPR_FOR,5,"for(var_name,start_var,cond,body,value)"),
-	REGKEY("loop",EXPR_LOOP,5,"loop(var_name,start_var,count,body,value)"),
-	REGKEY("while",EXPR_WHILE,3,"while(cond,body,value) while(cond){body}[{value}]"),
-	REGKEY("do",EXPR_DO,1,"do(body) do{body}"),
-	REGKEY("dowhile",EXPR_DOW,3,"dowhile(cond,body,value) dowhile(cond){body}[{value}]"),
-	REGKEY("if",EXPR_IF,3,"if(cond,if_value,else_value) if(cond){body}[[else]{value}]"),
-	REGKEY("vmd",EXPR_VMD,7,"vmd(index_name,start_index,end_index,index_step,element,md_symbol,[constant_expression max_dim])"),
+	REGKEYSC("sum",EXPR_SUM,5,"sum(index_name,start_index,end_index,index_step,addend)"),
+	REGKEYSC("int",EXPR_INT,5,"int(integral_var_name,upper_limit,lower_limit,epsilon,integrand)"),
+	REGKEYSC("prod",EXPR_PROD,5,"prod(index_name,start_index,end_index,index_step,factor)"),
+	REGKEYSC("pai",EXPR_PROD,5,"pai(index_name,start_index,end_index,index_step,factor)"),
+	REGKEYSC("sup",EXPR_SUP,5,"sup(index_name,start_index,end_index,index_step,element)"),
+	REGKEYSC("infi",EXPR_INF,5,"infi(index_name,start_index,end_index,index_step,element)"),
+	REGKEYSC("andn",EXPR_ANDN,5,"andn(index_name,start_index,end_index,index_step,element)"),
+	REGKEYSC("orn",EXPR_ORN,5,"orn(index_name,start_index,end_index,index_step,element)"),
+	REGKEYSC("xorn",EXPR_XORN,5,"xorn(index_name,start_index,end_index,index_step,element)"),
+	REGKEYSC("gcdn",EXPR_GCDN,5,"gcdn(index_name,start_index,end_index,index_step,element)"),
+	REGKEYSC("lcmn",EXPR_LCMN,5,"lcmn(index_name,start_index,end_index,index_step,element)"),
+	REGKEYSC("for",EXPR_FOR,5,"for(var_name,start_var,cond,body,value)"),
+	REGKEYSC("loop",EXPR_LOOP,5,"loop(var_name,start_var,count,body,value)"),
+	REGKEYSC("while",EXPR_WHILE,3,"while(cond,body,value) while(cond){body}[{value}]"),
+	REGKEYS("do",EXPR_DO,1,"do(body) do{body}"),
+	REGKEYSC("dowhile",EXPR_DOW,3,"dowhile(cond,body,value) dowhile(cond){body}[{value}]"),
+	REGKEYSC("if",EXPR_IF,3,"if(cond,if_value,else_value) if(cond){body}[[else]{value}]"),
+	REGKEYSC("vmd",EXPR_VMD,7,"vmd(index_name,start_index,end_index,index_step,element,md_symbol,[constant_expression max_dim])"),
 	REGKEY("const",EXPR_CONST,2,"const(name,constant_expression value)"),
 	REGKEY("double",EXPR_BL,1,"double(constant_expression count)"),
 	REGKEY("byte",EXPR_COPY,1,"byte(constant_expression count)"),
 	REGKEY("jmpbuf",EXPR_INPUT,1,"jmpbuf(constant_expression count)"),
-	REGKEY("alloca",EXPR_ALO,2,"alloca(nmemb,[constant_expression size])"),
+	REGKEYC("alloca",EXPR_ALO,2,"alloca(nmemb,[constant_expression size])"),
 	REGKEY("setjmp",EXPR_SJ,1,"setjmp(jmp_buf)"),
-	REGKEY("longjmp",EXPR_LJ,2,"longjmp(jmp_buf,val)"),
-	REGKEY("eval",EXPR_EVAL,2,"eval(ep,input)"),
-	REGKEY("decl",EXPR_ADD,2,"decl(name,[constant_expression flag])"),
+	REGKEYC("longjmp",EXPR_LJ,2,"longjmp(jmp_buf,val)"),
+	REGKEYC("eval",EXPR_EVAL,2,"eval(ep,input)"),
+	REGKEYC("decl",EXPR_ADD,2,"decl(name,[constant_expression flag])"),
 	REGKEY("static_assert",EXPR_SUB,1,"static_assert(constant_expression cond)"),
 	{NULL}
 };

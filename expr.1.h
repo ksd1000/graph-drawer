@@ -120,7 +120,9 @@ EXPR_END
 #define EXPR_IF_EXTEND_MASK (\
 		EXPR_IF_INSTANT_FREE\
 		)
-
+//expr keyword flag
+#define EXPR_KF_SUBEXPR 1
+#define EXPR_KF_SEPCOMMA 2
 #define EXPR_EDBASE(d) (((union expr_double *)(d))->rd.base)
 #define EXPR_EDEXP(d) (((union expr_double *)(d))->rd.exp)
 #define EXPR_EDSIGN(d) (((union expr_double *)(d))->rd.sign)
@@ -226,7 +228,7 @@ struct expr_builtin_symbol {
 struct expr_builtin_keyword {
 	const char *str;
 	enum expr_op op;
-	unsigned short dim;
+	unsigned short flag;
 	unsigned short strlen;
 	const char *desc;
 };

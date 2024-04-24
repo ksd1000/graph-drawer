@@ -997,8 +997,6 @@ static double expr_multi_derivate(size_t n,const struct expr *args,double input)
 	double level=(n>=2?expr_eval(args+1,input):1.0);
 	return expr_multilevel_derivate(args,input,(long)level,epsilon);
 }
-
-
 static double expr_root(size_t n,const struct expr *args,double input){
 	//root(expression)
 	//root(expression,from)
@@ -2475,13 +2473,18 @@ block:
 				default:
 					break;
 			}
-			p=expr_getsym(++e,endp);
+			++e;
+			if(e+9<endp&&!memcmp(e+1,"_builtin_",9)){
+				builtin=1;
+				e+=10;
+			}
+			p=expr_getsym(e,endp);
 			if(p==e){
 				ep->error=EXPR_ECTA;
 				*ep->errinfo=*e;
 				return NULL;
 			}
-			if(!ep->sset||!(sym.es=expr_symset_search(ep->sset,e,p-e))){
+			if(builtin||!ep->sset||!(sym.es=expr_symset_search(ep->sset,e,p-e))){
 				sym.ebs=expr_builtin_symbol_search(e,p-e);
 				if(sym.ebs){
 					type=sym.ebs->type;

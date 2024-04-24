@@ -2646,7 +2646,7 @@ c_fail:
 				flag=sv.es->flag;
 				sv.es->flag=(int)un.v;
 				v0=expr_newvar(ep);
-				expr_addconst(ep,v0,flag);
+				expr_addconst(ep,v0,(double)flag);
 				e=p+1;
 				goto vend;
 			case EXPR_INPUT:

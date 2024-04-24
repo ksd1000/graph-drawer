@@ -686,14 +686,6 @@ static double expr_bassert(size_t n,const struct expr *args,double input){
 	}
 	return x;
 }
-static double expr_beval(size_t n,const struct expr *args,double input){
-	union {
-		const struct expr *r;
-		double dr;
-	} un;
-	un.dr=expr_eval(args,input);
-	return expr_eval(un.r,expr_eval(args+1,input));
-}
 static double expr_ldr(size_t n,const struct expr *args,double input){
 	union {
 		double *r;
@@ -1205,6 +1197,7 @@ const struct expr_builtin_keyword expr_keywords[]={
 	REGKEY("alloca",EXPR_ALO,2,"alloca(nmemb,[constant_expression size])"),
 	REGKEY("setjmp",EXPR_SJ,1,"setjmp(jmp_buf)"),
 	REGKEY("longjmp",EXPR_LJ,2,"longjmp(jmp_buf,val)"),
+	REGKEY("eval",EXPR_EVAL,2,"eval(ep,input)"),
 	{NULL}
 };
 const struct expr_builtin_symbol expr_symbols[]={
@@ -1354,7 +1347,6 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGMDEPSYM2_NI("str",expr_str,3ul),
 	REGMDEPSYM2_NI("bzero",expr_bzero,2ul),
 	REGMDEPSYM2_NI("contract",expr_bcontract,2ul),
-	REGMDEPSYM2_NI("eval",expr_beval,2ul),
 	REGMDEPSYM2_NI("fry",expr_bfry,2ul),
 	REGMDEPSYM2_NI("memset",expr_memset,3ul),
 	REGMDEPSYM2_NI("mirror",expr_bmirror,2ul),
@@ -2394,6 +2386,21 @@ envp:
 			if(!v0)return NULL;
 			e=p+1;
 			goto vend;
+		case '_':
+			if(e+9>=endp&&memcmp(e+1,"_builtin_",9))
+				break;
+			e+=10;
+			p=expr_getsym(e,endp);
+			if(p==e){
+				if(e<endp&&expr_operator(*e)){
+					*ep->errinfo=*e;
+					ep->error=EXPR_EUO;
+					return NULL;
+				}
+				goto symerr;
+			}
+			type=1;
+			goto builtin;
 		case 'd':
 			if(e+2>endp||e[1]!='o'||e[2]!='{')
 				break;
@@ -2516,14 +2523,34 @@ ecta:
 			break;
 	}
 	p=expr_getsym(e,endp);
-	if(p==e){
-		if(e<endp&&expr_operator(*e)){
-			*ep->errinfo=*e;
-			ep->error=EXPR_EUO;
-			return NULL;
-		}
-		goto symerr;
+	if(asym&&p-e==asymlen&&!memcmp(e,asym,p-e)){
+		v0=expr_newvar(ep);
+		cknp(ep,v0,return NULL);
+		expr_addinput(ep,v0);
+		e=p;
+		goto vend;
 	}
+	if(ep->sset&&(sym.es=expr_symset_search(ep->sset,e,p-e))){
+		type=sym.es->type;
+		switch(type){
+			case EXPR_MDFUNCTION:
+			case EXPR_MDEPFUNCTION:
+				dim=SYMDIM(sym.es);
+			default:
+				break;
+		}
+		sv.sv=&sym.es->un;
+		flag=sym.es->flag;
+		goto found;
+	}else if((sym.ebs=expr_builtin_symbol_search(e,p-e))){
+		type=sym.ebs->type;
+		sv.sv=&sym.ebs->un;
+		dim=sym.ebs->dim;
+		flag=sym.ebs->flag;
+		goto found;
+	}
+	type=0;
+builtin:
 	for(const struct expr_builtin_keyword *kp=expr_keywords;
 			kp->str;++kp){
 		if(p-e!=kp->strlen||memcmp(e,kp->str,p-e))
@@ -2644,6 +2671,27 @@ use_byte:
 				expr_addlj(ep,v0,v1);
 				e=p+1;
 				goto vend;
+			case EXPR_EVAL:
+				sym.vv=expr_sep(ep,e,p-e+1);
+				if(!sym.vv)return NULL;
+				for(un.vv1=sym.vv;*un.vv1;++un.vv1);
+				if(un.vv1-sym.vv!=2){
+					expr_free2(sym.vv);
+					ep->error=EXPR_ENEA;
+					memcpy(ep->errinfo,"eval",mincc(4,EXPR_SYMLEN));
+					return NULL;
+				}
+				v0=expr_scan(ep,sym.vv[1],sym.vv[1]+strlen(sym.vv[1]),asym,asymlen);
+				if(!v0){
+					expr_free2(sym.vv);
+					return NULL;
+				}
+				v1=expr_scan(ep,sym.vv[0],sym.vv[0]+strlen(sym.vv[0]),asym,asymlen);
+				expr_free2(sym.vv);
+				if(!v0)return NULL;
+				expr_addop(ep,v0,v1,EXPR_EVAL,0);
+				e=p+1;
+				goto vend;
 			case BRANCHCASES:
 				if(p+1<endp&&p[1]=='{'){
 					sym.b=alloca(sizeof(struct branch));
@@ -2708,30 +2756,9 @@ vzero:
 		e=p+1;
 		goto vend;
 	}
-	if(asym&&p-e==asymlen&&!memcmp(e,asym,p-e)){
-		v0=expr_newvar(ep);
-		cknp(ep,v0,return NULL);
-		expr_addinput(ep,v0);
-		e=p;
-		goto vend;
-	}
-	if(ep->sset&&(sym.es=expr_symset_search(ep->sset,e,p-e))){
-		type=sym.es->type;
-		switch(type){
-			case EXPR_MDFUNCTION:
-			case EXPR_MDEPFUNCTION:
-				dim=SYMDIM(sym.es);
-			default:
-				break;
-		}
-		sv.sv=&sym.es->un;
-		flag=sym.es->flag;
-	}else if((sym.ebs=expr_builtin_symbol_search(e,p-e))){
-		type=sym.ebs->type;
-		sv.sv=&sym.ebs->un;
-		dim=sym.ebs->dim;
-		flag=sym.ebs->flag;
-	}else goto number;
+	if(type)goto symerr;
+	else goto number;
+found:
 	switch(type){
 		case EXPR_FUNCTION:
 			if(p>=endp||*p!='('){
@@ -4212,6 +4239,7 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 			case BRANCHCASES:
 			case EXPR_DO:
 			case EXPR_EP:
+			case EXPR_EVAL:
 			case EXPR_READ:
 			case EXPR_WRITE:
 			case EXPR_ALO:
@@ -5112,6 +5140,9 @@ double expr_eval(const struct expr *restrict ep,double input){
 				break;
 			case EXPR_EP:
 				*ip->dst.dst=expr_eval(ip->un.hotfunc,input);
+				break;
+			case EXPR_EVAL:
+				*ip->dst.dst=expr_eval(*ip->un.hotfunc2,*ip->dst.dst);
 				break;
 			case EXPR_HOT:
 				*ip->dst.dst=expr_eval(ip->un.hotfunc,*ip->dst.dst);

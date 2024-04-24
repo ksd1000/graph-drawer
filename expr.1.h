@@ -63,6 +63,7 @@ EXPR_ME,
 EXPR_MEP,
 EXPR_VMD,
 EXPR_EP,
+EXPR_EVAL,
 EXPR_HOT,
 EXPR_BLP,
 EXPR_ZAP,
@@ -173,6 +174,7 @@ struct expr_inst {
 		double value;
 		ssize_t zd;
 		struct expr *hotfunc;
+		struct expr **hotfunc2;
 		double (*func)(double);
 		double (**func2)(double);
 		double (*zafunc)(void);

@@ -3798,6 +3798,7 @@ struct expr *new_expr_const(double val){
 }
 static int init_expr8(struct expr *restrict ep,const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,struct expr *parent){
 	double *p;
+	double v;
 	char *ebuf,*r,*p0;
 	/*ep->data=NULL;
 	ep->vars=NULL;
@@ -3830,15 +3831,11 @@ static int init_expr8(struct expr *restrict ep,const char *e,size_t len,const ch
 	}
 	if(!(flag&EXPR_IF_NOOPTIMIZE)){
 		expr_optimize(ep);
-		if(ep->size>1&&ep->vlength>0&&
-		expr_isconst(ep)){
-			p=*ep->vars;
-			*p=expr_eval(ep,0.0);
-			expr_freedata(ep->data,ep->size);
-			ep->data=NULL;
-			ep->size=0;
-			ep->length=0;
-			expr_addend(ep,p);
+		if(expr_isconst(ep)){
+			v=expr_eval(ep,0.0);
+			expr_free(ep);
+			if(init_expr_const(ep,v)<0)
+				return -1;;
 		}
 	}
 	if(flag&EXPR_IF_INSTANT_FREE){

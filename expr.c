@@ -3797,8 +3797,10 @@ struct expr *new_expr_const(double val){
 	return r;
 }
 static int init_expr8(struct expr *restrict ep,const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,struct expr *parent){
-	double *p;
-	double v;
+	union {
+		double *p;
+		double v;
+	} un;
 	char *ebuf,*r,*p0;
 	/*ep->data=NULL;
 	ep->vars=NULL;
@@ -3815,14 +3817,14 @@ static int init_expr8(struct expr *restrict ep,const char *e,size_t len,const ch
 		p0=xmalloc_nullable(len+1);
 		ebuf=p0?p0:alloca(len+1);
 		r=expr_stpcpy_nospace(ebuf,e,e+len);
-		p=expr_scan(ep,ebuf,r,asym,asym?asymlen:0);
+		un.p=expr_scan(ep,ebuf,r,asym,asym?asymlen:0);
 		if(p0)xfree(p0);
 		if(ep->sset_shouldfree){
 			expr_symset_free(ep->sset);
 			ep->sset=esp;
 		}
-		if(p){
-			expr_addend(ep,p);
+		if(un.p){
+			expr_addend(ep,un.p);
 		}else {
 			expr_free(ep);
 			ep->errinfo[EXPR_SYMLEN-1]=0;
@@ -3832,10 +3834,10 @@ static int init_expr8(struct expr *restrict ep,const char *e,size_t len,const ch
 	if(!(flag&EXPR_IF_NOOPTIMIZE)){
 		expr_optimize(ep);
 		if(expr_isconst(ep)){
-			v=expr_eval(ep,0.0);
+			un.v=expr_eval(ep,0.0);
 			expr_free(ep);
-			if(init_expr_const(ep,v)<0)
-				return -1;;
+			if(init_expr_const(ep,un.v)<0)
+				return -1;
 		}
 	}
 	if(flag&EXPR_IF_INSTANT_FREE){

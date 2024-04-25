@@ -2706,6 +2706,7 @@ c_fail:
 					memcpy(ep->errinfo,sym.vv[0],minc(dim,EXPR_SYMLEN));
 					goto c_fail;
 				}else switch(sv.es->type){
+					case EXPR_CONSTANT:
 					case EXPR_VARIABLE:
 						break;
 					default:

@@ -113,6 +113,8 @@ EXPR_END
 #define EXPR_SF_WRITEIP 2
 #define EXPR_SF_PMD 4
 #define EXPR_SF_PME 8
+#define EXPR_SF_PEP 12
+#define EXPR_SF_PMASK (~12)
 //expr initial flag
 #define EXPR_IF_NOOPTIMIZE 1
 #define EXPR_IF_INSTANT_FREE 2
@@ -172,6 +174,7 @@ struct expr_inst {
 	union {
 		double *dst;
 		int64_t *idst;
+		void *uaddr;
 		struct expr_rawdouble *rdst;
 		double (**md2)(size_t,double *);
 		double (**me2)(size_t,

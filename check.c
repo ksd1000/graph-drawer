@@ -72,6 +72,7 @@ const struct proj {
 	{"(127+127)&~127",128},
 	{"asint(t#(128*2)#1)",257},
 	{"asint(0#(128*2)#1)",257},
+	{"static_assert(e>2.71)",1},
 	{NULL}
 
 };
@@ -100,6 +101,12 @@ const struct eproj {
 	{"5-->t",EXPR_EDS},
 	{"vmd(k,1,10,1,k,cmp,0)",EXPR_EVMD},
 	{"med({1..1000000000000000})",EXPR_EMEM},
+	{"5-->v,&v[2]c",EXPR_EUSN},
+	{"5-->v,&v[2]7",EXPR_EUSN},
+	{"alloca(t,exp(t))",EXPR_ENC},
+	{"static_assert(t>=2.72)",EXPR_ENC},
+	{"&e",EXPR_ECTA},
+	{"static_assert(e>=2.72)",EXPR_ESAF},
 	{NULL}
 };
 void errcheck(const char *e,int expect){

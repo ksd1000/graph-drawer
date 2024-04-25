@@ -250,6 +250,7 @@ struct expr_resource {
 struct expr {
 	struct expr_inst *data;
 	struct expr_inst *ip;
+	struct expr *parent;
 	double **vars;
 	struct expr_symset *sset;
 	struct expr_resource *res,*tail;

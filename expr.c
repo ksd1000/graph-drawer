@@ -3782,6 +3782,7 @@ static char *expr_stpcpy_nospace(char *restrict s1,const char *restrict s2,const
 }
 
 static int expr_usesrc(enum expr_op op);
+/*
 static void expr_remove_unused_vars(struct expr *restrict ep){
 	size_t i,ci;
 	double *v;
@@ -3811,6 +3812,8 @@ force_continue:
 	}
 	ep->vsize=ci;
 }
+a bug cannot fix
+*/
 static void expr_optimize(struct expr *restrict ep);
 static int expr_constexpr(const struct expr *restrict ep,double *except);
 int expr_isconst(const struct expr *restrict ep){
@@ -3886,7 +3889,7 @@ static int init_expr8(struct expr *restrict ep,const char *e,size_t len,const ch
 	if(flag&EXPR_IF_INSTANT_FREE){
 		expr_free(ep);
 	}
-	expr_remove_unused_vars(ep);
+	//expr_remove_unused_vars(ep);
 	return 0;
 }
 int init_expr7(struct expr *restrict ep,const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag){

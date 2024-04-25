@@ -1216,6 +1216,7 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGCSYM(EXPR_SF_WRITEIP),
 	REGCSYM(EXPR_SF_PMD),
 	REGCSYM(EXPR_SF_PME),
+	REGCSYM(EXPR_SF_PEP),
 	REGCSYM(FLT_MAX),
 	REGCSYM(FLT_MIN),
 	REGCSYM(FLT_EPSILON),
@@ -2955,22 +2956,34 @@ treat_as_variable:
 			p2=e;
 			e=p;
 			if(e<endp&&*e=='('){
-				if(flag&EXPR_SF_PMD){
-					p=expr_findpair(e,endp);
-					if(!p)goto pterr;
-					un.em=expr_getmdinfo(ep,p2,e-p2,e,p-e+1,asym,asymlen,NULL,0,0);
-					if(!un.em)return NULL;
-					expr_addop(ep,v0,un.em,EXPR_PMD,0);
-					e=p+1;
-					break;
-				}else if(flag&EXPR_SF_PME){
-					p=expr_findpair(e,endp);
-					if(!p)goto pterr;
-					un.em=expr_getmdinfo(ep,p2,e-p2,e,p-e+1,asym,asymlen,NULL,0,1+!!(flag&EXPR_SF_WRITEIP));
-					if(!un.em)return NULL;
-					expr_addop(ep,v0,un.em,(flag&EXPR_SF_WRITEIP)?EXPR_PMEP:EXPR_PME,0);
-					e=p+1;
-					break;
+				switch(flag&~EXPR_SF_PMASK){
+					case EXPR_SF_PMD:
+						p=expr_findpair(e,endp);
+						if(!p)goto pterr;
+						un.em=expr_getmdinfo(ep,p2,e-p2,e,p-e+1,asym,asymlen,NULL,0,0);
+						if(!un.em)return NULL;
+						expr_addop(ep,v0,un.em,EXPR_PMD,0);
+						e=p+1;
+						goto vend;
+					case EXPR_SF_PME:
+						p=expr_findpair(e,endp);
+						if(!p)goto pterr;
+						un.em=expr_getmdinfo(ep,p2,e-p2,e,p-e+1,asym,asymlen,NULL,0,1+!!(flag&EXPR_SF_WRITEIP));
+						if(!un.em)return NULL;
+						expr_addop(ep,v0,un.em,(flag&EXPR_SF_WRITEIP)?EXPR_PMEP:EXPR_PME,0);
+						e=p+1;
+						goto vend;
+					case EXPR_SF_PEP:
+						p=expr_findpair(e,endp);
+						if(!p)goto pterr;
+						v1=expr_scan(ep,e+1,p,asym,asymlen);
+						if(!v1)return NULL;
+						expr_addop(ep,v1,v0,EXPR_EVAL,0);
+						e=p+1;
+						v0=v1;
+						goto vend;
+					default:
+						break;
 				}
 				if(e+1<endp&&e[1]==')'){
 					v1=expr_newvar(ep);
@@ -3767,6 +3780,37 @@ static char *expr_stpcpy_nospace(char *restrict s1,const char *restrict s2,const
 	*s1=0;
 	return s1;
 }
+
+static int expr_usesrc(enum expr_op op);
+static void expr_remove_unused_vars(struct expr *restrict ep){
+	size_t i,ci;
+	double *v;
+	for(i=0;i<ep->vsize;++i){
+		v=ep->vars[i];
+		for(struct expr_inst *ip=ep->data;;++ip){
+			if(ip->dst.uaddr==v||
+			(expr_usesrc(ip->op)&&ip->un.uaddr==v))
+				goto force_continue;
+			if(ip->op==EXPR_END)
+				break;
+		}
+		free(v);
+		ep->vars[i]=NULL;
+force_continue:
+		continue;
+	}
+	for(i=0,ci=0;i<ep->vsize;++i){
+		if(!ep->vars[i]){
+			continue;
+		}
+		if(ci==i){
+			++ci;
+			continue;
+		}
+		ep->vars[ci++]=ep->vars[i];
+	}
+	ep->vsize=ci;
+}
 static void expr_optimize(struct expr *restrict ep);
 static int expr_constexpr(const struct expr *restrict ep,double *except);
 int expr_isconst(const struct expr *restrict ep){
@@ -3811,7 +3855,7 @@ static int init_expr8(struct expr *restrict ep,const char *e,size_t len,const ch
 	memset(ep,0,sizeof(struct expr));
 	ep->sset=esp;
 	ep->parent=parent;
-	ep->iflag=(short)(flag&~EXPR_IF_EXTEND_MASK);
+	ep->iflag=flag&~EXPR_IF_EXTEND_MASK;
 	if(e){
 		p0=xmalloc_nullable(len+1);
 		ebuf=p0?p0:alloca(len+1);
@@ -3842,6 +3886,7 @@ static int init_expr8(struct expr *restrict ep,const char *e,size_t len,const ch
 	if(flag&EXPR_IF_INSTANT_FREE){
 		expr_free(ep);
 	}
+	expr_remove_unused_vars(ep);
 	return 0;
 }
 int init_expr7(struct expr *restrict ep,const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag){
@@ -3930,20 +3975,7 @@ static void expr_writeconsts(struct expr *restrict ep){
 		}
 	}
 }
-static int expr_usesrc(enum expr_op op){
-	switch(op){
-		case SRCCASES:
-		case EXPR_READ:
-		case EXPR_WRITE:
-		case EXPR_LJ:
-		case EXPR_PBL:
-		case EXPR_PZA:
-		case EXPR_EVAL:
-			return 1;
-		default:
-			return 0;
-	}
-}
+
 
 static void expr_optimize_completed(struct expr *restrict ep){
 	struct expr_inst *cip=ep->data;
@@ -4320,7 +4352,20 @@ static int expr_override(enum expr_op op){
 			return 0;
 	}
 }
-
+static int expr_usesrc(enum expr_op op){
+	switch(op){
+		case SRCCASES:
+		case EXPR_READ:
+		case EXPR_WRITE:
+		case EXPR_LJ:
+		case EXPR_PBL:
+		case EXPR_PZA:
+		case EXPR_EVAL:
+			return 1;
+		default:
+			return 0;
+	}
+}
 
 static int expr_usesum(enum expr_op op){
 	switch(op){
@@ -4654,7 +4699,7 @@ force_continue:
 }
 static int expr_vcheck_ep(struct expr *restrict ep,struct expr_inst *ip0,double *v){
 	if(expr_vused(ip0,v))return 1;
-	for(struct expr_inst *ip=ip0;ip->op!=EXPR_END;++ip){
+	for(struct expr_inst *ip=ip0;;++ip){
 		if(ip->op==EXPR_LJ)return 1;
 		if(expr_usesum(ip->op)&&(
 			expr_vcheck_ep(ip->un.es->fromep,ip->un.es->fromep->data,v)||
@@ -4682,6 +4727,11 @@ static int expr_vcheck_ep(struct expr *restrict ep,struct expr_inst *ip0,double 
 		if(expr_usehot(ip->op)&&(
 			expr_vcheck_ep(ip->un.hotfunc,ip->un.hotfunc->data,v)
 			))return 1;
+		if(ip->op==EXPR_END){
+			if(ip->dst.dst==v)
+				return 1;
+			else break;
+		}
 	}
 	for(struct expr_resource *rp=ep->res;rp;rp=rp->next){
 		if(!rp->un.uaddr)

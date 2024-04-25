@@ -1192,8 +1192,8 @@ const struct expr_builtin_keyword expr_keywords[]={
 	REGKEYSC("dowhile",EXPR_DOW,3,"dowhile(cond,body,value) dowhile(cond){body}[{value}]"),
 	REGKEYSC("if",EXPR_IF,3,"if(cond,if_value,else_value) if(cond){body}[[else]{value}]"),
 	REGKEYSC("vmd",EXPR_VMD,7,"vmd(index_name,start_index,end_index,index_step,element,md_symbol,[constant_expression max_dim])"),
-	REGKEYC("const",EXPR_CONST,2,"const(name,constant_expression value)"),
-	REGKEYC("var",EXPR_MUL,2,"var(name,constant_expression initial_value)"),
+	REGKEYC("const",EXPR_CONST,2,"const(name,[constant_expression value])"),
+	REGKEYC("var",EXPR_MUL,2,"var(name,[constant_expression initial_value])"),
 	REGKEY("double",EXPR_BL,1,"double(constant_expression count)"),
 	REGKEY("byte",EXPR_COPY,1,"byte(constant_expression count)"),
 	REGKEY("jmpbuf",EXPR_INPUT,1,"jmpbuf(constant_expression count)"),
@@ -3824,6 +3824,7 @@ static int init_expr8(struct expr *restrict ep,const char *e,size_t len,const ch
 			expr_addend(ep,p);
 		}else {
 			expr_free(ep);
+			ep->errinfo[EXPR_SYMLEN-1]=0;
 			return -1;
 		}
 	}

@@ -1756,6 +1756,7 @@ static struct expr_resource *expr_newres(struct expr *restrict ep){
 	if(!p->next)return NULL;
 	p=p->next;
 	p->next=NULL;
+	p->type=EXPR_CONSTANT;
 	ep->tail=p;
 	return p;
 }
@@ -2501,7 +2502,6 @@ block:
 			sym.er=expr_newres(ep);
 			cknp(ep,sym.er,xfree(un.uaddr);return NULL);
 			sym.er->un.str=un.uaddr;
-			sym.er->type=EXPR_CONSTANT;
 			v0=expr_newvar(ep);
 			cknp(ep,v0,return NULL);
 			expr_addconst(ep,v0,un.v);
@@ -2736,7 +2736,6 @@ use_byte:
 				un.uaddr=xmalloc_nullable(dim);
 				cknp(ep,un.uaddr,return NULL);
 				sym.er=expr_newres(ep);
-				sym.er->type=EXPR_CONSTANT;
 				cknp(ep,sym.er,xfree(un.uaddr);return NULL);
 				sym.er->un.uaddr=un.uaddr;
 				expr_addconst(ep,v0,un.v);

@@ -404,11 +404,17 @@ uint64_t expr_gcd64(uint64_t x,uint64_t y){
 	}\
 	_x!=0.0?_x:_y;\
 })
+#define lcm2(__x,__y) ({\
+	double _a,_b;\
+	_a=(__x);\
+	_b=(__y);\
+	_a*_b/gcd2(_a,_b);\
+})
 double expr_gcd2(double x,double y){
 	return gcd2(x,y);
 }
 double expr_lcm2(double x,double y){
-	return x*y/gcd2(x,y);
+	return lcm2(x,y);
 }
 void expr_mirror(double *buf,size_t size){
 	double *out=buf+size-1,swapbuf;
@@ -591,15 +597,10 @@ static double expr_xor(size_t n,double *args){
 	CALMD(xor2);
 }
 static double expr_gcd(size_t n,double *args){
-	double ret=*(args++);
-	while(--n){
-		ret=gcd2(ret,*args);
-		++args;
-	}
-	return ret;
+	CALMD(gcd2);
 }
 static double expr_lcm(size_t n,double *args){
-	CALMD(expr_lcm2);
+	CALMD(lcm2);
 }
 static double expr_add(size_t n,double *args){
 	CALMD(expr_add2);
@@ -4558,7 +4559,7 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 			CALSUM(EXPR_ORN,sum=sum!=0.0?or2(sum,y):y,sum=0.0,sum,dest);\
 			CALSUM(EXPR_XORN,sum=sum!=0.0?xor2(sum,y):y,sum=0.0,sum,dest);\
 			CALSUM(EXPR_GCDN,sum=sum!=DBL_MAX?gcd2(sum,y):y,sum=DBL_MAX,sum,dest);\
-			CALSUM(EXPR_LCMN,sum=sum!=1.0?expr_lcm2(sum,y):y,sum=1.0,sum,dest);\
+			CALSUM(EXPR_LCMN,sum=sum!=1.0?lcm2(sum,y):y,sum=1.0,sum,dest);\
 \
 			case EXPR_FOR:\
 				ip->un.es->index=\

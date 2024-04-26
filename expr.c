@@ -101,6 +101,77 @@
 #define HOTCASES EXPR_DO:\
 		case EXPR_HOT:\
 		case EXPR_EP
+#define expr_equal(_a,_b) ({\
+	double a,b,absa,absb,absamb;\
+	int _r;\
+	a=(_a);\
+	b=(_b);\
+	absa=a<0.0?-a:a;\
+	absb=b<0.0?-b:b;\
+	absamb=a<b?b-a:a-b;\
+	if(absa>absb){\
+		if(absa<=1.0)\
+			_r=(absamb<=DBL_EPSILON);\
+		else\
+			_r=(absamb<=DBL_EPSILON*absa);\
+	}else {\
+		if(absb<=1.0)\
+			_r=(absamb<=DBL_EPSILON);\
+		else\
+			_r=(absamb<=DBL_EPSILON*absb);\
+	}\
+	_r;\
+})
+#define expr_space(c) ({\
+	int _r;\
+	switch(c){\
+		case '\t':\
+		case '\r':\
+		case '\v':\
+		case '\f':\
+		case '\n':\
+		case '\b':\
+		case ' ':\
+			_r=1;\
+			break;\
+		default:\
+			_r=0;\
+			break;\
+	}\
+	_r;\
+})
+#define expr_operator(c) ({\
+	int _r;\
+	switch(c){\
+		case '+':\
+		case '-':\
+		case '*':\
+		case '/':\
+		case '%':\
+		case '^':\
+		case '(':\
+		case ')':\
+		case ',':\
+		case ';':\
+		case '<':\
+		case '>':\
+		case '=':\
+		case '!':\
+		case '&':\
+		case '|':\
+		case '#':\
+		case '[':\
+		case ']':\
+		case '{':\
+		case '}':\
+			_r=1;\
+			break;\
+		default:\
+			_r=0;\
+			break;\
+	}\
+	_r;\
+})
 struct expr_jmpbuf {
 	struct expr_inst **ipp;
 	struct expr_inst *ip;
@@ -135,63 +206,8 @@ const char *expr_error(int error){
 			return eerror[error];
 	}
 }
-static __attribute__((always_inline)) int expr_equal(double a,double b){
-	double absa,absb,absamb;
-	absa=a<0.0?-a:a;
-	absb=b<0.0?-b:b;
-	absamb=a<b?b-a:a-b;
-	if(absa>absb){
-		if(absa<=1.0)
-			return absamb<=DBL_EPSILON;
-		return absamb<=DBL_EPSILON*absa;
-	}else {
-		if(absb<=1.0)
-			return absamb<=DBL_EPSILON;
-		return absamb<=DBL_EPSILON*absb;
-	}
-}
-static int expr_space(char c){
-	switch(c){
-		case '\t':
-		case '\r':
-		case '\v':
-		case '\f':
-		case '\n':
-		case '\b':
-		case ' ':
-			return 1;
-		default:
-			return 0;
-	}
-}
-static int expr_operator(char c){
-	switch(c){
-		case '+':
-		case '-':
-		case '*':
-		case '/':
-		case '%':
-		case '^':
-		case '(':
-		case ')':
-		case ',':
-		case ';':
-		case '<':
-		case '>':
-		case '=':
-		case '!':
-		case '&':
-		case '|':
-		case '#':
-		case '[':
-		case ']':
-		case '{':
-		case '}':
-			return 1;
-		default:
-			return 0;
-	}
-}
+
+
 //static const char spaces[]={" \t\r\f\n\v"};
 //static const char special[]={"+-*/%^(),;<>=!&|"};
 
@@ -358,14 +374,14 @@ void expr_fry(double *v,size_t n){
 		}
 	}
 }
-struct dnode {
-	struct dnode *lt,*gt;
-	size_t eq;
-	double val;
-};
+
 __attribute__((noinline))
 void *expr_sort3(double *restrict v,size_t n,void *(*allocator)(size_t)){
-	struct dnode *top,*dnp,*d0,**sp;
+	struct dnode {
+		struct dnode *lt,*gt;
+		size_t eq;
+		double val;
+	} *top,*dnp,*d0,**sp;
 	double *restrict p;
 	double *endp=v+n;
 	size_t depth,dep;
@@ -444,8 +460,11 @@ no_gt:
 			continue;
 		}
 	}
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wreturn-local-addr"
 	return d0;//return for free
 }
+#pragma GCC diagnostic pop
 void expr_sort_old(double *restrict v,size_t n){
 	double swapbuf;
 	for(size_t i=0;i<n;++i){
@@ -472,24 +491,75 @@ void expr_sort(double *v,size_t n){
 }
 #define LOGIC(a,b,_s) (((a)!=0.0) _s ((b)!=0.0))
 #define LOGIC_BIT(a,b,_op_cal,_op_zero,_zero_val) \
-	if(expdiff>52L)\
-		return EXPR_EDSIGN(&a) _op_zero EXPR_EDSIGN(&b)?-( _zero_val):(_zero_val);\
-	x2=(EXPR_EDBASE(&b)|(1UL<<52UL))>>expdiff;\
-	x1=EXPR_EDBASE(&a)|(1UL<<52UL);\
-	x1 _op_cal x2;\
-	if(x1){\
-		x2=63UL-__builtin_clzl(x1);\
-		x1&=~(1UL<<x2);\
-		x2=52UL-x2;\
-		if(EXPR_EDEXP(&a)<x2)\
-			return EXPR_EDSIGN(&a) _op_zero EXPR_EDSIGN(&b)?-( _zero_val):(_zero_val);\
-		EXPR_EDBASE(&a)=x1<<x2;\
-		EXPR_EDEXP(&a)-=x2;\
+	if(expdiff>52L){\
+		r=EXPR_EDSIGN(&a) _op_zero EXPR_EDSIGN(&b)?-( _zero_val):(_zero_val);\
 	}else {\
-		a=EXPR_EDSIGN(&a)?-0.0:0.0;\
+		x2=(EXPR_EDBASE(&b)|(1UL<<52UL))>>expdiff;\
+		x1=EXPR_EDBASE(&a)|(1UL<<52UL);\
+		x1 _op_cal x2;\
+		if(x1){\
+			x2=63UL-__builtin_clzl(x1);\
+			x1&=~(1UL<<x2);\
+			x2=52UL-x2;\
+			if(EXPR_EDEXP(&a)<x2){\
+				r=EXPR_EDSIGN(&a) _op_zero EXPR_EDSIGN(&b)?-( _zero_val):(_zero_val);\
+			}else {\
+				EXPR_EDBASE(&a)=x1<<x2;\
+				EXPR_EDEXP(&a)-=x2;\
+				EXPR_EDSIGN(&a) _op_cal EXPR_EDSIGN(&b);\
+				r=a;\
+			}\
+		}else {\
+			r=EXPR_EDSIGN(&a)?-0.0:0.0;\
+			EXPR_EDSIGN(&r) _op_cal EXPR_EDSIGN(&b);\
+		}\
+	}
+#define expr_and2(_a,_b) ({\
+	uint64_t x2,x1;\
+	int64_t expdiff;\
+	double a,b,r;\
+	a=(_a);\
+	b=(_b);\
+	expdiff=EXPR_EDEXP(&a)-EXPR_EDEXP(&b);\
+	if(expdiff<0L){\
+		expdiff=-expdiff;\
+		LOGIC_BIT(b,a,&=,&&,0.0);\
+	}else {\
+		LOGIC_BIT(a,b,&=,&&,0.0);\
 	}\
-	EXPR_EDSIGN(&a) _op_cal EXPR_EDSIGN(&b);\
-	return a
+	r;\
+})
+#define expr_or2(_a,_b) ({\
+	uint64_t x2,x1;\
+	int64_t expdiff;\
+	double a,b,r;\
+	a=(_a);\
+	b=(_b);\
+	expdiff=EXPR_EDEXP(&a)-EXPR_EDEXP(&b);\
+	if(expdiff<0L){\
+		expdiff=-expdiff;\
+		LOGIC_BIT(b,a,|=,||,b>=0.0?b:-b);\
+	}else {\
+		LOGIC_BIT(a,b,|=,||,a>=0.0?a:-a);\
+	}\
+	r;\
+})
+#define expr_xor2(_a,_b) ({\
+	uint64_t x2,x1;\
+	int64_t expdiff;\
+	double a,b,r;\
+	a=(_a);\
+	b=(_b);\
+	expdiff=EXPR_EDEXP(&a)-EXPR_EDEXP(&b);\
+	if(expdiff<0L){\
+		expdiff=-expdiff;\
+		LOGIC_BIT(b,a,^=,^,b>=0.0?b:-b);\
+	}else {\
+		LOGIC_BIT(a,b,^=,^,a>=0.0?a:-a);\
+	}\
+	r;\
+})
+/*
 double expr_and2(double a,double b){
 	uint64_t x2,x1;
 	int64_t expdiff=EXPR_EDEXP(&a)-EXPR_EDEXP(&b);
@@ -517,6 +587,7 @@ double expr_xor2(double a,double b){
 	}
 	LOGIC_BIT(a,b,^=,^,a>=0.0?a:-a);
 }
+*/
 #define expr_add2(a,b) ((a)+(b))
 #define expr_mul2(a,b) ((a)*(b))
 #define CALMD(_symbol)\
@@ -787,7 +858,7 @@ static double expr_serrno(double x){
 	return x;
 }
 #define RMEM(sym,type)\
-static double sym(double x){\
+static double expr_r##sym(double x){\
 	union {\
 		type *r;\
 		double dr;\
@@ -796,7 +867,7 @@ static double sym(double x){\
 	return (double)*un.r;\
 }
 #define ZMEM(sym,type)\
-static double sym(double x){\
+static double expr_z##sym(double x){\
 	union {\
 		type *r;\
 		double dr;\
@@ -806,7 +877,7 @@ static double sym(double x){\
 	return 0.0;\
 }
 #define WMEM(sym,type)\
-static double sym(size_t n,const struct expr *args,double input){\
+static double expr_w##sym(size_t n,const struct expr *args,double input){\
 	union {\
 		type *r;\
 		double dr;\
@@ -817,54 +888,54 @@ static double sym(size_t n,const struct expr *args,double input){\
 	*un.r=(type)v;\
 	return v;\
 }
-RMEM(expr_r8,int8_t)
-RMEM(expr_r16,int16_t)
-RMEM(expr_r32,int32_t)
-RMEM(expr_r64,int64_t)
-RMEM(expr_rm,intmax_t)
-RMEM(expr_rp,intptr_t)
-RMEM(expr_rz,ssize_t)
-RMEM(expr_r8u,uint8_t)
-RMEM(expr_r16u,uint16_t)
-RMEM(expr_r32u,uint32_t)
-RMEM(expr_r64u,uint64_t)
-RMEM(expr_rmu,uintmax_t)
-RMEM(expr_rpu,uintptr_t)
-RMEM(expr_rzu,size_t)
-RMEM(expr_rf,float)
-RMEM(expr_rl,long double)
-ZMEM(expr_z8,int8_t)
-ZMEM(expr_z16,int16_t)
-ZMEM(expr_z32,int32_t)
-ZMEM(expr_z64,int64_t)
-ZMEM(expr_zm,intmax_t)
-ZMEM(expr_zp,intptr_t)
-ZMEM(expr_zz,ssize_t)
-ZMEM(expr_z8u,uint8_t)
-ZMEM(expr_z16u,uint16_t)
-ZMEM(expr_z32u,uint32_t)
-ZMEM(expr_z64u,uint64_t)
-ZMEM(expr_zmu,uintmax_t)
-ZMEM(expr_zpu,uintptr_t)
-ZMEM(expr_zzu,size_t)
-ZMEM(expr_zf,float)
-ZMEM(expr_zl,long double)
-WMEM(expr_w8,int8_t)
-WMEM(expr_w16,int16_t)
-WMEM(expr_w32,int32_t)
-WMEM(expr_w64,int64_t)
-WMEM(expr_wm,intmax_t)
-WMEM(expr_wp,intptr_t)
-WMEM(expr_wz,ssize_t)
-WMEM(expr_w8u,uint8_t)
-WMEM(expr_w16u,uint16_t)
-WMEM(expr_w32u,uint32_t)
-WMEM(expr_w64u,uint64_t)
-WMEM(expr_wmu,uintmax_t)
-WMEM(expr_wpu,uintptr_t)
-WMEM(expr_wzu,size_t)
-WMEM(expr_wf,float)
-WMEM(expr_wl,long double)
+RMEM(8,int8_t)
+RMEM(16,int16_t)
+RMEM(32,int32_t)
+RMEM(64,int64_t)
+RMEM(m,intmax_t)
+RMEM(p,intptr_t)
+RMEM(z,ssize_t)
+RMEM(8u,uint8_t)
+RMEM(16u,uint16_t)
+RMEM(32u,uint32_t)
+RMEM(64u,uint64_t)
+RMEM(mu,uintmax_t)
+RMEM(pu,uintptr_t)
+RMEM(zu,size_t)
+RMEM(f,float)
+RMEM(l,long double)
+ZMEM(8,int8_t)
+ZMEM(16,int16_t)
+ZMEM(32,int32_t)
+ZMEM(64,int64_t)
+ZMEM(m,intmax_t)
+ZMEM(p,intptr_t)
+ZMEM(z,ssize_t)
+ZMEM(8u,uint8_t)
+ZMEM(16u,uint16_t)
+ZMEM(32u,uint32_t)
+ZMEM(64u,uint64_t)
+ZMEM(mu,uintmax_t)
+ZMEM(pu,uintptr_t)
+ZMEM(zu,size_t)
+ZMEM(f,float)
+ZMEM(l,long double)
+WMEM(8,int8_t)
+WMEM(16,int16_t)
+WMEM(32,int32_t)
+WMEM(64,int64_t)
+WMEM(m,intmax_t)
+WMEM(p,intptr_t)
+WMEM(z,ssize_t)
+WMEM(8u,uint8_t)
+WMEM(16u,uint16_t)
+WMEM(32u,uint32_t)
+WMEM(64u,uint64_t)
+WMEM(mu,uintmax_t)
+WMEM(pu,uintptr_t)
+WMEM(zu,size_t)
+WMEM(f,float)
+WMEM(l,long double)
 #define REGRMEM(s) REGFSYM2_NI("r" #s,expr_r##s)
 #define REGZMEM(s) REGFSYM2_NI("z" #s,expr_z##s)
 #define REGWMEM(s) REGMDEPSYM2_NI("w" #s,expr_w##s,2ul)
@@ -873,14 +944,6 @@ static double expr_dexp(double x){
 }
 static double expr_dbase(double x){
 	return (double)EXPR_EDBASE(&x);
-}
-static double expr_next(double x){
-	++((struct s_eb*)&x)->eb;
-	return x;
-}
-static double expr_prev(double x){
-	--((struct s_eb*)&x)->eb;
-	return x;
 }
 static double expr_frame(void){
 	union {
@@ -1296,8 +1359,6 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGFSYM(log2),
 	REGFSYM(logb),
 	REGFSYM(nearbyint),
-	REGFSYM2("next",expr_next),
-	REGFSYM2("prev",expr_prev),
 	REGFSYM2("popcount",expr_popcount),
 	REGFSYM2("popcountb",expr_popcountb),
 	REGFSYM2("popcounte",expr_popcounte),

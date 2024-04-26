@@ -172,6 +172,77 @@
 	}\
 	_r;\
 })
+#define LOGIC(a,b,_s) (((a)!=0.0) _s ((b)!=0.0))
+#define LOGIC_BIT(_a,_b,_op_cal,_op_zero,_zero_val) \
+	if(_expdiff>52L){\
+		_r=EXPR_EDSIGN(&_a) _op_zero EXPR_EDSIGN(&_b)?-( _zero_val):(_zero_val);\
+	}else {\
+		_x2=(EXPR_EDBASE(&_b)|(1UL<<52UL))>>_expdiff;\
+		_x1=EXPR_EDBASE(&_a)|(1UL<<52UL);\
+		_x1 _op_cal _x2;\
+		if(_x1){\
+			_x2=63UL-__builtin_clzl(_x1);\
+			_x1&=~(1UL<<_x2);\
+			_x2=52UL-_x2;\
+			if(EXPR_EDEXP(&_a)<_x2){\
+				_r=EXPR_EDSIGN(&_a) _op_zero EXPR_EDSIGN(&_b)?-( _zero_val):(_zero_val);\
+			}else {\
+				EXPR_EDBASE(&_a)=_x1<<_x2;\
+				EXPR_EDEXP(&_a)-=_x2;\
+				EXPR_EDSIGN(&_a) _op_cal EXPR_EDSIGN(&_b);\
+				_r=_a;\
+			}\
+		}else {\
+			_r=EXPR_EDSIGN(&_a)?-0.0:0.0;\
+			EXPR_EDSIGN(&_r) _op_cal EXPR_EDSIGN(&_b);\
+		}\
+	}
+#define and2(__a,__b) ({\
+	uint64_t _x2,_x1;\
+	int64_t _expdiff;\
+	double _a,_b,_r;\
+	_a=(__a);\
+	_b=(__b);\
+	_expdiff=EXPR_EDEXP(&_a)-EXPR_EDEXP(&_b);\
+	if(_expdiff<0L){\
+		_expdiff=-_expdiff;\
+		LOGIC_BIT(_b,_a,&=,&&,0.0);\
+	}else {\
+		LOGIC_BIT(_a,_b,&=,&&,0.0);\
+	}\
+	_r;\
+})
+#define or2(__a,__b) ({\
+	uint64_t _x2,_x1;\
+	int64_t _expdiff;\
+	double _a,_b,_r;\
+	_a=(__a);\
+	_b=(__b);\
+	_expdiff=EXPR_EDEXP(&_a)-EXPR_EDEXP(&_b);\
+	if(_expdiff<0L){\
+		_expdiff=-_expdiff;\
+		LOGIC_BIT(_b,_a,|=,||,_b>=0.0?_b:-_b);\
+	}else {\
+		LOGIC_BIT(_a,_b,|=,||,_a>=0.0?_a:-_a);\
+	}\
+	_r;\
+})
+#define xor2(__a,__b) ({\
+	uint64_t _x2,_x1;\
+	int64_t _expdiff;\
+	double _a,_b,_r;\
+	_a=(__a);\
+	_b=(__b);\
+	_expdiff=EXPR_EDEXP(&_a)-EXPR_EDEXP(&_b);\
+	if(_expdiff<0L){\
+		_expdiff=-_expdiff;\
+		LOGIC_BIT(_b,_a,^=,^,_b>=0.0?_b:-_b);\
+	}else {\
+		LOGIC_BIT(_a,_b,^=,^,_a>=0.0?_a:-_a);\
+	}\
+	_r;\
+})
+#define not(_x) xor2(9007199254740991.0/* 2^53-1*/,(_x))
 struct expr_jmpbuf {
 	struct expr_inst **ipp;
 	struct expr_inst *ip;
@@ -206,13 +277,7 @@ const char *expr_error(int error){
 			return eerror[error];
 	}
 }
-
-
-//static const char spaces[]={" \t\r\f\n\v"};
-//static const char special[]={"+-*/%^(),;<>=!&|"};
-
 //#define MEMORY_LEAK_CHECK
-
 #ifdef MEMORY_LEAK_CHECK
 static volatile _Atomic int count=0;
 static void __attribute__((destructor)) show(void){
@@ -489,76 +554,7 @@ void expr_sort(double *v,size_t n){
 			return;
 	}
 }
-#define LOGIC(a,b,_s) (((a)!=0.0) _s ((b)!=0.0))
-#define LOGIC_BIT(_a,_b,_op_c_al,_op_zero,_zero_v_al) \
-	if(expdiff>52L){\
-		r=EXPR_EDSIGN(&_a) _op_zero EXPR_EDSIGN(&_b)?-( _zero_v_al):(_zero_v_al);\
-	}else {\
-		x2=(EXPR_EDBASE(&_b)|(1UL<<52UL))>>expdiff;\
-		x1=EXPR_EDBASE(&_a)|(1UL<<52UL);\
-		x1 _op_c_al x2;\
-		if(x1){\
-			x2=63UL-__builtin_clzl(x1);\
-			x1&=~(1UL<<x2);\
-			x2=52UL-x2;\
-			if(EXPR_EDEXP(&_a)<x2){\
-				r=EXPR_EDSIGN(&_a) _op_zero EXPR_EDSIGN(&_b)?-( _zero_v_al):(_zero_v_al);\
-			}else {\
-				EXPR_EDBASE(&_a)=x1<<x2;\
-				EXPR_EDEXP(&_a)-=x2;\
-				EXPR_EDSIGN(&_a) _op_c_al EXPR_EDSIGN(&_b);\
-				r=_a;\
-			}\
-		}else {\
-			r=EXPR_EDSIGN(&_a)?-0.0:0.0;\
-			EXPR_EDSIGN(&r) _op_c_al EXPR_EDSIGN(&_b);\
-		}\
-	}
-#define and2(__a,__b) ({\
-	uint64_t x2,x1;\
-	int64_t expdiff;\
-	double _a,_b,r;\
-	_a=(__a);\
-	_b=(__b);\
-	expdiff=EXPR_EDEXP(&_a)-EXPR_EDEXP(&_b);\
-	if(expdiff<0L){\
-		expdiff=-expdiff;\
-		LOGIC_BIT(_b,_a,&=,&&,0.0);\
-	}else {\
-		LOGIC_BIT(_a,_b,&=,&&,0.0);\
-	}\
-	r;\
-})
-#define or2(__a,__b) ({\
-	uint64_t x2,x1;\
-	int64_t expdiff;\
-	double _a,_b,r;\
-	_a=(__a);\
-	_b=(__b);\
-	expdiff=EXPR_EDEXP(&_a)-EXPR_EDEXP(&_b);\
-	if(expdiff<0L){\
-		expdiff=-expdiff;\
-		LOGIC_BIT(_b,_a,|=,||,_b>=0.0?_b:-_b);\
-	}else {\
-		LOGIC_BIT(_a,_b,|=,||,_a>=0.0?_a:-_a);\
-	}\
-	r;\
-})
-#define xor2(__a,__b) ({\
-	uint64_t x2,x1;\
-	int64_t expdiff;\
-	double _a,_b,r;\
-	_a=(__a);\
-	_b=(__b);\
-	expdiff=EXPR_EDEXP(&_a)-EXPR_EDEXP(&_b);\
-	if(expdiff<0L){\
-		expdiff=-expdiff;\
-		LOGIC_BIT(_b,_a,^=,^,_b>=0.0?_b:-_b);\
-	}else {\
-		LOGIC_BIT(_a,_b,^=,^,_a>=0.0?_a:-_a);\
-	}\
-	r;\
-})
+
 double expr_and2(double x,double y){
 	return and2(x,y);
 }
@@ -567,6 +563,9 @@ double expr_or2(double x,double y){
 }
 double expr_xor2(double x,double y){
 	return xor2(x,y);
+}
+double expr_not(double x){
+	return not(x);
 }
 #define expr_add2(a,b) ((a)+(b))
 #define expr_mul2(a,b) ((a)*(b))
@@ -981,7 +980,6 @@ static double expr_exitif(double x){
 	if(x!=0.0)exit((int)x);
 	return x;
 }
-#define not(x) xor2(9007199254740991.0/* 2^53-1*/,(x))
 static double expr_fact(double x){
 	double sum=1.0;
 	x=floor(x);

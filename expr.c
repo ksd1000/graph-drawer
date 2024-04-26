@@ -490,104 +490,84 @@ void expr_sort(double *v,size_t n){
 	}
 }
 #define LOGIC(a,b,_s) (((a)!=0.0) _s ((b)!=0.0))
-#define LOGIC_BIT(a,b,_op_cal,_op_zero,_zero_val) \
+#define LOGIC_BIT(_a,_b,_op_c_al,_op_zero,_zero_v_al) \
 	if(expdiff>52L){\
-		r=EXPR_EDSIGN(&a) _op_zero EXPR_EDSIGN(&b)?-( _zero_val):(_zero_val);\
+		r=EXPR_EDSIGN(&_a) _op_zero EXPR_EDSIGN(&_b)?-( _zero_v_al):(_zero_v_al);\
 	}else {\
-		x2=(EXPR_EDBASE(&b)|(1UL<<52UL))>>expdiff;\
-		x1=EXPR_EDBASE(&a)|(1UL<<52UL);\
-		x1 _op_cal x2;\
+		x2=(EXPR_EDBASE(&_b)|(1UL<<52UL))>>expdiff;\
+		x1=EXPR_EDBASE(&_a)|(1UL<<52UL);\
+		x1 _op_c_al x2;\
 		if(x1){\
 			x2=63UL-__builtin_clzl(x1);\
 			x1&=~(1UL<<x2);\
 			x2=52UL-x2;\
-			if(EXPR_EDEXP(&a)<x2){\
-				r=EXPR_EDSIGN(&a) _op_zero EXPR_EDSIGN(&b)?-( _zero_val):(_zero_val);\
+			if(EXPR_EDEXP(&_a)<x2){\
+				r=EXPR_EDSIGN(&_a) _op_zero EXPR_EDSIGN(&_b)?-( _zero_v_al):(_zero_v_al);\
 			}else {\
-				EXPR_EDBASE(&a)=x1<<x2;\
-				EXPR_EDEXP(&a)-=x2;\
-				EXPR_EDSIGN(&a) _op_cal EXPR_EDSIGN(&b);\
-				r=a;\
+				EXPR_EDBASE(&_a)=x1<<x2;\
+				EXPR_EDEXP(&_a)-=x2;\
+				EXPR_EDSIGN(&_a) _op_c_al EXPR_EDSIGN(&_b);\
+				r=_a;\
 			}\
 		}else {\
-			r=EXPR_EDSIGN(&a)?-0.0:0.0;\
-			EXPR_EDSIGN(&r) _op_cal EXPR_EDSIGN(&b);\
+			r=EXPR_EDSIGN(&_a)?-0.0:0.0;\
+			EXPR_EDSIGN(&r) _op_c_al EXPR_EDSIGN(&_b);\
 		}\
 	}
-#define expr_and2(_a,_b) ({\
+#define and2(__a,__b) ({\
 	uint64_t x2,x1;\
 	int64_t expdiff;\
-	double a,b,r;\
-	a=(_a);\
-	b=(_b);\
-	expdiff=EXPR_EDEXP(&a)-EXPR_EDEXP(&b);\
+	double _a,_b,r;\
+	_a=(__a);\
+	_b=(__b);\
+	expdiff=EXPR_EDEXP(&_a)-EXPR_EDEXP(&_b);\
 	if(expdiff<0L){\
 		expdiff=-expdiff;\
-		LOGIC_BIT(b,a,&=,&&,0.0);\
+		LOGIC_BIT(_b,_a,&=,&&,0.0);\
 	}else {\
-		LOGIC_BIT(a,b,&=,&&,0.0);\
+		LOGIC_BIT(_a,_b,&=,&&,0.0);\
 	}\
 	r;\
 })
-#define expr_or2(_a,_b) ({\
+#define or2(__a,__b) ({\
 	uint64_t x2,x1;\
 	int64_t expdiff;\
-	double a,b,r;\
-	a=(_a);\
-	b=(_b);\
-	expdiff=EXPR_EDEXP(&a)-EXPR_EDEXP(&b);\
+	double _a,_b,r;\
+	_a=(__a);\
+	_b=(__b);\
+	expdiff=EXPR_EDEXP(&_a)-EXPR_EDEXP(&_b);\
 	if(expdiff<0L){\
 		expdiff=-expdiff;\
-		LOGIC_BIT(b,a,|=,||,b>=0.0?b:-b);\
+		LOGIC_BIT(_b,_a,|=,||,_b>=0.0?_b:-_b);\
 	}else {\
-		LOGIC_BIT(a,b,|=,||,a>=0.0?a:-a);\
+		LOGIC_BIT(_a,_b,|=,||,_a>=0.0?_a:-_a);\
 	}\
 	r;\
 })
-#define expr_xor2(_a,_b) ({\
+#define xor2(__a,__b) ({\
 	uint64_t x2,x1;\
 	int64_t expdiff;\
-	double a,b,r;\
-	a=(_a);\
-	b=(_b);\
-	expdiff=EXPR_EDEXP(&a)-EXPR_EDEXP(&b);\
+	double _a,_b,r;\
+	_a=(__a);\
+	_b=(__b);\
+	expdiff=EXPR_EDEXP(&_a)-EXPR_EDEXP(&_b);\
 	if(expdiff<0L){\
 		expdiff=-expdiff;\
-		LOGIC_BIT(b,a,^=,^,b>=0.0?b:-b);\
+		LOGIC_BIT(_b,_a,^=,^,_b>=0.0?_b:-_b);\
 	}else {\
-		LOGIC_BIT(a,b,^=,^,a>=0.0?a:-a);\
+		LOGIC_BIT(_a,_b,^=,^,_a>=0.0?_a:-_a);\
 	}\
 	r;\
 })
-/*
-double expr_and2(double a,double b){
-	uint64_t x2,x1;
-	int64_t expdiff=EXPR_EDEXP(&a)-EXPR_EDEXP(&b);
-	if(expdiff<0L){
-		expdiff=-expdiff;
-		LOGIC_BIT(b,a,&=,&&,0.0);
-	}
-	LOGIC_BIT(a,b,&=,&&,0.0);
+double expr_and2(double x,double y){
+	return and2(x,y);
 }
-double expr_or2(double a,double b){
-	uint64_t x2,x1;
-	int64_t expdiff=EXPR_EDEXP(&a)-EXPR_EDEXP(&b);
-	if(expdiff<0L){
-		expdiff=-expdiff;
-		LOGIC_BIT(b,a,|=,||,a>=0.0?b:-b);
-	}
-	LOGIC_BIT(a,b,|=,||,a>=0.0?a:-a);
+double expr_or2(double x,double y){
+	return or2(x,y);
 }
-double expr_xor2(double a,double b){
-	uint64_t x2,x1;
-	int64_t expdiff=EXPR_EDEXP(&a)-EXPR_EDEXP(&b);
-	if(expdiff<0L){
-		expdiff=-expdiff;
-		LOGIC_BIT(b,a,^=,^,a>=0.0?b:-b);
-	}
-	LOGIC_BIT(a,b,^=,^,a>=0.0?a:-a);
+double expr_xor2(double x,double y){
+	return xor2(x,y);
 }
-*/
 #define expr_add2(a,b) ((a)+(b))
 #define expr_mul2(a,b) ((a)*(b))
 #define CALMD(_symbol)\
@@ -598,13 +578,13 @@ double expr_xor2(double a,double b){
 	}\
 	return ret
 static double expr_and(size_t n,double *args){
-	CALMD(expr_and2);
+	CALMD(and2);
 }
 static double expr_or(size_t n,double *args){
-	CALMD(expr_or2);
+	CALMD(or2);
 }
 static double expr_xor(size_t n,double *args){
-	CALMD(expr_xor2);
+	CALMD(xor2);
 }
 static double expr_gcd(size_t n,double *args){
 	CALMD(expr_gcd2);
@@ -1001,7 +981,7 @@ static double expr_exitif(double x){
 	if(x!=0.0)exit((int)x);
 	return x;
 }
-#define expr_not(x) expr_xor2(9007199254740991.0/* 2^53-1*/,(x))
+#define not(x) xor2(9007199254740991.0/* 2^53-1*/,(x))
 static double expr_fact(double x){
 	double sum=1.0;
 	x=floor(x);
@@ -4213,13 +4193,13 @@ static void expr_optimize_contmul(struct expr *restrict ep,enum expr_op op){
 					sum=fmod(sum,*ip1->un.src);
 					break;
 				case EXPR_AND:
-					sum=expr_and2(sum,*ip1->un.src);
+					sum=and2(sum,*ip1->un.src);
 					break;
 				case EXPR_OR:
-					sum=expr_or2(sum,*ip1->un.src);
+					sum=or2(sum,*ip1->un.src);
 					break;
 				case EXPR_XOR:
-					sum=expr_xor2(sum,*ip1->un.src);
+					sum=xor2(sum,*ip1->un.src);
 					break;
 				case EXPR_POW:
 					sum=pow(sum,*ip1->un.src);
@@ -4566,9 +4546,9 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 			CALSUM(EXPR_PROD,sum*=y,sum=1.0,1.0/sum,dest);\
 			CALSUM(EXPR_SUP,if(y>sum)sum=y,sum=DBL_MIN,sum,dest);\
 			CALSUM(EXPR_INF,if(y<sum)sum=y,sum=DBL_MAX,sum,dest);\
-			CALSUM(EXPR_ANDN,sum=sum!=DBL_MAX?expr_and2(sum,y):y,sum=DBL_MAX,sum,dest);\
-			CALSUM(EXPR_ORN,sum=sum!=0.0?expr_or2(sum,y):y,sum=0.0,sum,dest);\
-			CALSUM(EXPR_XORN,sum=sum!=0.0?expr_xor2(sum,y):y,sum=0.0,sum,dest);\
+			CALSUM(EXPR_ANDN,sum=sum!=DBL_MAX?and2(sum,y):y,sum=DBL_MAX,sum,dest);\
+			CALSUM(EXPR_ORN,sum=sum!=0.0?or2(sum,y):y,sum=0.0,sum,dest);\
+			CALSUM(EXPR_XORN,sum=sum!=0.0?xor2(sum,y):y,sum=0.0,sum,dest);\
 			CALSUM(EXPR_GCDN,sum=sum!=DBL_MAX?expr_gcd2(sum,y):y,sum=DBL_MAX,sum,dest);\
 			CALSUM(EXPR_LCMN,sum=sum!=1.0?expr_lcm2(sum,y):y,sum=1.0,sum,dest);\
 \
@@ -4871,7 +4851,7 @@ static void expr_optimize_constneg(struct expr *restrict ep){
 					ip1->un.value=-ip1->un.value;
 					break;
 				case EXPR_NOT:
-					ip1->un.value=expr_not(ip1->un.value);
+					ip1->un.value=not(ip1->un.value);
 					break;
 				case EXPR_NOTL:
 					ip1->un.value=(ip1->un.value==0.0)?
@@ -5293,13 +5273,13 @@ double expr_eval(const struct expr *restrict ep,double input){
 				*ip->dst.dst=pow(*ip->dst.dst,*ip->un.src);
 				break;
 			case EXPR_AND:
-				*ip->dst.dst=expr_and2(*ip->dst.dst,*ip->un.src);
+				*ip->dst.dst=and2(*ip->dst.dst,*ip->un.src);
 				break;
 			case EXPR_OR:
-				*ip->dst.dst=expr_or2(*ip->dst.dst,*ip->un.src);
+				*ip->dst.dst=or2(*ip->dst.dst,*ip->un.src);
 				break;
 			case EXPR_XOR:
-				*ip->dst.dst=expr_xor2(*ip->dst.dst,*ip->un.src);
+				*ip->dst.dst=xor2(*ip->dst.dst,*ip->un.src);
 				break;
 			case EXPR_SHL:
 				ip->dst.rdst->exp+=(int64_t)*ip->un.src;
@@ -5320,7 +5300,7 @@ double expr_eval(const struct expr *restrict ep,double input){
 				*ip->dst.dst=-*ip->dst.dst;
 				break;
 			case EXPR_NOT:
-				*ip->dst.dst=expr_not(*ip->dst.dst);
+				*ip->dst.dst=not(*ip->dst.dst);
 				break;
 			case EXPR_NOTL:
 				*ip->dst.dst=(*ip->dst.dst==0.0)?

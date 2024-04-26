@@ -98,7 +98,8 @@
 		case EXPR_WHILE
 #define HOTCASES EXPR_DO:\
 		case EXPR_HOT:\
-		case EXPR_EP
+		case EXPR_EP:\
+		case EXPR_WIF
 #define expr_equal(_a,_b) ({\
 	double a,b,absa,absb,absamb;\
 	int _r;\
@@ -1240,12 +1241,12 @@ const struct expr_builtin_keyword expr_keywords[]={
 	REGKEYSC("lcmn",EXPR_LCMN,5,"lcmn(index_name,start_index,end_index,index_step,element)"),
 	REGKEYSC("for",EXPR_FOR,5,"for(var_name,start_var,cond,body,value)"),
 	REGKEYSC("loop",EXPR_LOOP,5,"loop(var_name,start_var,count,body,value)"),
-	REGKEYSC("while",EXPR_WHILE,3,"while(cond,body,value) while(cond){body}[{value}]"),
-	REGKEYS("do",EXPR_DO,1,"do(body) do{body}"),
-	REGKEYSC("don",EXPR_DON,3,"don(cond,body,value) don(cond){body}[{value}]"),
-	REGKEYSC("dowhile",EXPR_DOW,3,"dowhile(cond,body,value) dowhile(cond){body}[{value}]"),
-	REGKEYSC("if",EXPR_IF,3,"if(cond,if_value,else_value) if(cond){body}[[else]{value}]"),
 	REGKEYSC("vmd",EXPR_VMD,7,"vmd(index_name,start_index,end_index,index_step,element,md_symbol,[constant_expression max_dim])"),
+	REGKEYS("do",EXPR_DO,1,"do(body) do{body}"),
+	REGKEYSC("if",EXPR_IF,3,"if(cond,if_value,else_value) if(cond){body}[[else]{value}]"),
+	REGKEYSC("while",EXPR_WHILE,3,"while(cond,body) while(cond){body}"),
+	REGKEYSC("dowhile",EXPR_DOW,3,"dowhile(cond,body) dowhile(cond){body}"),
+	REGKEYSC("don",EXPR_DON,3,"don(cond,body) don(cond){body}"),
 	REGKEYC("const",EXPR_CONST,2,"const(name,[constant_expression value])"),
 	REGKEYC("var",EXPR_MUL,2,"var(name,[constant_expression initial_value])"),
 	REGKEY("double",EXPR_BL,1,"double(constant_expression count)"),
@@ -2140,7 +2141,10 @@ static struct expr_mdinfo *expr_getmdinfo(struct expr *restrict ep,const char *e
 		i=1;
 	}else {
 		v=expr_sep(ep,e,esz);
-		if(!v)return NULL;
+		if(!v){
+			memcpy(ep->errinfo,e0,sz);
+			return NULL;
+		}
 		p=v;
 		while(*p)++p;
 		i=p-v;
@@ -2238,6 +2242,7 @@ static struct expr_vmdinfo *expr_getvmdinfo(struct expr *restrict ep,const char 
 	ssize_t max;
 	double (*fp)(size_t n,double *args);
 	if(!v){
+		memcpy(ep->errinfo,e0,sz);
 		return NULL;
 	}
 	p=v;
@@ -2327,6 +2332,7 @@ static struct expr_suminfo *expr_getsuminfo(struct expr *restrict ep,const char 
 	struct expr_suminfo *es;
 	struct expr_symset *sset;
 	if(!v){
+		memcpy(ep->errinfo,e0,sz);
 		return NULL;
 	}
 	p=v;
@@ -2382,14 +2388,23 @@ static struct expr_branchinfo *expr_getbranchinfo(struct expr *restrict ep,const
 	char **v=NULL;
 	char **p;
 	struct expr_branchinfo *eb;
+	int dim3;
 	if(b){
 		eb=xmalloc_nullable(sizeof(struct expr_branchinfo));
 		cknp(ep,eb,goto err0);
 	//	while(cond,body,value)
 		eb->cond=new_expr8(b->cond,b->scond,asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo);
 		if(!eb->cond)goto err1;
-		eb->body=new_expr8(b->body,b->sbody,asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo);
-		if(!eb->body)goto err2;
+		if(b->sbody){
+			eb->body=new_expr8(b->body,b->sbody,asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo);
+			if(!eb->body)goto err2;
+		}else {
+			eb->body=new_expr_const(NAN);
+			if(!eb->body){
+				ep->error=EXPR_EMEM;
+				goto err2;
+			}
+		}
 		if(b->svalue){
 			eb->value=new_expr8(b->value,b->svalue,asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo);
 			if(!eb->value)goto err3;
@@ -2404,16 +2419,24 @@ static struct expr_branchinfo *expr_getbranchinfo(struct expr *restrict ep,const
 	}
 	v=expr_sep(ep,e,esz);
 	if(!v){
+		memcpy(ep->errinfo,e0,sz);
 		return NULL;
 	}
 	p=v;
 	while(*p){
 		++p;
 	}
-	if(p-v!=3){
-		memcpy(ep->errinfo,e0,sz);
-		ep->error=EXPR_ENEA;
-		goto err0;
+	switch(p-v){
+		case 3:
+			dim3=1;
+			break;
+		case 2:
+			dim3=0;
+			break;
+		default:
+			memcpy(ep->errinfo,e0,sz);
+			ep->error=EXPR_ENEA;
+			goto err0;
 	}
 	eb=xmalloc_nullable(sizeof(struct expr_branchinfo));
 	cknp(ep,eb,goto err0);
@@ -2422,8 +2445,16 @@ static struct expr_branchinfo *expr_getbranchinfo(struct expr *restrict ep,const
 	if(!eb->cond)goto err1;
 	eb->body=new_expr8(v[1],strlen(v[1]),asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo);
 	if(!eb->body)goto err2;
-	eb->value=new_expr8(v[2],strlen(v[2]),asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo);
-	if(!eb->value)goto err3;
+	if(dim3){
+		eb->value=new_expr8(v[2],strlen(v[2]),asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo);
+		if(!eb->value)goto err3;
+	}else {
+		eb->value=new_expr_const(NAN);
+		if(!eb->value){
+			ep->error=EXPR_EMEM;
+			goto err3;
+		}
+	}
 	expr_free2(v);
 	return eb;
 err3:
@@ -2436,7 +2467,6 @@ err0:
 	if(v)expr_free2(v);
 	return NULL;
 }
-
 static double *expr_scan(struct expr *restrict ep,const char *e,const char *endp,const char *asym,size_t asymlen);
 static double *expr_getvalue(struct expr *restrict ep,const char *e,const char *endp,const char **_p,const char *asym,size_t asymlen){
 	const char *p,*p2;
@@ -2900,6 +2930,14 @@ use_byte:
 							}
 							p+=4;
 						case '{':
+							switch(kp->op){
+								case EXPR_IF:
+									break;
+								default:
+									ep->error=EXPR_EUO;
+									*ep->errinfo='{';
+									return NULL;
+							}
 							e=p;
 							p=expr_findpair_brace(e,endp);
 							if(!p)goto pterr;
@@ -2911,8 +2949,10 @@ vzero:
 						--p;
 						sym.b->svalue=0;
 					}
-					if(!sym.b->scond||!sym.b->sbody)
+					if(!sym.b->scond){
+						memcpy(ep->errinfo,kp->str,minc(kp->strlen,EXPR_SYMLEN));
 						goto envp;
+					}
 					un.eb=expr_getbranchinfo(ep,NULL,0,NULL,0,sym.b,asym,asymlen);
 				}else
 				un.eb=expr_getbranchinfo(ep,p2,e-p2,e,p-e+1,NULL,asym,asymlen);
@@ -4502,6 +4542,7 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 			case BRANCHCASES:
 			case EXPR_DO:
 			case EXPR_EP:
+			case EXPR_WIF:
 			case EXPR_EVAL:
 			case EXPR_READ:
 			case EXPR_WRITE:
@@ -4681,8 +4722,21 @@ static int expr_optimize_constexpr(struct expr *restrict ep){
 				r=1;
 				break;
 			case EXPR_WHILE:
-				if(!expr_constexpr(ip->un.eb->cond,NULL))
+				if(!expr_constexpr(ip->un.eb->cond,NULL)){
+					if(expr_constexpr(ip->un.eb->body,NULL)){
+wif:
+						hep=ip->un.eb->cond;
+						expr_free(ip->un.eb->body);
+						expr_free(ip->un.eb->value);
+						xfree(ip->un.eb);
+						ip->op=EXPR_WIF;
+						ip->un.hotfunc=hep;
+						ip->flag=0;
+						r=1;
+						break;
+					}
 					continue;
+				}
 				if(expr_eval(ip->un.eb->cond,input)!=0.0){
 endless:
 					hep=ip->un.eb->body;
@@ -4713,7 +4767,10 @@ endless:
 				}
 				break;
 			case EXPR_DOW:
-				if(!expr_constexpr(ip->un.eb->cond,NULL))
+				if(!expr_constexpr(ip->un.eb->cond,NULL)){
+					if(expr_constexpr(ip->un.eb->body,NULL))
+						goto wif;
+				}
 					continue;
 				if(expr_eval(ip->un.eb->cond,input)!=0.0)
 					goto endless;
@@ -4738,6 +4795,7 @@ free_eb:
 				r=1;
 			case EXPR_HOT:
 			case EXPR_EP:
+			case EXPR_WIF:
 				if(!expr_constexpr(ip->un.hotfunc,NULL))
 					continue;
 				result=expr_eval(ip->un.hotfunc,input);
@@ -5415,15 +5473,14 @@ double expr_eval(const struct expr *restrict ep,double input){
 			case EXPR_WHILE:
 				while(expr_eval(ip->un.eb->cond,input)!=0.0)
 					expr_eval(ip->un.eb->body,input);
-				*ip->dst.dst=
-				expr_eval(ip->un.eb->value,input);
+				break;
+			case EXPR_WIF:
+				while(expr_eval(ip->un.hotfunc,input)!=0.0);
 				break;
 			case EXPR_DOW:
 				do
 					expr_eval(ip->un.eb->body,input);
 				while(expr_eval(ip->un.eb->cond,input)!=0.0);
-				*ip->dst.dst=
-				expr_eval(ip->un.eb->value,input);
 				break;
 			case EXPR_DO:
 				for(;;)expr_eval(ip->un.hotfunc,input);
@@ -5433,7 +5490,6 @@ double expr_eval(const struct expr *restrict ep,double input){
 					expr_eval(ip->un.eb->body,input);
 					--un.index;
 				}
-				*ip->dst.dst=expr_eval(ip->un.eb->value,input);
 				break;
 			case EXPR_ZA:
 				*ip->dst.dst=ip->un.zafunc();

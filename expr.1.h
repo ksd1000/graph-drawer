@@ -6,6 +6,15 @@
 #define _EXPR_H_
 #include <stdint.h>
 #include <stddef.h>
+#include <stdarg.h>
+#ifdef __unix__
+#include <sys/types.h>
+#else
+#ifndef EXPR_HIDE_SSIZE_WARNING
+#warning "__unix__ is not defined. define ssize_t as ptrdiff_t."
+#endif
+typedef ptrdiff_t ssize_t;
+#endif
 enum expr_op {
 EXPR_COPY=0,
 EXPR_INPUT,

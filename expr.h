@@ -6,6 +6,15 @@
 #define _EXPR_H_
 #include <stdint.h>
 #include <stddef.h>
+#include <stdarg.h>
+#ifdef __unix__
+#include <sys/types.h>
+#else
+#ifndef EXPR_HIDE_SSIZE_WARNING
+#warning "__unix__ is not defined. define ssize_t as ptrdiff_t."
+#endif
+typedef ptrdiff_t ssize_t;
+#endif
 enum expr_op {
 EXPR_COPY=0,
 EXPR_INPUT,
@@ -281,9 +290,10 @@ void expr_fry(double *v,size_t n);
 void *expr_sort3(double *restrict v,size_t n,void *(*allocator)(size_t));
 void expr_sort_old(double *restrict v,size_t n);
 void expr_sort(double *v,size_t n);
-double expr_and2(double a,double b);
-double expr_or2(double a,double b);
-double expr_xor2(double a,double b);
+double expr_and2(double x,double y);
+double expr_or2(double x,double y);
+double expr_xor2(double x,double y);
+double expr_not(double x);
 void expr_contract(void *buf,size_t size);
 __attribute__((noreturn)) void expr_explode(void);
 double expr_isfinite(double x);

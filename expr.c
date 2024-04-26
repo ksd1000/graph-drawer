@@ -3,19 +3,16 @@
  *This is free software: you are free to change and redistribute it.           *
  *******************************************************************************/
 #define _GNU_SOURCE
+#include "expr.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
 #include <string.h>
-#include <stdarg.h>
-#include <stddef.h>
 #include <float.h>
 #include <limits.h>
 #include <err.h>
 #include <errno.h>
 #include <setjmp.h>
-#include "expr.h"
 #define NDEBUG
 #include <assert.h>
 #define printval(x) fprintf(stderr,#x ":%lu\n",x)
@@ -206,9 +203,9 @@
 	_expdiff=EXPR_EDEXP(&_a)-EXPR_EDEXP(&_b);\
 	if(_expdiff<0L){\
 		_expdiff=-_expdiff;\
-		LOGIC_BIT(_b,_a,&=,&&,0.0);\
+		LOGIC_BIT(_b,_a,&=,&&,0.0)\
 	}else {\
-		LOGIC_BIT(_a,_b,&=,&&,0.0);\
+		LOGIC_BIT(_a,_b,&=,&&,0.0)\
 	}\
 	_r;\
 })
@@ -221,9 +218,9 @@
 	_expdiff=EXPR_EDEXP(&_a)-EXPR_EDEXP(&_b);\
 	if(_expdiff<0L){\
 		_expdiff=-_expdiff;\
-		LOGIC_BIT(_b,_a,|=,||,_b>=0.0?_b:-_b);\
+		LOGIC_BIT(_b,_a,|=,||,_b>=0.0?_b:-_b)\
 	}else {\
-		LOGIC_BIT(_a,_b,|=,||,_a>=0.0?_a:-_a);\
+		LOGIC_BIT(_a,_b,|=,||,_a>=0.0?_a:-_a)\
 	}\
 	_r;\
 })
@@ -236,13 +233,14 @@
 	_expdiff=EXPR_EDEXP(&_a)-EXPR_EDEXP(&_b);\
 	if(_expdiff<0L){\
 		_expdiff=-_expdiff;\
-		LOGIC_BIT(_b,_a,^=,^,_b>=0.0?_b:-_b);\
+		LOGIC_BIT(_b,_a,^=,^,_b>=0.0?_b:-_b)\
 	}else {\
-		LOGIC_BIT(_a,_b,^=,^,_a>=0.0?_a:-_a);\
+		LOGIC_BIT(_a,_b,^=,^,_a>=0.0?_a:-_a)\
 	}\
 	_r;\
 })
 #define not(_x) xor2(9007199254740991.0/* 2^53-1*/,(_x))
+
 struct expr_jmpbuf {
 	struct expr_inst **ipp;
 	struct expr_inst *ip;
@@ -394,16 +392,23 @@ uint64_t expr_gcd64(uint64_t x,uint64_t y){
 	}
 	return (x|y)<<r;
 }
+#define gcd2(__x,__y) ({\
+	double _x,_y;\
+	int r1;\
+	_x=(__x);\
+	_y=(__y);\
+	r1=(fabs(_x)<fabs(_y));\
+	while(_x!=0.0&&_y!=0.0){\
+		if(r1^=1)_x=fmod(_x,_y);\
+		else _y=fmod(_y,_x);\
+	}\
+	_x!=0.0?_x:_y;\
+})
 double expr_gcd2(double x,double y){
-	int r1=(fabs(x)<fabs(y));
-	while(x&&y){
-		if(r1^=1)x=fmod(x,y);
-		else y=fmod(y,x);
-	}
-	return x?x:y;
+	return gcd2(x,y);
 }
 double expr_lcm2(double x,double y){
-	return x*y/expr_gcd2(x,y);
+	return x*y/gcd2(x,y);
 }
 void expr_mirror(double *buf,size_t size){
 	double *out=buf+size-1,swapbuf;
@@ -586,7 +591,12 @@ static double expr_xor(size_t n,double *args){
 	CALMD(xor2);
 }
 static double expr_gcd(size_t n,double *args){
-	CALMD(expr_gcd2);
+	double ret=*(args++);
+	while(--n){
+		ret=gcd2(ret,*args);
+		++args;
+	}
+	return ret;
 }
 static double expr_lcm(size_t n,double *args){
 	CALMD(expr_lcm2);
@@ -4547,7 +4557,7 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 			CALSUM(EXPR_ANDN,sum=sum!=DBL_MAX?and2(sum,y):y,sum=DBL_MAX,sum,dest);\
 			CALSUM(EXPR_ORN,sum=sum!=0.0?or2(sum,y):y,sum=0.0,sum,dest);\
 			CALSUM(EXPR_XORN,sum=sum!=0.0?xor2(sum,y):y,sum=0.0,sum,dest);\
-			CALSUM(EXPR_GCDN,sum=sum!=DBL_MAX?expr_gcd2(sum,y):y,sum=DBL_MAX,sum,dest);\
+			CALSUM(EXPR_GCDN,sum=sum!=DBL_MAX?gcd2(sum,y):y,sum=DBL_MAX,sum,dest);\
 			CALSUM(EXPR_LCMN,sum=sum!=1.0?expr_lcm2(sum,y):y,sum=1.0,sum,dest);\
 \
 			case EXPR_FOR:\
@@ -5453,7 +5463,7 @@ double expr_eval(const struct expr *restrict ep,double input){
 				break;
 			case EXPR_LJ:
 				un.s2.val=(int)*ip->un.src;
-				un.s2.un.d=*ip->dst.dst;
+				un.s2.un.d=*ip->dst.dst;//ip cannot be used after here
 				*un.s2.un.jp->ipp=un.s2.un.jp->ip;
 				longjmp(un.s2.un.jp->jb,un.s2.val);
 			case EXPR_END:

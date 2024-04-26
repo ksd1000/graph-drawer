@@ -93,6 +93,7 @@
 		case EXPR_DIFF:\
 		case EXPR_OFF
 #define BRANCHCASES EXPR_IF:\
+		case EXPR_DON:\
 		case EXPR_DOW:\
 		case EXPR_WHILE
 #define HOTCASES EXPR_DO:\
@@ -1241,6 +1242,7 @@ const struct expr_builtin_keyword expr_keywords[]={
 	REGKEYSC("loop",EXPR_LOOP,5,"loop(var_name,start_var,count,body,value)"),
 	REGKEYSC("while",EXPR_WHILE,3,"while(cond,body,value) while(cond){body}[{value}]"),
 	REGKEYS("do",EXPR_DO,1,"do(body) do{body}"),
+	REGKEYSC("don",EXPR_DON,3,"don(cond,body,value) don(cond){body}[{value}]"),
 	REGKEYSC("dowhile",EXPR_DOW,3,"dowhile(cond,body,value) dowhile(cond){body}[{value}]"),
 	REGKEYSC("if",EXPR_IF,3,"if(cond,if_value,else_value) if(cond){body}[[else]{value}]"),
 	REGKEYSC("vmd",EXPR_VMD,7,"vmd(index_name,start_index,end_index,index_step,element,md_symbol,[constant_expression max_dim])"),
@@ -4697,6 +4699,19 @@ endless:
 				expr_free(ip->un.eb->cond);
 				expr_free(ip->un.eb->body);
 				goto free_eb;
+			case EXPR_DON:
+				if(!expr_constexpr(ip->un.eb->cond,NULL))
+					continue;
+				switch((size_t)expr_eval(ip->un.eb->cond,input)){
+					case 0:
+						hep=ip->un.eb->value;
+						expr_free(ip->un.eb->cond);
+						expr_free(ip->un.eb->body);
+						goto free_eb;
+					default:
+						continue;
+				}
+				break;
 			case EXPR_DOW:
 				if(!expr_constexpr(ip->un.eb->cond,NULL))
 					continue;
@@ -5237,6 +5252,7 @@ double expr_eval(const struct expr *restrict ep,double input){
 		struct expr_jmpbuf *jp;
 		void *up;
 		double d;
+		size_t index;
 	} un;
 #define sum (un.s0._sum)
 #define from (un.s0._from)
@@ -5411,6 +5427,14 @@ double expr_eval(const struct expr *restrict ep,double input){
 				break;
 			case EXPR_DO:
 				for(;;)expr_eval(ip->un.hotfunc,input);
+			case EXPR_DON:
+				un.index=(size_t)expr_eval(ip->un.eb->cond,input);
+				while(un.index){
+					expr_eval(ip->un.eb->body,input);
+					--un.index;
+				}
+				*ip->dst.dst=expr_eval(ip->un.eb->value,input);
+				break;
 			case EXPR_ZA:
 				*ip->dst.dst=ip->un.zafunc();
 				break;

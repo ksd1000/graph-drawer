@@ -170,6 +170,19 @@
 	}\
 	_r;\
 })
+#define expr_void(addr) ({\
+	int _r;\
+	switch((ssize_t)addr){\
+		case -1:\
+		case -2:\
+			_r=1;\
+			break;\
+		default:\
+			_r=0;\
+			break;\
+	}\
+	_r;\
+})
 #define LOGIC(a,b,_s) (((a)!=0.0) _s ((b)!=0.0))
 #define LOGIC_BIT(_a,_b,_op_cal,_op_zero,_zero_val) \
 	if(_expdiff>52L){\
@@ -265,7 +278,8 @@ static const char *eerror[]={
 	[EXPR_EUSN]="Unexpected symbol or number",
 	[EXPR_ENC]="Not a constant expression",
 	[EXPR_ECTA]="Cannot take address",
-	[EXPR_ESAF]="Static assertion failed"
+	[EXPR_ESAF]="Static assertion failed",
+	[EXPR_EVD]="Void value must be dropped."
 };
 //const static char ntoc[]={"0123456789abcdefg"};
 const char *expr_error(int error){
@@ -2715,8 +2729,7 @@ c_fail:
 				r0=expr_createconst(ep,sym.vv[0],dim,un.v);
 				expr_free2(sym.vv);
 				cknp(ep,!r0,return NULL);
-				v0=expr_newvar(ep);
-				expr_addconst(ep,v0,un.v);
+				v0=EXPR_VOID;
 				e=p+1;
 				goto vend;
 			case EXPR_MUL:
@@ -2744,8 +2757,7 @@ c_fail:
 				r0=expr_createsvar(ep,sym.vv[0],dim,un.v);
 				expr_free2(sym.vv);
 				cknp(ep,!r0,return NULL);
-				v0=expr_newvar(ep);
-				expr_addconst(ep,v0,un.v);
+				v0=EXPR_VOID;
 				e=p+1;
 				goto vend;
 			case EXPR_ADD:
@@ -2783,8 +2795,7 @@ c_fail:
 				expr_free2(sym.vv);
 				flag=sv.es->flag;
 				sv.es->flag=(int)un.v;
-				v0=expr_newvar(ep);
-				expr_addconst(ep,v0,(double)flag);
+				v0=EXPR_VOID;
 				e=p+1;
 				goto vend;
 			case EXPR_INPUT:
@@ -2817,9 +2828,7 @@ use_byte:
 					memcpy(ep->errinfo,e+1,minc(p-e-1,EXPR_SYMLEN));
 					return NULL;
 				}
-				v0=expr_newvar(ep);
-				cknp(ep,v0,return NULL);
-				expr_addconst(ep,v0,un.v);
+				v0=EXPR_VOID;
 				e=p+1;
 				goto vend;
 			case EXPR_ALO:
@@ -2939,17 +2948,25 @@ vzero:
 					}
 					un.eb=expr_getbranchinfo(ep,NULL,0,NULL,0,sym.b,asym,asymlen);
 				}else
-				un.eb=expr_getbranchinfo(ep,p2,e-p2,e,p-e+1,NULL,asym,asymlen);
-				break;
+					un.eb=expr_getbranchinfo(ep,p2,e-p2,e,p-e+1,NULL,asym,asymlen);
+				if(!un.uaddr){
+					return NULL;
+				}
+				if(kp->op==EXPR_IF){
+					v0=expr_newvar(ep);
+					cknp(ep,v0,return NULL);
+				}else
+					v0=EXPR_VOID;
+				expr_addop(ep,v0,un.uaddr,kp->op,flag);
+				e=p+1;
+				goto vend;
 			case EXPR_DO:
 				p=expr_findpair(e,endp);
 				if(!p)goto pterr;
 				if(p==e+1)goto envp;
-				v0=expr_newvar(ep);
-				cknp(ep,v0,return NULL);
 				un.ep=new_expr8(e+1,p-e-1,asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo);
 				if(!un.ep)return NULL;
-				expr_addop(ep,v0,un.ep,EXPR_DO,0);
+				expr_addop(ep,v0=EXPR_VOID_NR,un.ep,EXPR_DO,0);
 				e=p+1;
 				goto vend;
 			case EXPR_VMD:
@@ -3286,7 +3303,14 @@ eev:
 	p=expr_vnadd(ev,v1,op,unary);
 	cknp(ep,p,goto err);
 	ev=p;
-	if(e>=endp)goto end2;
+	if(e>=endp){
+		if(v1==EXPR_VOID){
+evd:
+			ep->error=EXPR_EVD;
+			goto err;
+		}
+		goto end2;
+	}
 	op=EXPR_END;
 rescan:
 	switch(*e){
@@ -3535,8 +3559,10 @@ pterr:
 			goto err;
 	}
 end1:
-		if(e>=endp&&op!=EXPR_END)goto eev;
-		continue;	
+
+	if(v1==EXPR_VOID&&op!=EXPR_COPY)goto evd;
+	if(e>=endp&&op!=EXPR_END)goto eev;
+	continue;	
 	}while(op!=EXPR_END);
 end2:
 #define SETPREC1(a)\
@@ -4044,6 +4070,7 @@ double expr_calc(const char *e){
 	return expr_calc5(e,NULL,0.0,NULL,0);
 }
 static size_t expr_varofep(const struct expr *restrict ep,double *v){
+	if(expr_void(v))return SIZE_MAX;
 	for(size_t i=0;i<ep->vsize;++i){
 		if(ep->vars[i]==v){
 			return i+1;
@@ -4056,7 +4083,8 @@ static void expr_writeconsts(struct expr *restrict ep){
 		if(ip->op==EXPR_CONST&&ip->dst.dst&&
 			expr_varofep(ep,ip->dst.dst)
 			){
-			*ip->dst.dst=ip->un.value;
+			if(!expr_void(ip->dst.uaddr))
+				*ip->dst.dst=ip->un.value;
 		}
 	}
 }

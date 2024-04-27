@@ -73,7 +73,7 @@ const struct proj {
 	{"asint(t#128)",128},
 	{"asint(t#(128*2)#1)",257},
 	{"asint(0#(128*2)#1)",257},
-	{"static_assert(e>2.71)",1},
+	{"static_assert(e>2.71),2",2},
 	{NULL}
 
 };
@@ -107,6 +107,7 @@ const struct eproj {
 	{"static_assert(t>=2.72)",EXPR_ENC},
 	{"&e",EXPR_ECTA},
 	{"static_assert(e>=2.72)",EXPR_ESAF},
+	{"static_assert(e<2.72)",EXPR_EVD},
 	{NULL}
 };
 void errcheck(const char *e,int expect){

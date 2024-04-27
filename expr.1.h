@@ -89,6 +89,8 @@ EXPR_SJ,
 EXPR_LJ,
 EXPR_END
 };
+#define EXPR_VOID ((void *)-1UL)
+#define EXPR_VOID_NR ((void *)-2UL)
 #define EXPR_SYMSET_INITIALIZER {NULL,0UL,0UL,0UL,0}
 #define EXPR_SYMLEN 64
 #ifndef EXPR_SYMNEXT
@@ -111,6 +113,7 @@ EXPR_END
 #define EXPR_ENC 15
 #define EXPR_ECTA 16
 #define EXPR_ESAF 17
+#define EXPR_EVD 18
 
 #define EXPR_CONSTANT 0
 #define EXPR_VARIABLE 1

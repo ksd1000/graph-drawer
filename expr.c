@@ -3257,7 +3257,7 @@ static void expr_vnfree(struct expr_vnode *vp){
 static double *expr_scan(struct expr *restrict ep,const char *e,const char *endp,const char *asym,size_t asymlen){
 	double *v1;
 	const char *e0=e,*e1;
-	enum expr_op op=0;
+	enum expr_op op=EXPR_COPY,op0;
 	unsigned int unary;
 	struct expr_vnode *ev=NULL,*p;
 	do {
@@ -3311,6 +3311,7 @@ evd:
 		}
 		goto end2;
 	}
+	op0=op;
 	op=EXPR_END;
 rescan:
 	switch(*e){
@@ -3560,7 +3561,8 @@ pterr:
 	}
 end1:
 
-	if(v1==EXPR_VOID&&op!=EXPR_COPY)goto evd;
+	if((v1==EXPR_VOID&&op!=EXPR_COPY)
+		||op0!=EXPR_COPY)goto evd;
 	if(e>=endp&&op!=EXPR_END)goto eev;
 	continue;	
 	}while(op!=EXPR_END);
@@ -4779,6 +4781,11 @@ endless:
 						expr_free(ip->un.eb->cond);
 						expr_free(ip->un.eb->body);
 						goto free_eb;
+					case 1:
+						hep=ip->un.eb->body;
+						expr_free(ip->un.eb->cond);
+						expr_free(ip->un.eb->value);
+						goto free_eb;
 					default:
 						continue;
 				}
@@ -4787,10 +4794,16 @@ endless:
 				if(!expr_constexpr(ip->un.eb->cond,NULL)){
 					if(expr_constexpr(ip->un.eb->body,NULL))
 						goto wif;
-				}
 					continue;
+				}
 				if(expr_eval(ip->un.eb->cond,input)!=0.0)
 					goto endless;
+				else {
+					hep=ip->un.eb->body;
+					expr_free(ip->un.eb->cond);
+					expr_free(ip->un.eb->value);
+					goto free_eb;
+				}
 				break;
 			case EXPR_IF:
 				if(!expr_constexpr(ip->un.eb->cond,NULL))

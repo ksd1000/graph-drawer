@@ -11,7 +11,6 @@
 #include <float.h>
 #include <limits.h>
 #include <err.h>
-#include <errno.h>
 #include <setjmp.h>
 #define NDEBUG
 #include <assert.h>
@@ -301,6 +300,7 @@ static void xfree(void *p){
 	--count;
 #endif
 }
+#define free(p) (use xfree() instead!)
 static void *xrealloc_nullable(void *old,size_t size){
 #ifdef MEMORY_LEAK_CHECK
 	void *r=old?realloc(old,size):malloc(size);
@@ -786,6 +786,7 @@ static double expr_memset(size_t n,const struct expr *args,double input){
 static double expr_bzero(size_t n,const struct expr *args,double input){
 	union {
 		double *r;
+		char *cr;
 		double dr;
 	} un;
 	un.dr=expr_eval(args,input);
@@ -841,13 +842,6 @@ static double expr_xfree(double x){
 	un.dr=x;
 	xfree(un.r);
 	return 0.0;
-}
-static double expr_errno(void){
-	return (double)errno;
-}
-static double expr_serrno(double x){
-	errno=(__typeof(errno))x;
-	return x;
 }
 #define RMEM(sym,type)\
 static double expr_r##sym(double x){\
@@ -1368,7 +1362,6 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGFSYM(y1),
 
 	REGZASYM2("abort",(double (*)(void))abort),
-	REGZASYM2("errno",expr_errno),
 	REGZASYM(drand48),
 	REGZASYM2("frame",expr_frame),
 	REGZASYM2("lrand48",expr_lrand48),
@@ -1382,7 +1375,6 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGFSYM2_NI("new",expr_new),
 	REGFSYM2_NI("xnew",expr_xnew),
 	REGFSYM2_NI("free",expr_xfree),
-	REGFSYM2_NI("serrno",expr_serrno),
 	REGFSYM2_NI("system",expr_system),
 
 	REGMDSYM2("add",expr_add,0),
@@ -1494,10 +1486,10 @@ const struct expr_builtin_symbol *expr_builtin_symbol_rsearch(void *addr){
 	}
 	return NULL;
 }
-static size_t expr_strcopy(const char *s,size_t sz,char *buf){
-	const char *s0=s,*p,*s1;
+size_t expr_strscan(const char *s,size_t sz,char *buf){
+	const char *p,*s1,*endp=s+sz;
 	char *buf0=buf,v;
-	while(s-s0<sz)switch(*s){
+	while(s<endp)switch(*s){
 		case '\\':
 			switch(s[1]){
 				case '\\':
@@ -1543,7 +1535,7 @@ static size_t expr_strcopy(const char *s,size_t sz,char *buf){
 				case 'x':
 					s1=s;
 					p=s+=2;
-					while(p-s0<sz&&((*p>='0'&&*p<='9')
+					while(p<endp&&((*p>='0'&&*p<='9')
 						||(*p>='a'&&*p<='f')
 						||(*p>='A'&&*p<='F')
 						)&&p-s<2)++p;
@@ -1571,7 +1563,7 @@ static size_t expr_strcopy(const char *s,size_t sz,char *buf){
 				default:
 					s1=s;
 					p=s+=1;
-					while(p-s0<sz&&*p>='0'&&*p<='7'&&p-s<3)
+					while(p<endp&&*p>='0'&&*p<='7'&&p-s<3)
 						++p;;
 					if(p==s)goto fail;
 					v=0;
@@ -1595,40 +1587,19 @@ fail:
 	return buf-buf0;
 }
 static const char *expr_findpair_dmark(const char *c,const char *endp){
-	++c;
-	for(;c<endp;++c){
+	for(++c;c<endp;++c){
 		if(*c=='\"'&&c[-1]!='\\')
 			return c;
 	}
 	return NULL;
 }
-size_t expr_strscan(const char *s,size_t sz,char *buf){
-	char *buf0=buf;
-	const char *p,*endp=s+sz;
-	if(!sz||*s!='\"')return 0;
-	for(;;){
-	while(s<endp&&*s!='\"'&&!expr_space(*s))++s;
-	if(s>=endp)return buf-buf0;
-	++s;
-	p=s;
-	do {
-		p=strchr(p+1,'\"');
-	}while(p&&p>s&&p[-1]=='\\');
-	if(!p||p<=s)return buf-buf0;
-	buf+=expr_strcopy(s,p-s,buf);
-	s=p+1;
-	}
-}
-char *expr_astrscan(const char *s,size_t sz,size_t *outsz){
+
+char *expr_astrscan(const char *s,size_t sz,size_t *restrict outsz){
 	char *buf;
-	buf=xmalloc_nullable(sz);
+	buf=xmalloc_nullable(sz+1);
 	if(!buf)return NULL;
 	*outsz=expr_strscan(s,sz,buf);
 	buf[*outsz]=0;
-	if(!*buf){
-		xfree(buf);
-		return NULL;
-	}
 	return buf;
 }
 static void expr_freesuminfo(struct expr_suminfo *p){
@@ -1689,16 +1660,21 @@ static void expr_freedata(struct expr_inst *restrict data,size_t size){
 	}
 	xfree(data);
 }
+struct expr_resource *expr_free_keepres(struct expr *restrict ep){
+	if(ep->data)expr_freedata(ep->data,ep->size);
+	if(ep->vars){
+		for(size_t i=0;i<ep->vsize;++i)
+			if(ep->vars[i])
+				xfree(ep->vars[i]);
+		xfree(ep->vars);
+	}
+	return ep->res;
+}
 void expr_free(struct expr *restrict ep){
 	struct expr *ep0=(struct expr *)ep;
 	struct expr_resource *erp,*erp1;
 start:
-	if(ep->data)expr_freedata(ep->data,ep->size);
-	if(ep->vars){
-		for(size_t i=0;i<ep->vsize;++i)
-			xfree(ep->vars[i]);
-		xfree(ep->vars);
-	}
+	expr_free_keepres(ep);
 	for(erp=ep->res;erp;){
 		if(erp->un.uaddr)switch(erp->type){
 			case EXPR_HOTFUNCTION:
@@ -1802,7 +1778,12 @@ static struct expr_inst *expr_addalo(struct expr *restrict ep,double *dst,ssize_
 static struct expr_resource *expr_newres(struct expr *restrict ep){
 	struct expr_resource *p;
 	if(!ep->res){
-		return ep->res=xmalloc_nullable(sizeof(struct expr_resource));
+		p=xmalloc_nullable(sizeof(struct expr_resource));
+		if(!p)return NULL;
+		p->next=NULL;
+		p->type=EXPR_CONSTANT;
+		ep->res=p;
+		return p;
 	}
 	p=ep->tail?ep->tail:ep->res;
 	while(p->next)p=p->next;
@@ -2580,7 +2561,7 @@ block:
 		case '\"':
 			p=expr_findpair_dmark(e,endp);
 			if(!p)goto pterr;
-			un.uaddr=expr_astrscan(e,endp-e,&dim);
+			un.uaddr=expr_astrscan(e+1,p-e-1,&dim);
 			if(!un.uaddr)break;
 			sym.er=expr_newres(ep);
 			cknp(ep,sym.er,xfree(un.uaddr);return NULL);
@@ -3882,13 +3863,15 @@ static void expr_remove_unused_vars(struct expr *restrict ep){
 	for(i=0;i<ep->vsize;++i){
 		v=ep->vars[i];
 		for(struct expr_inst *ip=ep->data;;++ip){
-			if(ip->dst.uaddr==v||
+			if(!v||ip->dst.uaddr==v||
 			(expr_usesrc(ip->op)&&ip->un.uaddr==v))
 				goto force_continue;
 			if(ip->op==EXPR_END)
 				break;
 		}
-		free(v);
+		printval(ep->vsize);
+		printval(i);
+		xfree(v);
 		ep->vars[i]=NULL;
 force_continue:
 		continue;
@@ -3935,12 +3918,14 @@ struct expr *new_expr_const(double val){
 	r->freeable=1;
 	return r;
 }
+//R8
 static int init_expr8(struct expr *restrict ep,const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,struct expr *parent){
 	union {
 		double *p;
 		double v;
 	} un;
 	char *ebuf,*r,*p0;
+	struct expr_resource *rp;
 	/*ep->data=NULL;
 	ep->vars=NULL;
 	ep->sset_shouldfree=0;
@@ -3974,9 +3959,10 @@ static int init_expr8(struct expr *restrict ep,const char *e,size_t len,const ch
 		expr_optimize(ep);
 		if(expr_isconst(ep)){
 			un.v=expr_eval(ep,0.0);
-			expr_free(ep);
+			rp=expr_free_keepres(ep);
 			if(init_expr_const(ep,un.v)<0)
 				return -1;
+			ep->res=rp;
 		}
 	}
 	if(flag&EXPR_IF_INSTANT_FREE){

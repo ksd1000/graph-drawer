@@ -305,7 +305,8 @@ double expr_multilevel_derivate(const struct expr *ep,double input,long level,do
 const struct expr_builtin_symbol *expr_builtin_symbol_search(const char *sym,size_t sz);
 const struct expr_builtin_symbol *expr_builtin_symbol_rsearch(void *addr);
 size_t expr_strscan(const char *s,size_t sz,char *buf);
-char *expr_astrscan(const char *s,size_t sz,size_t *outsz);
+char *expr_astrscan(const char *s,size_t sz,size_t *restrict outsz);
+struct expr_resource *expr_free_keepres(struct expr *restrict ep);
 void expr_free(struct expr *restrict ep);
 struct expr_inst *expr_addop(struct expr *restrict ep,double *dst,void *src,enum expr_op op,int flag);
 void init_expr_symset(struct expr_symset *restrict esp);

@@ -5,7 +5,7 @@ kernel := $(shell uname -r)
 xgraph.tar.gz: header/expr.h header/xdraw.h lib/xgraph.a lib/xgraph.so check
 	tar -czf xgraph.tar.gz header lib
 check: expr.c expr.h check.c
-	$(CC) $(CFLAG) check.c -o check -DMEMORY_LEAK_CHECK expr.c $(LFLAG)
+	$(CC) $(CFLAG) -fsanitize=address check.c -o check -DMEMORY_LEAK_CHECK expr.c $(LFLAG)
 lib/xgraph.a: expr.o xdraw.o texts/text.o texts/sbmp.o
 	mkdir -p lib
 	ar -rcs lib/xgraph.a expr.o xdraw.o texts/text.o texts/sbmp.o

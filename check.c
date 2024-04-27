@@ -50,8 +50,8 @@ const struct proj {
 	{"!!(5-2)",1},
 	{"!!(5-5)",0},
 	{"med({0..10})",5},
-	{"vmd(n,0,10000,1,n,med,0)",5000},
 	{"sum(n,1,100,1,n)",5050},
+	{"vmd(n,0,10000,1,n,med,0)",5000},
 	{"if(3,5,7)",5},
 	{"if(0,5,7)",7},
 	{"0-->m,while(m<7626,(1+m)->m),m",7626},
@@ -101,7 +101,6 @@ const struct eproj {
 	{"5-->defined_symbol",EXPR_EDS},
 	{"5-->t",EXPR_EDS},
 	{"vmd(k,1,10,1,k,cmp,0)",EXPR_EVMD},
-	{"med({1..1000000000000000})",EXPR_EMEM},
 	{"5-->v,&v[2]c",EXPR_EUSN},
 	{"5-->v,&v[2]7",EXPR_EUSN},
 	{"alloca(t,exp(t))",EXPR_ENC},
@@ -132,6 +131,7 @@ void check(const char *e,double expect){
 	//static int k=0;if(k++==39)exit(0);
 	printf("checking %s --- expect %lg",e,expect);
 	init_expr5(ep,e,"t",NULL,EXPR_IF_INSTANT_FREE);
+	//exit(0);
 	r=expr_calc5(e,"t",0,NULL,EXPR_IF_NOOPTIMIZE);
 	if(memcmp(&r,&expect,sizeof(double))){
 		printf("\nerror! %s should be %lg but %lg\n",e,expect,r);

@@ -786,7 +786,6 @@ static double expr_memset(size_t n,const struct expr *args,double input){
 static double expr_bzero(size_t n,const struct expr *args,double input){
 	union {
 		double *r;
-		char *cr;
 		double dr;
 	} un;
 	un.dr=expr_eval(args,input);
@@ -1486,9 +1485,9 @@ const struct expr_builtin_symbol *expr_builtin_symbol_rsearch(void *addr){
 	}
 	return NULL;
 }
-size_t expr_strscan(const char *s,size_t sz,char *buf){
+size_t expr_strscan(const char *s,size_t sz,char *restrict buf){
 	const char *p,*s1,*endp=s+sz;
-	char *buf0=buf,v;
+	char *buf0=(char *)buf,v;
 	while(s<endp)switch(*s){
 		case '\\':
 			switch(s[1]){
@@ -1660,7 +1659,7 @@ static void expr_freedata(struct expr_inst *restrict data,size_t size){
 	}
 	xfree(data);
 }
-struct expr_resource *expr_free_keepres(struct expr *restrict ep){
+static struct expr_resource *expr_free_keepres(struct expr *restrict ep){
 	if(ep->data)expr_freedata(ep->data,ep->size);
 	if(ep->vars){
 		for(size_t i=0;i<ep->vsize;++i)
@@ -1938,10 +1937,14 @@ static const char *expr_getsym_expo(const char *c,const char *endp){
 	return c;
 }
 static int expr_atod2(const char *str,double *dst){
-	int ret;
-	char c;
-	ret=sscanf(str,"%lf%c",dst,&c);
-	return ret;
+	//int ret;
+	char *c;
+	//ret=sscanf(str,"%lf%c",dst,&c);
+	//return ret;
+	*dst=strtod(str,&c);
+	if(c==str)return 0;
+	else if(*c)return 2;
+	else return 1;
 }
 static int expr_atod(const char *str,size_t sz,double *dst){
 	int ret;

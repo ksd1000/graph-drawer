@@ -3386,6 +3386,7 @@ rescan:
 				const struct expr_symbol *esp=NULL;
 				const char *p1;
 				double *v2;
+				if(expr_void(v1))goto evd;
 				e+=2;
 				p1=expr_getsym(e,endp);
 				if(p1==e){
@@ -3479,6 +3480,7 @@ bracket_end:
 			}else if(e+2<endp&&e[1]=='-'&&e[2]=='>'){
 				const char *p1;
 				double *v2;
+				if(expr_void(v1))goto evd;
 				e+=3;
 				p1=expr_getsym(e,endp);
 				if(p1==e){

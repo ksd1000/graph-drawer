@@ -1000,6 +1000,23 @@ static double expr_exitif(double x){
 	if(x!=0.0)exit((int)x);
 	return x;
 }
+static double expr_ctz(double x){
+	int64_t base=EXPR_EDBASE(&x);
+	if(base){
+		return (double)(__builtin_ctzl(base)+(EXPR_EDEXP(&x)-(1023L+52L)));
+	}else
+		return (double)(EXPR_EDEXP(&x)-1023L);
+}
+static double expr_clz(double x){
+	return (double)(EXPR_EDEXP(&x)-1023L);
+}
+static double expr_ffs(double x){
+	int64_t base=EXPR_EDBASE(&x);
+	if(base){
+		return (double)(__builtin_ffsl(base)+(EXPR_EDEXP(&x)-(1023L+52L)));
+	}else
+		return (double)(EXPR_EDEXP(&x)-1023L+1L);
+}
 static double expr_fact(double x){
 	double sum=1.0;
 	x=floor(x);
@@ -1334,8 +1351,10 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGFSYM2("artanh",atanh),
 	REGFSYM(cbrt),
 	REGFSYM(ceil),
+	REGFSYM2("clz",expr_clz),
 	REGFSYM(cos),
 	REGFSYM(cosh),
+	REGFSYM2("ctz",expr_ctz),
 	REGFSYM2("dbase",expr_dbase),
 	REGFSYM2("dexp",expr_dexp),
 	REGFSYM2("dfact",expr_dfact),
@@ -1345,6 +1364,7 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGFSYM(expm1),
 	REGFSYM(fabs),
 	REGFSYM2("fact",expr_fact),
+	REGFSYM2("ffs",expr_ffs),
 	REGFSYM(floor),
 	REGFSYM2("isfinite",expr_isfinite),
 	REGFSYM2("isinf",expr_isinf),
@@ -2643,7 +2663,7 @@ ecta:
 			}
 			v0=expr_newvar(ep);
 			cknp(ep,v0,return NULL);
-			expr_addconst(ep,v0,un.v);
+			expr_addop(ep,v0,un.uaddr,EXPR_CONST,EXPR_SF_INJECTION);
 			e=p;
 			goto vend;
 		case '0' ... '9':
@@ -3493,16 +3513,19 @@ bracket_end:
 					}
 				goto err;
 				}
-				if((p1-e==asymlen&&!memcmp(e,asym,p1-e))
-				//||expr_builtin_symbol_search(e,p1-e)
-				||(ep->sset&&expr_symset_search(ep->sset,e,p1-e))
+
+				if((p1-e==asymlen&&!memcmp(e,asym,p1-e)))
+					goto tnv;
+				if(ep->sset&&expr_symset_search(ep->sset,e,p1-e)
 				){
 					ep->error=EXPR_EDS;
-					memcpy(ep->errinfo,e,p1-e);
+					memcpy(ep->errinfo,e,minc(p1-e,EXPR_SYMLEN));
 					goto err;
+				}else {
+					v2=expr_createvar(ep,e,p1-e);
+					cknp(ep,v2,goto err);
 				}
-				v2=expr_createvar(ep,e,p1-e);
-				cknp(ep,v2,goto err);
+
 				expr_addcopy(ep,v2,v1);
 				e=p1;
 				if(e>=endp)continue;
@@ -4534,7 +4557,14 @@ static int expr_usehot(enum expr_op op){
 }
 static int expr_vused(struct expr_inst *ip1,double *v){
 	int ov;
+	return 1;
 	for(;;++ip1){
+		if(ip1->op==EXPR_CONST&&
+			(ip1->flag&EXPR_SF_INJECTION)&&
+			cast(ip1->un.value,double *)==v
+		){
+			return 1;
+		}
 		ov=expr_override(ip1->op);
 		if((expr_usesrc(ip1->op)&&ip1->un.src==v)
 			||(ip1->dst.dst==v&&!ov)

@@ -4609,10 +4609,6 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 				break;
 			case EXPR_END:
 				return 1;
-			case EXPR_CONST:
-				if(ip->flag&EXPR_SF_INJECTION){
-					return 1;
-				}
 			default:
 				break;
 		}

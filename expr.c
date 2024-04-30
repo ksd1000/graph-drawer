@@ -1804,6 +1804,11 @@ static struct expr_inst *expr_addconst(struct expr *restrict ep,double *dst,doub
 	r->un.value=val;
 	return r;
 }
+static struct expr_inst *expr_addconst_i(struct expr *restrict ep,double *dst,double val){
+	struct expr_inst *r=expr_addop(ep,dst,NULL,EXPR_CONST,EXPR_SF_INJECTION);
+	r->un.value=val;
+	return r;
+}
 static struct expr_inst *expr_addalo(struct expr *restrict ep,double *dst,ssize_t zd){
 	struct expr_inst *r=expr_addop(ep,dst,NULL,EXPR_ALO,0);
 	r->un.zd=zd;
@@ -2663,7 +2668,7 @@ ecta:
 			}
 			v0=expr_newvar(ep);
 			cknp(ep,v0,return NULL);
-			expr_addconst(ep,v0,un.v);
+			expr_addconst_i(ep,v0,un.v);
 			e=p;
 			goto vend;
 		case '0' ... '9':
@@ -3501,6 +3506,7 @@ bracket_end:
 			}else if(e+2<endp&&e[1]=='-'&&e[2]=='>'){
 				const char *p1;
 				double *v2;
+				struct expr_symbol *esp;
 				if(expr_void(v1))goto evd;
 				e+=3;
 				p1=expr_getsym(e,endp);
@@ -3516,16 +3522,25 @@ bracket_end:
 
 				if((p1-e==asymlen&&!memcmp(e,asym,p1-e)))
 					goto tnv;
-				if(ep->sset&&expr_symset_search(ep->sset,e,p1-e)
+				if(ep->sset&&(esp=expr_symset_search(ep->sset,e,p1-e))
 				){
-					ep->error=EXPR_EDS;
+					if(!ep->sset_shouldfree){
+						cknp(ep,expr_detach(ep)>=0,goto err);
+						esp=expr_symset_search(ep->sset,e,p1-e);
+						if(!esp)goto err;//unknown error
+					}
+					v2=expr_newvar(ep);
+					cknp(ep,v2,goto err);
+					esp->type=EXPR_VARIABLE;
+					esp->flag=0;
+					esp->un.addr=v2;
+					/*ep->error=EXPR_EDS;
 					memcpy(ep->errinfo,e,minc(p1-e,EXPR_SYMLEN));
-					goto err;
+					goto err;*/
 				}else {
 					v2=expr_createvar(ep,e,p1-e);
 					cknp(ep,v2,goto err);
 				}
-
 				expr_addcopy(ep,v2,v1);
 				e=p1;
 				if(e>=endp)continue;
@@ -4454,9 +4469,9 @@ static int expr_optimize_zero(struct expr *restrict ep){
 static void expr_optimize_const(struct expr *restrict ep){
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
 		if(ip->op==EXPR_CONST&&!expr_modified(ep,ip->dst.dst)){
-			//if(!(ip->flag&EXPR_SF_INJECTION)){
+			if(!(ip->flag&EXPR_SF_INJECTION)){
 				ip->dst.dst=NULL;
-			//}
+			}
 		}
 	}
 	expr_optimize_completed(ep);
@@ -4557,7 +4572,8 @@ static int expr_usehot(enum expr_op op){
 static int expr_vused(struct expr_inst *ip1,double *v){
 	int ov;
 	for(;;++ip1){
-
+		if(ip1->op==EXPR_CONST&&(ip1->flag&EXPR_SF_INJECTION)&&cast(ip1->un.value,double *)==v)
+			return 1;
 		ov=expr_override(ip1->op);
 		if((expr_usesrc(ip1->op)&&ip1->un.src==v)
 			||(ip1->dst.dst==v&&!ov)
@@ -4609,6 +4625,10 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 				break;
 			case EXPR_END:
 				return 1;
+			case EXPR_CONST:
+				if(ip->flag&EXPR_SF_INJECTION){
+					return 0;
+				}
 			default:
 				break;
 		}

@@ -23,7 +23,7 @@ static int32_t muldiv_up(int32_t m1,int32_t m2,int32_t f){
 	//int32_t mod=m1%f;
 	//return m1/f*m2+mod*m2/f+!!mod;
 }
-#define xisnan(x) (EXPR_EDEXP(x)==2047ul&&EXPR_EDBASE(x))
+#define xisnan(x) (expr_isnan(*(x)))
 #define min(a,b) ((a)<(b)?(a):(b))
 #define max(a,b) ((a)>(b)?(a):(b))
 #define manhattan(x1,y1,x2,y2) (abs((x1)-(x2))+abs((y1)-(y2)))

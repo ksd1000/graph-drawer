@@ -1189,7 +1189,8 @@ static double expr_orl(size_t n,const struct expr *args,double input){
 	return 0.0;
 }
 static double expr_max(size_t n,double *args){
-	double ret=DBL_MIN;
+	double ret=*args++;
+	--n;
 	while(n>0){
 		if(*args>ret)ret=*args;
 		--n;
@@ -1198,7 +1199,8 @@ static double expr_max(size_t n,double *args){
 	return ret;
 }
 static double expr_min(size_t n,double *args){
-	double ret=DBL_MAX;
+	double ret=*args++;
+	--n;
 	while(n>0){
 		if(*args<ret)ret=*args;
 		--n;
@@ -1206,7 +1208,6 @@ static double expr_min(size_t n,double *args){
 	}
 	return ret;
 }
-
 static double expr_hypot(size_t n,double *args){
 	double ret=0;
 	while(n>0){
@@ -3563,8 +3564,10 @@ pterr:
 	}
 end1:
 
-	if((v1==EXPR_VOID&&op!=EXPR_COPY)
-		||op0!=EXPR_COPY)goto evd;
+	if(v1==EXPR_VOID&&(op!=EXPR_COPY
+		||op0!=EXPR_COPY)){
+		goto evd;
+	}
 	if(e>=endp&&op!=EXPR_END)goto eev;
 	continue;	
 	}while(op!=EXPR_END);
@@ -4395,7 +4398,7 @@ static int expr_optimize_zero(struct expr *restrict ep){
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
 		switch(ip->op){
 			case EXPR_ANDL:
-				if(*ip->un.src==0.0){
+				if(!expr_modified(ep,ip->dst.dst)&&*ip->un.src==0.0){
 					ip->op=EXPR_CONST;
 					ip->un.value=0.0;
 					expr_writeconsts(ep);
@@ -4403,7 +4406,7 @@ static int expr_optimize_zero(struct expr *restrict ep){
 				}
 				break;
 			case EXPR_ORL:
-				if(*ip->un.src!=0.0){
+				if(!expr_modified(ep,ip->dst.dst)&&*ip->un.src!=0.0){
 					ip->op=EXPR_CONST;
 					ip->un.value=1.0;
 					expr_writeconsts(ep);
@@ -4617,12 +4620,12 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 #define CALSUM_INSWITCH(dest) CALSUM(EXPR_SUM,sum+=y,sum=0.0,-sum,dest);\
 			CALSUM(EXPR_INT,sum+=step*y,sum=0.0;from+=step/2.0,-sum,dest);\
 			CALSUM(EXPR_PROD,sum*=y,sum=1.0,1.0/sum,dest);\
-			CALSUM(EXPR_SUP,if(y>sum)sum=y,sum=DBL_MIN,sum,dest);\
-			CALSUM(EXPR_INF,if(y<sum)sum=y,sum=DBL_MAX,sum,dest);\
-			CALSUM(EXPR_ANDN,sum=sum!=DBL_MAX?and2(sum,y):y,sum=DBL_MAX,sum,dest);\
+			CALSUM(EXPR_SUP,if(y>sum)sum=y,sum=-INFINITY,sum,dest);\
+			CALSUM(EXPR_INF,if(y<sum)sum=y,sum=INFINITY,sum,dest);\
+			CALSUM(EXPR_ANDN,sum=sum!=-INFINITY?and2(sum,y):y,sum=-INFINITY,sum,dest);\
 			CALSUM(EXPR_ORN,sum=sum!=0.0?or2(sum,y):y,sum=0.0,sum,dest);\
 			CALSUM(EXPR_XORN,sum=sum!=0.0?xor2(sum,y):y,sum=0.0,sum,dest);\
-			CALSUM(EXPR_GCDN,sum=sum!=DBL_MAX?gcd2(sum,y):y,sum=DBL_MAX,sum,dest);\
+			CALSUM(EXPR_GCDN,sum=sum!=INFINITY?gcd2(sum,y):y,sum=INFINITY,sum,dest);\
 			CALSUM(EXPR_LCMN,sum=sum!=1.0?lcm2(sum,y):y,sum=1.0,sum,dest);\
 \
 			case EXPR_FOR:\

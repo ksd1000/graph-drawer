@@ -2663,7 +2663,7 @@ ecta:
 			}
 			v0=expr_newvar(ep);
 			cknp(ep,v0,return NULL);
-			expr_addop(ep,v0,un.uaddr,EXPR_CONST,EXPR_SF_INJECTION);
+			expr_addconst(ep,v0,un.v);
 			e=p;
 			goto vend;
 		case '0' ... '9':
@@ -4454,10 +4454,9 @@ static int expr_optimize_zero(struct expr *restrict ep){
 static void expr_optimize_const(struct expr *restrict ep){
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
 		if(ip->op==EXPR_CONST&&!expr_modified(ep,ip->dst.dst)){
-			/*if(!(ip->flag&EXPR_SF_INJECTION)){
-				*ip->dst.dst=ip->un.value;
-			}*/
-			ip->dst.dst=NULL;
+			//if(!(ip->flag&EXPR_SF_INJECTION)){
+				ip->dst.dst=NULL;
+			//}
 		}
 	}
 	expr_optimize_completed(ep);
@@ -4557,14 +4556,8 @@ static int expr_usehot(enum expr_op op){
 }
 static int expr_vused(struct expr_inst *ip1,double *v){
 	int ov;
-	return 1;
 	for(;;++ip1){
-		if(ip1->op==EXPR_CONST&&
-			(ip1->flag&EXPR_SF_INJECTION)&&
-			cast(ip1->un.value,double *)==v
-		){
-			return 1;
-		}
+
 		ov=expr_override(ip1->op);
 		if((expr_usesrc(ip1->op)&&ip1->un.src==v)
 			||(ip1->dst.dst==v&&!ov)
@@ -4616,6 +4609,10 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 				break;
 			case EXPR_END:
 				return 1;
+			case EXPR_CONST:
+				if(ip->flag&EXPR_SF_INJECTION){
+					return 1;
+				}
 			default:
 				break;
 		}

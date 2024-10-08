@@ -38,6 +38,7 @@
 	_a>_b?_a:_b;\
 })
 #define maxc(a,const_expr) ({\
+	_Static_assert(__builtin_constant_p(const_expr),"not a constant");\
 	__auto_type _a=(a);\
 	_a>(const_expr)?_a:(const_expr);\
 })
@@ -47,8 +48,9 @@
 	_a<_b?_a:_b;\
 })
 #define minc(a,const_expr) ({\
+	_Static_assert(__builtin_constant_p(const_expr),"not a constant");\
 	__auto_type _a=(a);\
-	likely(_a<(const_expr)?_a:(const_expr));\
+	_a<(const_expr)?_a:(const_expr);\
 })
 #define mincc(c1,c2) ((c1)<(c2)?(c1):(c2))
 #define SUMCASES EXPR_SUM:\
@@ -173,7 +175,11 @@
 	}\
 	_r;\
 })
-#define serrinfo(ei,s,n) memcpy(ei,s,minc(n,EXPR_SYMLEN))
+#define serrinfo(ei,s,n) ({\
+	char *_ei=(ei);\
+	size_t _n=minc((n),EXPR_SYMLEN-1);\
+	memcpy(_ei,(s),_n);_ei[_n]=0;\
+})
 #define expr_void(addr) ({\
 	int _r;\
 	switch((ssize_t)addr){\
@@ -2674,7 +2680,7 @@ ecta:
 			expr_addconst_i(ep,v0,un.v);
 			e=p;
 			goto vend;
-		case '0' ... '9':
+		/*case '0' ... '9':
 			goto number;
 		case '.':
 			switch(e[1]){
@@ -2682,7 +2688,7 @@ ecta:
 				goto number;
 			default:
 				break;
-			}
+			}*/
 		default:
 			if(unlikely(expr_operator(*e))){
 				*ep->errinfo=*e;
@@ -3178,11 +3184,11 @@ number:
 		expr_addconst(ep,v0,un.v);
 		e=p;
 		goto vend;
-	}else if(r0>1){
+	}/*else if(r0>1){
 		serrinfo(ep->errinfo,e,p-e);
 		ep->error=EXPR_ENUMBER;
 		return NULL;
-	}
+	}*/
 symerr:
 	serrinfo(ep->errinfo,e,p-e);
 	ep->error=EXPR_ESYMBOL;
@@ -4676,13 +4682,13 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 #define CALSUM_INSWITCH(dest) CALSUM(EXPR_SUM,sum+=y,sum=0.0,-sum,dest);\
 			CALSUM(EXPR_INT,sum+=step*y,sum=0.0;from+=step/2.0,-sum,dest);\
 			CALSUM(EXPR_PROD,sum*=y,sum=1.0,1.0/sum,dest);\
-			CALSUM(EXPR_SUP,if(y>sum)sum=y,sum=-INFINITY,sum,dest);\
-			CALSUM(EXPR_INF,if(y<sum)sum=y,sum=INFINITY,sum,dest);\
-			CALSUM(EXPR_ANDN,sum=likely(sum!=-INFINITY)?and2(sum,y):y,sum=-INFINITY,sum,dest);\
-			CALSUM(EXPR_ORN,sum=likely(sum!=0.0)?or2(sum,y):y,sum=0.0,sum,dest);\
-			CALSUM(EXPR_XORN,sum=likely(sum!=0.0)?xor2(sum,y):y,sum=0.0,sum,dest);\
-			CALSUM(EXPR_GCDN,sum=likely(sum!=INFINITY)?gcd2(sum,y):y,sum=INFINITY,sum,dest);\
-			CALSUM(EXPR_LCMN,sum=likely(sum!=1.0)?lcm2(sum,y):y,sum=1.0,sum,dest);\
+			CALSUM(EXPR_SUP,if(unlikely(!inited)){inited=1;sum=y;}else if(y>sum)sum=y,inited=0,sum,dest);\
+			CALSUM(EXPR_INF,if(unlikely(!inited)){inited=1;sum=y;}else if(y<sum)sum=y,inited=0,sum,dest);\
+			CALSUM(EXPR_ANDN,sum=likely(inited)?and2(sum,y):(inited=1,y),inited=0,sum,dest);\
+			CALSUM(EXPR_ORN,sum=likely(inited)?or2(sum,y):(inited=1,y),inited=0,sum,dest);\
+			CALSUM(EXPR_XORN,sum=likely(inited)?xor2(sum,y):(inited=1,y),inited=0,sum,dest);\
+			CALSUM(EXPR_GCDN,sum=likely(inited)?gcd2(sum,y):(inited=1,y),inited=0,sum,dest);\
+			CALSUM(EXPR_LCMN,sum=likely(inited)?lcm2(sum,y):(inited=1,y),inited=0,sum,dest);\
 \
 			case EXPR_FOR:\
 				ip->un.es->index=\
@@ -4743,7 +4749,7 @@ static int expr_optimize_constexpr(struct expr *restrict ep){
 #define epp (un.s1._epp)
 	static const double input=0.0;
 	struct expr *hep;
-	int r=0;
+	int r=0,inited;
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
 		switch(ip->op){
 			case SUMCASES:
@@ -5402,6 +5408,7 @@ double expr_eval(const struct expr *restrict ep,double input){
 		double d;
 		size_t index;
 	} un;
+	int inited;
 #define sum (un.s0._sum)
 #define from (un.s0._from)
 #define to (un.s0._to)

@@ -4725,6 +4725,8 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 				*dest=ip->un.em->un.funcep(ip->un.em->dim,ip->un.em->eps,input);\
 				break
 static double expr_vmdeval(struct expr_vmdinfo *restrict ev,double input);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 static int expr_optimize_constexpr(struct expr *restrict ep){
 	double result;
 	union {
@@ -4920,6 +4922,7 @@ force_continue:
 #undef endp1
 #undef epp
 }
+#pragma GCC diagnostic pop
 static int expr_vcheck_ep(struct expr *restrict ep,struct expr_inst *ip0,double *v){
 	if(expr_vused(ip0,v))return 1;
 	for(struct expr_inst *ip=ip0;;++ip){
@@ -5385,6 +5388,8 @@ static double expr_vmdeval(struct expr_vmdinfo *restrict ev,double input){
 	}
 	return ev->func(ap-args,args);
 }
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 __attribute__((noinline))
 double expr_eval(const struct expr *restrict ep,double input){
 	union {
@@ -5658,3 +5663,4 @@ double expr_eval(const struct expr *restrict ep,double input){
 #undef endp
 #undef epp
 }
+#pragma GCC diagnostic pop

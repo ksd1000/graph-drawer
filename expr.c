@@ -288,7 +288,7 @@ static const char *eerror[]={
 	[EXPR_ENC]="Not a constant expression",
 	[EXPR_ECTA]="Cannot take address",
 	[EXPR_ESAF]="Static assertion failed",
-	[EXPR_EVD]="Void value must be dropped."
+	[EXPR_EVD]="Void value must be dropped"
 };
 //const static char ntoc[]={"0123456789abcdefg"};
 const char *expr_error(int error){
@@ -1713,6 +1713,7 @@ static struct expr_resource *expr_free_keepres(struct expr *restrict ep){
 	}
 	return ep->res;
 }
+__attribute__((noinline))
 void expr_free(struct expr *restrict ep){
 	struct expr *ep0=(struct expr *)ep;
 	struct expr_resource *erp,*erp1;

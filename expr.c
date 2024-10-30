@@ -4727,6 +4727,7 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 				break
 static double expr_vmdeval(struct expr_vmdinfo *restrict ev,double input);
 #pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunknown-warning-option"
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 static int expr_optimize_constexpr(struct expr *restrict ep){
 	double result;
@@ -5390,6 +5391,7 @@ static double expr_vmdeval(struct expr_vmdinfo *restrict ev,double input){
 	return ev->func(ap-args,args);
 }
 #pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunknown-warning-option"
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 __attribute__((noinline))
 double expr_eval(const struct expr *restrict ep,double input){

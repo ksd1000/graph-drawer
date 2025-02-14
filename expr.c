@@ -18,7 +18,7 @@
 #define printvall(x) fprintf(stderr,#x ":%ld\n",x)
 #define printvald(x) fprintf(stderr,#x ":%lf\n",x)
 #define SYMDIM(sp) (*(size_t *)((sp)->str+(sp)->strlen+1))
-#define assume(cond) if(cond){}else {__builtin_unreachable();}
+#define assume(cond) if(cond);else __builtin_unreachable()
 #define likely(cond) __builtin_expect(!!(cond),1)
 #define unlikely(cond) __builtin_expect(!!(cond),0)
 #ifndef PAGE_SIZE
@@ -5427,8 +5427,8 @@ double expr_eval(const struct expr *restrict ep,double input){
 #define endp (un.s1._endp)
 #define epp (un.s1._epp)
 	for(struct expr_inst *ip=ep->data;;++ip){
-		assume(ip->op>=EXPR_COPY);
-		assume(ip->op<=EXPR_END);
+		//assume(ip->op>=EXPR_COPY);
+		//assume(ip->op<=EXPR_END);
 		switch(ip->op){
 			case EXPR_COPY:
 				*ip->dst.dst=*ip->un.src;
@@ -5654,6 +5654,8 @@ double expr_eval(const struct expr *restrict ep,double input){
 				longjmp(un.s2.un.jp->jb,un.s2.val);
 			case EXPR_END:
 				return *ip->dst.dst;
+			default:
+				__builtin_unreachable();
 		}
 	}
 #undef sum

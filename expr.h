@@ -338,6 +338,7 @@ struct expr *new_expr(const char *e,const char *asym,struct expr_symset *esp,int
 double expr_calc5(const char *e,const char *asym,double input,struct expr_symset *esp,int flag);
 double expr_calc4(const char *e,const char *asym,double input,struct expr_symset *esp);
 double expr_calc3(const char *e,const char *asym,double input);
+double expr_calc2(const char *e,struct expr_symset *esp);
 double expr_calc(const char *e);
 double expr_eval(const struct expr *restrict ep,double input);
 #endif

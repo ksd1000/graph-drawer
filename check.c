@@ -88,7 +88,7 @@ const struct eproj {
 	{"sum",EXPR_EFP},
 	{"sqrt()",EXPR_ENVP},
 	{"sum(n)",EXPR_ENEA},
-	{"266j",EXPR_ENUMBER},
+	{"266j",EXPR_ESYMBOL},
 	{"5->pi",EXPR_ETNV},
 	{"5->sqrt",EXPR_ETNV},
 	{"5->t",EXPR_ETNV},

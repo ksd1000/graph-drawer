@@ -1,4 +1,4 @@
 #! /bin/bash
 cat xdraw.1.h > xdraw.h
-./decdump < xdraw.c >>xdraw.h
+. ./decdump < xdraw.c >>xdraw.h
 cat xdraw.2.h >> xdraw.h

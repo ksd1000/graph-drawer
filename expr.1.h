@@ -114,6 +114,7 @@ EXPR_END
 #define EXPR_ECTA 16
 #define EXPR_ESAF 17
 #define EXPR_EVD 18
+#define EXPR_EPM 19
 
 #define EXPR_CONSTANT 0
 #define EXPR_VARIABLE 1
@@ -136,9 +137,15 @@ EXPR_END
 #define EXPR_IF_EXTEND_MASK (\
 		EXPR_IF_INSTANT_FREE\
 		)
+#define EXPR_IF_NOBUILTIN 4
+#define EXPR_IF_NOKEYWORD 8
+#define EXPR_IF_PROTECT 16
+#define EXPR_IF_INJECTION 32
 //expr keyword flag
 #define EXPR_KF_SUBEXPR 1
 #define EXPR_KF_SEPCOMMA 2
+#define EXPR_KF_NOPROTECT 4
+
 #define EXPR_EDBASE(d) (((union expr_double *)(d))->rd.base)
 #define EXPR_EDEXP(d) (((union expr_double *)(d))->rd.exp)
 #define EXPR_EDSIGN(d) (((union expr_double *)(d))->rd.sign)

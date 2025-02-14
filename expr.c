@@ -288,7 +288,8 @@ static const char *eerror[]={
 	[EXPR_ENC]="Not a constant expression",
 	[EXPR_ECTA]="Cannot take address",
 	[EXPR_ESAF]="Static assertion failed",
-	[EXPR_EVD]="Void value must be dropped"
+	[EXPR_EVD]="Void value must be dropped",
+	[EXPR_EPM]="In protect mode",
 };
 //const static char ntoc[]={"0123456789abcdefg"};
 const char *expr_error(int error){
@@ -1261,6 +1262,9 @@ static double expr_hypot(size_t n,double *args){
 #define REGKEYS(s,op,dim,desc) {s,op,EXPR_KF_SUBEXPR,sizeof(s)-1,desc}
 #define REGKEYC(s,op,dim,desc) {s,op,EXPR_KF_SEPCOMMA,sizeof(s)-1,desc}
 #define REGKEYSC(s,op,dim,desc) {s,op,EXPR_KF_SUBEXPR|EXPR_KF_SEPCOMMA,sizeof(s)-1,desc}
+#define REGKEYN(s,op,dim,desc) {s,op,EXPR_KF_NOPROTECT,sizeof(s)-1,desc}
+#define REGKEYCN(s,op,dim,desc) {s,op,EXPR_KF_SEPCOMMA|EXPR_KF_NOPROTECT,sizeof(s)-1,desc}
+#define REGKEYSCN(s,op,dim,desc) {s,op,EXPR_KF_SUBEXPR|EXPR_KF_SEPCOMMA|EXPR_KF_NOPROTECT,sizeof(s)-1,desc}
 const struct expr_builtin_keyword expr_keywords[]={
 	REGKEYSC("sum",EXPR_SUM,5,"sum(index_name,start_index,end_index,index_step,addend)"),
 	REGKEYSC("int",EXPR_INT,5,"int(integral_var_name,upper_limit,lower_limit,epsilon,integrand)"),
@@ -1275,7 +1279,7 @@ const struct expr_builtin_keyword expr_keywords[]={
 	REGKEYSC("lcmn",EXPR_LCMN,5,"lcmn(index_name,start_index,end_index,index_step,element)"),
 	REGKEYSC("for",EXPR_FOR,5,"for(var_name,start_var,cond,body,value)"),
 	REGKEYSC("loop",EXPR_LOOP,5,"loop(var_name,start_var,count,body,value)"),
-	REGKEYSC("vmd",EXPR_VMD,7,"vmd(index_name,start_index,end_index,index_step,element,md_symbol,[constant_expression max_dim])"),
+	REGKEYSCN("vmd",EXPR_VMD,7,"vmd(index_name,start_index,end_index,index_step,element,md_symbol,[constant_expression max_dim])"),
 	REGKEYS("do",EXPR_DO,1,"do(body) do{body}"),
 	REGKEYSC("if",EXPR_IF,3,"if(cond,if_value,else_value) if(cond){body}[[else]{value}]"),
 	REGKEYSC("while",EXPR_WHILE,3,"while(cond,body) while(cond){body}"),
@@ -1286,11 +1290,11 @@ const struct expr_builtin_keyword expr_keywords[]={
 	REGKEY("double",EXPR_BL,1,"double(constant_expression count)"),
 	REGKEY("byte",EXPR_COPY,1,"byte(constant_expression count)"),
 	REGKEY("jmpbuf",EXPR_INPUT,1,"jmpbuf(constant_expression count)"),
-	REGKEYC("alloca",EXPR_ALO,2,"alloca(nmemb,[constant_expression size])"),
-	REGKEY("setjmp",EXPR_SJ,1,"setjmp(jmp_buf)"),
-	REGKEYC("longjmp",EXPR_LJ,2,"longjmp(jmp_buf,val)"),
-	REGKEYC("eval",EXPR_EVAL,2,"eval(ep,[input])"),
-	REGKEYC("decl",EXPR_ADD,2,"decl(name,[constant_expression flag])"),
+	REGKEYCN("alloca",EXPR_ALO,2,"alloca(nmemb,[constant_expression size])"),
+	REGKEYN("setjmp",EXPR_SJ,1,"setjmp(jmp_buf)"),
+	REGKEYCN("longjmp",EXPR_LJ,2,"longjmp(jmp_buf,val)"),
+	REGKEYCN("eval",EXPR_EVAL,2,"eval(ep,[input])"),
+	REGKEYCN("decl",EXPR_ADD,2,"decl(name,[constant_expression flag])"),
 	REGKEY("static_assert",EXPR_SUB,1,"static_assert(constant_expression cond)"),
 	{NULL}
 };
@@ -2503,7 +2507,7 @@ err0:
 }
 static double *expr_scan(struct expr *restrict ep,const char *e,const char *endp,const char *asym,size_t asymlen);
 static double *expr_getvalue(struct expr *restrict ep,const char *e,const char *endp,const char **_p,const char *asym,size_t asymlen){
-	const char *p,*p2;
+	const char *p,*p2,*e0=e;
 	double *v0=NULL,*v1;
 	int r0,builtin=0;
 	union {
@@ -2596,6 +2600,11 @@ block:
 		case '[':
 			p=expr_findpair_bracket(e,endp);
 			if(unlikely(!p))goto pterr;
+			if(unlikely(ep->iflag&EXPR_IF_PROTECT)){
+				ep->error=EXPR_EPM;
+				serrinfo(ep->errinfo,e,p-e+1);
+				return NULL;
+			}
 			if(unlikely(p==e+1))goto envp;
 			v1=expr_scan(ep,e+1,p,asym,asymlen);
 			if(unlikely(!v1))return NULL;
@@ -2721,17 +2730,37 @@ ecta:
 			goto found;
 		}
 	}
-	if((sym.ebs=expr_builtin_symbol_search(e,p-e))){
+	if(!(ep->iflag&EXPR_IF_NOBUILTIN)&&(sym.ebs=expr_builtin_symbol_search(e,p-e))){
+		flag=sym.ebs->flag;
 		type=sym.ebs->type;
+		switch(type){
+			case EXPR_FUNCTION:
+			case EXPR_MDFUNCTION:
+			case EXPR_MDEPFUNCTION:
+				if(!(flag&EXPR_SF_INJECTION)){
+			case EXPR_ZAFUNCTION:
+					if((ep->iflag&EXPR_IF_INJECTION)){
+						goto symerr;
+					}
+				}
+			default:
+				break;
+		}
 		sv.sv=&sym.ebs->un;
 		dim=sym.ebs->dim;
-		flag=sym.ebs->flag;
 		goto found;
 	}
+	if(ep->iflag&EXPR_IF_NOKEYWORD)
+		goto number;
 	for(const struct expr_builtin_keyword *kp=expr_keywords;
 			kp->str;++kp){
 		if(likely(p-e!=kp->strlen||memcmp(e,kp->str,p-e)))
 			continue;
+		if(unlikely((ep->iflag&EXPR_IF_PROTECT)&&(kp->flag&EXPR_KF_NOPROTECT))){
+			ep->error=EXPR_EPM;
+			serrinfo(ep->errinfo,kp->str,kp->strlen);
+			return NULL;
+		}
 		if(unlikely(*p!='(')){
 			serrinfo(ep->errinfo,e,p-e);
 			ep->error=EXPR_EFP;
@@ -3195,19 +3224,28 @@ symerr:
 	ep->error=EXPR_ESYMBOL;
 	return NULL;
 vend:
-	while(e<endp&&*e=='['){
-		double *v2;
-		p=expr_findpair_bracket(e,endp);
-		if(unlikely(!p))goto pterr;
-		if(unlikely(p==e+1))goto envp;
-		v1=expr_scan(ep,e+1,p,asym,asymlen);
-		if(unlikely(!v1))return NULL;
-		v2=v0;
-		v0=expr_newvar(ep);
-		cknp(ep,v0,return NULL);
-		expr_addoff(ep,v2,v1);
-		expr_addread(ep,v0,v2);
-		e=p+1;
+	if(e<endp&&*e=='['){
+		if(unlikely(ep->iflag&EXPR_IF_PROTECT)){
+			p=expr_findpair_bracket(e,endp);
+			if(unlikely(!p))goto pterr;
+			ep->error=EXPR_EPM;
+			serrinfo(ep->errinfo,e0,p-e0+1);
+			return NULL;
+		}
+		do{
+			double *v2;
+			p=expr_findpair_bracket(e,endp);
+			if(unlikely(!p))goto pterr;
+			if(unlikely(p==e+1))goto envp;
+			v1=expr_scan(ep,e+1,p,asym,asymlen);
+			if(unlikely(!v1))return NULL;
+			v2=v0;
+			v0=expr_newvar(ep);
+			cknp(ep,v0,return NULL);
+			expr_addoff(ep,v2,v1);
+			expr_addread(ep,v0,v2);
+			e=p+1;
+		}while(e<endp&&*e=='[');
 	}
 	if(likely(_p))*_p=e;
 	return v0;
@@ -3323,6 +3361,10 @@ eev:
 			break;
 	}
 	switch(*e){
+		case '+':
+			++e;
+			if(unlikely(e>=endp))goto eev;
+			goto redo;
 		case '-':
 			unary=(unary<<2)|1;
 			++e;
@@ -3433,38 +3475,50 @@ rescan:
 				if(likely(p1==e)){
 					switch(*e){
 						case '[':
-						p1=expr_findpair_bracket(e,endp);
-						if(unlikely(!p1))goto pterr;
-						if(unlikely(p1==e+1)){
+							p1=expr_findpair_bracket(e,endp);
+							if(unlikely(!p1))goto pterr;
+							if(unlikely(ep->iflag&EXPR_IF_PROTECT)){
+								ep->error=EXPR_EPM;
+								serrinfo(ep->errinfo,e,p1-e+1);
+								goto err;
+							}
+							if(unlikely(p1==e+1)){
 envp:
-							ep->error=EXPR_ENVP;
-							goto err;
-						}
-						if(p1+1<endp&&p1[1]=='['){
+								ep->error=EXPR_ENVP;
+								goto err;
+							}
+							if(p1+1<endp&&p1[1]=='['){
+								e1=e;
+								goto multi_dim;
+							}
+							v2=expr_scan(ep,e+1,p1,asym,asymlen);
+							if(unlikely(!v2))goto err;
+							expr_addwrite(ep,v1,v2);
+							e=p1+1;
+							goto bracket_end;
+						case '(':
+							p1=expr_findpair(e,endp);
+							if(p1+1>=endp||p1[1]!='[')
+								break;
+							if(unlikely(ep->iflag&EXPR_IF_PROTECT)){
+								p1=expr_findpair_bracket(p1+1,endp);
+								if(unlikely(!p1))goto pterr;
+								ep->error=EXPR_EPM;
+								serrinfo(ep->errinfo,e,p1-e+1);
+								goto err;
+							}
 							e1=e;
 							goto multi_dim;
-						}
-						v2=expr_scan(ep,e+1,p1,asym,asymlen);
-						if(unlikely(!v2))goto err;
-						expr_addwrite(ep,v1,v2);
-						e=p1+1;
-						goto bracket_end;
-						case '(':
-						p1=expr_findpair(e,endp);
-						if(p1+1>=endp||p1[1]!='[')
-							break;
-						e1=e;
-						goto multi_dim;
-						case '&':
-						if(e+1>=endp)
-							break;
-						p1=expr_getsym(e+1,endp);
-						if(p1==e+1||*p1!='[')break;
-						e1=e;
-						--p1;
-						goto multi_dim;
+						/*case '&':
+							if(e+1>=endp)
+								break;
+							p1=expr_getsym(e+1,endp);
+							if(p1==e+1||*p1!='[')break;
+							e1=e;
+							--p1;
+							goto multi_dim;*/
 						default:
-						break;
+							break;
 					}
 					if(expr_operator(*e)){
 						*ep->errinfo=*e;
@@ -3494,6 +3548,11 @@ envp:
 					double *v3;
 					p1=expr_findpair_bracket(e,endp);
 					if(unlikely(!p1))goto pterr;
+					if(unlikely(ep->iflag&EXPR_IF_PROTECT)){
+						ep->error=EXPR_EPM;
+						serrinfo(ep->errinfo,e1,p1-e1+1);
+						goto err;
+					}
 					if(unlikely(p1==e+1))goto envp;
 					while(p1+1<endp&&p1[1]=='['){
 multi_dim:
@@ -3547,7 +3606,8 @@ bracket_end:
 					if(!ep->sset_shouldfree){
 						cknp(ep,expr_detach(ep)>=0,goto err);
 						esp=expr_symset_search(ep->sset,e,p1-e);
-						if(unlikely(!esp))goto err;//unknown error
+						if(unlikely(!esp))
+							goto err;//unknown error
 					}
 					v2=expr_newvar(ep);
 					cknp(ep,v2,goto err);
@@ -4020,6 +4080,7 @@ static int init_expr8(struct expr *restrict ep,const char *e,size_t len,const ch
 	} un;
 	char *ebuf,*r,*p0;
 	struct expr_resource *rp;
+	double *v;
 	/*ep->data=NULL;
 	ep->vars=NULL;
 	ep->sset_shouldfree=0;
@@ -4042,8 +4103,18 @@ static int init_expr8(struct expr *restrict ep,const char *e,size_t len,const ch
 			ep->sset=esp;
 		}
 		if(likely(un.p)){
-			expr_addend(ep,un.p);
+			if(unlikely(expr_void(un.p))){
+				v=expr_newvar(ep);
+				if(unlikely(!v)){
+					ep->error=EXPR_EMEM;
+					goto err;
+				}
+				*v=0;
+				expr_addend(ep,v);
+			}else
+				expr_addend(ep,un.p);
 		}else {
+err:
 			expr_free(ep);
 			ep->errinfo[EXPR_SYMLEN-1]=0;
 			return -1;

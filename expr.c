@@ -2646,6 +2646,13 @@ block:
 					e+=2;
 					goto vend;
 				case '{':
+					if(unlikely(ep->iflag&EXPR_IF_PROTECT)){
+						p=expr_findpair_brace(e+1,endp);
+						if(unlikely(!p))goto pterr;
+						ep->error=EXPR_EPM;
+						serrinfo(ep->errinfo,e0,p-e0+1);
+						return NULL;
+					}
 					r0=1;
 					++e;
 					goto block;
@@ -2661,6 +2668,11 @@ block:
 			if(unlikely(p==e)){
 				ep->error=EXPR_ECTA;
 				*ep->errinfo=*e;
+				return NULL;
+			}
+			if(unlikely(ep->iflag&EXPR_IF_PROTECT)){
+				ep->error=EXPR_EPM;
+				serrinfo(ep->errinfo,e0,p-e0);
 				return NULL;
 			}
 			if(builtin||!ep->sset||!(sym.es=expr_symset_search(ep->sset,e,p-e))){
@@ -2727,6 +2739,19 @@ ecta:
 			}
 			sv.sv=&sym.es->un;
 			flag=sym.es->flag;
+			switch(type){
+				case EXPR_FUNCTION:
+				case EXPR_MDFUNCTION:
+				case EXPR_MDEPFUNCTION:
+				case EXPR_ZAFUNCTION:
+					if(!(flag&EXPR_SF_INJECTION)){
+						if((ep->iflag&EXPR_IF_INJECTION_S)){
+							goto symerr;
+						}
+					}
+				default:
+					break;
+			}
 			goto found;
 		}
 	}
@@ -2737,8 +2762,8 @@ ecta:
 			case EXPR_FUNCTION:
 			case EXPR_MDFUNCTION:
 			case EXPR_MDEPFUNCTION:
-				if(!(flag&EXPR_SF_INJECTION)){
 			case EXPR_ZAFUNCTION:
+				if(!(flag&EXPR_SF_INJECTION)){
 					if((ep->iflag&EXPR_IF_INJECTION)){
 						goto symerr;
 					}
@@ -2864,7 +2889,7 @@ c_fail:
 				}
 				expr_free2(sym.vv);
 				flag=sv.es->flag;
-				sv.es->flag=(int)un.v;
+				sv.es->flag=((int)un.v&~EXPR_SF_PMASK)|(flag&EXPR_SF_PMASK);
 				v0=EXPR_VOID;
 				e=p+1;
 				goto vend;
@@ -3120,6 +3145,13 @@ treat_as_variable:
 			p2=e;
 			e=p;
 			if(e<endp&&*e=='('){
+				if(unlikely(ep->iflag&EXPR_IF_PROTECT)){
+					p=expr_findpair(e,endp);
+					if(unlikely(!p))goto pterr;
+					ep->error=EXPR_EPM;
+					serrinfo(ep->errinfo,e0,p-e0+1);
+					return NULL;
+				}
 				switch(flag&~EXPR_SF_PMASK){
 					case EXPR_SF_PMD:
 						p=expr_findpair(e,endp);

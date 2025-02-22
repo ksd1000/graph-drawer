@@ -141,6 +141,7 @@ EXPR_END
 #define EXPR_IF_NOKEYWORD 8
 #define EXPR_IF_PROTECT 16
 #define EXPR_IF_INJECTION 32
+#define EXPR_IF_INJECTION_S 64
 //expr keyword flag
 #define EXPR_KF_SUBEXPR 1
 #define EXPR_KF_SEPCOMMA 2

@@ -102,6 +102,7 @@
 		case EXPR_WHILE
 #define HOTCASES EXPR_DO:\
 		case EXPR_HOT:\
+		case EXPR_DO1:\
 		case EXPR_EP:\
 		case EXPR_WIF
 #define expr_equal(_a,_b) ({\
@@ -1287,9 +1288,9 @@ const struct expr_builtin_keyword expr_keywords[]={
 	REGKEYSC("don",EXPR_DON,3,"don(cond,body) don(cond){body}"),
 	REGKEYC("const",EXPR_CONST,2,"const(name,[constant_expression value])"),
 	REGKEYC("var",EXPR_MUL,2,"var(name,[constant_expression initial_value])"),
-	REGKEY("double",EXPR_BL,1,"double(constant_expression count)"),
-	REGKEY("byte",EXPR_COPY,1,"byte(constant_expression count)"),
-	REGKEY("jmpbuf",EXPR_INPUT,1,"jmpbuf(constant_expression count)"),
+	REGKEYN("double",EXPR_BL,1,"double(constant_expression count)"),
+	REGKEYN("byte",EXPR_COPY,1,"byte(constant_expression count)"),
+	REGKEYN("jmpbuf",EXPR_INPUT,1,"jmpbuf(constant_expression count)"),
 	REGKEYCN("alloca",EXPR_ALO,2,"alloca(nmemb,[constant_expression size])"),
 	REGKEYN("setjmp",EXPR_SJ,1,"setjmp(jmp_buf)"),
 	REGKEYCN("longjmp",EXPR_LJ,2,"longjmp(jmp_buf,val)"),
@@ -2623,6 +2624,11 @@ block:
 		case '\"':
 			p=expr_findpair_dmark(e,endp);
 			if(unlikely(!p))goto pterr;
+			if(unlikely(ep->iflag&EXPR_IF_PROTECT)){
+				ep->error=EXPR_EPM;
+				serrinfo(ep->errinfo,e,p-e+1);
+				return NULL;
+			}
 			un.uaddr=expr_astrscan(e+1,p-e-1,&dim);
 			if(unlikely(!un.uaddr))break;
 			sym.er=expr_newres(ep);
@@ -4727,6 +4733,7 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 			case SUMCASES:
 			case BRANCHCASES:
 			case EXPR_DO:
+			case EXPR_DO1:
 			case EXPR_EP:
 			case EXPR_WIF:
 			case EXPR_EVAL:
@@ -4946,19 +4953,28 @@ endless:
 				expr_free(ip->un.eb->body);
 				goto free_eb;
 			case EXPR_DON:
+				if(expr_constexpr(ip->un.eb->body,NULL))
+					goto delete_eb;
 				if(!expr_constexpr(ip->un.eb->cond,NULL))
 					continue;
 				switch((size_t)expr_eval(ip->un.eb->cond,input)){
 					case 0:
-						hep=ip->un.eb->value;
+						/*hep=ip->un.eb->value;
 						expr_free(ip->un.eb->cond);
 						expr_free(ip->un.eb->body);
-						goto free_eb;
+						goto free_eb1;*/
+delete_eb:
+						expr_free(ip->un.eb->cond);
+						expr_free(ip->un.eb->body);
+						expr_free(ip->un.eb->value);
+						xfree(ip->un.eb);
+						ip->dst.uaddr=NULL;
+						continue;
 					case 1:
 						hep=ip->un.eb->body;
 						expr_free(ip->un.eb->cond);
 						expr_free(ip->un.eb->value);
-						goto free_eb;
+						goto free_eb1;
 					default:
 						continue;
 				}
@@ -4975,7 +4991,12 @@ endless:
 					hep=ip->un.eb->body;
 					expr_free(ip->un.eb->cond);
 					expr_free(ip->un.eb->value);
-					goto free_eb;
+free_eb1:
+					xfree(ip->un.eb);
+					ip->op=EXPR_DO1;
+					ip->un.hotfunc=hep;
+					ip->flag=0;
+					r=1;
 				}
 				break;
 			case EXPR_IF:
@@ -5009,6 +5030,11 @@ free_eb:
 				ip->flag=0;
 				r=1;
 				break;
+			case EXPR_DO1:
+				if(!expr_constexpr(ip->un.hotfunc,NULL))
+					continue;
+				expr_free(ip->un.hotfunc);
+				ip->dst.uaddr=NULL;
 			default:
 				break;
 		}
@@ -5705,6 +5731,9 @@ double expr_eval(const struct expr *restrict ep,double input){
 			CALMD_INSWITCH(ip->dst.dst);
 			case EXPR_VMD:
 				*ip->dst.dst=expr_vmdeval(ip->un.ev,input);
+				break;
+			case EXPR_DO1:
+				expr_eval(ip->un.hotfunc,input);
 				break;
 			case EXPR_EP:
 				*ip->dst.dst=expr_eval(ip->un.hotfunc,input);

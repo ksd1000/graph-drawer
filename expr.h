@@ -308,6 +308,7 @@ double expr_and2(double x,double y);
 double expr_or2(double x,double y);
 double expr_xor2(double x,double y);
 double expr_not(double x);
+double expr_exp_old(double x);
 void expr_contract(void *buf,size_t size);
 __attribute__((noreturn)) void expr_explode(void);
 double expr_isfinite(double x);

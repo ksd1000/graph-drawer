@@ -605,6 +605,47 @@ double expr_xor2(double x,double y){
 double expr_not(double x){
 	return not(x);
 }
+double expr_exp_old(double x){
+	size_t n;
+	double r,y;
+	int frac;
+	if(x<0){
+		x=-x;
+		frac=1;
+	}else
+		frac=0;
+	n=x;
+	x-=n;
+	r=1.0;
+	if(n){
+		y=M_E;
+		for(size_t b=1;;b<<=1){
+			if(b&n){
+				r*=y;
+				n&=~b;
+			}
+			if(!n)
+				break;
+			y*=y;
+		}
+	}
+	if(x!=0.0){
+		unsigned int ff;
+		double z;
+		ff=2;
+		z=1+x;
+		y=x;
+		for(;;){
+			y*=x/ff;
+			if(!y)
+				break;
+			z+=y;
+			++ff;
+		}
+		r*=z;
+	}
+	return frac?1/r:r;
+}
 #define expr_add2(a,b) ((a)+(b))
 #define expr_mul2(a,b) ((a)*(b))
 #define CALMD(_symbol)\
@@ -637,6 +678,26 @@ static double expr_mul(size_t n,double *args){
 }
 static double expr_cmp(size_t n,double *args){
 	return (double)memcmp(args,args+1,sizeof(double));
+}
+#define SIZE_BITS (8*sizeof(size_t))
+static double expr_pow_old_n(size_t n,double *args){
+	double x,r;
+	size_t p=(size_t)args[1],b;
+	if(!p)
+		return 1.0;
+	x=args[0];
+	r=1.0;
+	for(unsigned int i=0;;++i){
+		b=1<<i;
+		if(b&p){
+			r*=x;
+			p&=~b;
+		}
+		if(!p)
+			break;
+		x=x*x;
+	}
+	return r;
 }
 void expr_contract(void *buf,size_t size){
 	char *p=(char *)buf,*endp=(char *)buf+size-1;
@@ -1119,6 +1180,32 @@ static double expr_root(size_t n,const struct expr *args,double input){
 	}
 	return INFINITY;
 }
+static double expr_findbound2(size_t n,const struct expr *args,double input){
+	//root2(expression)
+	//root2(expression,from)
+	//root2(expression,from,to)
+	double from,to,swapbuf;
+	int fcond,tcond,cond;
+	from=expr_eval(args+1,input);
+	to=expr_eval(args+2,input);
+	fcond=(expr_eval(args,from)!=0.0);
+	tcond=(expr_eval(args,to)!=0.0);
+	if(fcond==tcond)
+		return INFINITY;
+	for(;;){
+		swapbuf=(from+to)/2;
+		if(unlikely(swapbuf==from||swapbuf==to))
+			return from;
+		cond=(expr_eval(args,swapbuf)!=0.0);
+		if(cond==fcond){
+			from=swapbuf;
+		}else {
+			to=swapbuf;
+		}
+		//printf("(%.24lf,%.24lf)\n",from,to);
+		//printf(":(%.24lf,%.24lf)\n",expr_eval(args,from),expr_eval(args,to));
+	}
+}
 static double expr_root2(size_t n,const struct expr *args,double input){
 	//root2(expression)
 	//root2(expression,from)
@@ -1126,7 +1213,7 @@ static double expr_root2(size_t n,const struct expr *args,double input){
 	//root2(expression,from,to,step)
 	//root2(expression,from,to,step,epsilon)
 	double epsilon=0.0,from=0.0,to=INFINITY,step=1.0,swapbuf;
-	int neg,trunc=0;
+	int neg,trunc;
 	switch(n){
 		case 5:
 			epsilon=fabs(expr_eval(args+4,input));
@@ -1146,10 +1233,11 @@ static double expr_root2(size_t n,const struct expr *args,double input){
 		from=to;
 		to=swapbuf;
 		trunc=1;
-	}
+	}else
+		trunc=0;
 	swapbuf=expr_eval(args,from);
-	neg=(swapbuf<-0.0);
 	if(unlikely(fabs(swapbuf)<=epsilon))goto end;
+	neg=(swapbuf<-0.0);
 	for(from+=step;from<=to;from+=step){
 		if(unlikely(from+step==from)){
 			goto end1;
@@ -1376,6 +1464,7 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGFSYM(exp),
 	REGFSYM(exp2),
 	REGFSYM(expm1),
+	REGFSYM2("exp_old",expr_exp_old),
 	REGFSYM(fabs),
 	REGFSYM2("fact",expr_fact),
 	REGFSYM2("ffs",expr_ffs),
@@ -1445,6 +1534,7 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGMDSYM2("mode",expr_mode,0),
 	REGMDSYM2("mul",expr_mul,0),
 	REGMDSYM2("nfact",expr_nfact,2ul),
+	REGMDSYM2("pow_old_n",expr_pow_old_n,2),
 
 	REGMDEPSYM2_NIW("assert",expr_bassert,1ul),
 	REGMDEPSYM2_NI("ldr",expr_ldr,2ul),
@@ -1509,6 +1599,7 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGWMEM(l),
 
 	REGMDEPSYM2("andl",expr_andl,0),
+	REGMDEPSYM2("findbound2",expr_findbound2,3),
 	REGMDEPSYM2("orl",expr_orl,0),
 	REGMDEPSYM2("piece",expr_piece,0),
 	REGMDEPSYM2("d",expr_derivate,0),
@@ -3944,8 +4035,8 @@ struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const cha
 			p=va_arg(ap,const char *);
 			p1=va_arg(ap,const char *);
 			len_expr=strlen(p);
-			len_asym=strlen(p1)+2;
-			ep->length+=len_expr+len_asym;
+			len_asym=strlen(p1);
+			ep->length+=len_expr+len_asym+2;
 			ep=xrealloc(ep,ep->length);
 			ep->un.hotexpr=ep->str+symlen+1;
 			asymp=ep->un.hotexpr+len_expr+1;

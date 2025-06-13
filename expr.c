@@ -194,6 +194,7 @@
 	}\
 	_r;\
 })
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #define LOGIC(a,b,_s) (((a)!=0.0) _s ((b)!=0.0))
 #define LOGIC_BIT(_a,_b,_op_cal,_op_zero,_zero_val) \
 	if(_expdiff>52L){\
@@ -265,6 +266,7 @@
 	_r;\
 })
 #define not(_x) xor2(9007199254740991.0/* 2^53-1*/,(_x))
+#pragma GCC diagnostic pop
 struct expr_jmpbuf {
 	struct expr_inst **ipp;
 	struct expr_inst *ip;
@@ -4855,6 +4857,7 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 		}
 	}
 }
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #define CALSUM(_op,_do,_init,_neg,dest)\
 			case _op :\
 				neg=0;\
@@ -4926,9 +4929,11 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 			case EXPR_ME:\
 				*dest=ip->un.em->un.funcep(ip->un.em->dim,ip->un.em->eps,input);\
 				break
+
+#pragma GCC diagnostic pop
 static double expr_vmdeval(struct expr_vmdinfo *restrict ev,double input);
 #pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunknown-warning-option"
+//#pragma GCC diagnostic ignored "-Wunknown-warning-option"
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 static int expr_optimize_constexpr(struct expr *restrict ep){
 	double result;
@@ -5611,7 +5616,7 @@ static double expr_vmdeval(struct expr_vmdinfo *restrict ev,double input){
 	return ev->func(ap-args,args);
 }
 #pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunknown-warning-option"
+//#pragma GCC diagnostic ignored "-Wunknown-warning-option"
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 __attribute__((noinline))
 double expr_eval(const struct expr *restrict ep,double input){

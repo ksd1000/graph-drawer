@@ -129,6 +129,8 @@ EXPR_END
 #define EXPR_SF_WRITEIP 2
 #define EXPR_SF_PMD 4
 #define EXPR_SF_PME 8
+#define EXPR_SF_UNSAFE 16
+
 #define EXPR_SF_PEP 12
 #define EXPR_SF_PMASK (~12)
 //expr initial flag

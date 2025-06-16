@@ -1341,13 +1341,14 @@ static double expr_hypot(size_t n,double *args){
 #define REGFSYM(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.func=s},.type=EXPR_FUNCTION,.flag=EXPR_SF_INJECTION}
 #define REGCSYM(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.value=s},.type=EXPR_CONSTANT}
 #define REGFSYM2(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SF_INJECTION}
-#define REGFSYM2_NI(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=0}
+#define REGFSYM2_NI(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SF_UNSAFE}
 #define REGZASYM2(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.zafunc=sym},.type=EXPR_ZAFUNCTION,.flag=0}
+#define REGZASYM2_U(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.zafunc=sym},.type=EXPR_ZAFUNCTION,.flag=EXPR_SF_UNSAFE}
 #define REGMDSYM2(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdfunc=sym},.dim=d,.type=EXPR_MDFUNCTION,.flag=EXPR_SF_INJECTION}
-#define REGMDSYM2_NI(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdfunc=sym},.dim=d,.type=EXPR_MDFUNCTION,.flag=0}
+//#define REGMDSYM2_NI(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdfunc=sym},.dim=d,.type=EXPR_MDFUNCTION,.flag=0}
 #define REGMDEPSYM2(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdepfunc=sym},.dim=d,.type=EXPR_MDEPFUNCTION,.flag=EXPR_SF_INJECTION}
-#define REGMDEPSYM2_NI(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdepfunc=sym},.dim=d,.type=EXPR_MDEPFUNCTION,.flag=0}
-#define REGMDEPSYM2_NIW(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdepfunc=sym},.dim=d,.type=EXPR_MDEPFUNCTION,.flag=EXPR_SF_WRITEIP}
+#define REGMDEPSYM2_NI(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdepfunc=sym},.dim=d,.type=EXPR_MDEPFUNCTION,.flag=EXPR_SF_UNSAFE}
+#define REGMDEPSYM2_NIW(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdepfunc=sym},.dim=d,.type=EXPR_MDEPFUNCTION,.flag=EXPR_SF_WRITEIP|EXPR_SF_UNSAFE}
 #define REGCSYM2(s,val) {.strlen=sizeof(s)-1,.str=s,.un={.value=val},.type=EXPR_CONSTANT}
 #define REGKEY(s,op,dim,desc) {s,op,0,sizeof(s)-1,desc}
 #define REGKEYS(s,op,dim,desc) {s,op,EXPR_KF_SUBEXPR,sizeof(s)-1,desc}
@@ -1500,12 +1501,12 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGFSYM(y0),
 	REGFSYM(y1),
 
-	REGZASYM2("abort",(double (*)(void))abort),
+	REGZASYM2_U("abort",(double (*)(void))abort),
 	REGZASYM(drand48),
-	REGZASYM2("frame",expr_frame),
+	REGZASYM2_U("frame",expr_frame),
 	REGZASYM2("lrand48",expr_lrand48),
 	REGZASYM2("mrand48",expr_mrand48),
-	REGZASYM2("explode",(double (*)(void))expr_explode),
+	REGZASYM2_U("explode",(double (*)(void))expr_explode),
 
 	REGFSYM2_NI("exit",expr_exit),
 	REGFSYM2_NI("exitif",expr_exitif),
@@ -2843,11 +2844,10 @@ ecta:
 				case EXPR_MDFUNCTION:
 				case EXPR_MDEPFUNCTION:
 				case EXPR_ZAFUNCTION:
-					if(!(flag&EXPR_SF_INJECTION)){
-						if((ep->iflag&EXPR_IF_INJECTION_S)){
-							goto symerr;
-						}
-					}
+					if(!(flag&EXPR_SF_INJECTION)&&(ep->iflag&EXPR_IF_INJECTION_S))
+						goto symerr;
+					if((flag&EXPR_SF_UNSAFE)&&(ep->iflag&EXPR_IF_PROTECT))
+						goto pm;
 				default:
 					break;
 			}
@@ -2862,11 +2862,10 @@ ecta:
 			case EXPR_MDFUNCTION:
 			case EXPR_MDEPFUNCTION:
 			case EXPR_ZAFUNCTION:
-				if(!(flag&EXPR_SF_INJECTION)){
-					if((ep->iflag&EXPR_IF_INJECTION)){
-						goto symerr;
-					}
-				}
+				if(!(flag&EXPR_SF_INJECTION)&&(ep->iflag&EXPR_IF_INJECTION))
+					goto symerr;
+				if((flag&EXPR_SF_UNSAFE)&&(ep->iflag&EXPR_IF_PROTECT))
+					goto pm;
 			default:
 				break;
 		}
@@ -3350,6 +3349,10 @@ number:
 		ep->error=EXPR_ENUMBER;
 		return NULL;
 	}*/
+pm:
+	serrinfo(ep->errinfo,e,p-e);
+	ep->error=EXPR_EPM;
+	return NULL;
 symerr:
 	serrinfo(ep->errinfo,e,p-e);
 	ep->error=EXPR_ESYMBOL;
@@ -4857,7 +4860,6 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 		}
 	}
 }
-#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #define CALSUM(_op,_do,_init,_neg,dest)\
 			case _op :\
 				neg=0;\
@@ -4929,8 +4931,6 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 			case EXPR_ME:\
 				*dest=ip->un.em->un.funcep(ip->un.em->dim,ip->un.em->eps,input);\
 				break
-
-#pragma GCC diagnostic pop
 static double expr_vmdeval(struct expr_vmdinfo *restrict ev,double input);
 #pragma GCC diagnostic push
 //#pragma GCC diagnostic ignored "-Wunknown-warning-option"

@@ -12,8 +12,6 @@
 #include <limits.h>
 #include <err.h>
 #include <setjmp.h>
-#define NDEBUG
-#include <assert.h>
 #define printval(x) fprintf(stderr,#x ":%lu\n",x)
 #define printvall(x) fprintf(stderr,#x ":%ld\n",x)
 #define printvald(x) fprintf(stderr,#x ":%lf\n",x)
@@ -716,10 +714,17 @@ __attribute__((noreturn)) void expr_explode(void){
 	do {
 		while((r=xmalloc_nullable(sz))){
 			expr_contract(r,sz);
+			//if do not contract,
+			//the virtual memory
+			//has not physical
+			//memory and the OOM
+			//will not be called.
 		}
 		sz>>=1ul;
 	}while(sz);
 	abort();
+//the abort() is usually unreachable,should
+//be killed by kernel before sz reaches 0
 }
 static double expr_lrand48(void){
 	return (double)lrand48();
@@ -1402,6 +1407,7 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGCSYM(EXPR_SF_PMD),
 	REGCSYM(EXPR_SF_PME),
 	REGCSYM(EXPR_SF_PEP),
+	REGCSYM(EXPR_SF_UNSAFE),
 	REGCSYM(FLT_MAX),
 	REGCSYM(FLT_MIN),
 	REGCSYM(FLT_EPSILON),
@@ -1415,28 +1421,30 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGCSYM2("2_pi",M_2_PI),
 	REGCSYM2("2_sqrtpi",M_2_SQRTPI),
 	REGCSYM2("C",0.577215664901532860606512090082402431042),
-	REGCSYM2("c",299792458.0),
 	REGCSYM2("e",M_E),
-	REGCSYM2("e0",8.8541878128e-12),
-	REGCSYM2("e1",1.602176634e-19),
-	REGCSYM2("G",6.67430e-11),
-	REGCSYM2("h",6.62607015e-34),
 	REGCSYM2("inf",INFINITY),
-	REGCSYM2("k",1.380649e-23),
 	REGCSYM2("log2e",M_LOG2E),
 	REGCSYM2("log10e",M_LOG10E),
 	REGCSYM2("ln2",M_LN2),
 	REGCSYM2("ln10",M_LN10),
-	REGCSYM2("N_A",6.02214076e+23),
 	REGCSYM2("nan",NAN),
 	REGCSYM2("pi",M_PI),
 	REGCSYM2("pi_2",M_PI_2),
 	REGCSYM2("pi_4",M_PI_4),
-	REGCSYM2("R",8.31446261815234),
 	REGCSYM2("sqrt2",M_SQRT2),
 	REGCSYM2("sqrt1_2",M_SQRT1_2),
+#ifdef PHYSICAL_CONSTANT
+	REGCSYM2("c",299792458.0),
+	REGCSYM2("e0",8.8541878128e-12),
+	REGCSYM2("e1",1.602176634e-19),
+	REGCSYM2("G",6.67430e-11),
+	REGCSYM2("h",6.62607015e-34),
+	REGCSYM2("k",1.380649e-23),
+	REGCSYM2("N_A",6.02214076e+23),
+	REGCSYM2("R",8.31446261815234),
 	REGCSYM2("sqrc",89875517873681764.0),
 	REGCSYM2("u0",1.25663706212e-6),
+#endif
 
 	REGFSYM2("abs",fabs),
 	REGFSYM(acos),
@@ -3349,13 +3357,13 @@ number:
 		ep->error=EXPR_ENUMBER;
 		return NULL;
 	}*/
-pm:
-	serrinfo(ep->errinfo,e,p-e);
-	ep->error=EXPR_EPM;
-	return NULL;
 symerr:
 	serrinfo(ep->errinfo,e,p-e);
 	ep->error=EXPR_ESYMBOL;
+	return NULL;
+pm:
+	serrinfo(ep->errinfo,e,p-e);
+	ep->error=EXPR_EPM;
 	return NULL;
 vend:
 	if(e<endp&&*e=='['){

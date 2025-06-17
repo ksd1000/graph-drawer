@@ -14,6 +14,7 @@
 #warning "__unix__ is not defined. define ssize_t as ptrdiff_t."
 #endif
 typedef ptrdiff_t ssize_t;
+#define SSIZE_MAX PTRDIFF_MAX
 #endif
 enum expr_op {
 EXPR_COPY=0,

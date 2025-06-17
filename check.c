@@ -65,13 +65,13 @@ const struct proj {
 	{"!!!3",0},
 	{"!!0",0},
 	{"!!!0",1},
-	{"!~!-!!t",0},
-	{"!!~!-!!t",1},
+	{"!~!-!!0",0},
+	{"!!~!-!!0",1},
 	{"(129+127)&~127",256},
 	{"(128+127)&~127",128},
 	{"(127+127)&~127",128},
-	{"asint(t#128)",128},
-	{"asint(t#(128*2)#1)",257},
+	{"asint(0#128)",128},
+	{"asint(0#(128*2)#1)",257},
 	{"asint(0#(128*2)#1)",257},
 	{"static_assert(e>2.71),2",2},
 	{NULL}
@@ -91,6 +91,7 @@ const struct eproj {
 	{"266j",EXPR_ESYMBOL},
 	{"5->pi",EXPR_ETNV},
 	{"5->sqrt",EXPR_ETNV},
+	{"5->e",EXPR_ETNV},
 	{"5->t",EXPR_ETNV},
 	{"2+",EXPR_EEV},
 	{"2->",EXPR_EEV},
@@ -99,7 +100,6 @@ const struct eproj {
 	{"drand48(",EXPR_EZAFP},
 	{"drand48",EXPR_EZAFP},
 	{"var(defined_symbol,5),0",EXPR_EDS},
-	{"5-->t",EXPR_ETNV},
 	{"vmd(k,1,10,1,k,cmp,0)",EXPR_EVMD},
 	{"5-->v,&v[2]c",EXPR_EUSN},
 	{"5-->v,&v[2]7",EXPR_EUSN},
@@ -133,12 +133,12 @@ void check(const char *e,double expect){
 	printf("checking %s --- expect %lg",e,expect);
 	init_expr5(ep,e,"t",NULL,EXPR_IF_INSTANT_FREE);
 	//exit(0);
-	r=expr_calc5(e,"t",0,NULL,EXPR_IF_NOOPTIMIZE);
+	r=expr_calc5(e,NULL,NULL,NULL,EXPR_IF_NOOPTIMIZE);
 	if(memcmp(&r,&expect,sizeof(double))){
 		printf("\nerror! %s should be %lg but %lg\n",e,expect,r);
 		goto ab;
 	}
-	r=expr_calc5(e,"t",0,NULL,0);
+	r=expr_calc5(e,NULL,NULL,NULL,0);
 	if(memcmp(&r,&expect,sizeof(double))){
 		printf("\noptimization error! %s should be %lg but %lg\n",e,expect,r);
 		goto ab;
@@ -151,7 +151,7 @@ ab:
 }
 int main(int argc,char **argv){
 	srand48(time(NULL)+getpid());
-	expr_calc5("t+2","t",3,NULL,0);
+	//expr_calc5("t+2","t",3,NULL,0);
 	expr_symset_add(&es,"defined_symbol",EXPR_CONSTANT,2304.0);
 	for(const struct proj *p=projs;p->e;++p)
 		check(p->e,p->expect);

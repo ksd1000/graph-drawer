@@ -4328,24 +4328,30 @@ struct expr *new_expr6(const char *e,const char *asym,struct expr_symset *esp,in
 struct expr *new_expr(const char *e,const char *asym,struct expr_symset *esp,int *error,char errinfo[EXPR_SYMLEN]){
 	return new_expr7(e,asym,esp,0,1,error,errinfo);
 }
-double expr_calc5(const char *e,const char *asym,double input,struct expr_symset *esp,int flag){
+double expr_calc5(const char *e,int *error,char errinfo[EXPR_SYMLEN],struct expr_symset *esp,int flag){
 	struct expr ep[1];
 	double r;
 	flag&=~EXPR_IF_INSTANT_FREE;
-	if(unlikely(init_expr5(ep,e,asym,esp,flag)<0))
+	if(unlikely(init_expr5(ep,e,NULL,esp,flag)<0)){
+		if(error)*error=ep->error;
+		if(errinfo)memcpy(errinfo,ep->errinfo,EXPR_SYMLEN);
 		return NAN;
-	r=expr_eval(ep,input);
+	}
+	r=expr_eval(ep,0.0);
 	expr_free(ep);
 	return r;
 }
-double expr_calc4(const char *e,const char *asym,double input,struct expr_symset *esp){
-	return expr_calc5(e,asym,input,esp,0);
+double expr_calc4(const char *e,int *error,char errinfo[EXPR_SYMLEN],struct expr_symset *esp){
+	return expr_calc5(e,error,errinfo,esp,0);
 }
-double expr_calc3(const char *e,const char *asym,double input){
-	return expr_calc5(e,asym,input,NULL,0);
+double expr_calc3(const char *e,int *error,char errinfo[EXPR_SYMLEN]){
+	return expr_calc5(e,error,errinfo,NULL,0);
+}
+double expr_calc2(const char *e,int flag){
+	return expr_calc5(e,NULL,NULL,NULL,flag);
 }
 double expr_calc(const char *e){
-	return expr_calc5(e,NULL,0.0,NULL,0);
+	return expr_calc5(e,NULL,NULL,NULL,0);
 }
 static size_t expr_varofep(const struct expr *restrict ep,double *v){
 	if(unlikely(expr_void(v)))return SIZE_MAX;

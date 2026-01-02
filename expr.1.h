@@ -4,18 +4,20 @@
  *******************************************************************************/
 #ifndef _EXPR_H_
 #define _EXPR_H_
+
 #include <stdint.h>
 #include <stddef.h>
 #include <stdarg.h>
+
 #ifdef __unix__
 #include <sys/types.h>
 #else
-#ifndef EXPR_HIDE_SSIZE_WARNING
-#warning "__unix__ is not defined. define ssize_t as ptrdiff_t."
-#endif
+#ifndef _SSIZE_T_DEFINED_
 typedef ptrdiff_t ssize_t;
 #define SSIZE_MAX PTRDIFF_MAX
 #endif
+#endif
+
 enum expr_op {
 EXPR_COPY=0,
 EXPR_INPUT,
@@ -91,13 +93,18 @@ EXPR_SJ,
 EXPR_LJ,
 EXPR_END
 };
+
 #define EXPR_VOID ((void *)-1UL)
 #define EXPR_VOID_NR ((void *)-2UL)
+
 #define EXPR_SYMSET_INITIALIZER {NULL,0UL,0UL,0UL,0}
+
 #define EXPR_SYMLEN 64
+
 #ifndef EXPR_SYMNEXT
 #define EXPR_SYMNEXT 14
 #endif
+
 #define EXPR_ESYMBOL 1
 #define EXPR_EPT 2
 #define EXPR_EFP 3
@@ -155,6 +162,7 @@ EXPR_END
 #define EXPR_EDEXP(d) (((union expr_double *)(d))->rd.exp)
 #define EXPR_EDSIGN(d) (((union expr_double *)(d))->rd.sign)
 #define EXPR_EDIVAL(d) (((union expr_double *)(d))->ival)
+
 #define expr_cast(x,type) \
 	({\
 		union {\
@@ -164,6 +172,7 @@ EXPR_END
 		_un._x=(x);\
 		_un._o;\
 	})
+
 struct expr;
 struct expr_symset;
 struct expr_suminfo {
@@ -264,7 +273,7 @@ struct expr_builtin_keyword {
 struct expr_symset {
 	struct expr_symbol *syms;
 	size_t size,depth,length;
-	int freeable;
+	int freeable,unused;
 };
 struct expr_resource {
 	struct expr_resource *next;
@@ -298,3 +307,4 @@ union expr_double {
 };
 extern const struct expr_builtin_symbol expr_symbols[];
 extern const struct expr_builtin_keyword expr_keywords[];
+long expr_syscall(long arg0,long arg1,long arg2,long arg3,long arg4,long arg5,long num);

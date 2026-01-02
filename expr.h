@@ -4,18 +4,20 @@
  *******************************************************************************/
 #ifndef _EXPR_H_
 #define _EXPR_H_
+
 #include <stdint.h>
 #include <stddef.h>
 #include <stdarg.h>
+
 #ifdef __unix__
 #include <sys/types.h>
 #else
-#ifndef EXPR_HIDE_SSIZE_WARNING
-#warning "__unix__ is not defined. define ssize_t as ptrdiff_t."
-#endif
+#ifndef _SSIZE_T_DEFINED_
 typedef ptrdiff_t ssize_t;
 #define SSIZE_MAX PTRDIFF_MAX
 #endif
+#endif
+
 enum expr_op {
 EXPR_COPY=0,
 EXPR_INPUT,
@@ -91,13 +93,18 @@ EXPR_SJ,
 EXPR_LJ,
 EXPR_END
 };
+
 #define EXPR_VOID ((void *)-1UL)
 #define EXPR_VOID_NR ((void *)-2UL)
+
 #define EXPR_SYMSET_INITIALIZER {NULL,0UL,0UL,0UL,0}
+
 #define EXPR_SYMLEN 64
+
 #ifndef EXPR_SYMNEXT
 #define EXPR_SYMNEXT 14
 #endif
+
 #define EXPR_ESYMBOL 1
 #define EXPR_EPT 2
 #define EXPR_EFP 3
@@ -155,6 +162,7 @@ EXPR_END
 #define EXPR_EDEXP(d) (((union expr_double *)(d))->rd.exp)
 #define EXPR_EDSIGN(d) (((union expr_double *)(d))->rd.sign)
 #define EXPR_EDIVAL(d) (((union expr_double *)(d))->ival)
+
 #define expr_cast(x,type) \
 	({\
 		union {\
@@ -164,6 +172,7 @@ EXPR_END
 		_un._x=(x);\
 		_un._o;\
 	})
+
 struct expr;
 struct expr_symset;
 struct expr_suminfo {
@@ -264,7 +273,7 @@ struct expr_builtin_keyword {
 struct expr_symset {
 	struct expr_symbol *syms;
 	size_t size,depth,length;
-	int freeable;
+	int freeable,unused;
 };
 struct expr_resource {
 	struct expr_resource *next;
@@ -298,13 +307,14 @@ union expr_double {
 };
 extern const struct expr_builtin_symbol expr_symbols[];
 extern const struct expr_builtin_keyword expr_keywords[];
+long expr_syscall(long arg0,long arg1,long arg2,long arg3,long arg4,long arg5,long num);
 const char *expr_error(int error);
 uint64_t expr_gcd64(uint64_t x,uint64_t y);
 double expr_gcd2(double x,double y);
 double expr_lcm2(double x,double y);
 void expr_mirror(double *buf,size_t size);
 void expr_fry(double *v,size_t n);
-void *expr_sort3(double *restrict v,size_t n,void *(*allocator)(size_t));
+int expr_sort4(double *restrict v,size_t n,void *(*allocator)(size_t),void (*deallocator)(void *));
 void expr_sort_old(double *restrict v,size_t n);
 void expr_sort(double *v,size_t n);
 double expr_and2(double x,double y);
@@ -323,19 +333,19 @@ const struct expr_builtin_symbol *expr_builtin_symbol_rsearch(void *addr);
 size_t expr_strscan(const char *s,size_t sz,char *restrict buf);
 char *expr_astrscan(const char *s,size_t sz,size_t *restrict outsz);
 void expr_free(struct expr *restrict ep);
-struct expr_inst *expr_addop(struct expr *restrict ep,double *dst,void *src,enum expr_op op,int flag);
 void init_expr_symset(struct expr_symset *restrict esp);
 struct expr_symset *new_expr_symset(void);
 void expr_symset_free(struct expr_symset *restrict esp);
 void expr_symset_wipe(struct expr_symset *restrict esp);
-struct expr_symbol *expr_symset_add(struct expr_symset *restrict esp,const char *sym,int type,...);
-struct expr_symbol *expr_symset_addl(struct expr_symset *restrict esp,const char *sym,size_t symlen,int type,...);
-struct expr_symbol *expr_symset_vadd(struct expr_symset *restrict esp,const char *sym,int type,va_list ap);
-struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const char *sym,size_t symlen,int type,va_list ap);
+struct expr_symbol *expr_symset_add(struct expr_symset *restrict esp,const char *sym,int type,int flag,...);
+struct expr_symbol *expr_symset_addl(struct expr_symset *restrict esp,const char *sym,size_t symlen,int type,int flag,...);
+struct expr_symbol *expr_symset_vadd(struct expr_symset *restrict esp,const char *sym,int type,int flag,va_list ap);
+struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const char *sym,size_t symlen,int type,int flag,va_list ap);
 struct expr_symbol *expr_symset_addcopy(struct expr_symset *restrict esp,const struct expr_symbol *restrict es);
 struct expr_symbol *expr_symset_search(const struct expr_symset *restrict esp,const char *sym,size_t sz);
+int expr_symset_remove(struct expr_symset *restrict esp,const char *sym,size_t sz);
 struct expr_symbol *expr_symset_rsearch(const struct expr_symset *restrict esp,void *addr);
-void expr_symset_copy(struct expr_symset *restrict dst,const struct expr_symset *restrict src);
+size_t expr_symset_copy(struct expr_symset *restrict dst,const struct expr_symset *restrict src);
 struct expr_symset *expr_symset_clone(const struct expr_symset *restrict ep);
 int expr_isconst(const struct expr *restrict ep);
 int init_expr_const(struct expr *restrict ep,double val);

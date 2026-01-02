@@ -944,7 +944,7 @@ static __attribute__((used,noreturn,deprecated)) void expr_unused(void){
 	asm volatile (
 		".global expr_syscall\n"
 		"expr_syscall:\n"
-		"movq %r10,%rcx\n"
+		"movq %rcx,%r10\n"
 		"syscall\n"
 		"ret"
 	);

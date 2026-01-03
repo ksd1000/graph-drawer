@@ -945,6 +945,7 @@ static __attribute__((used,noreturn,deprecated)) void expr_unused(void){
 		".global expr_syscall\n"
 		"expr_syscall:\n"
 		"movq %rcx,%r10\n"
+		"movq 8(%rsp),%rax\n"
 		"syscall\n"
 		"ret"
 	);

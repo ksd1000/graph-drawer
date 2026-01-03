@@ -91,6 +91,9 @@ EXPR_OFF,
 EXPR_ALO,
 EXPR_SJ,
 EXPR_LJ,
+EXPR_IP,
+EXPR_IPP,
+EXPR_TO,
 EXPR_END
 };
 
@@ -210,6 +213,7 @@ struct expr_inst {
 		double *dst;
 		int64_t *idst;
 		void *uaddr;
+		void **uaddr2;
 		struct expr_rawdouble *rdst;
 		double (**md2)(size_t,double *);
 		double (**me2)(size_t,
@@ -305,6 +309,14 @@ union expr_double {
 	uint64_t uval;
 	struct expr_rawdouble rd;
 };
+
 extern const struct expr_builtin_symbol expr_symbols[];
 extern const struct expr_builtin_keyword expr_keywords[];
+
+extern void *(*expr_allocator)(size_t);
+extern void *(*expr_reallocator)(void *,size_t);
+extern int (*expr_vasprintf)(char **,const char *,va_list);
+extern void (*expr_deallocator)(void *);
+//default=malloc,realloc,vasprintf,free
+
 long expr_syscall(long arg0,long arg1,long arg2,long arg3,long arg4,long arg5,long num);

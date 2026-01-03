@@ -310,26 +310,40 @@ const char *expr_error(int error){
 			return eerror[error];
 	}
 }
+
+void *(*expr_allocator)(size_t)=malloc;
+void *(*expr_reallocator)(void *,size_t)=realloc;
+int (*expr_vasprintf)(char **,const char *,va_list)=vasprintf;
+void (*expr_deallocator)(void *)=free;
+
+#define xmalloc_nullable expr_allocator
+/*
 static void *xmalloc_nullable(size_t size){
-	return malloc(size);
+	return expr_allocator(size);
 }
-static void xfree(void *p){
-	if(unlikely(!p))
-		abort();
-	free(p);
-}
-#define free(p) (use xfree() instead!)
+*/
 static void *xrealloc_nullable(void *old,size_t size){
-	return realloc(old,size);
+	return old?expr_reallocator(old,size):expr_allocator(size);
 }
 static int xasprintf_nullable(char **restrict strp, const char *restrict fmt,...){
 	va_list ap;
 	int r;
 	va_start(ap,fmt);
-	r=vasprintf(strp,fmt,ap);
+	r=expr_vasprintf(strp,fmt,ap);
 	va_end(ap);
 	return r;
 }
+static void xfree(void *p){
+	if(unlikely(!p))
+		abort();
+	expr_deallocator(p);
+}
+#define free (use xfree() instead!)
+#define malloc (use xmalloc_nullable() instead!)
+#define realloc (use xrealloc_nullable() instead!)
+#define asprintf (use xasprintf_nullable() instead!)
+#define vasprintf (use expr_vasprintf() instead!)
+
 static void *xmalloc(size_t size){
 	void *r;
 	if(unlikely(size>=SSIZE_MAX)){
@@ -337,7 +351,7 @@ static void *xmalloc(size_t size){
 			"CANNOT ALLOCATE MEMORY",size);
 		goto ab;
 	}
-	r=malloc(size);
+	r=xmalloc_nullable(size);
 	if(unlikely(!r)){
 		warn("IN xmalloc(size=%zu)\n"
 			"CANNOT ALLOCATE MEMORY",size);
@@ -354,7 +368,7 @@ static void *xrealloc(void *old,size_t size){
 			"CANNOT REALLOCATE MEMORY",old,size);
 		goto ab;
 	}
-	r=old?realloc(old,size):malloc(size);
+	r=xrealloc_nullable(old,size);
 	if(unlikely(!r)){
 		warn("IN xrealloc(old=%p,size=%zu)\n"
 			"CANNOT REALLOCATE MEMORY",old,size);
@@ -723,6 +737,9 @@ static double expr_lrand48(void){
 static double expr_mrand48(void){
 	return (double)mrand48();
 }
+static double expr_strtol(size_t n,double *args){
+	return (double)strtol(cast(*args,const char *),NULL,(int)args[1]);
+}
 static double expr_med(size_t n,double *args){
 	expr_sort(args,n);
 	return n&1ul?args[n>>1ul]:(n>>=1ul,(args[n]+args[n-1])/2);
@@ -790,19 +807,19 @@ struct s_eb {
 	uint64_t eb:63;
 	uint64_t sign:1;
 };
-static double expr_bfry(size_t n,const struct expr *args,double input){
+static double bfry(size_t n,const struct expr *args,double input){
 	expr_fry(cast(expr_eval(args,input),double *),(size_t)fabs(expr_eval(args+1,input)));
 	return 0.0;
 }
-static double expr_bmirror(size_t n,const struct expr *args,double input){
+static double bmirror(size_t n,const struct expr *args,double input){
 	expr_mirror(cast(expr_eval(args,input),double *),(size_t)fabs(expr_eval(args+1,input)));
 	return 0.0;
 }
-static double expr_bsort(size_t n,const struct expr *args,double input){
+static double bsort(size_t n,const struct expr *args,double input){
 	expr_sort(cast(expr_eval(args,input),double *),(size_t)fabs(expr_eval(args+1,input)));
 	return 0.0;
 }
-static double expr_bhsort(size_t n,const struct expr *args,double input){
+static double bhsort(size_t n,const struct expr *args,double input){
 	int r;
 	r=expr_sort4(cast(expr_eval(args,input),double *),(size_t)fabs(expr_eval(args+1,input)),xmalloc_nullable,xfree);
 	if(!r){
@@ -811,19 +828,19 @@ static double expr_bhsort(size_t n,const struct expr *args,double input){
 		return -1.0;
 	}
 }
-static double expr_bxsort(size_t n,const struct expr *args,double input){
+static double bxsort(size_t n,const struct expr *args,double input){
 	expr_sort4(cast(expr_eval(args,input),double *),(size_t)fabs(expr_eval(args+1,input)),xmalloc,xfree);
 	return 0.0;
 }
-static double expr_bsort_old(size_t n,const struct expr *args,double input){
+static double bsort_old(size_t n,const struct expr *args,double input){
 	expr_sort_old(cast(expr_eval(args,input),double *),(size_t)fabs(expr_eval(args+1,input)));
 	return 0.0;
 }
-static double expr_bcontract(size_t n,const struct expr *args,double input){
+static double bcontract(size_t n,const struct expr *args,double input){
 	expr_contract(cast(expr_eval(args,input),void *),(size_t)fabs(expr_eval(args+1,input)));
 	return 0.0;
 }
-static double expr_bassert(size_t n,const struct expr *args,double input){
+static double bassert(size_t n,const struct expr *args,double input){
 	double x=expr_eval(args,input);
 	if(x==0.0){
 		const char *p,*e;
@@ -953,23 +970,44 @@ static __attribute__((used,noreturn,deprecated)) void expr_unused(void){
 	__builtin_unreachable();
 }
 #ifdef SYSCALL_DEFINED
-static double expr_bsyscall(size_t n,double *args){
+static double bsyscall(size_t n,double *args){
 	long num;
 	long a[6];
-	unsigned int i;
+	unsigned int i,argt;
 	if(n<1)
 		return -1;
 	if(n>7)
 		n=7;
 	num=(long)*args;
+	argt=(unsigned int)(num>>32);
+	num&=0x0ffffffff;
 	for(i=1;i<(int)n;++i){
-		a[i-1]=cast(args[i],long);
+		a[i-1]=argt&(1u<<i)?(long)args[i]:cast(args[i],long);
 	}
 	for(;i<7;++i){
 		a[i-1]=0;
 	}
 	num=expr_syscall(a[0],a[1],a[2],a[3],a[4],a[5],num);
-	return cast(num,double);
+	return (argt&1u)?(double)num:cast(num,double);
+}
+double systype(double x){
+	const char *p;
+	size_t len;
+	unsigned int r=0;
+	p=cast(x,const char *);
+	len=strlen(p);
+	if(len>7)
+		len=7;
+	for(size_t i=0;i<len;++i){
+		switch(p[i]){
+			case '*':
+				break;
+			default:
+				r|=1u<<(unsigned int)i;
+				break;
+		}
+	}
+	return (double)((long)r<<32l);
 }
 #endif
 
@@ -1393,9 +1431,11 @@ static double expr_hypot(size_t n,double *args){
 //#define REGSYM(s) {#s,s}
 #define REGZASYM(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.zafunc=s},.type=EXPR_ZAFUNCTION,.flag=0}
 #define REGFSYM(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.func=s},.type=EXPR_FUNCTION,.flag=EXPR_SF_INJECTION}
+#define REGFSYM_U(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.func=s},.type=EXPR_FUNCTION,.flag=EXPR_SF_INJECTION|EXPR_SF_UNSAFE}
 #define REGCSYM(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.value=s},.type=EXPR_CONSTANT}
 #define REGFSYM2(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SF_INJECTION}
 #define REGFSYM2_NI(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SF_UNSAFE}
+#define REGFSYM2_U(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SF_INJECTION|EXPR_SF_UNSAFE}
 #define REGZASYM2(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.zafunc=sym},.type=EXPR_ZAFUNCTION,.flag=0}
 #define REGZASYM2_U(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.zafunc=sym},.type=EXPR_ZAFUNCTION,.flag=EXPR_SF_UNSAFE}
 #define REGMDSYM2(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdfunc=sym},.dim=d,.type=EXPR_MDFUNCTION,.flag=EXPR_SF_INJECTION}
@@ -1444,6 +1484,8 @@ const struct expr_builtin_keyword expr_keywords[]={
 	REGKEYCN("eval",EXPR_EVAL,2,"eval(ep,[input])"),
 	REGKEYCN("decl",EXPR_ADD,2,"decl(name,[constant_expression flag])"),
 	REGKEY("static_assert",EXPR_SUB,1,"static_assert(constant_expression cond)"),
+	REGKEY("ip",EXPR_IP,0,"ip(void)"),
+	REGKEYN("to",EXPR_TO,1,"to(val)"),
 	{NULL}
 };
 const struct expr_builtin_symbol expr_symbols[]={
@@ -1587,6 +1629,7 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGMDSYM2_U("hmode",expr_hmode,0),
 	REGMDSYM2("hypot",expr_hypot,0),
 	REGMDSYM2("lcm",expr_lcm,0),
+	REGMDSYM2_U("long",expr_strtol,2),
 	REGMDSYM2("max",expr_max,0),
 	REGMDSYM2_U("med",expr_med,0),
 	REGMDSYM2("med_old",expr_med_old,0),
@@ -1598,21 +1641,22 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGMDSYM2("nfact",expr_nfact,2ul),
 	REGMDSYM2("pow_old_n",expr_pow_old_n,2),
 #ifdef SYSCALL_DEFINED
-	REGMDSYM2_NIU("syscall",expr_bsyscall,0),
+	REGMDSYM2_NIU("syscall",bsyscall,0),
+	REGFSYM_U(systype),
 #endif
 
-	REGMDEPSYM2_NIW("assert",expr_bassert,1ul),
+	REGMDEPSYM2_NIW("assert",bassert,1ul),
 	REGMDEPSYM2_NI("ldr",expr_ldr,2ul),
 	REGMDEPSYM2_NI("str",expr_str,3ul),
 	REGMDEPSYM2_NI("bzero",expr_bzero,2ul),
-	REGMDEPSYM2_NI("contract",expr_bcontract,2ul),
-	REGMDEPSYM2_NI("fry",expr_bfry,2ul),
+	REGMDEPSYM2_NI("contract",bcontract,2ul),
+	REGMDEPSYM2_NI("fry",bfry,2ul),
 	REGMDEPSYM2_NI("memset",expr_memset,3ul),
-	REGMDEPSYM2_NI("mirror",expr_bmirror,2ul),
-	REGMDEPSYM2_NI("sort",expr_bsort,2ul),
-	REGMDEPSYM2_NI("hsort",expr_bhsort,2ul),
-	REGMDEPSYM2_NI("xsort",expr_bxsort,2ul),
-	REGMDEPSYM2_NI("sort_old",expr_bsort_old,2ul),
+	REGMDEPSYM2_NI("mirror",bmirror,2ul),
+	REGMDEPSYM2_NI("sort",bsort,2ul),
+	REGMDEPSYM2_NI("hsort",bhsort,2ul),
+	REGMDEPSYM2_NI("xsort",bxsort,2ul),
+	REGMDEPSYM2_NI("sort_old",bsort_old,2ul),
 
 	REGRMEM(8),
 	REGRMEM(16),
@@ -1792,7 +1836,7 @@ fail:
 	}
 	return buf-buf0;
 }
-static const char *expr_findpair_dmark(const char *c,const char *endp){
+static const char *findpair_dmark(const char *c,const char *endp){
 	for(++c;c<endp;++c){
 		if(*c=='\"'&&c[-1]!='\\')
 			return c;
@@ -1809,14 +1853,14 @@ char *expr_astrscan(const char *s,size_t sz,size_t *restrict outsz){
 	buf[*outsz]=0;
 	return buf;
 }
-static void expr_freesuminfo(struct expr_suminfo *p){
+static void freesuminfo(struct expr_suminfo *p){
 	expr_free(p->ep);
 	expr_free(p->fromep);
 	expr_free(p->toep);
 	expr_free(p->stepep);
 	xfree(p);
 }
-static void expr_freevmdinfo(struct expr_vmdinfo *p){
+static void freevmdinfo(struct expr_vmdinfo *p){
 	expr_free(p->ep);
 	expr_free(p->fromep);
 	expr_free(p->toep);
@@ -1825,13 +1869,13 @@ static void expr_freevmdinfo(struct expr_vmdinfo *p){
 		xfree(p->args);
 	xfree(p);
 }
-static void expr_freebranchinfo(struct expr_branchinfo *p){
+static void freebranchinfo(struct expr_branchinfo *p){
 	expr_free(p->cond);
 	expr_free(p->body);
 	expr_free(p->value);
 	xfree(p);
 }
-static void expr_freemdinfo(struct expr_mdinfo *p){
+static void freemdinfo(struct expr_mdinfo *p){
 	for(size_t i=0;i<p->dim;++i)
 		expr_free(p->eps+i);
 	xfree(p->eps);
@@ -1846,19 +1890,19 @@ static void expr_freedata(struct expr_inst *restrict data,size_t size){
 	for(;ip<endp;++ip){
 		switch(ip->op){
 			case SUMCASES:
-				expr_freesuminfo(ip->un.es);
+				freesuminfo(ip->un.es);
 				break;
 			case MDCASES:
 			case EXPR_PMD:
 			case EXPR_PME:
 			case EXPR_PMEP:
-				expr_freemdinfo(ip->un.em);
+				freemdinfo(ip->un.em);
 				break;
 			case EXPR_VMD:
-				expr_freevmdinfo(ip->un.ev);
+				freevmdinfo(ip->un.ev);
 				break;
 			case BRANCHCASES:
-				expr_freebranchinfo(ip->un.eb);
+				freebranchinfo(ip->un.eb);
 				break;
 			case HOTCASES:
 				expr_free(ip->un.hotfunc);
@@ -1958,6 +2002,15 @@ static struct expr_inst *expr_addnotl(struct expr *restrict ep,double *dst){
 static struct expr_inst *expr_addinput(struct expr *restrict ep,double *dst){
 	return expr_addop(ep,dst,NULL,EXPR_INPUT,0);
 }
+static struct expr_inst *expr_addipp(struct expr *restrict ep,double *dst){
+	return expr_addop(ep,dst,NULL,EXPR_IPP,0);
+}
+static struct expr_inst *expr_addip(struct expr *restrict ep,double *dst){
+	return expr_addop(ep,dst,NULL,EXPR_IP,0);
+}
+static struct expr_inst *expr_addto(struct expr *restrict ep,double *dst){
+	return expr_addop(ep,dst,NULL,EXPR_TO,0);
+}
 static struct expr_inst *expr_addend(struct expr *restrict ep,double *dst){
 	return expr_addop(ep,dst,NULL,EXPR_END,0);
 }
@@ -1977,19 +2030,13 @@ static struct expr_inst *expr_addhot(struct expr *restrict ep,double *dst,struct
 	return expr_addop(ep,dst,hot,EXPR_HOT,flag);
 }
 static struct expr_inst *expr_addconst(struct expr *restrict ep,double *dst,double val){
-	struct expr_inst *r=expr_addop(ep,dst,NULL,EXPR_CONST,0);
-	r->un.value=val;
-	return r;
+	return expr_addop(ep,dst,cast(val,void *),EXPR_CONST,0);
 }
 static struct expr_inst *expr_addconst_i(struct expr *restrict ep,double *dst,double val){
-	struct expr_inst *r=expr_addop(ep,dst,NULL,EXPR_CONST,EXPR_SF_INJECTION);
-	r->un.value=val;
-	return r;
+	return expr_addop(ep,dst,cast(val,void *),EXPR_CONST,EXPR_SF_INJECTION);
 }
 static struct expr_inst *expr_addalo(struct expr *restrict ep,double *dst,ssize_t zd){
-	struct expr_inst *r=expr_addop(ep,dst,NULL,EXPR_ALO,0);
-	r->un.zd=zd;
-	return r;
+	return expr_addop(ep,dst,cast(zd,void *),EXPR_ALO,0);
 }
 static struct expr_resource *expr_newres(struct expr *restrict ep){
 	struct expr_resource *p;
@@ -2044,7 +2091,7 @@ static int expr_detach(struct expr *restrict ep){
 }
 static int expr_createconst(struct expr *restrict ep,const char *symbol,size_t symlen,double val){
 	cknp(ep,expr_detach(ep)>=0,return -1);
-	return expr_symset_addl(ep->sset,symbol,symlen,EXPR_CONSTANT,val)?
+	return expr_symset_addl(ep->sset,symbol,symlen,EXPR_CONSTANT,0,val)?
 	0:-1;
 }
 static int expr_createsvar(struct expr *restrict ep,const char *symbol,size_t symlen,double val){
@@ -2065,7 +2112,7 @@ static double *expr_createvar(struct expr *restrict ep,const char *symbol,size_t
 	expr_symset_addl(ep->sset,symbol,symlen,EXPR_VARIABLE,0,r);
 	return r;
 }
-static const char *expr_findpair(const char *c,const char *endp){
+static const char *findpair(const char *c,const char *endp){
 	size_t lv=0;
 	if(*c!='(')
 		goto err;
@@ -2087,7 +2134,7 @@ static const char *expr_findpair(const char *c,const char *endp){
 err:
 	return NULL;
 }
-static const char *expr_findpair_bracket(const char *c,const char *endp){
+static const char *findpair_bracket(const char *c,const char *endp){
 	size_t lv=0;
 	if(*c!='[')
 		goto err;
@@ -2109,7 +2156,7 @@ static const char *expr_findpair_bracket(const char *c,const char *endp){
 err:
 	return NULL;
 }
-static const char *expr_findpair_brace(const char *c,const char *endp){
+static const char *findpair_brace(const char *c,const char *endp){
 	size_t lv=0;
 	if(*c!='{')
 		goto err;
@@ -2167,7 +2214,7 @@ static const char *expr_getsym_expo(const char *c,const char *endp){
 	}
 	return c;
 }
-static int expr_atod2(const char *str,double *dst){
+static int atod2(const char *str,double *dst){
 	char *c;
 	*dst=strtod(str,&c);
 	if(unlikely(c==str))
@@ -2176,13 +2223,13 @@ static int expr_atod2(const char *str,double *dst){
 		return 2;
 	else return 1;
 }
-static int expr_atod(const char *str,size_t sz,double *dst){
+static int atod(const char *str,size_t sz,double *dst){
 	int ret;
 	char *p0=xmalloc_nullable(sz+1),*p;
 	p=p0?p0:alloca(sz+1);
 	p[sz]=0;
 	memcpy(p,str,sz);
-	ret=expr_atod2(p,dst);
+	ret=atod2(p,dst);
 	if(likely(p0))
 		xfree(p0);
 	return ret;
@@ -2211,7 +2258,7 @@ static char *expr_tok(char *restrict str,char **restrict saveptr){
 				++(*saveptr);
 				return str;
 			case '(':
-				*saveptr=(char *)expr_findpair(*saveptr,*saveptr+strlen(*saveptr));
+				*saveptr=(char *)findpair(*saveptr,*saveptr+strlen(*saveptr));
 				if(unlikely(!*saveptr))
 					return NULL;
 			default:
@@ -2236,7 +2283,7 @@ static char **expr_sep(struct expr *restrict ep,const char *pe,size_t esz){
 	memcpy(e,pe,esz);
 	e[esz]=0;
 	if(*e=='('){
-		p1=(char *)expr_findpair(e,e+esz);
+		p1=(char *)findpair(e,e+esz);
 		if(p1){
 			if(!p1[1]){
 				*p1=0;
@@ -2348,7 +2395,7 @@ fail:
 	xfree(p6);
 	return NULL;
 }
-static struct expr_mdinfo *expr_getmdinfo(struct expr *restrict ep,const char *e0,size_t sz,const char *e,size_t esz,const char *asym,size_t asymlen,void *func,size_t dim,int ifep){
+static struct expr_mdinfo *getmdinfo(struct expr *restrict ep,const char *e0,size_t sz,const char *e,size_t esz,const char *asym,size_t asymlen,void *func,size_t dim,int ifep){
 	char **v,**p;
 	char *pe;
 	char *v1=NULL;
@@ -2441,7 +2488,7 @@ static int expr_seizeres(struct expr *restrict dst,struct expr *restrict src){
 	return 0;
 }
 static struct expr *new_expr10(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,int n,int *error,char errinfo[EXPR_SYMLEN],struct expr *parent);
-static double expr_consteval(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *sset,struct expr *restrict parent){
+static double consteval(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *sset,struct expr *restrict parent){
 	struct expr *ep;
 	double r;
 	ep=new_expr10(e,len,asym,asymlen,sset,0,1,&parent->error,parent->errinfo,parent);
@@ -2458,7 +2505,7 @@ static double expr_consteval(const char *e,size_t len,const char *asym,size_t as
 	expr_free(ep);
 	return r;
 }
-static struct expr_vmdinfo *expr_getvmdinfo(struct expr *restrict ep,const char *e0,size_t sz,const char *e,size_t esz,const char *asym,size_t asymlen,int *flag){
+static struct expr_vmdinfo *getvmdinfo(struct expr *restrict ep,const char *e0,size_t sz,const char *e,size_t esz,const char *asym,size_t asymlen,int *flag){
 	char **v=expr_sep(ep,e,esz);
 	char **p;
 	struct expr_vmdinfo *ev;
@@ -2483,7 +2530,7 @@ static struct expr_vmdinfo *expr_getvmdinfo(struct expr *restrict ep,const char 
 			max=0;
 			break;
 		case 7:
-			max=(ssize_t)expr_consteval(v[6],strlen(v[6]),asym,asymlen,ep->sset,ep);
+			max=(ssize_t)consteval(v[6],strlen(v[6]),asym,asymlen,ep->sset,ep);
 			if(unlikely(ep->error))
 				goto err0;
 			if(unlikely(max<0))
@@ -2563,7 +2610,7 @@ err0:
 	expr_free2(v);
 	return NULL;
 }
-static struct expr_suminfo *expr_getsuminfo(struct expr *restrict ep,const char *e0,size_t sz,const char *e,size_t esz,const char *asym,size_t asymlen){
+static struct expr_suminfo *getsuminfo(struct expr *restrict ep,const char *e0,size_t sz,const char *e,size_t esz,const char *asym,size_t asymlen){
 	char **v=expr_sep(ep,e,esz);
 	char **p;
 	struct expr_suminfo *es;
@@ -2627,7 +2674,7 @@ struct branch {
 	size_t sbody;
 	size_t svalue;
 };
-static struct expr_branchinfo *expr_getbranchinfo(struct expr *restrict ep,const char *e0,size_t sz,const char *e,size_t esz,struct branch *b,const char *asym,size_t asymlen){
+static struct expr_branchinfo *getbranchinfo(struct expr *restrict ep,const char *e0,size_t sz,const char *e,size_t esz,struct branch *b,const char *asym,size_t asymlen){
 	char **v=NULL;
 	char **p;
 	struct expr_branchinfo *eb;
@@ -2717,8 +2764,8 @@ err0:
 		expr_free2(v);
 	return NULL;
 }
-static double *expr_scan(struct expr *restrict ep,const char *e,const char *endp,const char *asym,size_t asymlen);
-static double *expr_getvalue(struct expr *restrict ep,const char *e,const char *endp,const char **_p,const char *asym,size_t asymlen){
+static double *scan(struct expr *restrict ep,const char *e,const char *endp,const char *asym,size_t asymlen);
+static double *getvalue(struct expr *restrict ep,const char *e,const char *endp,const char **_p,const char *asym,size_t asymlen){
 	const char *p,*p2,*e0=e;
 	double *v0=NULL,*v1;
 	int r0,builtin=0;
@@ -2754,7 +2801,7 @@ eev:
 			ep->error=EXPR_EEV;
 			return NULL;
 		case '(':
-			p=expr_findpair(e,endp);
+			p=findpair(e,endp);
 			if(unlikely(!p)){
 pterr:
 				ep->error=EXPR_EPT;
@@ -2765,12 +2812,14 @@ envp:
 				ep->error=EXPR_ENVP;
 				return NULL;
 			}
-			v0=expr_scan(ep,e+1,p,asym,asymlen);
+			v0=scan(ep,e+1,p,asym,asymlen);
 			if(unlikely(!v0))
 				return NULL;
 			e=p+1;
 			goto vend;
 		case ':':
+			if(ep->iflag&EXPR_IF_NOBUILTIN)
+				goto dflt;
 			if(e+1>=endp||e[1]!=':')
 				break;
 			e+=2;
@@ -2793,7 +2842,7 @@ envp:
 		case '{':
 			r0=0;
 block:
-			p=expr_findpair_brace(e,endp);
+			p=findpair_brace(e,endp);
 			if(unlikely(!p))
 				goto pterr;
 			if(unlikely(p==e+1))
@@ -2815,7 +2864,7 @@ block:
 			e=p+1;
 			goto vend;
 		case '[':
-			p=expr_findpair_bracket(e,endp);
+			p=findpair_bracket(e,endp);
 			if(unlikely(!p))
 				goto pterr;
 			if(unlikely(ep->iflag&EXPR_IF_PROTECT)){
@@ -2825,7 +2874,7 @@ block:
 			}
 			if(unlikely(p==e+1))
 				goto envp;
-			v1=expr_scan(ep,e+1,p,asym,asymlen);
+			v1=scan(ep,e+1,p,asym,asymlen);
 			if(unlikely(!v1))
 				return NULL;
 			v0=expr_newvar(ep);
@@ -2842,7 +2891,7 @@ block:
 			e+=3;
 			goto vend;
 		case '\"':
-			p=expr_findpair_dmark(e,endp);
+			p=findpair_dmark(e,endp);
 			if(unlikely(!p))
 				goto pterr;
 			if(unlikely(ep->iflag&EXPR_IF_PROTECT)){
@@ -2873,9 +2922,15 @@ block:
 					cknp(ep,expr_addconst(ep,v0,un.v),return NULL);
 					e+=2;
 					goto vend;
+				case '+':
+					v0=expr_newvar(ep);
+					cknp(ep,v0,return NULL);
+					cknp(ep,expr_addipp(ep,v0),return NULL);
+					e+=2;
+					goto vend;
 				case '{':
 					if(unlikely(ep->iflag&EXPR_IF_PROTECT)){
-						p=expr_findpair_brace(e+1,endp);
+						p=findpair_brace(e+1,endp);
 						if(unlikely(!p))
 							goto pterr;
 						ep->error=EXPR_EPM;
@@ -2885,13 +2940,19 @@ block:
 					r0=1;
 					++e;
 					goto block;
+				case ':':
+					if(ep->iflag&EXPR_IF_NOBUILTIN){
+						++e;
+						break;
+					}
+					if(e+2<endp&&e[2]==':'){
+						builtin=1;
+						e+=3;
+						break;
+					}
 				default:
+					++e;
 					break;
-			}
-			++e;
-			if(e+9<endp&&!memcmp(e+1,"_builtin_",9)){
-				builtin=1;
-				e+=10;
 			}
 			p=expr_getsym(e,endp);
 			if(unlikely(p==e)){
@@ -2905,15 +2966,15 @@ block:
 				return NULL;
 			}
 			if(builtin||!ep->sset||!(sym.es=expr_symset_search(ep->sset,e,p-e))){
+				if(ep->iflag&EXPR_IF_NOBUILTIN){
+					goto symerr;
+				}
 				sym.ebs=expr_builtin_symbol_search(e,p-e);
 				if(likely(sym.ebs)){
 					type=sym.ebs->type;
 					un.uaddr=sym.ebs->un.uaddr;
 				}else {
-ecta:
-					ep->error=EXPR_ECTA;
-					serrinfo(ep->errinfo,e,p-e);
-					return NULL;
+					goto symerr;
 				}
 			}else {
 				type=sym.es->type;
@@ -2922,7 +2983,9 @@ ecta:
 			switch(type){
 				case EXPR_CONSTANT:
 				case EXPR_HOTFUNCTION:
-					goto ecta;
+					ep->error=EXPR_ECTA;
+					serrinfo(ep->errinfo,e,p-e);
+					return NULL;
 				default:
 					break;
 			}
@@ -2941,6 +3004,7 @@ ecta:
 				break;
 			}*/
 		default:
+dflt:
 			if(unlikely(expr_operator(*e))){
 				*ep->errinfo=*e;
 				ep->error=EXPR_EUO;
@@ -3020,7 +3084,7 @@ ecta:
 		}
 		p2=e;
 		e=p;
-		p=expr_findpair(e,endp);
+		p=findpair(e,endp);
 		if(unlikely(!p))
 			goto pterr;
 		flag=0;
@@ -3035,7 +3099,7 @@ ecta:
 						un.v=0.0;
 						break;
 					case 2:
-						un.v=expr_consteval(sym.vv[1],strlen(sym.vv[1]),asym,asymlen,ep->sset,ep);
+						un.v=consteval(sym.vv[1],strlen(sym.vv[1]),asym,asymlen,ep->sset,ep);
 						if(unlikely(ep->error))
 							goto c_fail;
 						break;
@@ -3067,7 +3131,7 @@ c_fail:
 						un.v=0.0;
 						break;
 					case 2:
-						un.v=expr_consteval(sym.vv[1],strlen(sym.vv[1]),asym,asymlen,ep->sset,ep);
+						un.v=consteval(sym.vv[1],strlen(sym.vv[1]),asym,asymlen,ep->sset,ep);
 						if(unlikely(ep->error))
 							goto c_fail;
 						break;
@@ -3097,7 +3161,7 @@ c_fail:
 						un.v=0.0;
 						break;
 					case 2:
-						un.v=expr_consteval(sym.vv[1],strlen(sym.vv[1]),asym,asymlen,ep->sset,ep);
+						un.v=consteval(sym.vv[1],strlen(sym.vv[1]),asym,asymlen,ep->sset,ep);
 						if(unlikely(ep->error))
 							goto c_fail;
 						break;
@@ -3136,7 +3200,7 @@ c_fail:
 			case EXPR_BL:
 				dim=sizeof(double);
 use_byte:
-				un.v=expr_consteval(e+1,p-e-1,asym,asymlen,ep->sset,ep);
+				un.v=consteval(e+1,p-e-1,asym,asymlen,ep->sset,ep);
 				if(unlikely(ep->error))
 					return NULL;
 				dim*=(size_t)fabs(un.v);
@@ -3151,7 +3215,7 @@ use_byte:
 				e=p+1;
 				goto vend;
 			case EXPR_SUB:
-				un.v=expr_consteval(e+1,p-e-1,asym,asymlen,ep->sset,ep);
+				un.v=consteval(e+1,p-e-1,asym,asymlen,ep->sset,ep);
 				if(unlikely(ep->error))
 					return NULL;
 				if(unlikely(un.v==0.0)){
@@ -3172,7 +3236,7 @@ use_byte:
 						dim=1;
 						break;
 					case 2:
-						un.v=expr_consteval(sym.vv[1],strlen(sym.vv[1]),asym,asymlen,ep->sset,ep);
+						un.v=consteval(sym.vv[1],strlen(sym.vv[1]),asym,asymlen,ep->sset,ep);
 						if(unlikely(ep->error))
 							goto c_fail;
 						dim=(size_t)fabs(un.v);
@@ -3182,7 +3246,7 @@ use_byte:
 						memcpy(ep->errinfo,"alloca",mincc(6,EXPR_SYMLEN));
 						goto c_fail;
 				}
-				v0=expr_scan(ep,sym.vv[0],sym.vv[0]+strlen(sym.vv[0]),asym,asymlen);
+				v0=scan(ep,sym.vv[0],sym.vv[0]+strlen(sym.vv[0]),asym,asymlen);
 				expr_free2(sym.vv);
 				if(unlikely(!v0))
 					return NULL;
@@ -3190,7 +3254,7 @@ use_byte:
 				e=p+1;
 				goto vend;
 			case EXPR_SJ:
-				v0=expr_scan(ep,e+1,p,asym,asymlen);
+				v0=scan(ep,e+1,p,asym,asymlen);
 				if(unlikely(!v0))
 					return NULL;
 				cknp(ep,expr_addsj(ep,v0),return NULL);
@@ -3207,14 +3271,27 @@ use_byte:
 					memcpy(ep->errinfo,"longjmp",mincc(7,EXPR_SYMLEN));
 					return NULL;
 				}
-				v0=expr_scan(ep,sym.vv[0],sym.vv[0]+strlen(sym.vv[0]),asym,asymlen);
+				v0=scan(ep,sym.vv[0],sym.vv[0]+strlen(sym.vv[0]),asym,asymlen);
 				if(unlikely(!v0))
 					goto c_fail;
-				v1=expr_scan(ep,sym.vv[1],sym.vv[1]+strlen(sym.vv[1]),asym,asymlen);
+				v1=scan(ep,sym.vv[1],sym.vv[1]+strlen(sym.vv[1]),asym,asymlen);
 				expr_free2(sym.vv);
 				if(unlikely(!v1))
 					return NULL;
 				cknp(ep,expr_addlj(ep,v0,v1),return NULL);
+				e=p+1;
+				goto vend;
+			case EXPR_IP:
+				v0=expr_newvar(ep);
+				cknp(ep,v0,return NULL);
+				cknp(ep,expr_addip(ep,v0),return NULL);
+				e=p+1;
+				goto vend;
+			case EXPR_TO:
+				v0=scan(ep,e+1,p,asym,asymlen);
+				if(unlikely(!v0))
+					return NULL;
+				cknp(ep,expr_addto(ep,v0),return NULL);
 				e=p+1;
 				goto vend;
 			case EXPR_EVAL:
@@ -3224,7 +3301,7 @@ use_byte:
 				for(un.vv1=sym.vv;*un.vv1;++un.vv1);
 				switch(un.vv1-sym.vv){
 					case 2:
-						v0=expr_scan(ep,sym.vv[1],sym.vv[1]+strlen(sym.vv[1]),asym,asymlen);
+						v0=scan(ep,sym.vv[1],sym.vv[1]+strlen(sym.vv[1]),asym,asymlen);
 						if(unlikely(!v0))
 							goto c_fail;
 						break;
@@ -3239,7 +3316,7 @@ use_byte:
 					goto c_fail;
 				}
 
-				v1=expr_scan(ep,sym.vv[0],sym.vv[0]+strlen(sym.vv[0]),asym,asymlen);
+				v1=scan(ep,sym.vv[0],sym.vv[0]+strlen(sym.vv[0]),asym,asymlen);
 				expr_free2(sym.vv);
 				if(unlikely(!v1))
 					return NULL;
@@ -3252,7 +3329,7 @@ use_byte:
 					sym.b->cond=e+1;
 					sym.b->scond=p-e-1;
 					e=p+1;
-					p=expr_findpair_brace(p+1,endp);
+					p=findpair_brace(p+1,endp);
 					if(unlikely(!p))
 						goto pterr;
 					sym.b->body=e+1;
@@ -3274,7 +3351,7 @@ use_byte:
 									return NULL;
 							}
 							e=p;
-							p=expr_findpair_brace(e,endp);
+							p=findpair_brace(e,endp);
 							if(unlikely(!p))
 								goto pterr;
 							sym.b->value=e+1;
@@ -3289,9 +3366,9 @@ vzero:
 						serrinfo(ep->errinfo,kp->str,kp->strlen);
 						goto envp;
 					}
-					un.eb=expr_getbranchinfo(ep,NULL,0,NULL,0,sym.b,asym,asymlen);
+					un.eb=getbranchinfo(ep,NULL,0,NULL,0,sym.b,asym,asymlen);
 				}else
-					un.eb=expr_getbranchinfo(ep,p2,e-p2,e,p-e+1,NULL,asym,asymlen);
+					un.eb=getbranchinfo(ep,p2,e-p2,e,p-e+1,NULL,asym,asymlen);
 				if(unlikely(!un.uaddr)){
 					return NULL;
 				}
@@ -3304,7 +3381,7 @@ vzero:
 				e=p+1;
 				goto vend;
 			case EXPR_DO:
-				p=expr_findpair(e,endp);
+				p=findpair(e,endp);
 				if(unlikely(!p))
 					goto pterr;
 				if(unlikely(p==e+1))
@@ -3316,10 +3393,10 @@ vzero:
 				e=p+1;
 				goto vend;
 			case EXPR_VMD:
-				un.ev=expr_getvmdinfo(ep,p2,e-p2,e,p-e+1,asym,asymlen,&flag);
+				un.ev=getvmdinfo(ep,p2,e-p2,e,p-e+1,asym,asymlen,&flag);
 				break;
 			case SUMCASES:
-				un.es=expr_getsuminfo(ep,p2,e-p2,e,p-e+1,asym,asymlen);
+				un.es=getsuminfo(ep,p2,e-p2,e,p-e+1,asym,asymlen);
 				break;
 			default:
 				abort();
@@ -3343,12 +3420,12 @@ found:
 				return NULL;
 			}
 			e=p;
-			p=expr_findpair(e,endp);
+			p=findpair(e,endp);
 			if(unlikely(!p))
 				goto pterr;
 			if(unlikely(p==e+1))
 				goto envp;
-			v0=expr_scan(ep,e+1,p,asym,asymlen);
+			v0=scan(ep,e+1,p,asym,asymlen);
 			if(unlikely(!v0))
 				return NULL;
 			cknp(ep,expr_addcall(ep,v0,sv.sv->func,flag),return NULL);
@@ -3372,12 +3449,12 @@ found:
 				return NULL;
 			}
 			e=p;
-			p=expr_findpair(e,endp);
+			p=findpair(e,endp);
 			if(unlikely(!p))
 				goto pterr;
 			if(unlikely(p==e+1))
 				goto envp;
-			v0=expr_scan(ep,e+1,p,asym,asymlen);
+			v0=scan(ep,e+1,p,asym,asymlen);
 			if(unlikely(!v0))
 				return NULL;
 			p2=sv.sv->hotexpr+strlen(sv.sv->hotexpr);
@@ -3404,7 +3481,7 @@ treat_as_variable:
 			e=p;
 			if(e<endp&&*e=='('){
 				if(unlikely(ep->iflag&EXPR_IF_PROTECT)){
-					p=expr_findpair(e,endp);
+					p=findpair(e,endp);
 					if(unlikely(!p))
 						goto pterr;
 					ep->error=EXPR_EPM;
@@ -3413,30 +3490,30 @@ treat_as_variable:
 				}
 				switch(flag&~EXPR_SF_PMASK){
 					case EXPR_SF_PMD:
-						p=expr_findpair(e,endp);
+						p=findpair(e,endp);
 						if(unlikely(!p))
 							goto pterr;
-						un.em=expr_getmdinfo(ep,p2,e-p2,e,p-e+1,asym,asymlen,NULL,0,0);
+						un.em=getmdinfo(ep,p2,e-p2,e,p-e+1,asym,asymlen,NULL,0,0);
 						if(unlikely(!un.em))
 							return NULL;
 						cknp(ep,expr_addop(ep,v0,un.em,EXPR_PMD,0),return NULL);
 						e=p+1;
 						goto vend;
 					case EXPR_SF_PME:
-						p=expr_findpair(e,endp);
+						p=findpair(e,endp);
 						if(unlikely(!p))
 							goto pterr;
-						un.em=expr_getmdinfo(ep,p2,e-p2,e,p-e+1,asym,asymlen,NULL,0,1+!!(flag&EXPR_SF_WRITEIP));
+						un.em=getmdinfo(ep,p2,e-p2,e,p-e+1,asym,asymlen,NULL,0,1+!!(flag&EXPR_SF_WRITEIP));
 						if(unlikely(!un.em))
 							return NULL;
 						cknp(ep,expr_addop(ep,v0,un.em,(flag&EXPR_SF_WRITEIP)?EXPR_PMEP:EXPR_PME,0),return NULL);
 						e=p+1;
 						goto vend;
 					case EXPR_SF_PEP:
-						p=expr_findpair(e,endp);
+						p=findpair(e,endp);
 						if(unlikely(!p))
 							goto pterr;
-						v1=expr_scan(ep,e+1,p,asym,asymlen);
+						v1=scan(ep,e+1,p,asym,asymlen);
 						if(unlikely(!v1))
 							return NULL;
 						cknp(ep,expr_addop(ep,v1,v0,EXPR_EVAL,0),return NULL);
@@ -3452,10 +3529,10 @@ treat_as_variable:
 					cknp(ep,expr_addop(ep,v1,v0,EXPR_PZA,0),return NULL);
 					e+=2;
 				}else {
-					p=expr_findpair(e,endp);
+					p=findpair(e,endp);
 					if(unlikely(!p))
 						goto pterr;
-					v1=expr_scan(ep,e+1,p,asym,asymlen);
+					v1=scan(ep,e+1,p,asym,asymlen);
 					if(unlikely(!v1))
 						return NULL;
 					cknp(ep,expr_addop(ep,v1,v0,EXPR_PBL,0),return NULL);
@@ -3473,15 +3550,15 @@ treat_as_variable:
 			}
 			p2=e;
 			e=p;
-			p=expr_findpair(e,endp);
+			p=findpair(e,endp);
 			if(unlikely(!p))
 				goto pterr;
 			switch(type){
 				case EXPR_MDFUNCTION:
-					un.em=expr_getmdinfo(ep,p2,e-p2,e,p-e+1,asym,asymlen,sv.sv->mdfunc,dim,0);
+					un.em=getmdinfo(ep,p2,e-p2,e,p-e+1,asym,asymlen,sv.sv->mdfunc,dim,0);
 				break;
 				case EXPR_MDEPFUNCTION:
-					un.em=expr_getmdinfo(ep,p2,e-p2,e,p-e+1,asym,asymlen,sv.sv->mdepfunc,dim,1+!!(flag&EXPR_SF_WRITEIP));
+					un.em=getmdinfo(ep,p2,e-p2,e,p-e+1,asym,asymlen,sv.sv->mdepfunc,dim,1+!!(flag&EXPR_SF_WRITEIP));
 				break;
 			}
 			if(unlikely(!un.em)){
@@ -3507,7 +3584,7 @@ treat_as_variable:
 	goto vend;
 number:
 	p=expr_getsym_expo(e,endp);
-	r0=expr_atod(e,p-e,&un.v);
+	r0=atod(e,p-e,&un.v);
 	if(r0==1){
 		v0=expr_newvar(ep);
 		cknp(ep,v0,return NULL);
@@ -3530,7 +3607,7 @@ pm:
 vend:
 	if(e<endp&&*e=='['){
 		if(unlikely(ep->iflag&EXPR_IF_PROTECT)){
-			p=expr_findpair_bracket(e,endp);
+			p=findpair_bracket(e,endp);
 			if(unlikely(!p))
 				goto pterr;
 			ep->error=EXPR_EPM;
@@ -3539,12 +3616,12 @@ vend:
 		}
 		do{
 			double *v2;
-			p=expr_findpair_bracket(e,endp);
+			p=findpair_bracket(e,endp);
 			if(unlikely(!p))
 				goto pterr;
 			if(unlikely(p==e+1))
 				goto envp;
-			v1=expr_scan(ep,e+1,p,asym,asymlen);
+			v1=scan(ep,e+1,p,asym,asymlen);
 			if(unlikely(!v1))
 				return NULL;
 			v2=v0;
@@ -3558,15 +3635,15 @@ vend:
 	if(likely(_p))*_p=e;
 	return v0;
 }
-struct expr_vnode {
-	struct expr_vnode *next;
+struct vnode {
+	struct vnode *next;
 	double *v;
 	enum expr_op op;
 	unsigned int unary;
 };
-static struct expr_vnode *expr_vn(double *v,enum expr_op op,unsigned int unary){
-	struct expr_vnode *p;
-	p=xmalloc_nullable(sizeof(struct expr_vnode));
+static struct vnode *vn(double *v,enum expr_op op,unsigned int unary){
+	struct vnode *p;
+	p=xmalloc_nullable(sizeof(struct vnode));
 	if(unlikely(!p))
 		return NULL;
 	p->next=NULL;
@@ -3575,12 +3652,12 @@ static struct expr_vnode *expr_vn(double *v,enum expr_op op,unsigned int unary){
 	p->unary=unary;
 	return p;
 }
-static struct expr_vnode *expr_vnadd(struct expr_vnode *vp,double *v,enum expr_op op,unsigned int unary){
-	struct expr_vnode *p;
+static struct vnode *vnadd(struct vnode *vp,double *v,enum expr_op op,unsigned int unary){
+	struct vnode *p;
 	if(unlikely(!vp))
-		return expr_vn(v,op,unary);
+		return vn(v,op,unary);
 	for(p=vp;p->next;p=p->next);
-	p->next=xmalloc_nullable(sizeof(struct expr_vnode));
+	p->next=xmalloc_nullable(sizeof(struct vnode));
 	if(unlikely(!p->next))
 		return NULL;
 	p->next->v=v;
@@ -3590,9 +3667,9 @@ static struct expr_vnode *expr_vnadd(struct expr_vnode *vp,double *v,enum expr_o
 	return vp;
 }
 
-static int expr_do_unary(struct expr *restrict ep,struct expr_vnode *ev,int prec){
+static int do_unary(struct expr *restrict ep,struct vnode *ev,int prec){
 	int r=0;;
-	for(struct expr_vnode *p=ev;p;p=p->next){
+	for(struct vnode *p=ev;p;p=p->next){
 redo:
 	switch(prec){
 		case 2:
@@ -3626,8 +3703,8 @@ redo:
 	}
 	return r;
 }
-static int expr_vnunion(struct expr *restrict ep,struct expr_vnode *ev){
-	struct expr_vnode *p;
+static int vnunion(struct expr *restrict ep,struct vnode *ev){
+	struct vnode *p;
 
 	cknp(ep,expr_addop(ep,ev->v,ev->next->v,ev->next->op,0),return -1);
 	p=ev->next;
@@ -3635,8 +3712,8 @@ static int expr_vnunion(struct expr *restrict ep,struct expr_vnode *ev){
 	xfree(p);
 	return 0;
 }
-static void expr_vnfree(struct expr_vnode *vp){
-	struct expr_vnode *p;
+static void vnfree(struct vnode *vp){
+	struct vnode *p;
 	while(vp){
 		p=vp->next;
 		xfree(vp);
@@ -3644,12 +3721,12 @@ static void expr_vnfree(struct expr_vnode *vp){
 	}
 }
 //scan mark
-static double *expr_scan(struct expr *restrict ep,const char *e,const char *endp,const char *asym,size_t asymlen){
+static double *scan(struct expr *restrict ep,const char *e,const char *endp,const char *asym,size_t asymlen){
 	double *v1;
 	const char *e0=e,*e1;
 	enum expr_op op=EXPR_COPY,op0;
 	unsigned int unary;
-	struct expr_vnode *ev=NULL,*p;
+	struct vnode *ev=NULL,*p;
 	int r,r1;
 	do {
 	unary=0;
@@ -3697,10 +3774,10 @@ eev:
 				goto eev;
 			goto redo;
 	}
-	v1=expr_getvalue(ep,e,endp,&e,asym,asymlen);
+	v1=getvalue(ep,e,endp,&e,asym,asymlen);
 	if(unlikely(!v1))
 		goto err;
-	p=expr_vnadd(ev,v1,op,unary);
+	p=vnadd(ev,v1,op,unary);
 	cknp(ep,p,goto err);
 	ev=p;
 	if(unlikely(e>=endp)){
@@ -3793,7 +3870,7 @@ rescan:
 				if(likely(p1==e)){
 					switch(*e){
 						case '[':
-							p1=expr_findpair_bracket(e,endp);
+							p1=findpair_bracket(e,endp);
 							if(unlikely(!p1))
 								goto pterr;
 							if(unlikely(ep->iflag&EXPR_IF_PROTECT)){
@@ -3810,18 +3887,18 @@ envp:
 								e1=e;
 								goto multi_dim;
 							}
-							v2=expr_scan(ep,e+1,p1,asym,asymlen);
+							v2=scan(ep,e+1,p1,asym,asymlen);
 							if(unlikely(!v2))
 								goto err;
 							cknp(ep,expr_addwrite(ep,v1,v2),goto err);
 							e=p1+1;
 							goto bracket_end;
 						case '(':
-							p1=expr_findpair(e,endp);
+							p1=findpair(e,endp);
 							if(p1+1>=endp||p1[1]!='[')
 								break;
 							if(unlikely(ep->iflag&EXPR_IF_PROTECT)){
-								p1=expr_findpair_bracket(p1+1,endp);
+								p1=findpair_bracket(p1+1,endp);
 								if(unlikely(!p1))
 									goto pterr;
 								ep->error=EXPR_EPM;
@@ -3868,7 +3945,7 @@ envp:
 				e=p1;
 				if(*e=='['){
 					double *v3;
-					p1=expr_findpair_bracket(e,endp);
+					p1=findpair_bracket(e,endp);
 					if(unlikely(!p1))
 						goto pterr;
 					if(unlikely(ep->iflag&EXPR_IF_PROTECT)){
@@ -3881,15 +3958,15 @@ envp:
 					while(p1+1<endp&&p1[1]=='['){
 multi_dim:
 						e=p1+1;
-						p1=expr_findpair_bracket(e,endp);
+						p1=findpair_bracket(e,endp);
 						if(unlikely(!p1))
 							goto pterr;
 						if(unlikely(p1==e+1))
 							goto envp;
 					}
-					v3=expr_getvalue(ep,e1,e,NULL,asym,asymlen);
+					v3=getvalue(ep,e1,e,NULL,asym,asymlen);
 					cknp(ep,v3,goto err);
-					v2=expr_scan(ep,e+1,p1,asym,asymlen);
+					v2=scan(ep,e+1,p1,asym,asymlen);
 					if(unlikely(!v2))
 						goto err;
 					cknp(ep,expr_addoff(ep,v3,v2),goto err);
@@ -4023,7 +4100,7 @@ end1:
 	continue;	
 	}while(op!=EXPR_END);
 end2:
-#define vnunionp cknp(ep,expr_vnunion(ep,p)>=0,goto err)
+#define vnunionp cknp(ep,vnunion(ep,p)>=0,goto err)
 #define SETPREC1(a)\
 	for(p=ev;p;p=p->next){\
 		while(p->next&&p->next->op==(a)){\
@@ -4073,18 +4150,18 @@ end2:
 			vnunionp;\
 		}\
 	}
-	cknp(ep,expr_do_unary(ep,ev,2)>=0,goto err);
+	cknp(ep,do_unary(ep,ev,2)>=0,goto err);
 	SETPREC1(EXPR_POW)
-	cknp(ep,expr_do_unary(ep,ev,4)>=0,goto err);
+	cknp(ep,do_unary(ep,ev,4)>=0,goto err);
 	do{
-		r=expr_do_unary(ep,ev,2);
+		r=do_unary(ep,ev,2);
 		cknp(ep,r>=0,goto err);
 		if(!r)
 			break;
-		r1=expr_do_unary(ep,ev,4);
+		r1=do_unary(ep,ev,4);
 		cknp(ep,r1>=0,goto err);
 	}while(r1);
-	//while(expr_do_unary(ep,ev,2)&&expr_do_unary(ep,ev,4));
+	//while(do_unary(ep,ev,2)&&do_unary(ep,ev,4));
 	SETPREC3(EXPR_MUL,EXPR_DIV,EXPR_MOD)
 	SETPREC2(EXPR_ADD,EXPR_SUB)
 	SETPREC2(EXPR_SHL,EXPR_SHR)
@@ -4100,11 +4177,11 @@ end2:
 	SETPREC1(EXPR_ORL)
 	for(p=ev;p->next;p=p->next);
 	v1=p->v;
-	expr_vnfree(ev);
+	vnfree(ev);
 	return v1;
 err:
 	if(likely(ev))
-		expr_vnfree(ev);
+		vnfree(ev);
 	return NULL;
 }
 void init_expr_symset(struct expr_symset *restrict esp){
@@ -4124,17 +4201,17 @@ struct expr_symset *new_expr_symset(void){
 	return ep;
 }
 
-static void expr_symbol_free(struct expr_symbol *restrict esp){
+static void symbol_free(struct expr_symbol *restrict esp){
 	for(int i=0;i<EXPR_SYMNEXT;++i){
 		if(!esp->next[i])
 			continue;
-		expr_symbol_free(esp->next[i]);
+		symbol_free(esp->next[i]);
 	}
 	xfree(esp);
 }
 void expr_symset_free(struct expr_symset *restrict esp){
 	if(esp->syms)
-		expr_symbol_free(esp->syms);
+		symbol_free(esp->syms);
 	if(esp->freeable)
 		xfree(esp);
 }
@@ -4142,7 +4219,7 @@ void expr_symset_wipe(struct expr_symset *restrict esp){
 	expr_symset_free(esp);
 	init_expr_symset(esp);
 }
-static int expr_firstdiff(const char *restrict s1,const char *restrict s2,size_t len){
+static int firstdiff(const char *restrict s1,const char *restrict s2,size_t len){
 	int r;
 	do {
 		r=(unsigned int)*(s1++)-(unsigned int)*(s2++);
@@ -4151,16 +4228,16 @@ static int expr_firstdiff(const char *restrict s1,const char *restrict s2,size_t
 	}while(--len);
 	return r;
 }
-static int expr_strdiff(const char *restrict s1,size_t len1,const char *restrict s2,size_t len2,int *sum){
+static int strdiff(const char *restrict s1,size_t len1,const char *restrict s2,size_t len2,int *sum){
 	int r;
 	if(len1==len2){
 		r=memcmp(s1,s2,len1);
 		if(unlikely(!r))
 			return 0;
-		*sum=expr_firstdiff(s1,s2,len1);
+		*sum=firstdiff(s1,s2,len1);
 		return 1;
 	}
-	*sum=expr_firstdiff(s1,s2,len1<len2?len1:len2);
+	*sum=firstdiff(s1,s2,len1<len2?len1:len2);
 	return 1;
 }
 #define modi(d,m){\
@@ -4181,7 +4258,7 @@ static struct expr_symbol **expr_symset_findtail(struct expr_symset *restrict es
 	}
 	dep=2;
 	for(p=esp->syms;;++dep){
-		if(unlikely(!expr_strdiff(sym,symlen,p->str,p->strlen,&r)))
+		if(unlikely(!strdiff(sym,symlen,p->str,p->strlen,&r)))
 			return NULL;
 		modi(r,EXPR_SYMNEXT);
 		if(p->next[r]){
@@ -4321,7 +4398,7 @@ static struct expr_symbol **expr_symset_search0(const struct expr_symset *restri
 	int r;
 	a=&esp->syms;
 	for(struct expr_symbol *p=*a;p;){
-		if(unlikely(!expr_strdiff(sym,sz,p->str,p->strlen,&r))){
+		if(unlikely(!strdiff(sym,sz,p->str,p->strlen,&r))){
 			return (struct expr_symbol **)a;
 		}
 		modi(r,EXPR_SYMNEXT);
@@ -4416,7 +4493,7 @@ struct expr_symset *expr_symset_clone(const struct expr_symset *restrict ep){
 	}
 	return es;
 }
-static char *expr_stpcpy_nospace(char *restrict s1,const char *restrict s2,const char *endp){
+static char *stpcpy_nospace(char *restrict s1,const char *restrict s2,const char *endp){
 	const char *s20=s2;
 	int instr=0;
 	for(;s2<endp;++s2){
@@ -4516,8 +4593,8 @@ static int init_expr8(struct expr *restrict ep,const char *e,size_t len,const ch
 	if(likely(e)){
 		p0=xmalloc_nullable(len+1);
 		ebuf=p0?p0:alloca(len+1);
-		r=expr_stpcpy_nospace(ebuf,e,e+len);
-		un.p=expr_scan(ep,ebuf,r,asym,asym?asymlen:0);
+		r=stpcpy_nospace(ebuf,e,e+len);
+		un.p=scan(ep,ebuf,r,asym,asym?asymlen:0);
 		if(likely(p0))
 			xfree(p0);
 		if(ep->sset_shouldfree){
@@ -5019,6 +5096,8 @@ static int expr_side(enum expr_op op){
 	switch(op){
 		case SRCCASES:
 		case EXPR_INPUT:
+		case EXPR_IPP:
+		case EXPR_IP:
 		case EXPR_CONST:
 		case EXPR_NEG:
 		case EXPR_NOT:
@@ -5034,6 +5113,8 @@ static int expr_override(enum expr_op op){
 	switch(op){
 		case EXPR_COPY:
 		case EXPR_INPUT:
+		case EXPR_IPP:
+		case EXPR_IP:
 		case EXPR_CONST:
 		case BRANCHCASES:
 		case SUMCASES:
@@ -5139,6 +5220,9 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 				if(ip->flag&EXPR_SF_INJECTION)
 					break;
 			case EXPR_INPUT:
+			case EXPR_IPP:
+			case EXPR_IP:
+			case EXPR_TO:
 			case MDCASES:
 			case EXPR_VMD:
 			case SUMCASES:
@@ -5249,7 +5333,7 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 			case EXPR_ME:\
 				*dest=ip->un.em->un.funcep(ip->un.em->dim,ip->un.em->eps,input);\
 				break
-static double expr_vmdeval(struct expr_vmdinfo *restrict ev,double input);
+static double vmdeval(struct expr_vmdinfo *restrict ev,double input);
 #pragma GCC diagnostic push
 //#pragma GCC diagnostic ignored "-Wunknown-warning-option"
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
@@ -5291,7 +5375,7 @@ static int expr_optimize_constexpr(struct expr *restrict ep){
 					default:
 						abort();
 				}
-				expr_freesuminfo(ip->un.es);
+				freesuminfo(ip->un.es);
 				ip->op=EXPR_CONST;
 				ip->un.value=result;
 				expr_writeconsts(ep);
@@ -5311,7 +5395,7 @@ static int expr_optimize_constexpr(struct expr *restrict ep){
 					default:
 						abort();
 				}
-				expr_freemdinfo(ip->un.em);
+				freemdinfo(ip->un.em);
 				ip->op=EXPR_CONST;
 				ip->flag=0;
 				ip->un.value=result;
@@ -5326,8 +5410,8 @@ static int expr_optimize_constexpr(struct expr *restrict ep){
 				expr_constexpr(ip->un.ev->stepep,(double *)&ip->un.ev->index)&&
 				expr_constexpr(ip->un.ev->ep,(double *)&ip->un.ev->index)))
 					continue;
-				result=expr_vmdeval(ip->un.ev,input);
-				expr_freevmdinfo(ip->un.ev);
+				result=vmdeval(ip->un.ev,input);
+				freevmdinfo(ip->un.ev);
 				ip->op=EXPR_CONST;
 				ip->flag=0;
 				ip->un.value=result;
@@ -5636,9 +5720,15 @@ static int expr_optimize_injection(struct expr *restrict ep){
 		for(struct expr_inst *ip1=ip-1;ip1>=ep->data;--ip1){
 			if(ip1->dst.dst!=ip->dst.dst)
 				continue;
-			if(ip1->op==EXPR_INPUT&&
-				!expr_vcheck_ep(ep,ip+1,ip->dst.dst))
-				goto delete;
+			switch(ip1->op){
+				case EXPR_INPUT:
+				case EXPR_IPP:
+				case EXPR_IP:
+					if(!expr_vcheck_ep(ep,ip+1,ip->dst.dst))
+						goto delete;
+				default:
+					break;
+			}
 			if(ip1->op!=EXPR_CONST)
 				break;
 			switch(ip->op){
@@ -5907,7 +5997,7 @@ again:
 
 }
 __attribute__((noinline))
-static double expr_vmdeval(struct expr_vmdinfo *restrict ev,double input){
+static double vmdeval(struct expr_vmdinfo *restrict ev,double input){
 	ssize_t max=ev->max;
 	double *args,*ap,from,to,step;
 	step=fabs(expr_eval(ev->stepep,input));
@@ -6165,7 +6255,7 @@ double expr_eval(const struct expr *restrict ep,double input){
 				break;
 			CALMD_INSWITCH(ip->dst.dst);
 			case EXPR_VMD:
-				*ip->dst.dst=expr_vmdeval(ip->un.ev,input);
+				*ip->dst.dst=vmdeval(ip->un.ev,input);
 				break;
 			case EXPR_DO1:
 				expr_eval(ip->un.hotfunc,input);
@@ -6219,6 +6309,15 @@ double expr_eval(const struct expr *restrict ep,double input){
 				un.s2.un.d=*ip->dst.dst;//ip cannot be used after here
 				*un.s2.un.jp->ipp=un.s2.un.jp->ip;
 				longjmp(un.s2.un.jp->jb,un.s2.val);
+			case EXPR_IPP:
+				*ip->dst.uaddr2=&ip;
+				break;
+			case EXPR_IP:
+				*ip->dst.uaddr2=ip;
+				break;
+			case EXPR_TO:
+				ip=*ip->dst.uaddr2;
+				break;
 			case EXPR_END:
 				return *ip->dst.dst;
 			default:

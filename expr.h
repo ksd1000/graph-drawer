@@ -13,6 +13,7 @@
 #include <sys/types.h>
 #else
 #ifndef _SSIZE_T_DEFINED_
+#define _SSIZE_T_DEFINED_
 typedef ptrdiff_t ssize_t;
 #define SSIZE_MAX PTRDIFF_MAX
 #endif

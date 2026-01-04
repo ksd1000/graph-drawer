@@ -16,8 +16,9 @@
 #define printval(x) fprintf(stderr,#x ":%lu\n",x)
 #define printvall(x) fprintf(stderr,#x ":%ld\n",x)
 #define printvald(x) fprintf(stderr,#x ":%lf\n",x)
-
+#ifdef __clang__
 #pragma GCC diagnostic ignored "-Wunknown-warning-option"
+#endif
 
 #define SYMDIM(sp) (*(size_t *)((sp)->str+(sp)->strlen+1))
 #define assume(cond) if(cond);else __builtin_unreachable()
@@ -2830,7 +2831,7 @@ static double *gethot(struct expr *restrict ep,const char *e0,size_t sz,const ch
 	}
 	p=findpair(he,hend);
 	if(unlikely(!p)){
-		ep->error=EXPR_EPM;
+		ep->error=EXPR_EPT;
 		serrinfo(ep->errinfo,e0,sz);
 		return NULL;
 	}
@@ -2847,7 +2848,7 @@ static double *gethot(struct expr *restrict ep,const char *e0,size_t sz,const ch
 	}
 	pe=findpair(e,endp);
 	if(unlikely(!pe)){
-		ep->error=EXPR_EPM;
+		ep->error=EXPR_EPT;
 		serrinfo(ep->errinfo,e0,sz);
 		goto err0;
 	}
@@ -2884,7 +2885,7 @@ static double *gethot(struct expr *restrict ep,const char *e0,size_t sz,const ch
 	}
 	p=findpair_brace(he,hend);
 	if(unlikely(!p)){
-		ep->error=EXPR_EPM;
+		ep->error=EXPR_EPT;
 		serrinfo(ep->errinfo,e0,sz);
 		goto err1;
 	}
@@ -3038,11 +3039,13 @@ block:
 			p=findpair_dmark(e,endp);
 			if(unlikely(!p))
 				goto pterr;
+			/*
 			if(unlikely(ep->iflag&EXPR_IF_PROTECT)){
 				ep->error=EXPR_EPM;
 				serrinfo(ep->errinfo,e,p-e+1);
 				return NULL;
 			}
+			*/
 			un.uaddr=expr_astrscan(e+1,p-e-1,&dim);
 			if(unlikely(!un.uaddr))
 				break;
@@ -3073,6 +3076,7 @@ block:
 					e+=2;
 					goto vend;
 				case '{':
+					/*
 					if(unlikely(ep->iflag&EXPR_IF_PROTECT)){
 						p=findpair_brace(e+1,endp);
 						if(unlikely(!p))
@@ -3081,6 +3085,7 @@ block:
 						serrinfo(ep->errinfo,e0,p-e0+1);
 						return NULL;
 					}
+					*/
 					r0=1;
 					++e;
 					goto block;
@@ -3104,11 +3109,13 @@ block:
 				*ep->errinfo=*e;
 				return NULL;
 			}
+			/*
 			if(unlikely(ep->iflag&EXPR_IF_PROTECT)){
 				ep->error=EXPR_EPM;
 				serrinfo(ep->errinfo,e0,p-e0);
 				return NULL;
 			}
+			*/
 			if(builtin||!ep->sset||!(sym.es=expr_symset_search(ep->sset,e,p-e))){
 				if(ep->iflag&EXPR_IF_NOBUILTIN){
 					goto symerr;
@@ -3214,13 +3221,13 @@ dflt:
 		goto number;
 	for(const struct expr_builtin_keyword *kp=expr_keywords;
 			kp->str;++kp){
+		if(likely(p-e!=kp->strlen||memcmp(e,kp->str,p-e)))
+			continue;
 		if(unlikely((ep->iflag&EXPR_IF_PROTECT)&&(kp->flag&EXPR_KF_NOPROTECT))){
 			ep->error=EXPR_EPM;
 			serrinfo(ep->errinfo,kp->str,kp->strlen);
 			return NULL;
 		}
-		if(likely(p-e!=kp->strlen||memcmp(e,kp->str,p-e)))
-			continue;
 		if(unlikely(p>=endp||*p!='(')){
 			serrinfo(ep->errinfo,e,p-e);
 			ep->error=EXPR_EFP;

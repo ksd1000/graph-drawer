@@ -127,6 +127,7 @@ EXPR_END
 #define EXPR_ESAF 17
 #define EXPR_EVD 18
 #define EXPR_EPM 19
+#define EXPR_EIN 20
 
 #define EXPR_CONSTANT 0
 #define EXPR_VARIABLE 1

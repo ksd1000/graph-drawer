@@ -2536,7 +2536,7 @@ static struct expr *new_expr10(const char *e,size_t len,const char *asym,size_t 
 static double consteval(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *sset,struct expr *restrict parent){
 	struct expr *ep;
 	double r;
-	ep=new_expr10(e,len,asym,asymlen,sset,0,1,&parent->error,parent->errinfo,parent);
+	ep=new_expr10(e,len,asym,asymlen,sset,EXPR_IF_NOOPTIMIZE,1,&parent->error,parent->errinfo,parent);
 	if(unlikely(!ep))
 		return NAN;
 	if(unlikely(!expr_isconst(ep))){
@@ -3826,7 +3826,7 @@ symerr:
 	return NULL;
 ein:
 	serrinfo(ep->errinfo,e,p-e);
-	ep->error=EXPR_ESYMBOL;
+	ep->error=EXPR_EIN;
 	return NULL;
 sym_notfound:
 	if(unlikely(p+1>=endp||*p!='='))

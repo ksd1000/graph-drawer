@@ -2853,40 +2853,26 @@ static double *gethot(struct expr *restrict ep,const char *e0,size_t sz,const ch
 	size_t n,len;
 	double *v0,*v1;
 	hend=he+strlen(he);
-	if(unlikely(*he!='(')){
-		ep->error=EXPR_EPT;
-		serrinfo(ep->errinfo,e0,sz);
-		return NULL;
+#define hot_sep(_e,_p,_end,_v,_act) \
+	if(unlikely(*_e!='(')){\
+		ep->error=EXPR_EPT;\
+		serrinfo(ep->errinfo,e0,sz);\
+		_act;\
+	}\
+	_p=findpair(_e,_end);\
+	if(unlikely(!_p)){\
+		ep->error=EXPR_EPT;\
+		serrinfo(ep->errinfo,e0,sz);\
+		_act;\
+	}\
+	_v=expr_sep(ep,_e,_p-_e+1);\
+	if(unlikely(!_v)){\
+		serrinfo(ep->errinfo,e0,sz);\
+		_act;\
 	}
-	p=findpair(he,hend);
-	if(unlikely(!p)){
-		ep->error=EXPR_EPT;
-		serrinfo(ep->errinfo,e0,sz);
-		return NULL;
-	}
-	v=expr_sep(ep,he,p-he+1);
-	if(unlikely(!v)){
-		serrinfo(ep->errinfo,e0,sz);
-		return NULL;
-	}
-
-	if(unlikely(*e!='(')){
-		ep->error=EXPR_EPT;
-		serrinfo(ep->errinfo,e0,sz);
-		goto err0;
-	}
-	pe=findpair(e,endp);
-	if(unlikely(!pe)){
-		ep->error=EXPR_EPT;
-		serrinfo(ep->errinfo,e0,sz);
-		goto err0;
-	}
+	hot_sep(he,p,hend,v,return NULL);
+	hot_sep(e,pe,endp,ve,goto err0);
 	*ee=pe+1;
-	ve=expr_sep(ep,e,pe-e+1);
-	if(unlikely(!ve)){
-		serrinfo(ep->errinfo,e0,sz);
-		goto err0;
-	}
 	n=vsize2(v);
 	if(vsize2(ve)!=n){
 		ep->error=EXPR_ENEA;
@@ -3761,31 +3747,6 @@ found:
 			e=p+2;
 			goto vend;
 		case EXPR_HOTFUNCTION:
-			/*
-			if(unlikely(p>=endp||*p!='(')){
-				serrinfo(ep->errinfo,e,p-e);
-				ep->error=EXPR_EFP;
-				return NULL;
-			}
-			e=p;
-			p=findpair(e,endp);
-			if(unlikely(!p))
-				goto pterr;
-			if(unlikely(p==e+1))
-				goto envp;
-			v0=scan(ep,e+1,p,asym,asymlen);
-			if(unlikely(!v0))
-				return NULL;
-			p2=sv.sv->hotexpr+strlen(sv.sv->hotexpr);
-			un.ep=new_expr8(sv.sv->hotexpr,p2-sv.sv->hotexpr,p2+1,
-			strlen(p2+1),ep->sset,
-			ep->iflag
-			,&ep->error,ep->errinfo);
-			if(unlikely(!un.ep))
-				return NULL;
-			cknp(ep,expr_addhot(ep,v0,un.ep,flag),return NULL);
-			e=p+1;*/
-			//e=p;
 			v0=gethot(ep,e,p-e,p,endp,asym,asymlen,sv.sv->hotexpr,&e,flag);
 			if(!v0)
 				return NULL;
@@ -3912,11 +3873,7 @@ number:
 		cknp(ep,expr_addconst(ep,v0,un.v),return NULL);
 		e=p;
 		goto vend;
-	}/*else if(r0>1){
-		serrinfo(ep->errinfo,e,p-e);
-		ep->error=EXPR_ENUMBER;
-		return NULL;
-	}*/
+	}
 	goto sym_notfound;
 symerr:
 	serrinfo(ep->errinfo,e,p-e);
@@ -4278,15 +4235,6 @@ envp:
 							}
 							e1=e;
 							goto multi_dim;
-						/*case '&':
-							if(e+1>=endp)
-								break;
-							p1=getsym(e+1,endp);
-							if(p1==e+1||*p1!='[')
-								break;
-							e1=e;
-							--p1;
-							goto multi_dim;*/
 						default:
 							break;
 					}
@@ -4348,7 +4296,6 @@ multi_dim:
 					serrinfo(ep->errinfo,e,p1-e);
 tnv:
 					ep->error=EXPR_ETNV;
-//#define memcpy(d,s,n) (printf("memcpy(%p,%p,%zu)\n",d,s,(size_t)(n)),__builtin_memcpy(d,s,n))
 					goto err;
 				}
 				cknp(ep,expr_addcopy(ep,esp->un.addr,v1),goto err);
@@ -4391,9 +4338,6 @@ bracket_end:
 					esp->type=EXPR_VARIABLE;
 					esp->flag=0;
 					esp->un.addr=v2;
-					/*ep->error=EXPR_EDS;
-					serrinfo(ep->errinfo,e,p1-e);
-					goto err;*/
 				}else {
 					v2=expr_createvar(ep,e,p1-e);
 					cknp(ep,v2,goto err);
@@ -4532,7 +4476,6 @@ end2:
 		r1=do_unary(ep,ev,4);
 		cknp(ep,r1>=0,goto err);
 	}while(r1);
-	//while(do_unary(ep,ev,2)&&do_unary(ep,ev,4));
 	SETPREC3(EXPR_MUL,EXPR_DIV,EXPR_MOD)
 	SETPREC2(EXPR_ADD,EXPR_SUB)
 	SETPREC2(EXPR_SHL,EXPR_SHR)
@@ -4556,11 +4499,6 @@ err:
 	return NULL;
 }
 void init_expr_symset(struct expr_symset *restrict esp){
-	/*esp->syms=NULL;
-	esp->size=0;
-	esp->depth=0;
-	esp->length=0;
-	esp->freeable=0;*/
 	memset(esp,0,sizeof(struct expr_symset));
 }
 struct expr_symset *new_expr_symset(void){
@@ -4944,13 +4882,6 @@ static int init_expr8(struct expr *restrict ep,const char *e,size_t len,const ch
 	char *ebuf,*r,*p0;
 	struct expr_resource *rp;
 	double *v;
-	/*ep->data=NULL;
-	ep->vars=NULL;
-	ep->sset_shouldfree=0;
-	ep->error=0;
-	ep->freeable=0;
-	memset(ep->errinfo,0,EXPR_SYMLEN);
-	ep->length=ep->size=ep->vlength=ep->vsize=0;*/
 	memset(ep,0,sizeof(struct expr));
 	ep->sset=esp;
 	ep->parent=parent;

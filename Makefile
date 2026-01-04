@@ -2,6 +2,7 @@ CC := gcc
 CFLAG := -Wall -O3 -fPIC
 LFLAG := -lc -lm
 kernel := $(shell uname -r)
+all: xgraph.tar.gz expr-version
 xgraph.tar.gz: header/expr.h header/xdraw.h lib/xgraph.a lib/xgraph.so
 	tar -czf xgraph.tar.gz header lib
 check: expr.c expr.h check.c
@@ -16,6 +17,8 @@ xdraw.o: xdraw.c texts/text.h xdraw.h expr.h
 	$(CC) $(CFLAG) xdraw.c -c -o xdraw.o
 expr.o: expr.c expr.h
 	$(CC) $(CFLAG) expr.c -c -o expr.o
+expr-version: expr.o expr-version.c
+	$(CC) $(CFLAG) expr.o expr-version.c -o expr-version -lm
 
 header/xdraw.h: xdraw.h header/expr.h
 	mkdir -p header

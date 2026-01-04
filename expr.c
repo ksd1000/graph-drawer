@@ -306,7 +306,19 @@ static const char *eerror[]={
 	[EXPR_EVD]="Void value must be dropped",
 	[EXPR_EPM]="In protect mode",
 	[EXPR_EIN]="Injective function only",
+	[EXPR_EBS]="Cannot remove a builtin symbol",
 };
+const struct expr_libinfo expr_libinfo[1]={{
+	.version="pre-release",
+	.compiler_version=
+#ifdef __VERSION__
+		__VERSION__,
+#else
+		"Unknown",
+#endif
+	.date=__DATE__,
+	.time=__TIME__,
+}};
 //const static char ntoc[]={"0123456789abcdefg"};
 const char *expr_error(int error){
 	switch(error){
@@ -1478,7 +1490,7 @@ const struct expr_builtin_keyword expr_keywords[]={
 	REGKEYSC("loop",EXPR_LOOP,5,"loop(var_name,start_var,count,body,value)"),
 	REGKEYSCN("vmd",EXPR_VMD,7,"vmd(index_name,start_index,end_index,index_step,element,md_symbol,[constant_expression max_dim])"),
 	REGKEYS("do",EXPR_DO,1,"do(body) do{body}"),
-	REGKEYSC("if",EXPR_IF,3,"if(cond,if_value,else_value) if(cond){body}[[else]{value}]"),
+	REGKEYSC("if",EXPR_IF,3,"if(cond,if_value,else_value) if(cond){body}[{else_body}]"),
 	REGKEYSC("while",EXPR_WHILE,3,"while(cond,body) while(cond){body}"),
 	REGKEYSC("dowhile",EXPR_DOW,3,"dowhile(cond,body) dowhile(cond){body}"),
 	REGKEYSC("don",EXPR_DON,3,"don(cond,body) don(cond){body}"),
@@ -1499,6 +1511,8 @@ const struct expr_builtin_keyword expr_keywords[]={
 	REGKEY("defined",EXPR_DIV,1,"defined(symbol)"),
 	REGKEY("typeof",EXPR_AND,1,"typeof(symbol)"),
 	REGKEY("flagof",EXPR_OR,1,"typeof(symbol)"),
+	REGKEY("undef",EXPR_XOR,1,"undef(symbol)"),
+	REGKEY("static_if",EXPR_ANDL,3,"static_if(constant cond){body}[{else_body}]"),
 	{NULL}
 };
 const struct expr_builtin_symbol expr_symbols[]={
@@ -1559,6 +1573,21 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGCSYM2("u0",1.25663706212e-6),
 #endif
 
+#ifdef __linux__
+	REGCSYM(__linux__),
+#endif
+
+#ifdef __unix__
+	REGCSYM(__unix__),
+#endif
+
+#ifdef __aarch64__
+	REGCSYM(__aarch64__),
+#endif
+
+#ifdef __x86_64__
+	REGCSYM(__x86_64__),
+#endif
 	REGFSYM2("abs",fabs),
 	REGFSYM(acos),
 	REGFSYM(acosh),
@@ -3417,7 +3446,6 @@ use_byte:
 					}
 				}else {
 					un.v=1;
-					goto v_ok;
 				}
 v_ok:
 				v0=expr_newvar(ep);
@@ -3451,6 +3479,30 @@ v_ok:
 				v0=expr_newvar(ep);
 				cknp(ep,v0,return NULL);
 				cknp(ep,expr_addconst(ep,v0,(double)flag),return NULL);
+				e=p+1;
+				goto vend;
+			case EXPR_XOR:
+				if(unlikely(builtin||!ep->sset||!(sym.es=expr_symset_search(ep->sset,e+1,p-e-1)))){
+					if(ep->iflag&EXPR_IF_NOBUILTIN){
+						++e;
+						goto symerr;
+					}
+					sym.ebs=expr_builtin_symbol_search(e+1,p-e-1);
+					if(sym.ebs){
+						serrinfo(ep->errinfo,e,p-e);
+						ep->error=EXPR_EBS;
+						return NULL;
+					}else {
+						++e;
+						goto symerr;
+					}
+				}
+				cknp(ep,expr_detach(ep)>=0,return NULL);
+				if(unlikely(expr_symset_remove(ep->sset,e+1,p-e-1))){
+					++e;
+					goto symerr;
+				}
+				v0=EXPR_VOID;
 				e=p+1;
 				goto vend;
 			case EXPR_ALO:
@@ -3556,18 +3608,14 @@ v_ok:
 					sym.b->cond=e+1;
 					sym.b->scond=p-e-1;
 					e=p+1;
-					p=findpair_brace(p+1,endp);
+					p=findpair_brace(e,endp);
 					if(unlikely(!p))
 						goto pterr;
 					sym.b->body=e+1;
 					sym.b->sbody=p-e-1;
 					if(++p<endp)switch(*p){
-						case 'e':
-							if(p+4>=endp||memcmp(p+1,"lse{",4)){
 						default:
 								goto vzero;
-							}
-							p+=4;
 						case '{':
 							switch(kp->op){
 								case EXPR_IF:
@@ -3607,6 +3655,49 @@ vzero:
 				cknp(ep,expr_addop(ep,v0,un.uaddr,kp->op,flag),return NULL);
 				e=p+1;
 				goto vend;
+			case EXPR_ANDL:
+				if(p+1>=endp||p[1]!='{')
+					goto pterr;
+				un.v=consteval(e+1,p-e-1,asym,asymlen,ep->sset,ep);
+				if(unlikely(ep->error))
+					return NULL;
+				e=p+1;
+				p=findpair_brace(e,endp);
+				if(unlikely(!p))
+					goto pterr;
+				if(un.v!=0.0){
+					v0=scan(ep,e+1,p,asym,asymlen);
+					if(unlikely(!v0))
+						return NULL;
+					e=p+1;
+					if(e<endp&&*e=='{'){
+						p=findpair_brace(e,endp);
+						if(likely(p))
+							e=p+1;
+					}
+					goto vend;
+				}
+				if(p+1>=endp){
+					v0=EXPR_VOID;
+					e=p+1;
+					goto vend;
+				}
+				switch(p[1]){
+					case '{':
+						e=p+1;
+						p=findpair_brace(e,endp);
+						if(unlikely(!p))
+							goto pterr;
+						v0=scan(ep,e+1,p,asym,asymlen);
+						if(unlikely(!v0))
+							return NULL;
+						e=p+1;
+						goto vend;
+					default:
+						v0=EXPR_VOID;
+						e=p+1;
+						goto vend;
+				}
 			case EXPR_DO:
 				p=findpair(e,endp);
 				if(unlikely(!p))

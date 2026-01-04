@@ -129,6 +129,7 @@ EXPR_END
 #define EXPR_EVD 18
 #define EXPR_EPM 19
 #define EXPR_EIN 20
+#define EXPR_EBS 21
 
 #define EXPR_CONSTANT 0
 #define EXPR_VARIABLE 1
@@ -178,6 +179,12 @@ EXPR_END
 		_un._o;\
 	})
 
+struct expr_libinfo {
+	const char *version;
+	const char *compiler_version;
+	const char *date;
+	const char *time;
+};
 struct expr;
 struct expr_symset;
 struct expr_suminfo {
@@ -314,6 +321,7 @@ union expr_double {
 
 extern const struct expr_builtin_symbol expr_symbols[];
 extern const struct expr_builtin_keyword expr_keywords[];
+extern const struct expr_libinfo expr_libinfo[1];
 
 extern void *(*expr_allocator)(size_t);
 extern void *(*expr_reallocator)(void *,size_t);

@@ -1494,7 +1494,7 @@ const struct expr_builtin_keyword expr_keywords[]={
 	REGKEYSC("while",EXPR_WHILE,3,"while(cond,body) while(cond){body}"),
 	REGKEYSC("dowhile",EXPR_DOW,3,"dowhile(cond,body) dowhile(cond){body}"),
 	REGKEYSC("don",EXPR_DON,3,"don(cond,body) don(cond){body}"),
-	REGKEYC("const",EXPR_CONST,2,"const(name,[constant_expression value])"),
+	REGKEYC("const",EXPR_CONST,2,"const(name,[constant_expression value]) name=(value)"),
 	REGKEYC("var",EXPR_MUL,2,"var(name,[constant_expression initial_value])"),
 	REGKEYN("double",EXPR_BL,1,"double(constant_expression count)"),
 	REGKEYN("byte",EXPR_COPY,1,"byte(constant_expression count)"),
@@ -2551,16 +2551,22 @@ err1:
 		expr_free2(v);
 	return NULL;
 }
-static int expr_seizeres(struct expr *restrict dst,struct expr *restrict src){
-	struct expr_resource *drp;
-	for(struct expr_resource *srp=src->res;srp;srp=srp->next){
+static void expr_seizeres(struct expr *restrict dst,struct expr *restrict src){
+	struct expr_resource **drp;
+	/*for(struct expr_resource *srp=src->res;srp;srp=srp->next){
 		drp=expr_newres(dst);
 		cknp(dst,drp,return -1);
 		drp->type=srp->type;
 		drp->un.uaddr=srp->un.uaddr;
 		srp->un.uaddr=NULL;
 	}
-	return 0;
+	return 0;*/
+	drp=&dst->res;
+	while(*drp)
+		drp=&(*drp)->next;
+	*drp=src->res;
+	src->res=NULL;
+
 }
 static struct expr *new_expr10(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,int n,int *error,char errinfo[EXPR_SYMLEN],struct expr *parent);
 static double consteval(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *sset,struct expr *restrict parent){

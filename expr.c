@@ -3417,11 +3417,16 @@ use_byte:
 				e=p+1;
 				goto vend;
 			case EXPR_DIV:
-				if(builtin||!ep->sset||!(sym.es=expr_symset_search(ep->sset,e+1,p-e-1))){
+				if(!(ep->iflag&EXPR_IF_NOBUILTIN)&&e+2<p&&e[1]==':'&&e[2]==':'){
+					e+=2;
+					goto b3;
+				}
+				if(!ep->sset||!(sym.es=expr_symset_search(ep->sset,e+1,p-e-1))){
 					if(ep->iflag&EXPR_IF_NOBUILTIN){
 						un.v=0;
 						goto v_ok;
 					}
+b3:
 					sym.ebs=expr_builtin_symbol_search(e+1,p-e-1);
 					if(sym.ebs){
 						un.v=2;
@@ -3439,11 +3444,17 @@ v_ok:
 				cknp(ep,expr_addconst(ep,v0,un.v),return NULL);
 				e=p+1;
 				goto vend;
-#define symfield(_field,_dest) if(builtin||!ep->sset||!(sym.es=expr_symset_search(ep->sset,e+1,p-e-1))){\
+#define symfield(_field,_dest,_label) \
+				if(!(ep->iflag&EXPR_IF_NOBUILTIN)&&e+2<p&&e[1]==':'&&e[2]==':'){\
+					e+=2;\
+					goto _label;\
+				}\
+				if(!ep->sset||!(sym.es=expr_symset_search(ep->sset,e+1,p-e-1))){\
 					if(ep->iflag&EXPR_IF_NOBUILTIN){\
 						++e;\
 						goto symerr;\
 					}\
+_label:\
 					sym.ebs=expr_builtin_symbol_search(e+1,p-e-1);\
 					if(sym.ebs){\
 						_dest=sym.ebs->_field;\
@@ -3454,28 +3465,33 @@ v_ok:
 				}else \
 					_dest=sym.es->_field
 			case EXPR_AND:
-				symfield(type,flag);
+				symfield(type,flag,b1);
 				v0=expr_newvar(ep);
 				cknp(ep,v0,return NULL);
 				cknp(ep,expr_addconst(ep,v0,(double)flag),return NULL);
 				e=p+1;
 				goto vend;
 			case EXPR_OR:
-				symfield(flag,flag);
+				symfield(flag,flag,b2);
 				v0=expr_newvar(ep);
 				cknp(ep,v0,return NULL);
 				cknp(ep,expr_addconst(ep,v0,(double)flag),return NULL);
 				e=p+1;
 				goto vend;
 			case EXPR_XOR:
-				if(unlikely(builtin||!ep->sset||!(sym.es=expr_symset_search(ep->sset,e+1,p-e-1)))){
+				if(!(ep->iflag&EXPR_IF_NOBUILTIN)&&e+2<p&&e[1]==':'&&e[2]==':'){
+					e+=2;
+					goto b0;
+				}
+				if(unlikely(!ep->sset||!(sym.es=expr_symset_search(ep->sset,e+1,p-e-1)))){
 					if(ep->iflag&EXPR_IF_NOBUILTIN){
 						++e;
 						goto symerr;
 					}
+b0:
 					sym.ebs=expr_builtin_symbol_search(e+1,p-e-1);
 					if(sym.ebs){
-						serrinfo(ep->errinfo,e,p-e);
+						serrinfo(ep->errinfo,e+1,p-e-1);
 						ep->error=EXPR_EBS;
 						return NULL;
 					}else {

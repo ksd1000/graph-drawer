@@ -1510,7 +1510,7 @@ const struct expr_builtin_keyword expr_keywords[]={
 	REGKEY("hot",EXPR_HOT,2,"hot(function_name,(args...){expression}) function_name=(args...){expression}"),
 	REGKEY("defined",EXPR_DIV,1,"defined(symbol)"),
 	REGKEY("typeof",EXPR_AND,1,"typeof(symbol)"),
-	REGKEY("flagof",EXPR_OR,1,"typeof(symbol)"),
+	REGKEY("flagof",EXPR_OR,1,"flagof(symbol)"),
 	REGKEY("undef",EXPR_XOR,1,"undef(symbol)"),
 	REGKEY("static_if",EXPR_ANDL,3,"static_if(constant cond){body}[{else_body}]"),
 	{NULL}

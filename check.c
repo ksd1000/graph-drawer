@@ -74,6 +74,10 @@ const struct proj {
 	{"asint(0#(128*2)#1)",257},
 	{"asint(0#(128*2)#1)",257},
 	{"static_assert(e>2.71),2",2},
+	{"defined(sin)",2},
+	{"typeof(exp)",EXPR_FUNCTION},
+	{"flagof(cos)&EXPR_SF_INJECTION",1},
+	{"f=(u,v){u+v^2},f(7,4)",23},
 	{NULL}
 
 };

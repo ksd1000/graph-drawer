@@ -325,8 +325,8 @@ extern const struct expr_libinfo expr_libinfo[1];
 
 extern void *(*expr_allocator)(size_t);
 extern void *(*expr_reallocator)(void *,size_t);
-extern int (*expr_vasprintf)(char **,const char *,va_list);
 extern void (*expr_deallocator)(void *);
-//default=malloc,realloc,vasprintf,free
+extern size_t expr_allocate_max;
+//default=malloc,realloc,free,0x10000000000UL
 
 long expr_syscall(long arg0,long arg1,long arg2,long arg3,long arg4,long arg5,long num);

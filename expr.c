@@ -26,7 +26,13 @@
 #define unlikely(cond) __builtin_expect(!!(cond),0)
 
 #ifndef PAGE_SIZE
+#ifdef __unix__
+#include <sys/user.h>
+#endif
+#ifndef PAGE_SIZE
 #define PAGE_SIZE 4096
+#pragma message("PAGE_SIZE is not defined,using 4096 as default")
+#endif
 #endif
 
 #define trap (fprintf(stdout,"\nat file %s line %d\n",__FILE__,__LINE__),__builtin_trap())
@@ -331,85 +337,52 @@ const char *expr_error(int error){
 
 void *(*expr_allocator)(size_t)=malloc;
 void *(*expr_reallocator)(void *,size_t)=realloc;
-int (*expr_vasprintf)(char **,const char *,va_list)=vasprintf;
 void (*expr_deallocator)(void *)=free;
+size_t expr_allocate_max=0x10000000000UL;
 
-#define xmalloc_nullable expr_allocator
-/*
-static void *xmalloc_nullable(size_t size){
+#define free (use xfree() instead!)
+#define malloc (use xmalloc() instead!)
+#define realloc (use xrealloc() instead!)
+#define asprintf (use xasprintf_nullable() instead!)
+#define vasprintf (use expr_vasprintf() instead!)
+
+static void *xmalloc(size_t size){
+	if(size>expr_allocate_max)
+		return NULL;
 	return expr_allocator(size);
 }
-*/
-static void *xrealloc_nullable(void *old,size_t size){
+static void *xrealloc(void *old,size_t size){
+	if(size>expr_allocate_max)
+		return NULL;
 	return old?expr_reallocator(old,size):expr_allocator(size);
-}
-static int xasprintf_nullable(char **restrict strp, const char *restrict fmt,...){
-	va_list ap;
-	int r;
-	va_start(ap,fmt);
-	r=expr_vasprintf(strp,fmt,ap);
-	va_end(ap);
-	return r;
 }
 static void xfree(void *p){
 	if(unlikely(!p))
 		abort();
 	expr_deallocator(p);
 }
-#define free (use xfree() instead!)
-#define malloc (use xmalloc_nullable() instead!)
-#define realloc (use xrealloc_nullable() instead!)
-#define asprintf (use xasprintf_nullable() instead!)
-#define vasprintf (use expr_vasprintf() instead!)
-
-static void *xmalloc(size_t size){
-	void *r;
-	if(unlikely(size>=SSIZE_MAX)){
-		warnx("IN xmalloc(size=%zu)\n"
-			"CANNOT ALLOCATE MEMORY",size);
-		goto ab;
-	}
-	r=xmalloc_nullable(size);
-	if(unlikely(!r)){
-		warn("IN xmalloc(size=%zu)\n"
-			"CANNOT ALLOCATE MEMORY",size);
-ab:
-		warnx("ABORTING");
-		abort();
-	}
-	return r;
-}
-static void *xrealloc(void *old,size_t size){
-	void *r;
-	if(unlikely(size>=SSIZE_MAX)){
-		warnx("IN xrealloc(old=%p,size=%zu)\n"
-			"CANNOT REALLOCATE MEMORY",old,size);
-		goto ab;
-	}
-	r=xrealloc_nullable(old,size);
-	if(unlikely(!r)){
-		warn("IN xrealloc(old=%p,size=%zu)\n"
-			"CANNOT REALLOCATE MEMORY",old,size);
-ab:
-		warnx("ABORTING");
-		abort();
-	}
-	return r;
-}
-/*static int xasprintf(char **restrict strp, const char *restrict fmt,...){
-	int r;
+/*
+#define XASPRINTF_SIZE 128
+static int xasprintf_nullable(char **restrict strp, const char *restrict fmt,...){
 	va_list ap;
+	int r;
+	char *p;
 	va_start(ap,fmt);
-	r=vasprintf(strp,fmt,ap);
-	if(r<0){
-		warn("IN xasprintf(strp=%p)\n"
-			"CANNOT ALLOCATE MEMORY",strp);
-		warnx("ABORTING");
-		abort();
+	p=xmalloc(XASPRINTF_SIZE);
+	if(!p)
+		goto err;
+	r=vsnprintf(p,XASPRINTF_SIZE,fmt,ap);
+	if(r>=XASPRINTF_SIZE){
+		xfree(p);
+		goto err;
 	}
 	va_end(ap);
 	return r;
-}*/
+err:
+	va_end(ap);
+	return -1;
+}
+*/
 uint64_t expr_gcd64(uint64_t x,uint64_t y){
 	uint64_t r;
 	int r1;
@@ -461,7 +434,7 @@ void expr_mirror(double *buf,size_t size){
 		++buf;
 	}
 }
-void expr_fry(double *v,size_t n){
+void expr_fry(double *restrict v,size_t n){
 	size_t r;
 	double swapbuf;
 	double *endp;
@@ -590,6 +563,13 @@ no_gt:
 		deallocator(sp0);
 	}
 	return 0;
+}
+static int double_compar(const double *restrict x,const double *restrict y){
+	return *x==*y?0:(*x<*y?-1:1);
+}
+void expr_sortq(double *restrict v,size_t n){
+	expr_fry(v,n);
+	qsort((void *)v,n,sizeof(double),(int (*)(const void *,const void *))double_compar);
 }
 void expr_sort_old(double *restrict v,size_t n){
 	double swapbuf;
@@ -733,9 +713,9 @@ void expr_contract(void *buf,size_t size){
 }
 __attribute__((noreturn)) void expr_explode(void){
 	void *r;
-	size_t sz=((size_t)SSIZE_MAX+1)/2;
+	size_t sz=expr_allocate_max;
 	do {
-		while((r=xmalloc_nullable(sz))){
+		while((r=xmalloc(sz))){
 			expr_contract(r,sz);
 			//if do not contract,
 			//the virtual memory
@@ -761,6 +741,10 @@ static double expr_mrand48(void){
 static double expr_strtol(size_t n,double *args){
 	return (double)strtol(cast(*args,const char *),NULL,(int)args[1]);
 }
+static double expr_qmed(size_t n,double *args){
+	expr_sortq(args,n);
+	return n&1ul?args[n>>1ul]:(n>>=1ul,(args[n]+args[n-1])/2);
+}
 static double expr_med(size_t n,double *args){
 	expr_sort(args,n);
 	return n&1ul?args[n>>1ul]:(n>>=1ul,(args[n]+args[n-1])/2);
@@ -772,6 +756,10 @@ static double expr_hmed(size_t n,double *args){
 static double expr_med_old(size_t n,double *args){
 	expr_sort_old(args,n);
 	return n&1ul?args[n>>1ul]:(n>>=1ul,(args[n]+args[n-1])/2);
+}
+static double expr_qgmed(size_t n,double *args){
+	expr_sort(args,n);
+	return n&1ul?args[n>>1ul]:(n>>=1ul,sqrt(args[n]*args[n-1]));
 }
 static double expr_gmed(size_t n,double *args){
 	expr_sort(args,n);
@@ -789,10 +777,17 @@ static double expr_mode0(size_t n,double *args,int heap){
 	double max,cnt;
 	double *endp=args+n;
 	size_t maxn=1;
-	if(heap)
-		expr_sort4(args,n,xmalloc,xfree);
-	else
-		expr_sort(args,n);
+	switch(heap){
+		case 0:
+			expr_sort(args,n);
+			break;
+		case 2:
+			expr_sortq(args,n);
+			break;
+		default:
+			expr_sort4(args,n,xmalloc,xfree);
+			break;
+	}
 	cnt=max=*(args++);
 	for(size_t cn=1;;++args){
 		if(*args==cnt){
@@ -812,6 +807,9 @@ static double expr_mode0(size_t n,double *args,int heap){
 }
 static double expr_mode(size_t n,double *args){
 	return expr_mode0(n,args,0);
+}
+static double expr_qmode(size_t n,double *args){
+	return expr_mode0(n,args,2);
 }
 static double expr_hmode(size_t n,double *args){
 	return expr_mode0(n,args,1);
@@ -842,7 +840,7 @@ static double bsort(size_t n,const struct expr *args,double input){
 }
 static double bhsort(size_t n,const struct expr *args,double input){
 	int r;
-	r=expr_sort4(cast(expr_eval(args,input),double *),(size_t)fabs(expr_eval(args+1,input)),xmalloc_nullable,xfree);
+	r=expr_sort4(cast(expr_eval(args,input),double *),(size_t)fabs(expr_eval(args+1,input)),xmalloc,xfree);
 	if(!r){
 		return 0.0;
 	}else {
@@ -931,26 +929,10 @@ static double expr_malloc(double x){
 		double *r;
 		double dr;
 	} un;
-	un.r=xmalloc_nullable((size_t)fabs(x));
-	return un.dr;
-}
-static double expr_xmalloc(double x){
-	union {
-		double *r;
-		double dr;
-	} un;
 	un.r=xmalloc((size_t)fabs(x));
 	return un.dr;
 }
 static double expr_new(double x){
-	union {
-		double *r;
-		double dr;
-	} un;
-	un.r=xmalloc_nullable((size_t)fabs(x)*sizeof(double));
-	return un.dr;
-}
-static double expr_xnew(double x){
 	union {
 		double *r;
 		double dr;
@@ -1003,13 +985,13 @@ static double bsyscall(size_t n,double *args){
 	argt=(unsigned int)(num>>32);
 	num&=0x0ffffffff;
 	for(i=1;i<(int)n;++i){
-		a[i-1]=argt&(1u<<i)?(long)args[i]:cast(args[i],long);
+		a[i-1]=argt&(1u<<i)?cast(args[i],long):(long)args[i];
 	}
 	for(;i<7;++i){
 		a[i-1]=0;
 	}
 	num=expr_syscall(a[0],a[1],a[2],a[3],a[4],a[5],num);
-	return (argt&1u)?(double)num:cast(num,double);
+	return (argt&1u)?cast(num,double):(double)num;
 }
 double systype(double x){
 	const char *p;
@@ -1022,9 +1004,9 @@ double systype(double x){
 	for(size_t i=0;i<len;++i){
 		switch(p[i]){
 			case '*':
+				r|=1u<<(unsigned int)i;
 				break;
 			default:
-				r|=1u<<(unsigned int)i;
 				break;
 		}
 	}
@@ -1662,9 +1644,7 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGFSYM2_NI("exit",expr_exit),
 	REGFSYM2_NI("exitif",expr_exitif),
 	REGFSYM2_NI("malloc",expr_malloc),
-	REGFSYM2_NI("xmalloc",expr_xmalloc),
 	REGFSYM2_NI("new",expr_new),
-	REGFSYM2_NI("xnew",expr_xnew),
 	REGFSYM2_NI("free",expr_xfree),
 	REGFSYM2_NI("system",expr_system),
 
@@ -1690,6 +1670,9 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGMDSYM2("mul",expr_mul,0),
 	REGMDSYM2("nfact",expr_nfact,2ul),
 	REGMDSYM2("pow_old_n",expr_pow_old_n,2),
+	REGMDSYM2("qmed",expr_qmed,0),
+	REGMDSYM2("qgmed",expr_qgmed,0),
+	REGMDSYM2("qmode",expr_qmode,0),
 #ifdef SYSCALL_DEFINED
 	REGMDSYM2_NIU("syscall",bsyscall,0),
 	REGFSYM_U(systype),
@@ -1896,7 +1879,7 @@ static const char *findpair_dmark(const char *c,const char *endp){
 
 char *expr_astrscan(const char *s,size_t sz,size_t *restrict outsz){
 	char *buf;
-	buf=xmalloc_nullable(sz+1);
+	buf=xmalloc(sz+1);
 	if(!buf)
 		return NULL;
 	*outsz=expr_strscan(s,sz,buf);
@@ -2096,7 +2079,7 @@ static struct expr_inst *expr_addalo(struct expr *restrict ep,double *dst,ssize_
 static struct expr_resource *expr_newres(struct expr *restrict ep){
 	struct expr_resource *p;
 	if(!ep->res){
-		p=xmalloc_nullable(sizeof(struct expr_resource));
+		p=xmalloc(sizeof(struct expr_resource));
 		if(unlikely(!p))
 			return NULL;
 		p->next=NULL;
@@ -2106,7 +2089,7 @@ static struct expr_resource *expr_newres(struct expr *restrict ep){
 	}
 	p=ep->tail?ep->tail:ep->res;
 	while(p->next)p=p->next;
-	p->next=xmalloc_nullable(sizeof(struct expr_resource));
+	p->next=xmalloc(sizeof(struct expr_resource));
 	if(unlikely(!p->next))
 		return NULL;
 	p=p->next;
@@ -2116,11 +2099,11 @@ static struct expr_resource *expr_newres(struct expr *restrict ep){
 	return p;
 }
 static double *expr_newvar(struct expr *restrict ep){
-	double *r=xmalloc_nullable(sizeof(double)),**p;
+	double *r=xmalloc(sizeof(double)),**p;
 	if(unlikely(!r))
 		return NULL;
 	if(ep->vsize>=ep->vlength){
-		p=xrealloc_nullable(ep->vars,
+		p=xrealloc(ep->vars,
 			(ep->vlength+=EXTEND_SIZE)*sizeof(double *));
 		if(unlikely(!p)){
 			xfree(r);
@@ -2154,7 +2137,7 @@ static int expr_createsvar(struct expr *restrict ep,const char *symbol,size_t sy
 	cknp(ep,expr_detach(ep)>=0,return -1);
 	r=expr_newres(ep);
 	cknp(ep,r,return -1);
-	r->un.addr=xmalloc_nullable(sizeof(double));
+	r->un.addr=xmalloc(sizeof(double));
 	cknp(ep,r->un.addr,return -1);
 	*r->un.addr=val;
 	return expr_symset_addl(ep->sset,symbol,symlen,EXPR_VARIABLE,0,r->un.addr)?0:-1;
@@ -2299,7 +2282,7 @@ static int atod2(const char *str,double *dst){
 }
 static int atod(const char *str,size_t sz,double *dst){
 	int ret;
-	char *p0=xmalloc_nullable(sz+1),*p;
+	char *p0=xmalloc(sz+1),*p;
 	p=p0?p0:alloca(sz+1);
 	p[sz]=0;
 	memcpy(p,str,sz);
@@ -2352,8 +2335,7 @@ static char **expr_sep(struct expr *restrict ep,const char *pe,size_t esz){
 	char *p,*p1,*p2,**p3=NULL,/*p5,*/*e,*p6;
 	void *p7;
 	size_t len=0,s/*,sz*/;
-	//printvall(esz);
-	p6=e=xmalloc_nullable(esz+1);
+	p6=e=xmalloc(esz+1);
 	cknp(ep,e,return NULL);
 	memcpy(e,pe,esz);
 	e[esz]=0;
@@ -2375,88 +2357,14 @@ static char **expr_sep(struct expr *restrict ep,const char *pe,size_t esz){
 	}
 	for(p=expr_tok(e,&p2);p;p=expr_tok(NULL,&p2)){
 		s=strlen(p);
-		/*if(*p=='\"'&&(p5=expr_astrscan(p,s,&sz))){
-			for(char *p4=p5;p4-p5<sz;++p4){
-				p1=xmalloc_nullable(5);
-				cknp(ep,p1,goto fail);
-				p1[0]='0';
-				p1[1]='x';
-				p1[2]=ntoc[*p4>>4];
-				p1[3]=ntoc[*p4&15];
-				p1[4]=0;
-				p7=xrealloc_nullable(p3,(len+2)*sizeof(char *));
-				cknp(ep,p7,goto fail);
-				p3=p7;
-				p3[len++]=p1;
-			}
-			xfree(p5);
-		}else */if(*p=='{'){
-			long from,to,istep=1;
-			size_t diff;
-			double f,t,step;
-			int r;
-			char c;
-			r=sscanf(p+1,"%ld..%ld%c",&from,&to,&c);
-			if(r!=3||c!='}'){
-				r=sscanf(p+1,"%lf:%lf:%lf%c",&f,&step,&t,&c);
-				if(r!=4||c!='}'){
-					r=sscanf(p+1,"%ld..%ld..%ld%c",&from,&istep,&to,&c);
-					if(r!=4||c!='}')
-						goto normal;
-					if(istep<0)
-						istep=-istep;
-					goto integer;
-				}
-				if(step<0.0)
-					step=-step;
-				if(f<=t)
-				do {
-					cknp(ep,xasprintf_nullable(&p1,"%.64lg",f)>=0,goto fail);
-					p7=xrealloc_nullable(p3,(len+2)*sizeof(char *));
-					cknp(ep,p7,goto fail);
-					p3=p7;
-					p3[len++]=p1;
-					f+=step;
-				}while(f<=t);
-				else
-				do {
-					cknp(ep,xasprintf_nullable(&p1,"%.64lg",f)>=0,goto fail);
-					p7=xrealloc_nullable(p3,(len+2)*sizeof(char *));
-					cknp(ep,p7,goto fail);
-					p3=p7;
-					p3[len++]=p1;
-					f-=step;
-				}while(f>=t);
-				continue;
-			}
-integer:
-			diff=(from>to?from-to:to-from);
-			p7=xrealloc_nullable(p3,(len+diff/istep+1+1)*sizeof(char *));
-			cknp(ep,p7,goto fail);
-			p3=p7;
-			if(from<=to)
-			do {
-				cknp(ep,xasprintf_nullable(&p1,"%ld",from)>=0,goto fail);
-				p3[len++]=p1;
-				from+=istep;
-			}while(from<=to);
-			else
-			do {
-				cknp(ep,xasprintf_nullable(&p1,"%ld",from)>=0,goto fail);
-				p3[len++]=p1;
-				from-=istep;
-			}while(from>=to);
-		}else{
-normal:
-			p1=xmalloc_nullable(s+1);
-			cknp(ep,p1,goto fail);
-			p1[s]=0;
-			memcpy(p1,p,s);
-			p7=xrealloc_nullable(p3,(len+2)*sizeof(char *));
-			cknp(ep,p7,goto fail);
-			p3=p7;
-			p3[len++]=p1;
-		}
+		p1=xmalloc(s+1);
+		cknp(ep,p1,goto fail);
+		p1[s]=0;
+		memcpy(p1,p,s);
+		p7=xrealloc(p3,(len+2)*sizeof(char *));
+		cknp(ep,p7,goto fail);
+		p3=p7;
+		p3[len++]=p1;
 	}
 	if(likely(p3))
 		p3[len]=NULL;
@@ -2477,7 +2385,7 @@ static struct expr_mdinfo *getmdinfo(struct expr *restrict ep,const char *e0,siz
 	size_t i;
 	struct expr_mdinfo *em;
 	if(dim==1){
-		v1=xmalloc_nullable(esz+1);
+		v1=xmalloc(esz+1);
 		cknp(ep,v1,return NULL);
 		memcpy(v1,e,esz);
 		v1[esz]=0;
@@ -2498,22 +2406,22 @@ static struct expr_mdinfo *getmdinfo(struct expr *restrict ep,const char *e0,siz
 			goto err1;
 		}
 	}
-	em=xmalloc_nullable(sizeof(struct expr_mdinfo));
+	em=xmalloc(sizeof(struct expr_mdinfo));
 	cknp(ep,em,goto err1);
 	em->e=NULL;
 	em->args=NULL;
 	em->dim=i;
 	em->un.func=func;
-	em->eps=xmalloc_nullable(em->dim*sizeof(struct expr));
+	em->eps=xmalloc(em->dim*sizeof(struct expr));
 	cknp(ep,em->eps,goto err15);
 	switch(ifep){
 		case 0:
-			em->args=xmalloc_nullable(em->dim*sizeof(double));
+			em->args=xmalloc(em->dim*sizeof(double));
 			cknp(ep,em->args,goto err175);
 			break;
 		default:
 			sz+=esz;
-			pe=xmalloc_nullable(sz+1);
+			pe=xmalloc(sz+1);
 			cknp(ep,pe,goto err175);
 			memcpy(pe,e0,sz);
 			pe[sz]=0;
@@ -2642,10 +2550,10 @@ evmd:
 		ep->error=EXPR_ESYMBOL;
 		goto err0;
 	}
-	ev=xmalloc_nullable(sizeof(struct expr_vmdinfo));
+	ev=xmalloc(sizeof(struct expr_vmdinfo));
 	cknp(ep,ev,goto err0);
 	if(max>0){
-		ev->args=xmalloc_nullable(max*sizeof(double));
+		ev->args=xmalloc(max*sizeof(double));
 		cknp(ep,ev->args,goto err05);
 		ev->max=max;
 	}else {
@@ -2710,7 +2618,7 @@ static struct expr_suminfo *getsuminfo(struct expr *restrict ep,const char *e0,s
 		ep->error=EXPR_ENEA;
 		goto err0;
 	}
-	es=xmalloc_nullable(sizeof(struct expr_suminfo));
+	es=xmalloc(sizeof(struct expr_suminfo));
 	cknp(ep,es,goto err0);
 //	sum(sym_index,from,to,step,expression)
 	sset=expr_symset_clone(ep->sset);
@@ -2761,7 +2669,7 @@ static struct expr_branchinfo *getbranchinfo(struct expr *restrict ep,const char
 	struct expr_branchinfo *eb;
 	int dim3;
 	if(b){
-		eb=xmalloc_nullable(sizeof(struct expr_branchinfo));
+		eb=xmalloc(sizeof(struct expr_branchinfo));
 		cknp(ep,eb,goto err0);
 	//	while(cond,body,value)
 		eb->cond=new_expr8(b->cond,b->scond,asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo);
@@ -2812,7 +2720,7 @@ static struct expr_branchinfo *getbranchinfo(struct expr *restrict ep,const char
 			ep->error=EXPR_ENEA;
 			goto err0;
 	}
-	eb=xmalloc_nullable(sizeof(struct expr_branchinfo));
+	eb=xmalloc(sizeof(struct expr_branchinfo));
 	cknp(ep,eb,goto err0);
 //	while(cond,body,value)
 	eb->cond=new_expr8(v[0],strlen(v[0]),asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo);
@@ -3402,7 +3310,7 @@ use_byte:
 				dim*=(size_t)fabs(un.v);
 				v0=expr_newvar(ep);
 				cknp(ep,v0,return NULL);
-				un.uaddr=xmalloc_nullable(dim);
+				un.uaddr=xmalloc(dim);
 				cknp(ep,un.uaddr,return NULL);
 				sym.er=expr_newres(ep);
 				cknp(ep,sym.er,xfree(un.uaddr);return NULL);
@@ -3924,7 +3832,7 @@ sym_notfound:
 			if(unlikely(!p))
 				goto pterr;
 			++p;
-			p3=xmalloc_nullable(p-e+1);
+			p3=xmalloc(p-e+1);
 			cknp(ep,p3,return NULL);
 			memcpy(p3,e,p-e);
 			p3[p-e]=0;
@@ -3993,7 +3901,7 @@ struct vnode {
 };
 static struct vnode *vn(double *v,enum expr_op op,unsigned int unary){
 	struct vnode *p;
-	p=xmalloc_nullable(sizeof(struct vnode));
+	p=xmalloc(sizeof(struct vnode));
 	if(unlikely(!p))
 		return NULL;
 	p->next=NULL;
@@ -4007,7 +3915,7 @@ static struct vnode *vnadd(struct vnode *vp,double *v,enum expr_op op,unsigned i
 	if(unlikely(!vp))
 		return vn(v,op,unary);
 	for(p=vp;p->next;p=p->next);
-	p->next=xmalloc_nullable(sizeof(struct vnode));
+	p->next=xmalloc(sizeof(struct vnode));
 	if(unlikely(!p->next))
 		return NULL;
 	p->next->v=v;
@@ -4524,7 +4432,7 @@ void init_expr_symset(struct expr_symset *restrict esp){
 	memset(esp,0,sizeof(struct expr_symset));
 }
 struct expr_symset *new_expr_symset(void){
-	struct expr_symset *ep=xmalloc_nullable(sizeof(struct expr_symset));
+	struct expr_symset *ep=xmalloc(sizeof(struct expr_symset));
 	if(!ep)
 		return NULL;
 	init_expr_symset(ep);
@@ -4631,7 +4539,7 @@ struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const cha
 	if(unlikely(!next))
 		return NULL;
 	len=sizeof(struct expr_symbol)+symlen+1;
-	ep=xmalloc_nullable(len);
+	ep=xmalloc(len);
 	if(unlikely(!ep))
 		return NULL;
 	memset(ep->next,0,sizeof(ep->next));
@@ -4653,7 +4561,7 @@ struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const cha
 			ep->un.mdfunc=va_arg(ap,double (*)(size_t,double *));
 			ep->length+=sizeof(size_t);
 #define xrealloc_ep_in_vaddl(_size) \
-			ep1=xrealloc_nullable(ep,(_size));\
+			ep1=xrealloc(ep,(_size));\
 			if(unlikely(!ep1)){\
 				xfree(ep);\
 				return NULL;\
@@ -4699,7 +4607,7 @@ struct expr_symbol *expr_symset_addcopy(struct expr_symset *restrict esp,const s
 	size_t depth;
 	struct expr_symbol *restrict *tail=expr_symset_findtail(esp,es->str,es->strlen,&depth);
 	struct expr_symbol *ep;
-	if(!likely(tail)||!(ep=xmalloc_nullable(es->length))){
+	if(!likely(tail)||!(ep=xmalloc(es->length))){
 		return NULL;
 	}
 	memcpy(ep,es,es->length);
@@ -4885,7 +4793,7 @@ err:
 	return -1;
 }
 struct expr *new_expr_const(double val){
-	struct expr *r=xmalloc_nullable(sizeof(struct expr));
+	struct expr *r=xmalloc(sizeof(struct expr));
 	if(unlikely(!r))
 		return NULL;
 	if(unlikely(init_expr_const(r,val)<0)){
@@ -4909,7 +4817,7 @@ static int init_expr8(struct expr *restrict ep,const char *e,size_t len,const ch
 	ep->parent=parent;
 	ep->iflag=flag&~EXPR_IF_EXTEND_MASK;
 	if(likely(e)){
-		p0=xmalloc_nullable(len+1);
+		p0=xmalloc(len+1);
 		ebuf=p0?p0:alloca(len+1);
 		r=stpcpy_nospace(ebuf,e,e+len);
 		un.p=scan(ep,ebuf,r,asym,asym?asymlen:0);
@@ -4964,7 +4872,7 @@ static struct expr *new_expr10(const char *e,size_t len,const char *asym,size_t 
 	struct expr *ep,*ep0;
 	if(unlikely(n<1))
 		n=1;
-	ep=ep0=xmalloc_nullable(n*sizeof(struct expr));
+	ep=ep0=xmalloc(n*sizeof(struct expr));
 	if(unlikely(!ep)){
 		if(error)
 			*error=EXPR_EMEM;

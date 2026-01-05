@@ -16,7 +16,7 @@ void show(const struct expr_libinfo *el){
 }
 const struct option ops[]={
 	{"abort",0,NULL,'a'},
-	{"explode",0,NULL,'e'},
+	{"explode",2,NULL,'e'},
 	{"segv",0,NULL,'s'},
 	{"trap",0,NULL,'t'},
 	{"help",0,NULL,'h'},
@@ -25,7 +25,7 @@ const struct option ops[]={
 void show_help(void){
 	fputs("usage:\n"
 			"\t--abort ,-a\tcall abort\n"
-			"\t--explode ,-e\tcall expr_explode\n"
+			"\t--explode[==size] ,-e\tcall expr_explode\n"
 			"\t--segv ,-s\twrite 0 to NULL\n"
 			"\t--trap ,-t\tcall __builtin_trap\n"
 			"\t--help ,-h\tshow this help\n"
@@ -35,17 +35,19 @@ void show_help(void){
 int main(int argc,char **argv){
 	opterr=1;
 	for(;;){
-		switch(getopt_long(argc,argv,"aesth",ops,NULL)){
-			case 'a':
-				abort();
-			case 'e':
-				expr_explode();
-			case 's':
-				*(volatile char *)NULL=0;;
-			case 't':
-				__builtin_trap();
+		switch(getopt_long(argc,argv,"ae::sth",ops,NULL)){
 			case 'h':
 				show_help();
+			case 'e':
+				if(optarg)
+					expr_allocate_max=atol(optarg);
+				expr_explode();
+			case 't':
+				__builtin_trap();
+			case 's':
+				*(volatile char *)NULL=0;
+			case 'a':
+				abort();
 			case -1:
 				goto break2;
 			case '?':

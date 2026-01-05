@@ -325,9 +325,9 @@ extern const struct expr_libinfo expr_libinfo[1];
 
 extern void *(*expr_allocator)(size_t);
 extern void *(*expr_reallocator)(void *,size_t);
-extern int (*expr_vasprintf)(char **,const char *,va_list);
 extern void (*expr_deallocator)(void *);
-//default=malloc,realloc,vasprintf,free
+extern size_t expr_allocate_max;
+//default=malloc,realloc,free,0x10000000000UL
 
 long expr_syscall(long arg0,long arg1,long arg2,long arg3,long arg4,long arg5,long num);
 const char *expr_error(int error);
@@ -335,8 +335,9 @@ uint64_t expr_gcd64(uint64_t x,uint64_t y);
 double expr_gcd2(double x,double y);
 double expr_lcm2(double x,double y);
 void expr_mirror(double *buf,size_t size);
-void expr_fry(double *v,size_t n);
+void expr_fry(double *restrict v,size_t n);
 int expr_sort4(double *restrict v,size_t n,void *(*allocator)(size_t),void (*deallocator)(void *));
+void expr_sortq(double *restrict v,size_t n);
 void expr_sort_old(double *restrict v,size_t n);
 void expr_sort(double *v,size_t n);
 double expr_and2(double x,double y);

@@ -19,7 +19,7 @@ typedef ptrdiff_t ssize_t;
 #endif
 #endif
 
-enum expr_op {
+enum expr_op :int {
 EXPR_COPY=0,
 EXPR_INPUT,
 EXPR_CONST,
@@ -95,6 +95,7 @@ EXPR_LJ,
 EXPR_IP,
 EXPR_IPP,
 EXPR_TO,
+EXPR_TO1,
 EXPR_END
 };
 
@@ -151,14 +152,20 @@ EXPR_END
 #define EXPR_IF_NOOPTIMIZE 1
 #define EXPR_IF_INSTANT_FREE 2
 
-#define EXPR_IF_EXTEND_MASK (\
-		EXPR_IF_INSTANT_FREE\
-		)
 #define EXPR_IF_NOBUILTIN 4
 #define EXPR_IF_NOKEYWORD 8
 #define EXPR_IF_PROTECT 16
-#define EXPR_IF_INJECTION 32
+#define EXPR_IF_INJECTION_B 32
 #define EXPR_IF_INJECTION_S 64
+#define EXPR_IF_KEEPSYMSET 128
+#define EXPR_IF_DETACHSYMSET 256
+
+#define EXPR_IF_EXTEND_MASK (\
+		EXPR_IF_INSTANT_FREE\
+		)
+#define EXPR_IF_INJECTION (EXPR_IF_INJECTION_B|EXPR_IF_INJECTION_S)
+#define EXPR_IF_SETABLE (EXPR_IF_INJECTION|EXPR_IF_NOBUILTIN|EXPR_IF_NOKEYWORD|EXPR_IF_PROTECT)
+
 //expr keyword flag
 #define EXPR_KF_SUBEXPR 1
 #define EXPR_KF_SEPCOMMA 2
@@ -202,12 +209,13 @@ struct expr_mdinfo {
 		double (*func)(size_t,double *);
 		double (*funcep)(size_t,
 			const struct expr *,double);
+		void *uaddr;
 	} un;
 	size_t dim;
 };
 struct expr_vmdinfo {
 	struct expr *fromep,*toep,*stepep,*ep;
-	ssize_t max;
+	size_t max;
 	double (*func)(size_t,double *);
 	double *args;
 	volatile double index;
@@ -223,6 +231,7 @@ struct expr_inst {
 		int64_t *idst;
 		void *uaddr;
 		void **uaddr2;
+		struct expr_inst **instaddr2;
 		struct expr_rawdouble *rdst;
 		double (**md2)(size_t,double *);
 		double (**me2)(size_t,
@@ -235,6 +244,7 @@ struct expr_inst {
 		void *uaddr;
 		double value;
 		ssize_t zd;
+		size_t zu;
 		struct expr *hotfunc;
 		struct expr **hotfunc2;
 		double (*func)(double);
@@ -317,6 +327,12 @@ union expr_double {
 	int64_t ival;
 	uint64_t uval;
 	struct expr_rawdouble rd;
+};
+
+struct expr_callback {
+	void (*before)(const struct expr *restrict ep,struct expr_inst *ip,void *arg);
+	void (*after)(const struct expr *restrict ep,struct expr_inst *ip,void *arg);
+	void *arg;
 };
 
 extern const struct expr_builtin_symbol expr_symbols[];

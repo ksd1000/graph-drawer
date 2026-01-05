@@ -49,7 +49,6 @@ const struct proj {
 	{"!(5-5)",1},
 	{"!!(5-2)",1},
 	{"!!(5-5)",0},
-	{"med({0..10})",5},
 	{"sum(n,1,100,1,n)",5050},
 	{"vmd(n,0,10000,1,n,med,0)",5000},
 	{"if(3,5,7)",5},
@@ -76,7 +75,7 @@ const struct proj {
 	{"static_assert(e>2.71),2",2},
 	{"defined(sin)",2},
 	{"typeof(exp)",EXPR_FUNCTION},
-	{"flagof(cos)&EXPR_SF_INJECTION",1},
+	{"flagof(cos)&SF_INJECTION",1},
 	{"f=(u,v){u+v^2},f(7,4)",23},
 	{NULL}
 

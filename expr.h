@@ -326,8 +326,10 @@ extern const struct expr_libinfo expr_libinfo[1];
 extern void *(*expr_allocator)(size_t);
 extern void *(*expr_reallocator)(void *,size_t);
 extern void (*expr_deallocator)(void *);
+extern void (*expr_contractor)(void *,size_t);
 extern size_t expr_allocate_max;
-//default=malloc,realloc,free,0x10000000000UL
+//default=malloc,realloc,free,expr_contract,0x10000000000UL
+extern const size_t expr_page_size;
 
 long expr_syscall(long arg0,long arg1,long arg2,long arg3,long arg4,long arg5,long num);
 const char *expr_error(int error);

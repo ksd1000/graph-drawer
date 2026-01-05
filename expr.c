@@ -338,7 +338,9 @@ const char *expr_error(int error){
 void *(*expr_allocator)(size_t)=malloc;
 void *(*expr_reallocator)(void *,size_t)=realloc;
 void (*expr_deallocator)(void *)=free;
+void (*expr_contractor)(void *,size_t)=expr_contract;
 size_t expr_allocate_max=0x10000000000UL;
+const size_t expr_page_size=PAGE_SIZE;
 
 #define free (use xfree() instead!)
 #define malloc (use xmalloc() instead!)
@@ -716,7 +718,7 @@ __attribute__((noreturn)) void expr_explode(void){
 	size_t sz=expr_allocate_max;
 	do {
 		while((r=xmalloc(sz))){
-			expr_contract(r,sz);
+			expr_contractor(r,sz);
 			//if do not contract,
 			//the virtual memory
 			//has not physical

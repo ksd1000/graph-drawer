@@ -2089,11 +2089,9 @@ static struct expr_inst *expr_addme(struct expr *restrict ep,double *dst,struct 
 static struct expr_inst *expr_addmep(struct expr *restrict ep,double *dst,struct expr_mdinfo *em,int flag){
 	return expr_addop(ep,dst,em,EXPR_MEP,flag);
 }
-/*
 static struct expr_inst *expr_addhot(struct expr *restrict ep,double *dst,struct expr *hot,int flag){
 	return expr_addop(ep,dst,hot,EXPR_HOT,flag);
 }
-*/
 static struct expr_inst *expr_addep(struct expr *restrict ep,double *dst,struct expr *hot,int flag){
 	return expr_addop(ep,dst,hot,EXPR_EP,flag);
 }
@@ -2174,17 +2172,24 @@ static int expr_createsvar(struct expr *restrict ep,const char *symbol,size_t sy
 	*r->un.addr=val;
 	return expr_symset_addl(ep->sset,symbol,symlen,EXPR_VARIABLE,0,r->un.addr)?0:-1;
 }
+static int expr_createvar4(struct expr *restrict ep,const char *symbol,size_t symlen,double val){
+	double *r=expr_newvar(ep);
+	if(unlikely(!r))
+		return -1;
+	cknp(ep,expr_detach(ep)>=0,return -1);
+	*r=val;
+	return expr_symset_addl(ep->sset,symbol,symlen,EXPR_VARIABLE,0,r)?0:-1;
+}
 static double *expr_createvar(struct expr *restrict ep,const char *symbol,size_t symlen){
 	double *r=expr_newvar(ep);
 	if(unlikely(!r))
 		return NULL;
 	cknp(ep,expr_detach(ep)>=0,return NULL);
-	expr_symset_addl(ep->sset,symbol,symlen,EXPR_VARIABLE,0,r);
-	return r;
+	return expr_symset_addl(ep->sset,symbol,symlen,EXPR_VARIABLE,0,r)?r:NULL;
 }
-static int expr_createhot(struct expr *restrict ep,const char *symbol,size_t symlen,const char *hotexpr){
+static int expr_createhot(struct expr *restrict ep,const char *symbol,size_t symlen,const char *hotexpr,int flag){
 	cknp(ep,expr_detach(ep)>=0,return -1);
-	return expr_symset_addl(ep->sset,symbol,symlen,EXPR_HOTFUNCTION,0,hotexpr)?
+	return expr_symset_addl(ep->sset,symbol,symlen,EXPR_HOTFUNCTION,flag,hotexpr)?
 	0:-1;
 }
 static const char *findpair(const char *c,const char *endp){
@@ -2814,10 +2819,9 @@ static size_t vsize2(char *const *v){
 	return p1-v;
 }
 static double *scan(struct expr *restrict ep,const char *e,const char *endp,const char *asym,size_t asymlen);
-static double *gethot(struct expr *restrict ep,const char *e0,size_t sz,const char *e,const char *endp,const char *asym,size_t asymlen,const char *he,const char **ee,int flag){
+static double *gethot(struct expr *restrict ep,const char *e0,size_t sz,const char *e,const char *endp,const char *asym,size_t asymlen,const char *he,const char **ee,struct expr_symset *esp,int flag){
 	const char *p,*hend,*pe;
 	char **v,**ve;
-	struct expr_symset *esp;
 	struct expr *ep1;
 	size_t n,len;
 	double *v0,*v1;
@@ -2848,8 +2852,8 @@ static double *gethot(struct expr *restrict ep,const char *e0,size_t sz,const ch
 		serrinfo(ep->errinfo,e0,sz);
 		goto err05;
 	}
-	esp=expr_symset_clone(ep->sset);
-	cknp(ep,esp,goto err05);
+//	esp=expr_symset_clone(ep->sset);
+//	cknp(ep,esp,goto err05);
 	for(char **p1=v,**p1e=ve;*p1;++p1,++p1e){
 		len=strlen(*p1);
 		expr_symset_remove(esp,*p1,len);
@@ -2888,7 +2892,7 @@ static double *gethot(struct expr *restrict ep,const char *e0,size_t sz,const ch
 err2:
 	expr_free(ep1);
 err1:
-	expr_symset_free(esp);
+//	expr_symset_free(esp);
 err05:
 	expr_free2(ve);
 err0:
@@ -2896,7 +2900,7 @@ err0:
 	return NULL;
 }
 static double *getvalue(struct expr *restrict ep,const char *e,const char *endp,const char **_p,const char *asym,size_t asymlen){
-	const char *p,*p2,*e0=e;
+	const char *p,*p2,*p4,*e0=e;
 	char *p3;
 	double *v0=NULL,*v1;
 	int r0,builtin=0;
@@ -3348,7 +3352,7 @@ c_fail:
 					serrinfo(ep->errinfo,sym.vv[0],dim);
 					goto c_fail;
 				}
-				r0=expr_createhot(ep,sym.vv[0],dim,sym.vv[1]);
+				r0=expr_createhot(ep,sym.vv[0],dim,sym.vv[1],0);
 				expr_free2(sym.vv);
 				cknp(ep,!r0,return NULL);
 				v0=EXPR_VOID;
@@ -3836,9 +3840,44 @@ found:
 			e=p+2;
 			goto vend;
 		case EXPR_HOTFUNCTION:
-			v0=gethot(ep,e,p-e,p,endp,asym,asymlen,sv.sv->hotexpr,&e,flag);
-			if(!v0)
+			if(!(flag&EXPR_SF_WRITEIP)){
+#define sset_push(_start,_end) \
+				cknp(ep,expr_detach(ep)>=0,return NULL);\
+				sym.esp=expr_symset_clone(ep->sset);\
+				cknp(ep,sym.esp,return NULL);\
+				expr_symset_remove(sym.esp,_start,_end-_start)
+				sset_push(e,p);
+				v0=gethot(ep,e,p-e,p,endp,asym,asymlen,sv.sv->hotexpr,&e,sym.esp,flag);
+				expr_symset_free(sym.esp);
+				if(!v0)
+					return NULL;
+				goto vend;
+			}
+			if(unlikely(p>=endp||*p!='(')){
+				serrinfo(ep->errinfo,e,p-e);
+				ep->error=EXPR_EFP;
 				return NULL;
+			}
+			p2=e;
+			p4=p;
+			e=p;
+			p=findpair(e,endp);
+			if(unlikely(!p))
+				goto pterr;
+			if(unlikely(p==e+1))
+				goto envp;
+			v0=scan(ep,e+1,p,asym,asymlen);
+			if(unlikely(!v0))
+				return NULL;
+			p3=sv.sv->hotexpr+strlen(sv.sv->hotexpr);
+			sset_push(p2,p4);
+			un.ep=new_expr8(sv.sv->hotexpr,p3-sv.sv->hotexpr,asym,
+			asymlen,sym.esp,ep->iflag,&ep->error,ep->errinfo);
+			expr_symset_free(sym.esp);
+			if(unlikely(!un.ep))
+				return NULL;
+			cknp(ep,expr_addhot(ep,v0,un.ep,flag),return NULL);
+			e=p+1;
 			goto vend;
 		case EXPR_CONSTANT:
 			v0=expr_newvar(ep);
@@ -3977,7 +4016,13 @@ sym_notfound:
 		goto symerr;
 	p2=e;
 	++p;
+	if(*p==':'){
+		++p;
+		type=1;
+	}else
+		type=0;
 	e=p;
+	p4=p;
 	switch(*p){
 		case '(':
 			p=findpair(e,endp);
@@ -3987,19 +4032,32 @@ sym_notfound:
 				++p;
 				goto constant;
 			}
+			if(unlikely(type)){
+				ep->error=EXPR_EUO;
+				*ep->errinfo=':';
+				return NULL;
+			}
+			if(asym&&p-e-1==asymlen&&!memcmp(e+1,asym,asymlen)){
+				flag=EXPR_SF_WRITEIP;
+				e=p+2;
+			}else
+				flag=0;
 			p=findpair_brace(p+1,endp);
 			if(unlikely(!p))
 				goto pterr;
-			++p;
+			if(!flag)
+				++p;
 			p3=xmalloc(p-e+1);
 			cknp(ep,p3,return NULL);
 			memcpy(p3,e,p-e);
 			p3[p-e]=0;
-			r0=expr_createhot(ep,p2,e-1-p2,p3);
+			r0=expr_createhot(ep,p2,p4-1-p2,p3,flag);
 			xfree(p3);
 			cknp(ep,!r0,return NULL);
 			v0=EXPR_VOID;
 			e=p;
+			if(flag)
+				++e;
 			goto vend;
 		default:
 			p=getsym_p(e,endp);
@@ -4011,7 +4069,10 @@ constant:
 			un.v=consteval(e,p-e,asym,asymlen,ep->sset,ep);
 			if(unlikely(ep->error))
 				return NULL;
-			r0=expr_createconst(ep,p2,e-1-p2,un.v);
+			if(type)
+				r0=expr_createvar4(ep,p2,e-2-p2,un.v);
+			else
+				r0=expr_createconst(ep,p2,e-1-p2,un.v);
 			cknp(ep,!r0,return NULL);
 			v0=EXPR_VOID;
 			e=p;
@@ -6115,6 +6176,54 @@ static int expr_isinjection(struct expr *restrict ep,struct expr_inst *ip){
 	return expr_injection_optype(ip->op)
 		&&(ip->flag&EXPR_SF_INJECTION);
 }
+static int expr_injective_hotfunction_check(struct expr *restrict ep){
+	for(struct expr_inst *ip=ep->data;;++ip){
+		if(!expr_varofep(ep,ip->dst.dst))
+			return 0;
+		switch(ip->op){
+			case EXPR_END:
+				return 1;
+			case EXPR_CONST:
+			case EXPR_INPUT:
+				break;
+			case EXPR_BL:
+			case EXPR_ZA:
+			case MDCASES:
+				if(!(ip->flag&EXPR_SF_INJECTION))
+					return 0;
+				break;
+			case SRCCASES:
+				if(!expr_varofep(ep,ip->un.src))
+					return 0;
+				break;
+			case EXPR_HOT:
+				if(!expr_injective_hotfunction_check(ip->un.hotfunc))
+					return 0;
+				break;
+			default:
+				return 0;
+		}
+	}
+}
+static int expr_optimize_injective_hotfunction(struct expr *restrict ep){
+	int r=0;
+	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
+		switch(ip->op){
+			case EXPR_HOT:
+				if(ip->flag&EXPR_SF_INJECTION)
+					break;
+				if(!expr_injective_hotfunction_check(ip->un.hotfunc))
+					break;
+				ip->flag|=EXPR_SF_INJECTION;
+				r=1;
+				break;
+			default:
+				break;
+		}
+		continue;
+	}
+	return r;
+}
 static int expr_optimize_injection(struct expr *restrict ep){
 	int r=0;
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
@@ -6360,6 +6469,7 @@ static int expr_optimize_once(struct expr *restrict ep){
 	expr_optimize_contneg(ep);
 	expr_optimize_strongorder_and_notl(ep);
 	r|=expr_optimize_injection(ep);
+	r|=expr_optimize_injective_hotfunction(ep);
 	expr_optimize_contmul(ep,EXPR_POW);
 	expr_optimize_contmul(ep,EXPR_MUL);
 	expr_optimize_contmul(ep,EXPR_DIV);

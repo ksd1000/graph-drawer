@@ -372,6 +372,8 @@ double systype(double x);
 double expr_multilevel_derivate(const struct expr *ep,double input,long level,double epsilon);
 const struct expr_builtin_symbol *expr_builtin_symbol_search(const char *sym,size_t sz);
 const struct expr_builtin_symbol *expr_builtin_symbol_rsearch(void *addr);
+struct expr_symbol *expr_builtin_symbol_add(struct expr_symset *restrict esp,const struct expr_builtin_symbol *p);
+size_t expr_builtin_symbol_addall(struct expr_symset *restrict esp);
 size_t expr_strscan(const char *s,size_t sz,char *restrict buf);
 char *expr_astrscan(const char *s,size_t sz,size_t *restrict outsz);
 void expr_free(struct expr *restrict ep);

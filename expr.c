@@ -741,6 +741,9 @@ __attribute__((noreturn)) void expr_explode(void){
 static __attribute__((noreturn)) void expr_trap(void){
 	__builtin_trap();
 }
+static __attribute__((noreturn)) void expr_ubehavior(void){
+	__builtin_unreachable();
+}
 static double expr_lrand48(void){
 	return (double)lrand48();
 }
@@ -1664,6 +1667,7 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGZASYM2("lrand48",expr_lrand48),
 	REGZASYM2("mrand48",expr_mrand48),
 	REGZASYM2_U("trap",(double (*)(void))expr_trap),
+	REGZASYM2_U("ubehavior",(double (*)(void))expr_ubehavior),
 
 	REGFSYM2_NI("exit",expr_exit),
 	REGFSYM2_NI("exitif",expr_exitif),
@@ -1790,6 +1794,30 @@ const struct expr_builtin_symbol *expr_builtin_symbol_rsearch(void *addr){
 		}
 	}
 	return NULL;
+}
+struct expr_symbol *expr_builtin_symbol_add(struct expr_symset *restrict esp,const struct expr_builtin_symbol *p){
+	switch(p->type){
+		case EXPR_CONSTANT:
+			return expr_symset_addl(esp,p->str,p->strlen,EXPR_CONSTANT,p->flag,p->un.value);
+		case EXPR_FUNCTION:
+			return expr_symset_addl(esp,p->str,p->strlen,EXPR_FUNCTION,p->flag,p->un.func);
+		case EXPR_MDFUNCTION:
+			return expr_symset_addl(esp,p->str,p->strlen,EXPR_MDFUNCTION,p->flag,p->un.mdfunc,(size_t)p->dim);
+		case EXPR_MDEPFUNCTION:
+			return expr_symset_addl(esp,p->str,p->strlen,EXPR_MDEPFUNCTION,p->flag,p->un.mdepfunc,(size_t)p->dim);
+		case EXPR_ZAFUNCTION:
+			return expr_symset_addl(esp,p->str,p->strlen,EXPR_ZAFUNCTION,p->flag,p->un.zafunc);
+		default:
+			__builtin_unreachable();
+	}
+}
+size_t expr_builtin_symbol_addall(struct expr_symset *restrict esp){
+	size_t r=0;
+	for(const struct expr_builtin_symbol *p=expr_symbols;p->str;++p){
+		if(expr_builtin_symbol_add(esp,p))
+			++r;
+	}
+	return r;
 }
 size_t expr_strscan(const char *s,size_t sz,char *restrict buf){
 	const char *p,*s1,*endp=s+sz;
@@ -2883,7 +2911,6 @@ static double *gethot(struct expr *restrict ep,const char *e0,size_t sz,const ch
 	v0=expr_newvar(ep);
 	cknp(ep,v0,goto err2);
 	cknp(ep,expr_addep(ep,v0,ep1,flag),goto err2);
-	expr_symset_free(esp);
 /*#define setsset2(_ep) if((_ep)->sset==esp)(_ep)->sset=ep->sset
 	setsset2(ep1);*/
 	expr_free2(ve);
@@ -2898,6 +2925,23 @@ err05:
 err0:
 	expr_free2(v);
 	return NULL;
+}
+static int expr_rmsym(struct expr *restrict ep,const char *sym,size_t sz){
+	if(!sz)
+		return 0;
+	if(sz==1){
+		switch(*sym){
+			case '*':
+				expr_symset_free(ep->sset);
+				ep->sset=new_expr_symset();
+				if(unlikely(!ep->sset))
+					return -1;
+				return 0;
+			default:
+				break;
+		}
+	}
+	return expr_symset_remove(ep->sset,sym,sz);
 }
 static double *getvalue(struct expr *restrict ep,const char *e,const char *endp,const char **_p,const char *asym,size_t asymlen){
 	const char *p,*p2,*p4,*e0=e;
@@ -3460,16 +3504,13 @@ _label:\
 					p2=findpair_brace(p+1,endp);
 				else
 					p2=NULL;
-				if(p==e+1){
-					if(unlikely(!p2)){
-						v0=EXPR_VOID;
-						e=p+1;
-						goto vend;
-					}
-					type=0;
-					goto found1;
-				}else
-					type=1;
+				switch(e[1]){
+					case ')':
+					case '*':
+						goto found1;
+					default:
+						break;
+				}
 				if(!(ep->iflag&EXPR_IF_NOBUILTIN)&&e+2<p&&e[1]==':'&&e[2]==':'){
 					e+=2;
 					goto b0;
@@ -3497,7 +3538,7 @@ found1:
 					cknp(ep,un.esp,return NULL);
 					sym.esp=ep->sset;
 					ep->sset=un.esp;
-					if(type&&unlikely(expr_symset_remove(ep->sset,e+1,p-e-1))){
+					if(unlikely(expr_rmsym(ep,e+1,p-e-1))){
 						++e;
 						goto symerr;
 					}
@@ -3508,7 +3549,7 @@ found1:
 						return NULL;
 					e=p2+1;
 				}else {
-					if(type&&unlikely(expr_symset_remove(ep->sset,e+1,p-e-1))){
+					if(unlikely(expr_rmsym(ep,e+1,p-e-1))){
 						++e;
 						goto symerr;
 					}
@@ -3796,7 +3837,7 @@ vzero:
 				un.es=getsuminfo(ep,p2,e-p2,e,p-e+1,asym,asymlen);
 				break;
 			default:
-				abort();
+				__builtin_unreachable();
 		}
 		if(unlikely(!un.uaddr)){
 			return NULL;
@@ -5458,7 +5499,7 @@ static void expr_optimize_contmul(struct expr *restrict ep,enum expr_op op){
 						sum=(double)(EXPR_EDIVAL(&sum)-*ip->un.isrc);
 						break;
 					default:
-						abort();
+						__builtin_unreachable();
 				}
 				ip1->dst.dst=NULL;
 			}
@@ -5833,7 +5874,7 @@ static int expr_optimize_constexpr(struct expr *restrict ep){
 				switch(ip->op){
 					CALSUM_INSWITCH((&result));
 					default:
-						abort();
+						__builtin_unreachable();
 				}
 				freesuminfo(ip->un.es);
 				ip->op=EXPR_CONST;
@@ -5853,7 +5894,7 @@ static int expr_optimize_constexpr(struct expr *restrict ep){
 				switch(ip->op){
 					CALMD_INSWITCH((&result));
 					default:
-						abort();
+						__builtin_unreachable();
 				}
 				freemdinfo(ip->un.em);
 				ip->op=EXPR_CONST;
@@ -6101,7 +6142,7 @@ break2:
 				*ip->un.src=-(double)(EXPR_EDEXP(ip->un.src)-1023);
 				break;
 			default:
-				abort();
+				__builtin_unreachable();
 		}
 		ip->op=EXPR_SHL;
 		r=1;
@@ -6260,7 +6301,7 @@ static int expr_optimize_injection(struct expr *restrict ep){
 					expr_free(ip->un.hotfunc);
 					break;
 				default:
-					abort();
+					__builtin_unreachable();
 			}
 			expr_writeconsts(ep);
 delete:
@@ -6382,7 +6423,7 @@ static void expr_optimize_strongorder_and_notl(struct expr *restrict ep){
 				ip->op=EXPR_EQ;
 				break;
 			default:
-				abort();
+				__builtin_unreachable();
 		}
 		(++ip)->dst.dst=NULL;
 	}

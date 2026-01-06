@@ -159,6 +159,7 @@ int main(int argc,char **argv){
 	srand48(time(NULL)+getpid());
 	//expr_calc5("t+2","t",3,NULL,0);
 	expr_symset_add(&es,"defined_symbol",EXPR_CONSTANT,2304.0);
+	setvbuf(stdout,NULL,_IONBF,0);
 	for(const struct proj *p=projs;p->e;++p)
 		check(p->e,p->expect);
 	for(const struct eproj *p=eprojs;p->e;++p)

@@ -77,6 +77,7 @@ const struct proj {
 	{"typeof(exp)",EXPR_FUNCTION},
 	{"flagof(cos)&SF_INJECTION",1},
 	{"f=(u,v){u+v^2},f(7,4)",23},
+	{"undef(defined_symbol){1},defined_symbol",2304.0},
 	{NULL}
 
 };
@@ -111,6 +112,13 @@ const struct eproj {
 	{"&e",EXPR_ECTA},
 	{"static_assert(e>=2.72)",EXPR_ESAF},
 	{"static_assert(e<2.72)",EXPR_EVD},
+	{"flag(IF_PROTECT),vmd(k,1,10,1,k,add,0)",EXPR_EVZP},
+	{"undef(sin)",EXPR_EBS},
+	{"flag(IF_PROTECT),flag(0)",EXPR_EPM},
+	{"flag(IF_PROTECT),&sin",EXPR_EPM},
+	{"undef(defined_symbol),defined_symbol",EXPR_ESYMBOL},
+	{"undef(defined_symbol){defined_symbol}",EXPR_ESYMBOL},
+	{"flag(IF_INJECTION),drand48()",EXPR_EIN},
 	{NULL}
 };
 void errcheck(const char *e,int expect){
@@ -134,17 +142,17 @@ void check(const char *e,double expect){
 	struct expr ep[1];
 	//static int k=0;if(k++==39)exit(0);
 	printf("checking %s --- expect %lg",e,expect);
-	if(init_expr5(ep,e,"t",NULL,EXPR_IF_INSTANT_FREE)<0){
+	if(init_expr5(ep,e,"t",&es,EXPR_IF_INSTANT_FREE)<0){
 		printf("\nerror! %s:%s\n",expr_error(ep->error),ep->errinfo);
 		goto ab;
 	}
 	//exit(0);
-	r=expr_calc5(e,NULL,NULL,NULL,EXPR_IF_NOOPTIMIZE);
+	r=expr_calc5(e,NULL,NULL,&es,EXPR_IF_NOOPTIMIZE);
 	if(memcmp(&r,&expect,sizeof(double))){
 		printf("\nerror! %s should be %lg but %lg\n",e,expect,r);
 		goto ab;
 	}
-	r=expr_calc5(e,NULL,NULL,NULL,0);
+	r=expr_calc5(e,NULL,NULL,&es,0);
 	if(memcmp(&r,&expect,sizeof(double))){
 		printf("\noptimization error! %s should be %lg but %lg\n",e,expect,r);
 		goto ab;
@@ -158,7 +166,7 @@ ab:
 int main(int argc,char **argv){
 	srand48(time(NULL)+getpid());
 	//expr_calc5("t+2","t",3,NULL,0);
-	expr_symset_add(&es,"defined_symbol",EXPR_CONSTANT,2304.0);
+	expr_symset_add(&es,"defined_symbol",EXPR_CONSTANT,0,2304.0);
 	setvbuf(stdout,NULL,_IONBF,0);
 	for(const struct proj *p=projs;p->e;++p)
 		check(p->e,p->expect);

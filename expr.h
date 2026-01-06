@@ -15,7 +15,9 @@
 #ifndef _SSIZE_T_DEFINED_
 #define _SSIZE_T_DEFINED_
 typedef ptrdiff_t ssize_t;
+#ifndef SSIZE_MAX
 #define SSIZE_MAX PTRDIFF_MAX
+#endif
 #endif
 #endif
 
@@ -131,6 +133,7 @@ EXPR_END
 #define EXPR_EPM 19
 #define EXPR_EIN 20
 #define EXPR_EBS 21
+#define EXPR_EVZP 22
 
 #define EXPR_CONSTANT 0
 #define EXPR_VARIABLE 1
@@ -348,6 +351,7 @@ extern size_t expr_allocate_max;
 extern const size_t expr_page_size;
 
 long expr_syscall(long arg0,long arg1,long arg2,long arg3,long arg4,long arg5,long num);
+void seterr(struct expr *restrict ep,int error);
 const char *expr_error(int error);
 uint64_t expr_gcd64(uint64_t x,uint64_t y);
 double expr_gcd2(double x,double y);

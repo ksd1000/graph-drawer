@@ -15,7 +15,9 @@
 #ifndef _SSIZE_T_DEFINED_
 #define _SSIZE_T_DEFINED_
 typedef ptrdiff_t ssize_t;
+#ifndef SSIZE_MAX
 #define SSIZE_MAX PTRDIFF_MAX
+#endif
 #endif
 #endif
 
@@ -131,6 +133,7 @@ EXPR_END
 #define EXPR_EPM 19
 #define EXPR_EIN 20
 #define EXPR_EBS 21
+#define EXPR_EVZP 22
 
 #define EXPR_CONSTANT 0
 #define EXPR_VARIABLE 1

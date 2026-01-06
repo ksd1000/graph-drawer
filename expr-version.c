@@ -76,6 +76,7 @@ const struct option ops[]={
 	{"explode",2,NULL,'e'},
 	{"segv",0,NULL,'s'},
 	{"trap",0,NULL,'t'},
+	{"unreachable",0,NULL,'u'},
 	{"help",0,NULL,'h'},
 	{NULL},
 };
@@ -85,6 +86,7 @@ void show_help(void){
 			"\t--explode[==size] ,-e\tcall expr_explode\n"
 			"\t--segv ,-s\twrite 0 to NULL\n"
 			"\t--trap ,-t\tcall __builtin_trap\n"
+			"\t--unreachable ,-u\tcall __builtin_unreachable\n"
 			"\t--help ,-h\tshow this help\n"
 			,stdout);
 	exit(EXIT_SUCCESS);
@@ -92,7 +94,7 @@ void show_help(void){
 int main(int argc,char **argv){
 	opterr=1;
 	for(;;){
-		switch(getopt_long(argc,argv,"ae::sth",ops,NULL)){
+		switch(getopt_long(argc,argv,"ae::sthu",ops,NULL)){
 			case 'h':
 				show_help();
 			case 'e':
@@ -111,10 +113,13 @@ int main(int argc,char **argv){
 				goto break2;
 			case '?':
 				return EXIT_FAILURE;
-				break;
+			case 'u':
+				goto bu;
 		}
 	}
 break2:
 	show(expr_libinfo);
 	return EXIT_SUCCESS;
+bu:
+	__builtin_unreachable();
 }

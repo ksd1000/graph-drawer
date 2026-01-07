@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdarg.h>
+#include <limits.h>
 
 #ifdef __unix__
 #include <sys/types.h>
@@ -181,7 +182,7 @@ EXPR_END
 
 #define EXPR_RPUSH(_sp) (*((_sp)++))
 #define EXPR_RPOP(_sp) (*(--(_sp)))
-
+//R:reverse
 #define EXPR_PUSH(_sp) (*(--(_sp)))
 #define EXPR_POP(_sp) (*((_sp)++))
 
@@ -195,33 +196,50 @@ EXPR_END
 		_un._o;\
 	})
 #define EXPR_SYMSET_DEPTHUNIT (2*sizeof(void *))
-#define expr_symset_foreach(_sp,_esp,_stack) \
+
+#define expr_symset_foreach4(_sp,_esp,_stack,_atindex) \
+	_Static_assert(__builtin_constant_p((_atindex)),"_atindex should be constant");\
+	_Static_assert(__builtin_constant_p((_atindex)<EXPR_SYMNEXT),"_atindex should be constant");\
+	_Static_assert(__builtin_constant_p((_atindex)>=EXPR_SYMNEXT),"_atindex should be constant");\
 	for(struct expr_symbol *_sp=(_esp)->syms;_sp;_sp=NULL)for(struct {struct expr_symbol **sp;void *stack;unsigned int index;int end;} __inloop={(_stack),__inloop.sp,0,0,};!({for(;;){\
-		if(__inloop.index>=EXPR_SYMNEXT){\
-			if(__inloop.sp==__inloop.stack){\
-				__inloop.end=1;\
-				break;\
+		if((_atindex)<EXPR_SYMNEXT){\
+			if(__inloop.index>=EXPR_SYMNEXT){\
+				if(__inloop.sp==__inloop.stack){\
+					__inloop.end=1;\
+					break;\
+				}\
+				_sp=EXPR_RPOP(__inloop.sp);\
+				__inloop.index=(unsigned int)(size_t)EXPR_RPOP(__inloop.sp);\
+				continue;\
 			}\
-			_sp=EXPR_RPOP(__inloop.sp);\
-			__inloop.index=(unsigned int)(size_t)EXPR_RPOP(__inloop.sp);\
-			continue;\
 		}\
 		break;\
 	}\
 	__inloop.end;\
-	});({for(;__inloop.index<EXPR_SYMNEXT;){\
+	});({for(;;){\
+		if((_atindex)>=EXPR_SYMNEXT){\
+			if(__inloop.index>=EXPR_SYMNEXT){\
+				if(__inloop.sp==__inloop.stack){\
+					__inloop.end=1;\
+					break;\
+				}\
+				_sp=EXPR_RPOP(__inloop.sp);\
+				__inloop.index=(unsigned int)(size_t)EXPR_RPOP(__inloop.sp);\
+				break;\
+			}\
+		}\
 		if(!_sp->next[__inloop.index]){\
 			++__inloop.index;\
-			continue;\
+		}else {\
+			EXPR_RPUSH(__inloop.sp)=(void *)(size_t)(__inloop.index+1);\
+			EXPR_RPUSH(__inloop.sp)=_sp;\
+			_sp=_sp->next[__inloop.index];\
+			__inloop.index=0;\
 		}\
-		EXPR_RPUSH(__inloop.sp)=(void *)(size_t)(__inloop.index+1);\
-		EXPR_RPUSH(__inloop.sp)=_sp;\
-		_sp=_sp->next[__inloop.index];\
-		__inloop.index=0;\
 		break;\
-	}\
-	}))if(__inloop.index)continue;else
+	}}))if(__inloop.index!=(_atindex))continue;else
 
+#define expr_symset_foreach(_sp,_esp,_stack) expr_symset_foreach4(_sp,_esp,_stack,0)
 struct expr_libinfo {
 	const char *version;
 	const char *compiler_version;
@@ -332,6 +350,15 @@ struct expr_builtin_keyword {
 struct expr_symset {
 	struct expr_symbol *syms;
 	size_t size,length,depth;
+	//the this->depth is the maximal depth this reaches,it equals to the
+	//real depth if no symbol was removed by expr_symset_remove(this,.),
+	//one can use the expr_symset_depth() to get the real depth and run
+	//this->depth=expr_symset_depth(this) to correct it,which can save
+	//stack's memory to prevent the signal SIGSEGV if there are symbols
+	//be removed frequently or you can add it to the source code of
+	//expr_symset_remove() to ensure this->depth equals to the real depth.
+	//but it is not suggested,for it will cost a lot of cpu time to travel
+	//through every symbol to get the real depth.
 	unsigned int freeable,unused;
 };
 struct expr_resource {
@@ -356,6 +383,7 @@ struct expr {
 	short iflag;
 	unsigned char freeable,sset_shouldfree;
 	char errinfo[EXPR_SYMLEN];
+	char extra_data[];
 };
 
 union expr_double {
@@ -415,6 +443,7 @@ char *expr_astrscan(const char *s,size_t sz,size_t *restrict outsz);
 void expr_free(struct expr *restrict ep);
 void init_expr_symset(struct expr_symset *restrict esp);
 struct expr_symset *new_expr_symset(void);
+__attribute__((deprecated)) void expr_symset_free_old(struct expr_symset *restrict esp);
 void expr_symset_free(struct expr_symset *restrict esp);
 void expr_symset_wipe(struct expr_symset *restrict esp);
 struct expr_symbol *expr_symset_add(struct expr_symset *restrict esp,const char *sym,int type,int flag,...);
@@ -424,13 +453,13 @@ struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const cha
 struct expr_symbol *expr_symset_addcopy(struct expr_symset *restrict esp,const struct expr_symbol *restrict es);
 struct expr_symbol *expr_symset_search(const struct expr_symset *restrict esp,const char *sym,size_t sz);
 int expr_symset_remove(struct expr_symset *restrict esp,const char *sym,size_t sz);
-struct expr_symbol *expr_symset_rsearch_old(const struct expr_symset *restrict esp,void *addr);
+__attribute__((deprecated)) struct expr_symbol *expr_symset_rsearch_old(const struct expr_symset *restrict esp,void *addr);
 struct expr_symbol *expr_symset_rsearch(const struct expr_symset *restrict esp,void *addr);
-size_t expr_symset_depth_old(const struct expr_symset *restrict esp);
+__attribute__((deprecated)) size_t expr_symset_depth_old(const struct expr_symset *restrict esp);
 size_t expr_symset_depth(const struct expr_symset *restrict esp);
-void expr_symset_callback_old(const struct expr_symset *restrict esp,void (*callback)(struct expr_symbol *esp,void *arg),void *arg);
+__attribute__((deprecated)) void expr_symset_callback_old(const struct expr_symset *restrict esp,void (*callback)(struct expr_symbol *esp,void *arg),void *arg);
 void expr_symset_callback(const struct expr_symset *restrict esp,void (*callback)(struct expr_symbol *esp,void *arg),void *arg);
-size_t expr_symset_copy_old(struct expr_symset *restrict dst,const struct expr_symset *restrict src);
+__attribute__((deprecated)) size_t expr_symset_copy_old(struct expr_symset *restrict dst,const struct expr_symset *restrict src);
 size_t expr_symset_copy(struct expr_symset *restrict dst,const struct expr_symset *restrict src);
 struct expr_symset *expr_symset_clone(const struct expr_symset *restrict ep);
 int expr_isconst(const struct expr *restrict ep);

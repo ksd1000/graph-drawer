@@ -9,7 +9,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <float.h>
-#include <limits.h>
 #include <setjmp.h>
 #include <alloca.h>
 
@@ -21,7 +20,7 @@
 #define printvali(x) warn(#x ":%d",(int)(x))
 #define printvall(x) warn(#x ":%ld",(long)(x))
 #define printvald(x) warn(#x ":%lf",(double)(x))
-#define trap (fprintf(stdout,"\nat file %s line %d\n",__FILE__,__LINE__),__builtin_trap())
+#define trap (warn("\nat file %s line %d",__FILE__,__LINE__),__builtin_trap())
 */
 #define warn(fmt,...) fprintf(stderr,fmt "\n",##__VA_ARGS__)
 
@@ -74,7 +73,6 @@
 	__auto_type _b=(b);\
 	_a>_b?_a:_b;\
 })
-*/
 #define maxc(a,const_expr) ({\
 	_Static_assert(__builtin_constant_p(const_expr),"not a constant");\
 	__auto_type _a=(a);\
@@ -85,6 +83,7 @@
 	__auto_type _b=(b);\
 	_a<_b?_a:_b;\
 })
+*/
 #define minc(a,const_expr) ({\
 	_Static_assert(__builtin_constant_p(const_expr),"not a constant");\
 	__auto_type _a=(a);\
@@ -4827,9 +4826,16 @@ static void symbol_free(struct expr_symbol *restrict esp){
 	}
 	xfree(esp);
 }
-void expr_symset_free(struct expr_symset *restrict esp){
+__attribute__((deprecated)) void expr_symset_free_old(struct expr_symset *restrict esp){
 	if(esp->syms)
 		symbol_free(esp->syms);
+	if(esp->freeable)
+		xfree(esp);
+}
+void expr_symset_free(struct expr_symset *restrict esp){
+	expr_symset_foreach4(sp,esp,STACK_DEFAULT(esp),EXPR_SYMNEXT){
+		xfree(sp);
+	}
 	if(esp->freeable)
 		xfree(esp);
 }
@@ -4844,7 +4850,7 @@ static int firstdiff(const char *restrict s1,const char *restrict s2,size_t len)
 		if(unlikely(r))
 			break;
 	}while(--len);
-	return r-1;
+	return r;
 }
 static int strdiff(const char *restrict s1,size_t len1,const char *restrict s2,size_t len2,int *sum){
 	int r;
@@ -4855,17 +4861,28 @@ static int strdiff(const char *restrict s1,size_t len1,const char *restrict s2,s
 		*sum=firstdiff(s1,s2,len1);
 		return 1;
 	}
-	*sum=firstdiff(s1,s2,len1<len2?len1:len2);
+	r=firstdiff(s1,s2,len1<len2?len1:len2);
+	if(r)
+		*sum=r;
+	else if(len1>len2)
+		*sum=(int)(unsigned char)s1[len2];
+	else
+		*sum=-(int)(unsigned char)s2[len1];
 	return 1;
 }
-#define modi(d,m) {\
+#define modi(d,m) ({\
 	int tmpvar;\
 	tmpvar=(d)%(m);\
 	if((d)>=0||!tmpvar)\
 		(d)=tmpvar;\
 	else\
 		(d)=((d)+((-(d))/(m)+!!tmpvar)*(m))%(m);\
-}
+})
+/*
+#define modi(d,m) ({\
+	(d)=(((d)%(m)+(m))-1)/2;\
+})
+*/
 static struct expr_symbol **expr_symset_findtail(struct expr_symset *restrict esp,const char *sym,size_t symlen,size_t *depth){
 	struct expr_symbol *p;
 	size_t dep;
@@ -5075,7 +5092,7 @@ static struct expr_symbol *expr_symset_rsearch_symbol(struct expr_symbol *esp,vo
 	}
 	return NULL;
 }
-struct expr_symbol *expr_symset_rsearch_old(const struct expr_symset *restrict esp,void *addr){
+__attribute__((deprecated)) struct expr_symbol *expr_symset_rsearch_old(const struct expr_symset *restrict esp,void *addr){
 	if(unlikely(!esp->syms))
 		return NULL;
 	return expr_symset_rsearch_symbol(esp->syms,addr);
@@ -5098,7 +5115,7 @@ static size_t expr_symset_depth_symbol(const struct expr_symbol *esp){
 	}
 	return r+1;
 }
-size_t expr_symset_depth_old(const struct expr_symset *restrict esp){
+__attribute__((deprecated)) size_t expr_symset_depth_old(const struct expr_symset *restrict esp){
 	if(unlikely(!esp->syms))
 		return 0;
 	return expr_symset_depth_symbol(esp->syms);
@@ -5124,7 +5141,7 @@ static void expr_symset_callback_symbol(struct expr_symbol *esp,void (*callback)
 		expr_symset_callback_symbol(esp->next[i],callback,arg);
 	}
 }
-void expr_symset_callback_old(const struct expr_symset *restrict esp,void (*callback)(struct expr_symbol *esp,void *arg),void *arg){
+__attribute__((deprecated)) void expr_symset_callback_old(const struct expr_symset *restrict esp,void (*callback)(struct expr_symbol *esp,void *arg),void *arg){
 	if(unlikely(!esp->syms))
 		return;
 	expr_symset_callback_symbol(esp->syms,callback,arg);
@@ -5143,7 +5160,7 @@ static size_t expr_symset_copy_symbol(struct expr_symset *restrict dst,const str
 	}
 	return r;
 }
-size_t expr_symset_copy_old(struct expr_symset *restrict dst,const struct expr_symset *restrict src){
+__attribute__((deprecated)) size_t expr_symset_copy_old(struct expr_symset *restrict dst,const struct expr_symset *restrict src){
 	return likely(src&&src->syms)?
 		expr_symset_copy_symbol(dst,src->syms)
 		:0;

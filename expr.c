@@ -4923,8 +4923,10 @@ struct expr_symbol *expr_symset_addl(struct expr_symset *restrict esp,const char
 struct expr_symbol *expr_symset_vadd(struct expr_symset *restrict esp,const char *sym,int type,int flag,va_list ap){
 	return expr_symset_vaddl(esp,sym,strlen(sym),type,flag,ap);
 }
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const char *sym,size_t symlen,int type,int flag,va_list ap){
-	struct expr_symbol *ep,*ep1,**next;
+	struct expr_symbol *ep,**next;
 	size_t len,len_expr,depth;
 	const char *p;
 	if(unlikely(!symlen))
@@ -4935,6 +4937,25 @@ struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const cha
 	if(unlikely(!next))
 		return NULL;
 	len=sizeof(struct expr_symbol)+symlen+1;
+	switch(type){
+		case EXPR_CONSTANT:
+		case EXPR_VARIABLE:
+		case EXPR_FUNCTION:
+			break;
+		case EXPR_MDFUNCTION:
+		case EXPR_MDEPFUNCTION:
+			len+=sizeof(size_t);
+			break;
+		case EXPR_HOTFUNCTION:
+			p=va_arg(ap,const char *);
+			len_expr=strlen(p);
+			len+=len_expr+1;
+			break;
+		case EXPR_ZAFUNCTION:
+			break;
+		default:
+			return NULL;
+	}
 	ep=xmalloc(len);
 	if(unlikely(!ep))
 		return NULL;
@@ -4955,7 +4976,7 @@ struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const cha
 			break;
 		case EXPR_MDFUNCTION:
 			ep->un.mdfunc=va_arg(ap,double (*)(size_t,double *));
-			ep->length+=sizeof(size_t);
+			//ep->length+=sizeof(size_t);
 #define xrealloc_ep_in_vaddl(_size) \
 			ep1=xrealloc(ep,(_size));\
 			if(unlikely(!ep1)){\
@@ -4963,21 +4984,21 @@ struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const cha
 				return NULL;\
 			}\
 			ep=ep1
-			xrealloc_ep_in_vaddl(ep->length);
+			//xrealloc_ep_in_vaddl(ep->length);
 			SYMDIM(ep)=va_arg(ap,size_t);
 			break;
 		case EXPR_MDEPFUNCTION:
 			ep->un.mdepfunc=va_arg(ap,double (*)(size_t,
 				const struct expr *,double));
-			ep->length+=sizeof(size_t);
-			xrealloc_ep_in_vaddl(ep->length);
+			//ep->length+=sizeof(size_t);
+			//xrealloc_ep_in_vaddl(ep->length);
 			SYMDIM(ep)=va_arg(ap,size_t);
 			break;
 		case EXPR_HOTFUNCTION:
-			p=va_arg(ap,const char *);
-			len_expr=strlen(p);
-			ep->length+=len_expr+1;
-			xrealloc_ep_in_vaddl(ep->length);
+			//p=va_arg(ap,const char *);
+			//len_expr=strlen(p);
+			//ep->length+=len_expr+1;
+			//xrealloc_ep_in_vaddl(ep->length);
 			ep->un.hotexpr=ep->str+symlen+1;
 			memcpy(ep->un.hotexpr,p,len_expr);
 			ep->un.hotexpr[len_expr]=0;
@@ -4986,8 +5007,7 @@ struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const cha
 			ep->un.zafunc=va_arg(ap,double (*)(void));
 			break;
 		default:
-			xfree(ep);
-			return NULL;
+			__builtin_unreachable();
 	}
 
 	ep->type=type;
@@ -4999,6 +5019,7 @@ struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const cha
 	*next=ep;
 	return ep;
 }
+#pragma GCC diagnostic pop
 struct expr_symbol *expr_symset_addcopy(struct expr_symset *restrict esp,const struct expr_symbol *restrict es){
 	size_t depth;
 	struct expr_symbol *restrict *tail=expr_symset_findtail(esp,es->str,es->strlen,&depth);
@@ -6077,7 +6098,6 @@ static double vmdeval(struct expr_vmdinfo *restrict ev,double input){
 	return vmdeval_def(ev,input);
 }
 #pragma GCC diagnostic push
-//#pragma GCC diagnostic ignored "-Wunknown-warning-option"
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 static int expr_optimize_constexpr(struct expr *restrict ep){
 	EXPR_EVALVARS;

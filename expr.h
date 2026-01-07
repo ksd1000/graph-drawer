@@ -195,16 +195,19 @@ EXPR_END
 		_un._x=(x);\
 		_un._o;\
 	})
+
+#define expr_likely(cond) __builtin_expect(!!(cond),1)
+#define expr_unlikely(cond) __builtin_expect(!!(cond),0)
 #define EXPR_SYMSET_DEPTHUNIT (2*sizeof(void *))
 
 #define expr_symset_foreach4(_sp,_esp,_stack,_atindex) \
 	_Static_assert(__builtin_constant_p((_atindex)),"_atindex should be constant");\
 	_Static_assert(__builtin_constant_p((_atindex)<EXPR_SYMNEXT),"_atindex should be constant");\
 	_Static_assert(__builtin_constant_p((_atindex)>=EXPR_SYMNEXT),"_atindex should be constant");\
-	for(struct expr_symbol *_sp=(_esp)->syms;_sp;_sp=NULL)for(struct {struct expr_symbol **sp;void *stack;unsigned int index;int end;} __inloop={(_stack),__inloop.sp,0,0,};!({for(;;){\
+	for(struct expr_symbol *_sp=(_esp)->syms;_sp;_sp=NULL)for(struct {struct expr_symbol **sp;void *stack;unsigned int index;int end;} __inloop={(_stack),__inloop.sp,0,0,};expr_likely(!({for(;;){\
 		if((_atindex)<EXPR_SYMNEXT){\
-			if(__inloop.index>=EXPR_SYMNEXT){\
-				if(__inloop.sp==__inloop.stack){\
+			if(expr_unlikely(__inloop.index>=EXPR_SYMNEXT)){\
+				if(expr_unlikely(__inloop.sp==__inloop.stack)){\
 					__inloop.end=1;\
 					break;\
 				}\
@@ -216,10 +219,10 @@ EXPR_END
 		break;\
 	}\
 	__inloop.end;\
-	});({for(;;){\
+	}));({for(;;){\
 		if((_atindex)>=EXPR_SYMNEXT){\
-			if(__inloop.index>=EXPR_SYMNEXT){\
-				if(__inloop.sp==__inloop.stack){\
+			if(expr_unlikely(__inloop.index>=EXPR_SYMNEXT)){\
+				if(expr_unlikely(__inloop.sp==__inloop.stack)){\
 					__inloop.end=1;\
 					break;\
 				}\
@@ -408,7 +411,7 @@ extern void *(*expr_reallocator)(void *,size_t);
 extern void (*expr_deallocator)(void *);
 extern void (*expr_contractor)(void *,size_t);
 extern size_t expr_allocate_max;
-//default=malloc,realloc,free,expr_contract,0x10000000000UL
+//default=malloc,realloc,free,expr_contract,0x1000000000UL
 extern const size_t expr_page_size;
 
 long expr_syscall(long arg0,long arg1,long arg2,long arg3,long arg4,long arg5,long num);

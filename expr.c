@@ -31,8 +31,8 @@
 #define STACK_DEFAULT(esp) alloca((esp)->depth*EXPR_SYMSET_DEPTHUNIT)
 #define SYMDIM(sp) (*(size_t *)((sp)->str+(sp)->strlen+1))
 #define assume(cond) if(cond);else __builtin_unreachable()
-#define likely(cond) __builtin_expect(!!(cond),1)
-#define unlikely(cond) __builtin_expect(!!(cond),0)
+#define likely(cond) expr_likely(cond)
+#define unlikely(cond) expr_unlikely(cond)
 #define cast(X,T) expr_cast(X,T)
 #define eval(_ep,_input) expr_eval(_ep,_input)
 
@@ -369,7 +369,7 @@ void *(*expr_allocator)(size_t)=malloc;
 void *(*expr_reallocator)(void *,size_t)=realloc;
 void (*expr_deallocator)(void *)=free;
 void (*expr_contractor)(void *,size_t)=expr_contract;
-size_t expr_allocate_max=0x10000000000UL;
+size_t expr_allocate_max=0x1000000000UL;
 const size_t expr_page_size=PAGE_SIZE;
 
 #define free (use xfree() instead!)

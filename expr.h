@@ -179,11 +179,11 @@ EXPR_END
 #define EXPR_EDSIGN(d) (((union expr_double *)(d))->rd.sign)
 #define EXPR_EDIVAL(d) (((union expr_double *)(d))->ival)
 
-#define RPUSH(_sp) (*((_sp)++))
-#define RPOP(_sp) (*(--(_sp)))
+#define EXPR_RPUSH(_sp) (*((_sp)++))
+#define EXPR_RPOP(_sp) (*(--(_sp)))
 
-#define PUSH(_sp) (*(--(_sp)))
-#define POP(_sp) (*((_sp)++))
+#define EXPR_PUSH(_sp) (*(--(_sp)))
+#define EXPR_POP(_sp) (*((_sp)++))
 
 #define expr_cast(x,type) \
 	({\
@@ -194,32 +194,33 @@ EXPR_END
 		_un._x=(x);\
 		_un._o;\
 	})
+#define EXPR_SYMSET_DEPTHUNIT (2*sizeof(void *))
 #define expr_symset_foreach(_sp,_esp,_stack) \
-	for(struct expr_symbol *_sp=(_esp)->syms;_sp;_sp=NULL)for(struct {struct expr_symbol **sp;void *stack;unsigned int i;int end;} _li={(_stack),_li.sp,0,0,};!({for(;;){\
-		if(_li.i>=EXPR_SYMNEXT){\
-			if(_li.sp==_li.stack){\
-				_li.end=1;\
+	for(struct expr_symbol *_sp=(_esp)->syms;_sp;_sp=NULL)for(struct {struct expr_symbol **sp;void *stack;unsigned int index;int end;} __inloop={(_stack),__inloop.sp,0,0,};!({for(;;){\
+		if(__inloop.index>=EXPR_SYMNEXT){\
+			if(__inloop.sp==__inloop.stack){\
+				__inloop.end=1;\
 				break;\
 			}\
-			_sp=RPOP(_li.sp);\
-			_li.i=(unsigned int)(size_t)RPOP(_li.sp);\
+			_sp=EXPR_RPOP(__inloop.sp);\
+			__inloop.index=(unsigned int)(size_t)EXPR_RPOP(__inloop.sp);\
 			continue;\
 		}\
 		break;\
 	}\
-	_li.end;\
-	});({for(;_li.i<EXPR_SYMNEXT;){\
-		if(!_sp->next[_li.i]){\
-			++_li.i;\
+	__inloop.end;\
+	});({for(;__inloop.index<EXPR_SYMNEXT;){\
+		if(!_sp->next[__inloop.index]){\
+			++__inloop.index;\
 			continue;\
 		}\
-		RPUSH(_li.sp)=(void *)(size_t)(_li.i+1);\
-		RPUSH(_li.sp)=_sp;\
-		_sp=_sp->next[_li.i];\
-		_li.i=0;\
+		EXPR_RPUSH(__inloop.sp)=(void *)(size_t)(__inloop.index+1);\
+		EXPR_RPUSH(__inloop.sp)=_sp;\
+		_sp=_sp->next[__inloop.index];\
+		__inloop.index=0;\
 		break;\
 	}\
-	}))if(_li.i)continue;else
+	}))if(__inloop.index)continue;else
 
 struct expr_libinfo {
 	const char *version;
@@ -423,9 +424,13 @@ struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const cha
 struct expr_symbol *expr_symset_addcopy(struct expr_symset *restrict esp,const struct expr_symbol *restrict es);
 struct expr_symbol *expr_symset_search(const struct expr_symset *restrict esp,const char *sym,size_t sz);
 int expr_symset_remove(struct expr_symset *restrict esp,const char *sym,size_t sz);
+struct expr_symbol *expr_symset_rsearch_old(const struct expr_symset *restrict esp,void *addr);
 struct expr_symbol *expr_symset_rsearch(const struct expr_symset *restrict esp,void *addr);
+size_t expr_symset_depth_old(const struct expr_symset *restrict esp);
 size_t expr_symset_depth(const struct expr_symset *restrict esp);
+void expr_symset_callback_old(const struct expr_symset *restrict esp,void (*callback)(struct expr_symbol *esp,void *arg),void *arg);
 void expr_symset_callback(const struct expr_symset *restrict esp,void (*callback)(struct expr_symbol *esp,void *arg),void *arg);
+size_t expr_symset_copy_old(struct expr_symset *restrict dst,const struct expr_symset *restrict src);
 size_t expr_symset_copy(struct expr_symset *restrict dst,const struct expr_symset *restrict src);
 struct expr_symset *expr_symset_clone(const struct expr_symset *restrict ep);
 int expr_isconst(const struct expr *restrict ep);

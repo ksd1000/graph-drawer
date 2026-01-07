@@ -15,7 +15,6 @@
 
 #define UNABLE_GETADDR_IN_PROTECTED_MODE
 #define HIDE_WHERE_ERROR_OCCURS
-#define STACK_GOESUP
 
 /*
 #define printval(x) warn(#x ":%lu",(unsigned long)(x))
@@ -30,6 +29,7 @@
 #pragma GCC diagnostic ignored "-Wunknown-warning-option"
 #endif
 
+#define STACK_DEFAULT(esp) alloca((esp)->depth*EXPR_SYMSET_DEPTHUNIT)
 #define SYMDIM(sp) (*(size_t *)((sp)->str+(sp)->strlen+1))
 #define assume(cond) if(cond);else __builtin_unreachable()
 #define likely(cond) __builtin_expect(!!(cond),1)
@@ -5075,10 +5075,17 @@ static struct expr_symbol *expr_symset_rsearch_symbol(struct expr_symbol *esp,vo
 	}
 	return NULL;
 }
-struct expr_symbol *expr_symset_rsearch(const struct expr_symset *restrict esp,void *addr){
+struct expr_symbol *expr_symset_rsearch_old(const struct expr_symset *restrict esp,void *addr){
 	if(unlikely(!esp->syms))
 		return NULL;
 	return expr_symset_rsearch_symbol(esp->syms,addr);
+}
+struct expr_symbol *expr_symset_rsearch(const struct expr_symset *restrict esp,void *addr){
+	expr_symset_foreach(sp,esp,STACK_DEFAULT(esp)){
+		if(unlikely(sp->un.uaddr==addr))
+			return sp;
+	}
+	return NULL;
 }
 static size_t expr_symset_depth_symbol(const struct expr_symbol *esp){
 	size_t r=0,c;
@@ -5091,10 +5098,18 @@ static size_t expr_symset_depth_symbol(const struct expr_symbol *esp){
 	}
 	return r+1;
 }
-size_t expr_symset_depth(const struct expr_symset *restrict esp){
+size_t expr_symset_depth_old(const struct expr_symset *restrict esp){
 	if(unlikely(!esp->syms))
 		return 0;
 	return expr_symset_depth_symbol(esp->syms);
+}
+size_t expr_symset_depth(const struct expr_symset *restrict esp){
+	void *stack=STACK_DEFAULT(esp);
+	size_t depth=0;
+	expr_symset_foreach(sp,esp,stack)
+		if((size_t)__inloop.sp>depth)
+			depth=(size_t)__inloop.sp;
+	return depth?(depth-(size_t)stack)/EXPR_SYMSET_DEPTHUNIT+1:0;
 }
 static void expr_symset_callback_symbol(struct expr_symbol *esp,void (*callback)(struct expr_symbol *esp,void *arg),void *arg){
 	for(int i=0;i<EXPR_SYMNEXT/2-1;++i){
@@ -5109,10 +5124,14 @@ static void expr_symset_callback_symbol(struct expr_symbol *esp,void (*callback)
 		expr_symset_callback_symbol(esp->next[i],callback,arg);
 	}
 }
-void expr_symset_callback(const struct expr_symset *restrict esp,void (*callback)(struct expr_symbol *esp,void *arg),void *arg){
+void expr_symset_callback_old(const struct expr_symset *restrict esp,void (*callback)(struct expr_symbol *esp,void *arg),void *arg){
 	if(unlikely(!esp->syms))
 		return;
 	expr_symset_callback_symbol(esp->syms,callback,arg);
+}
+void expr_symset_callback(const struct expr_symset *restrict esp,void (*callback)(struct expr_symbol *esp,void *arg),void *arg){
+	expr_symset_foreach(sp,esp,STACK_DEFAULT(esp))
+		callback(sp,arg);
 }
 static size_t expr_symset_copy_symbol(struct expr_symset *restrict dst,const struct expr_symbol *restrict src){
 	size_t r;
@@ -5124,10 +5143,18 @@ static size_t expr_symset_copy_symbol(struct expr_symset *restrict dst,const str
 	}
 	return r;
 }
-size_t expr_symset_copy(struct expr_symset *restrict dst,const struct expr_symset *restrict src){
+size_t expr_symset_copy_old(struct expr_symset *restrict dst,const struct expr_symset *restrict src){
 	return likely(src&&src->syms)?
 		expr_symset_copy_symbol(dst,src->syms)
 		:0;
+}
+size_t expr_symset_copy(struct expr_symset *restrict dst,const struct expr_symset *restrict src){
+	size_t n=0;
+	expr_symset_foreach(sp,src,STACK_DEFAULT(src)){
+		if(likely(expr_symset_addcopy(dst,sp)))
+			++n;
+	}
+	return n;
 }
 struct expr_symset *expr_symset_clone(const struct expr_symset *restrict ep){
 	struct expr_symset *es=new_expr_symset();

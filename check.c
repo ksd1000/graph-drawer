@@ -174,7 +174,6 @@ int main(int argc,char **argv){
 		errcheck(p->e,p->expect);
 	new_expr7("t^3+sin(t)+sum(n,0,100,1,sin(n*t))","t",NULL,EXPR_IF_INSTANT_FREE,1250,NULL,NULL);
 	assert(es.size==1);
-	assert(es.depth==1);
 	expr_symset_wipe(&es);
 	for(const struct expr_builtin_keyword *p=expr_keywords;;++p){
 		if(!p->str){

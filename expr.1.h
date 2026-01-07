@@ -179,6 +179,12 @@ EXPR_END
 #define EXPR_EDSIGN(d) (((union expr_double *)(d))->rd.sign)
 #define EXPR_EDIVAL(d) (((union expr_double *)(d))->ival)
 
+#define RPUSH(_sp) (*((_sp)++))
+#define RPOP(_sp) (*(--(_sp)))
+
+#define PUSH(_sp) (*(--(_sp)))
+#define POP(_sp) (*((_sp)++))
+
 #define expr_cast(x,type) \
 	({\
 		union {\
@@ -188,6 +194,32 @@ EXPR_END
 		_un._x=(x);\
 		_un._o;\
 	})
+#define expr_symset_foreach(_sp,_esp,_stack) \
+	for(struct expr_symbol *_sp=(_esp)->syms;_sp;_sp=NULL)for(struct {struct expr_symbol **sp;void *stack;unsigned int i;int end;} _li={(_stack),_li.sp,0,0,};!({for(;;){\
+		if(_li.i>=EXPR_SYMNEXT){\
+			if(_li.sp==_li.stack){\
+				_li.end=1;\
+				break;\
+			}\
+			_sp=RPOP(_li.sp);\
+			_li.i=(unsigned int)(size_t)RPOP(_li.sp);\
+			continue;\
+		}\
+		break;\
+	}\
+	_li.end;\
+	});({for(;_li.i<EXPR_SYMNEXT;){\
+		if(!_sp->next[_li.i]){\
+			++_li.i;\
+			continue;\
+		}\
+		RPUSH(_li.sp)=(void *)(size_t)(_li.i+1);\
+		RPUSH(_li.sp)=_sp;\
+		_sp=_sp->next[_li.i];\
+		_li.i=0;\
+		break;\
+	}\
+	}))if(_li.i)continue;else
 
 struct expr_libinfo {
 	const char *version;
@@ -298,8 +330,8 @@ struct expr_builtin_keyword {
 };
 struct expr_symset {
 	struct expr_symbol *syms;
-	size_t size,depth,length;
-	int freeable,unused;
+	size_t size,length,depth;
+	unsigned int freeable,unused;
 };
 struct expr_resource {
 	struct expr_resource *next;

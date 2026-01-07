@@ -179,6 +179,12 @@ EXPR_END
 #define EXPR_EDSIGN(d) (((union expr_double *)(d))->rd.sign)
 #define EXPR_EDIVAL(d) (((union expr_double *)(d))->ival)
 
+#define RPUSH(_sp) (*((_sp)++))
+#define RPOP(_sp) (*(--(_sp)))
+
+#define PUSH(_sp) (*(--(_sp)))
+#define POP(_sp) (*((_sp)++))
+
 #define expr_cast(x,type) \
 	({\
 		union {\
@@ -188,6 +194,32 @@ EXPR_END
 		_un._x=(x);\
 		_un._o;\
 	})
+#define expr_symset_foreach(_sp,_esp,_stack) \
+	for(struct expr_symbol *_sp=(_esp)->syms;_sp;_sp=NULL)for(struct {struct expr_symbol **sp;void *stack;unsigned int i;int end;} _li={(_stack),_li.sp,0,0,};!({for(;;){\
+		if(_li.i>=EXPR_SYMNEXT){\
+			if(_li.sp==_li.stack){\
+				_li.end=1;\
+				break;\
+			}\
+			_sp=RPOP(_li.sp);\
+			_li.i=(unsigned int)(size_t)RPOP(_li.sp);\
+			continue;\
+		}\
+		break;\
+	}\
+	_li.end;\
+	});({for(;_li.i<EXPR_SYMNEXT;){\
+		if(!_sp->next[_li.i]){\
+			++_li.i;\
+			continue;\
+		}\
+		RPUSH(_li.sp)=(void *)(size_t)(_li.i+1);\
+		RPUSH(_li.sp)=_sp;\
+		_sp=_sp->next[_li.i];\
+		_li.i=0;\
+		break;\
+	}\
+	}))if(_li.i)continue;else
 
 struct expr_libinfo {
 	const char *version;
@@ -298,8 +330,8 @@ struct expr_builtin_keyword {
 };
 struct expr_symset {
 	struct expr_symbol *syms;
-	size_t size,depth,length;
-	int freeable,unused;
+	size_t size,length,depth;
+	unsigned int freeable,unused;
 };
 struct expr_resource {
 	struct expr_resource *next;
@@ -351,7 +383,6 @@ extern size_t expr_allocate_max;
 extern const size_t expr_page_size;
 
 long expr_syscall(long arg0,long arg1,long arg2,long arg3,long arg4,long arg5,long num);
-void seterr(struct expr *restrict ep,int error);
 const char *expr_error(int error);
 uint64_t expr_gcd64(uint64_t x,uint64_t y);
 double expr_gcd2(double x,double y);
@@ -393,6 +424,8 @@ struct expr_symbol *expr_symset_addcopy(struct expr_symset *restrict esp,const s
 struct expr_symbol *expr_symset_search(const struct expr_symset *restrict esp,const char *sym,size_t sz);
 int expr_symset_remove(struct expr_symset *restrict esp,const char *sym,size_t sz);
 struct expr_symbol *expr_symset_rsearch(const struct expr_symset *restrict esp,void *addr);
+size_t expr_symset_depth(const struct expr_symset *restrict esp);
+void expr_symset_callback(const struct expr_symset *restrict esp,void (*callback)(struct expr_symbol *esp,void *arg),void *arg);
 size_t expr_symset_copy(struct expr_symset *restrict dst,const struct expr_symset *restrict src);
 struct expr_symset *expr_symset_clone(const struct expr_symset *restrict ep);
 int expr_isconst(const struct expr *restrict ep);

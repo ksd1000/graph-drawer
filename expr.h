@@ -246,7 +246,7 @@ EXPR_END
 			__inloop_index=0;\
 		}\
 		break;\
-	}}))if(__inloop_index!=(_atindex))continue;else
+	}}))if(likely(__inloop_index!=(_atindex)))continue;else
 
 #define expr_symset_foreach(_sp,_esp,_stack) expr_symset_foreach4(_sp,_esp,_stack,0)
 struct expr_libinfo {

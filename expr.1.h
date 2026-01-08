@@ -207,12 +207,13 @@ EXPR_END
 #define EXPR_SYMSET_DEPTHUNIT (2*sizeof(void *))
 
 #define expr_symbol_foreach4(_sp,_esp,_stack,_atindex) \
-	_Static_assert(__builtin_constant_p((_atindex)),"_atindex should be constant");\
-	_Static_assert(__builtin_constant_p((_atindex)<EXPR_SYMNEXT),"_atindex should be constant");\
-	_Static_assert(__builtin_constant_p((_atindex)>=EXPR_SYMNEXT),"_atindex should be constant");\
-	expr_static_castable((_stack),void *);\
-	expr_static_castable((_esp),const struct expr_symbol *);\
-	for(unsigned int __inloop_end=0,__inloop_index=0;!__inloop_end;)\
+	for(unsigned int __inloop_end=0,__inloop_index=0;!__inloop_end;({\
+		_Static_assert(__builtin_constant_p((_atindex)),"_atindex should be constant");\
+		_Static_assert(__builtin_constant_p((_atindex)<EXPR_SYMNEXT),"_atindex should be constant");\
+		_Static_assert(__builtin_constant_p((_atindex)>=EXPR_SYMNEXT),"_atindex should be constant");\
+		expr_static_castable((_stack),void *);\
+		expr_static_castable((_esp),const struct expr_symbol *);\
+	}))\
 	for(struct expr_symbol *_sp=(struct expr_symbol *)(_esp);!__inloop_end;)\
 	if(expr_unlikely(!_sp)){__inloop_end=1;break;}else\
 	for(struct expr_symbol **__inloop_stack=(struct expr_symbol **)(_stack),**__inloop_sp=__inloop_stack;expr_likely(!({for(;;){\
@@ -256,6 +257,9 @@ EXPR_END
 #define expr_symset_foreach4(_sp,_esp,_stack,_atindex) expr_symbol_foreach4(_sp,(_esp)->syms,_stack,_atindex)
 
 #define expr_symset_foreach(_sp,_esp,_stack) expr_symset_foreach4(_sp,_esp,_stack,0)
+
+#define expr_breakforeach ({__inloop_end=1;break;})
+
 struct expr_libinfo {
 	const char *version;
 	const char *compiler_version;
@@ -345,6 +349,7 @@ union expr_symvalue {
 struct expr_symbol {
 	union expr_symvalue un;
 	struct expr_symbol *next[EXPR_SYMNEXT];
+	struct expr_symbol **tail;
 	unsigned int length;
 	unsigned short strlen;
 	unsigned char type,flag;
@@ -435,7 +440,8 @@ extern void *(*expr_reallocator)(void *,size_t);
 extern void (*expr_deallocator)(void *);
 extern void (*expr_contractor)(void *,size_t);
 extern size_t expr_allocate_max;
-//default=malloc,realloc,free,expr_contract,0x1000000000UL
+extern void *expr_symset_stack;//MT-unsafe without mutex if not NULL
+//default=malloc,realloc,free,expr_contract,0x1000000000UL,NULL
 extern const size_t expr_page_size;
 
 long expr_syscall(long arg0,long arg1,long arg2,long arg3,long arg4,long arg5,long num);

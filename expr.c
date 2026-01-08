@@ -29,7 +29,9 @@
 #endif
 
 #define STACK_DEFAULT(esp) ({size_t depth=(esp)->depth;depth<2?NULL:alloca((depth-1)*EXPR_SYMSET_DEPTHUNIT);})
-#define SYMDIM(sp) (*(size_t *)((sp)->str+(sp)->strlen+1))
+//#define SYMDIM(sp) (*(size_t *)((sp)->str+(sp)->strlen+1))
+#define SYMDIM(sp) (*expr_symset_dim(sp))
+#define HOTLEN(sp) expr_symset_hotlen(sp)
 #define assume(cond) expr_assume(cond)
 #define likely(cond) expr_likely(cond)
 #define unlikely(cond) expr_unlikely(cond)
@@ -2270,9 +2272,9 @@ static double *expr_createvar(struct expr *restrict ep,const char *symbol,size_t
 	cknp(ep,expr_detach(ep)>=0,return NULL);
 	return expr_symset_addl(ep->sset,symbol,symlen,EXPR_VARIABLE,0,r)?r:NULL;
 }
-static int expr_createhot(struct expr *restrict ep,const char *symbol,size_t symlen,const char *hotexpr,int flag){
+static int expr_createhot(struct expr *restrict ep,const char *symbol,size_t symlen,const char *hotexpr,size_t hotlen,int flag){
 	cknp(ep,expr_detach(ep)>=0,return -1);
-	return expr_symset_addl(ep->sset,symbol,symlen,EXPR_HOTFUNCTION,flag,hotexpr)?
+	return expr_symset_addl(ep->sset,symbol,symlen,EXPR_HOTFUNCTION,flag|EXPR_SF_INJECTION,hotexpr,hotlen)?
 	0:-1;
 }
 static const char *findpair(const char *c,const char *endp){
@@ -2915,13 +2917,15 @@ static size_t vsize2(char *const *v){
 	return p1-v;
 }
 static double *scan(struct expr *restrict ep,const char *e,const char *endp,const char *asym,size_t asymlen);
-static double *gethot(struct expr *restrict ep,const char *e0,size_t sz,const char *e,const char *endp,const char *asym,size_t asymlen,const char *he,const char **ee,struct expr_symset *esp,int flag){
+static double *gethot(struct expr *restrict ep,const char *e0,size_t sz,const char *e,const char *endp,const char *asym,size_t asymlen,const char *he,size_t helen,const char **ee,struct expr_symset *esp,int flag){
 	const char *p,*hend,*pe;
 	char **v,**ve;
 	struct expr *ep1;
 	size_t n,len;
 	double *v0,*v1;
-	hend=he+strlen(he);
+	//warn("(%s) len:%zu",he,helen);
+	//hend=he+strlen(he);
+	hend=he+helen;
 #define hot_sep(_e,_p,_end,_v,_act) \
 	if(unlikely(*_e!='(')){\
 		seterr(ep,EXPR_EPT);\
@@ -2978,7 +2982,7 @@ static double *gethot(struct expr *restrict ep,const char *e0,size_t sz,const ch
 		goto err1;
 	v0=expr_newvar(ep);
 	cknp(ep,v0,goto err2);
-	cknp(ep,expr_addep(ep,v0,ep1,flag),goto err2);
+	cknp(ep,expr_addep(ep,v0,ep1,flag&~EXPR_SF_INJECTION),goto err2);
 /*#define setsset2(_ep) if((_ep)->sset==esp)(_ep)->sset=ep->sset
 	setsset2(ep1);*/
 	expr_free2(ve);
@@ -3013,7 +3017,6 @@ static int expr_rmsym(struct expr *restrict ep,const char *sym,size_t sz){
 }
 static double *getvalue(struct expr *restrict ep,const char *e,const char *endp,const char **_p,const char *asym,size_t asymlen){
 	const char *p,*p2,*p4,*e0=e;
-	char *p3;
 	double *v0=NULL,*v1;
 	int r0,builtin=0;
 	union {
@@ -3025,6 +3028,7 @@ static double *getvalue(struct expr *restrict ep,const char *e,const char *endp,
 		struct expr_mdinfo *em;
 		struct expr_vmdinfo *ev;
 		char **vv1;
+		const char *ccp;
 		struct expr_symset *esp;
 	} un;
 	union {
@@ -3464,7 +3468,7 @@ c_fail:
 					serrinfo(ep->errinfo,sym.vv[0],dim);
 					goto c_fail;
 				}
-				r0=expr_createhot(ep,sym.vv[0],dim,sym.vv[1],0);
+				r0=expr_createhot(ep,sym.vv[0],dim,sym.vv[1],strlen(sym.vv[1]),0);
 				expr_free2(sym.vv);
 				cknp(ep,!r0,return NULL);
 				v0=EXPR_VOID;
@@ -4008,8 +4012,10 @@ found:
 				sym.esp=expr_symset_clone(ep->sset);\
 				cknp(ep,sym.esp,return NULL);\
 				expr_symset_remove(sym.esp,_start,_end-_start)
+				un.ccp=expr_symset_hot(sym.es);
+				dim=HOTLEN(sym.es);
 				sset_push(e,p);
-				v0=gethot(ep,e,p-e,p,endp,asym,asymlen,sv.sv->hotexpr,&e,sym.esp,flag);
+				v0=gethot(ep,e,p-e,p,endp,asym,asymlen,un.ccp,dim,&e,sym.esp,flag);
 				expr_symset_free(sym.esp);
 				if(!v0)
 					return NULL;
@@ -4031,14 +4037,15 @@ found:
 			v0=scan(ep,e+1,p,asym,asymlen);
 			if(unlikely(!v0))
 				return NULL;
-			p3=sv.sv->hotexpr+strlen(sv.sv->hotexpr);
+			un.ccp=expr_symset_hot(sym.es);
+			dim=HOTLEN(sym.es);
 			sset_push(p2,p4);
-			un.ep=new_expr8(sv.sv->hotexpr,p3-sv.sv->hotexpr,asym,
+			un.ep=new_expr8(un.ccp,dim,asym,
 			asymlen,sym.esp,ep->iflag,&ep->error,ep->errinfo);
 			expr_symset_free(sym.esp);
 			if(unlikely(!un.ep))
 				return NULL;
-			cknp(ep,expr_addhot(ep,v0,un.ep,flag),return NULL);
+			cknp(ep,expr_addhot(ep,v0,un.ep,flag&~EXPR_SF_INJECTION),return NULL);
 			e=p+1;
 			goto vend;
 		case EXPR_CONSTANT:
@@ -4209,12 +4216,7 @@ sym_notfound:
 				goto pterr;
 			if(!flag)
 				++p;
-			p3=xmalloc(p-e+1);
-			cknp(ep,p3,return NULL);
-			memcpy(p3,e,p-e);
-			p3[p-e]=0;
-			r0=expr_createhot(ep,p2,p4-1-p2,p3,flag);
-			xfree(p3);
+			r0=expr_createhot(ep,p2,p4-1-p2,e,p-e,flag);
 			cknp(ep,!r0,return NULL);
 			v0=EXPR_VOID;
 			e=p;
@@ -4857,11 +4859,12 @@ static int firstdiff(const char *restrict s1,const char *restrict s2,size_t len)
 static int strdiff(const char *restrict s1,size_t len1,const char *restrict s2,size_t len2,int *sum){
 	int r;
 	if(len1==len2){
-		r=memcmp(s1,s2,len1);
-		if(unlikely(!r))
-			return 0;
-		*sum=firstdiff(s1,s2,len1);
-		return 1;
+//		r=memcmp(s1,s2,len1);
+//		if(unlikely(!r))
+//			return 0;
+		r=firstdiff(s1,s2,len1);
+		*sum=r;
+		return !!r;
 	}
 	r=firstdiff(s1,s2,len1<len2?len1:len2);
 	if(r)
@@ -4885,7 +4888,7 @@ static int strdiff(const char *restrict s1,size_t len1,const char *restrict s2,s
 	(d)=(((d)%(m)+(m))-1)/2;\
 })
 */
-static struct expr_symbol **expr_symset_findtail(struct expr_symset *restrict esp,const char *sym,size_t symlen,size_t *depth){
+struct expr_symbol **expr_symset_findtail(struct expr_symset *restrict esp,const char *sym,size_t symlen,size_t *depth){
 	struct expr_symbol *p;
 	size_t dep;
 	int r;
@@ -4931,6 +4934,7 @@ struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const cha
 	struct expr_symbol *ep,**next;
 	size_t len,len_expr,depth;
 	const char *p;
+	char *p1;
 	if(unlikely(!symlen))
 		return NULL;
 	if(unlikely(symlen>=EXPR_SYMLEN))
@@ -4950,7 +4954,10 @@ struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const cha
 			break;
 		case EXPR_HOTFUNCTION:
 			p=va_arg(ap,const char *);
-			len_expr=strlen(p);
+			if(flag&EXPR_SF_INJECTION)
+				len_expr=va_arg(ap,size_t);
+			else
+				len_expr=strlen(p);
 			len+=len_expr+1;
 			break;
 		case EXPR_ZAFUNCTION:
@@ -5001,9 +5008,10 @@ struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const cha
 			//len_expr=strlen(p);
 			//ep->length+=len_expr+1;
 			//xrealloc_ep_in_vaddl(ep->length);
-			ep->un.hotexpr=ep->str+symlen+1;
-			memcpy(ep->un.hotexpr,p,len_expr);
-			ep->un.hotexpr[len_expr]=0;
+			p1=ep->str+symlen+1;
+			ep->un.size=len_expr;
+			memcpy(p1,p,len_expr);
+			p1[len_expr]=0;
 			break;
 		case EXPR_ZAFUNCTION:
 			ep->un.zafunc=va_arg(ap,double (*)(void));
@@ -5014,10 +5022,16 @@ struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const cha
 
 	ep->type=type;
 	ep->flag=flag;
-	++esp->size;
-	esp->length+=ep->length;
-	if(unlikely(depth>esp->depth))
-		esp->depth=depth;
+#define sset_inc(esp,_length,depth) \
+	++(esp)->size;\
+	++(esp)->size_m;\
+	(esp)->length+=(_length);\
+	(esp)->length_m+=(_length);\
+	if(unlikely((depth)>(esp)->depth)){\
+		esp->depth=(depth);\
+		esp->removed=0;\
+	}
+	sset_inc(esp,ep->length,depth);
 	*next=ep;
 	return ep;
 }
@@ -5026,26 +5040,16 @@ struct expr_symbol *expr_symset_addcopy(struct expr_symset *restrict esp,const s
 	size_t depth;
 	struct expr_symbol *restrict *tail=expr_symset_findtail(esp,es->str,es->strlen,&depth);
 	struct expr_symbol *ep;
-	if(!likely(tail)||!(ep=xmalloc(es->length))){
+	if(unlikely(!tail||!(ep=xmalloc(es->length)))){
 		return NULL;
 	}
 	memcpy(ep,es,es->length);
-	memset(ep->next,0,sizeof(ep->next));
-	switch(es->type){
-		case EXPR_HOTFUNCTION:
-			ep->un.hotexpr=ep->str+(es->un.hotexpr-es->str);
-			break;
-		default:
-			break;
-	}
+	memset(ep->next,0,EXPR_SYMNEXT*sizeof(struct expr_symbol *));
 	*tail=ep;
-	++esp->size;
-	esp->length+=es->length;
-	if(unlikely(depth>esp->depth))
-		esp->depth=depth;
+	sset_inc(esp,ep->length,depth);
 	return ep;
 }
-static struct expr_symbol **expr_symset_search0(const struct expr_symset *restrict esp,const char *sym,size_t sz){
+struct expr_symbol **expr_symset_search0(const struct expr_symset *restrict esp,const char *sym,size_t sz){
 	struct expr_symbol *const *a;
 	int r;
 	a=&esp->syms;
@@ -5063,42 +5067,54 @@ struct expr_symbol *expr_symset_search(const struct expr_symset *restrict esp,co
 	r=expr_symset_search0(esp,sym,sz);
 	return r?*r:NULL;
 }
-static void expr_symset_insert(struct expr_symset *restrict esp,struct expr_symbol *restrict es){
+struct expr_symbol *expr_symset_insert(struct expr_symset *restrict esp,struct expr_symbol *restrict es){
 	size_t depth;
 	struct expr_symbol *restrict *tail=expr_symset_findtail(esp,es->str,es->strlen,&depth);
-	if(!likely(tail)){
+	if(unlikely(!tail)){
+		return NULL;
+	}
+	memset(es->next,0,EXPR_SYMNEXT*sizeof(struct expr_symbol *));
+	*tail=es;
+	sset_inc(esp,es->length,depth);
+	return es;
+}
+static void expr_symset_insert_forremove(struct expr_symset *restrict esp,struct expr_symbol *restrict es){
+	size_t depth;
+	struct expr_symbol *restrict *tail=expr_symset_findtail(esp,es->str,es->strlen,&depth);
+	if(unlikely(!tail)){
 		return;
 	}
 	*tail=es;
-	if(unlikely(depth>esp->depth))
+	if(unlikely(depth>esp->depth)){
 		esp->depth=depth;
-}
-static void expr_symset_insertall(struct expr_symset *restrict esp,struct expr_symbol *restrict es){
-	struct expr_symbol *next[EXPR_SYMNEXT];
-	memcpy(next,es->next,EXPR_SYMNEXT*sizeof(struct expr_symbol *));
-	memset(es->next,0,EXPR_SYMNEXT*sizeof(struct expr_symbol *));
-	expr_symset_insert(esp,es);
-	for(int i=0;i<EXPR_SYMNEXT;++i){
-		if(!next[i])
-			continue;
-		expr_symset_insertall(esp,next[i]);
+		esp->removed=0;
 	}
 }
 int expr_symset_remove(struct expr_symset *restrict esp,const char *sym,size_t sz){
 	struct expr_symbol *restrict sp;
 	struct expr_symbol **r;
+	void *stack;
 	r=expr_symset_search0(esp,sym,sz);
 	if(!r)
 		return -1;
 	sp=*r;
 	*r=NULL;
+	stack=STACK_DEFAULT(esp);
 	for(int i=0;i<EXPR_SYMNEXT;++i){
 		if(!sp->next[i])
 			continue;
-		expr_symset_insertall(esp,sp->next[i]);
+//		expr_symset_insertall(esp,sp->next[i]);
+		expr_symbol_foreach4(sp1,sp->next[i],stack,EXPR_SYMNEXT){
+			memset(sp1->next,0,EXPR_SYMNEXT*sizeof(struct expr_symbol *));
+			expr_symset_insert_forremove(esp,sp1);
+		}
 	}
-	--esp->size;
-	esp->length-=sp->length;
+#define sset_dec(esp,_length) \
+	--(esp)->size;\
+	(esp)->length-=(_length);\
+	++(esp)->removed;\
+	++(esp)->removed_m
+	sset_dec(esp,sp->length);
 	xfree(sp);
 	return 0;
 }

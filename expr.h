@@ -209,7 +209,7 @@ EXPR_END
 	expr_static_castable(_stack,void *);\
 	for(unsigned int __inloop_end=0,__inloop_index=0;!__inloop_end;)\
 	for(struct expr_symbol *_sp=(_esp)->syms;!__inloop_end;)\
-	if(unlikely(!_sp)){__inloop_end=1;break;}else\
+	if(expr_unlikely(!_sp)){__inloop_end=1;break;}else\
 	for(struct expr_symbol **__inloop_stack=(struct expr_symbol **)(_stack),**__inloop_sp=__inloop_stack;expr_likely(!({for(;;){\
 		if((_atindex)<EXPR_SYMNEXT){\
 			if(expr_unlikely(__inloop_index>=EXPR_SYMNEXT)){\
@@ -246,7 +246,7 @@ EXPR_END
 			__inloop_index=0;\
 		}\
 		break;\
-	}}))if(likely(__inloop_index!=(_atindex)))continue;else
+	}}))if(expr_likely(__inloop_index!=(_atindex)))continue;else
 
 #define expr_symset_foreach(_sp,_esp,_stack) expr_symset_foreach4(_sp,_esp,_stack,0)
 struct expr_libinfo {

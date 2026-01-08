@@ -5147,8 +5147,8 @@ size_t expr_symset_depth(const struct expr_symset *restrict esp){
 	void *stack=STACK_DEFAULT(esp);
 	size_t depth=0;
 	expr_symset_foreach(sp,esp,stack)
-		if((size_t)__inloop.sp>depth)
-			depth=(size_t)__inloop.sp;
+		if((size_t)__inloop_sp>depth)
+			depth=(size_t)__inloop_sp;
 	return depth?(depth-(size_t)stack)/EXPR_SYMSET_DEPTHUNIT+1:0;
 }
 size_t expr_symset_length(const struct expr_symset *restrict esp){

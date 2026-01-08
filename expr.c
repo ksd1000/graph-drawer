@@ -3004,10 +3004,11 @@ static int expr_rmsym(struct expr *restrict ep,const char *sym,size_t sz){
 	if(sz==1){
 		switch(*sym){
 			case '*':
-				expr_symset_free(ep->sset);
-				ep->sset=new_expr_symset();
-				if(unlikely(!ep->sset))
-					return -1;
+				//expr_symset_free(ep->sset);
+				//ep->sset=new_expr_symset();
+				//if(unlikely(!ep->sset))
+				//	return -1;
+				expr_symset_wipe(ep->sset);
 				return 0;
 			default:
 				break;
@@ -4844,8 +4845,14 @@ void expr_symset_free(struct expr_symset *restrict esp){
 		xfree(esp);
 }
 void expr_symset_wipe(struct expr_symset *restrict esp){
-	expr_symset_free(esp);
-	init_expr_symset(esp);
+	expr_symset_foreach4(sp,esp,STACK_DEFAULT(esp),EXPR_SYMNEXT){
+		xfree(sp);
+	}
+	esp->syms=NULL;
+	esp->size=0;
+	esp->removed=0;
+	esp->depth=0;
+	esp->length=0;
 }
 static int firstdiff(const char *restrict s1,const char *restrict s2,size_t len){
 	int r;

@@ -370,7 +370,8 @@ struct expr_symset {
 	size_t removed;//amount of removed symbols starting from the
 		       //latest expr_symset_vaddl(),expr_symset_addcopy(),
 		       //expr_symset_insert() or expr_symset_remove()
-		       //that increases this->depth
+		       //that increases this->depth.
+		       //expr_symset_wipe(this) will set it to 0.
 	size_t removed_m;//amount of all removed symbols
 	size_t length;
 	size_t length_m;//m:monotonic
@@ -384,6 +385,7 @@ struct expr_symset {
 	//source code of expr_symset_remove() to ensure this->depth equals
 	//to the real depth. but it is not suggested,for it will cost a lot
 	//of cpu time to travel through every symbol to get the real depth.
+	//this will be set to 0 when an expr_symset_wipe(this) is called.
 	unsigned int freeable,unused;
 };
 struct expr_resource {

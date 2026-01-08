@@ -28,9 +28,9 @@
 #pragma GCC diagnostic ignored "-Wunknown-warning-option"
 #endif
 
-#define STACK_DEFAULT(esp) alloca((esp)->depth*EXPR_SYMSET_DEPTHUNIT)
+#define STACK_DEFAULT(esp) ({size_t depth=(esp)->depth;depth<2?NULL:alloca((depth-1)*EXPR_SYMSET_DEPTHUNIT);})
 #define SYMDIM(sp) (*(size_t *)((sp)->str+(sp)->strlen+1))
-#define assume(cond) if(cond);else __builtin_unreachable()
+#define assume(cond) expr_assume(cond)
 #define likely(cond) expr_likely(cond)
 #define unlikely(cond) expr_unlikely(cond)
 #define cast(X,T) expr_cast(X,T)
@@ -424,12 +424,13 @@ uint64_t expr_gcd64(uint64_t x,uint64_t y){
 	x>>=r;
 	y>>=r;
 	r1=(x<y);
-	while(x&&y){
+	while(likely(x&&y)){
 		if(r1^=1)
 			x%=y;
 		else
 			y%=x;
 	}
+	assume(!x||!y);
 	return (x|y)<<r;
 }
 #define gcd2(__x,__y) ({\
@@ -438,10 +439,11 @@ uint64_t expr_gcd64(uint64_t x,uint64_t y){
 	_x=(__x);\
 	_y=(__y);\
 	r1=(fabs(_x)<fabs(_y));\
-	while(_x!=0.0&&_y!=0.0){\
+	while(likely(_x!=0.0&&_y!=0.0)){\
 		if(r1^=1)_x=fmod(_x,_y);\
 		else _y=fmod(_y,_x);\
 	}\
+	assume(_x==0.0||_y==0.0);\
 	_x!=0.0?_x:_y;\
 })
 #define lcm2(__x,__y) ({\
@@ -458,7 +460,7 @@ double expr_lcm2(double x,double y){
 }
 void expr_mirror(double *buf,size_t size){
 	double *out=buf+size-1,swapbuf;
-	while(out>buf){
+	while(likely(out>buf)){
 		swapbuf=*out;
 		*out=*buf;
 		*buf=swapbuf;
@@ -1298,7 +1300,7 @@ static double expr_root(size_t n,const struct expr *args,double input){
 		from=to;
 		to=swapbuf;
 	}
-	for(;from<=to;from+=step){
+	for(;likely(from<=to);from+=step){
 		if(unlikely(fabs(eval(args,from))<=epsilon))
 			return from;
 	}
@@ -5149,6 +5151,18 @@ size_t expr_symset_depth(const struct expr_symset *restrict esp){
 			depth=(size_t)__inloop.sp;
 	return depth?(depth-(size_t)stack)/EXPR_SYMSET_DEPTHUNIT+1:0;
 }
+size_t expr_symset_length(const struct expr_symset *restrict esp){
+	size_t length=0;
+	expr_symset_foreach(sp,esp,STACK_DEFAULT(esp))
+		length+=sp->length;
+	return length;
+}
+size_t expr_symset_size(const struct expr_symset *restrict esp){
+	size_t sz=0;
+	expr_symset_foreach(sp,esp,STACK_DEFAULT(esp))
+		++sz;
+	return sz;
+}
 static void expr_symset_callback_symbol(struct expr_symbol *esp,void (*callback)(struct expr_symbol *esp,void *arg),void *arg){
 	for(int i=0;i<EXPR_SYMNEXT/2-1;++i){
 		if(!esp->next[i])
@@ -5941,7 +5955,7 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 				}\
 				_init ;\
 				for(ip->un.es->index=from;\
-					ip->un.es->index<=to;\
+					likely(ip->un.es->index<=to);\
 					ip->un.es->index+=step){\
 					y=eval(ip->un.es->ep,input) ;\
 					_do ;\
@@ -5967,7 +5981,7 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 				to=eval(ip->un.es->toep,input);\
 				if(unlikely(to<0.0))\
 					to=-to;\
-				while(to!=0.0){\
+				while(likely(to!=0.0)){\
 					eval(ip->un.es->stepep,input);\
 					to=eval(ip->un.es->toep,input);\
 				}\
@@ -5979,7 +5993,7 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 				to=eval(ip->un.es->toep,input);\
 				if(unlikely(to<0))\
 					to=-to;\
-				for(;to>0.0;to-=1.0){\
+				for(;likely(to>0.0);to-=1.0){\
 					eval(ip->un.es->stepep,input);\
 				}\
 				*dest=eval(ip->un.es->ep,input);\
@@ -5988,7 +6002,7 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 				ap=ip->un.em->args;\
 				endp=ap+ip->un.em->dim;\
 				epp=ip->un.em->eps;\
-				for(;ap<endp;++ap)\
+				for(;likely(ap<endp);++ap)\
 					*ap=eval(epp++,input);\
 				*dest=ip->un.em->un.func(ip->un.em->dim,ip->un.em->args);\
 				break;\
@@ -6005,12 +6019,12 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 	from=eval(_ev->fromep,input);\
 	to=eval(_ev->toep,input);\
 	step=fabs(eval(_ev->stepep,input));\
-	if(!_max){\
+	if(unlikely(!_max)){\
 		if(unlikely(step==0.0))\
 			return NAN;\
 		_max=1;\
 		for(double from1=from,from2;;++_max){\
-			if(from<to){\
+			if(likely(from<to)){\
 				from2=from1;\
 				from1+=step;\
 				if(from1>to)\
@@ -6030,9 +6044,9 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 	_args=_ev->args?_ev->args:alloca(_max*sizeof(double));\
 	ap=_args;\
 	_ev->index=from;\
-	for(;_max;--_max){\
+	for(;likely(_max);--_max){\
 		*(ap++)=eval(_ev->ep,input);\
-		if(from<to){\
+		if(likely(from<to)){\
 			_ev->index+=step;\
 			if(_ev->index>to)\
 				break;\
@@ -6969,22 +6983,23 @@ again:
 				eval(ip->un.eb->value,input);\
 				break;\
 			case EXPR_WHILE:\
-				while(eval(ip->un.eb->cond,input)!=0.0)\
+				while(likely(eval(ip->un.eb->cond,input)!=0.0))\
 					eval(ip->un.eb->body,input);\
 				break;\
 			case EXPR_WIF:\
-				while(eval(ip->un.hotfunc,input)!=0.0);\
+				while(likely(eval(ip->un.hotfunc,input)!=0.0));\
 				break;\
 			case EXPR_DOW:\
 				do\
 					eval(ip->un.eb->body,input);\
-				while(eval(ip->un.eb->cond,input)!=0.0);\
+				while(likely(eval(ip->un.eb->cond,input)!=0.0));\
 				break;\
 			case EXPR_DO:\
-				for(;;)eval(ip->un.hotfunc,input);\
+				for(;;)\
+					eval(ip->un.hotfunc,input);\
 			case EXPR_DON:\
 				un.index=(size_t)eval(ip->un.eb->cond,input);\
-				while(un.index){\
+				while(likely(un.index)){\
 					eval(ip->un.eb->body,input);\
 					--un.index;\
 				}\
@@ -7018,7 +7033,7 @@ again:
 				ap=ip->un.em->args;\
 				endp=ap+ip->un.em->dim;\
 				epp=ip->un.em->eps;\
-				for(;ap<endp;++ap)\
+				for(;likely(ap<endp);++ap)\
 					*ap=eval(epp++,input);\
 				*ip->dst.dst=(*ip->dst.md2)(ip->un.em->dim,ip->un.em->args);\
 				break;\

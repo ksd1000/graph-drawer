@@ -196,6 +196,7 @@ EXPR_END
 		_un._o;\
 	})
 
+#define expr_assume(cond) if(cond);else __builtin_unreachable()
 #define expr_likely(cond) __builtin_expect(!!(cond),1)
 #define expr_unlikely(cond) __builtin_expect(!!(cond),0)
 #define EXPR_SYMSET_DEPTHUNIT (2*sizeof(void *))
@@ -460,6 +461,8 @@ __attribute__((deprecated)) struct expr_symbol *expr_symset_rsearch_old(const st
 struct expr_symbol *expr_symset_rsearch(const struct expr_symset *restrict esp,void *addr);
 __attribute__((deprecated)) size_t expr_symset_depth_old(const struct expr_symset *restrict esp);
 size_t expr_symset_depth(const struct expr_symset *restrict esp);
+size_t expr_symset_length(const struct expr_symset *restrict esp);
+size_t expr_symset_size(const struct expr_symset *restrict esp);
 __attribute__((deprecated)) void expr_symset_callback_old(const struct expr_symset *restrict esp,void (*callback)(struct expr_symbol *esp,void *arg),void *arg);
 void expr_symset_callback(const struct expr_symset *restrict esp,void (*callback)(struct expr_symbol *esp,void *arg),void *arg);
 __attribute__((deprecated)) size_t expr_symset_copy_old(struct expr_symset *restrict dst,const struct expr_symset *restrict src);

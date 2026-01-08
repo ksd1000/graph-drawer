@@ -196,6 +196,7 @@ EXPR_END
 		_un._o;\
 	})
 
+#define expr_assume(cond) if(cond);else __builtin_unreachable()
 #define expr_likely(cond) __builtin_expect(!!(cond),1)
 #define expr_unlikely(cond) __builtin_expect(!!(cond),0)
 #define EXPR_SYMSET_DEPTHUNIT (2*sizeof(void *))

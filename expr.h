@@ -507,7 +507,7 @@ extern void *(*expr_reallocator)(void *,size_t);
 extern void (*expr_deallocator)(void *);
 extern void (*expr_contractor)(void *,size_t);
 extern size_t expr_allocate_max;
-extern void *expr_symset_stack;//MT-unsafe without mutex if not NULL
+extern int expr_symset_allow_heap_stack;
 //default=malloc,realloc,free,expr_contract,0x1000000000UL,NULL
 extern const size_t expr_page_size;
 
@@ -544,7 +544,9 @@ void expr_free(struct expr *restrict ep);
 void init_expr_symset(struct expr_symset *restrict esp);
 struct expr_symset *new_expr_symset(void);
 void expr_symset_free(struct expr_symset *restrict esp);
+void expr_symset_free_s(struct expr_symset *restrict esp,void *stack);
 void expr_symset_wipe(struct expr_symset *restrict esp);
+void expr_symset_wipe_s(struct expr_symset *restrict esp,void *stack);
 struct expr_symbol **expr_symset_findtail(struct expr_symset *restrict esp,const char *sym,size_t symlen,size_t *depth);
 struct expr_symbol *expr_symset_add(struct expr_symset *restrict esp,const char *sym,int type,int flag,...);
 struct expr_symbol *expr_symset_addl(struct expr_symset *restrict esp,const char *sym,size_t symlen,int type,int flag,...);
@@ -555,15 +557,23 @@ struct expr_symbol **expr_symset_search0(const struct expr_symset *restrict esp,
 struct expr_symbol *expr_symset_search(const struct expr_symset *restrict esp,const char *sym,size_t sz);
 struct expr_symbol *expr_symset_insert(struct expr_symset *restrict esp,struct expr_symbol *restrict es);
 int expr_symset_remove(struct expr_symset *restrict esp,const char *sym,size_t sz);
+int expr_symset_remove_s(struct expr_symset *restrict esp,const char *sym,size_t sz,void *stack);
 void expr_symset_removes(struct expr_symset *restrict esp,struct expr_symbol *sp);
+void expr_symset_removes_s(struct expr_symset *restrict esp,struct expr_symbol *sp,void *stack);
 void expr_symset_removea(struct expr_symset *restrict esp,struct expr_symbol *const *spa,size_t n);
+void expr_symset_removea_s(struct expr_symset *restrict esp,struct expr_symbol *const *spa,size_t n,void *stack);
 struct expr_symbol *expr_symset_rsearch(const struct expr_symset *restrict esp,void *addr);
+struct expr_symbol *expr_symset_rsearch_s(const struct expr_symset *restrict esp,void *addr,void *stack);
 size_t expr_symset_depth(const struct expr_symset *restrict esp);
+size_t expr_symset_depth_s(const struct expr_symset *restrict esp,void *stack);
 size_t expr_symset_length(const struct expr_symset *restrict esp);
+size_t expr_symset_length_s(const struct expr_symset *restrict esp,void *stack);
 size_t expr_symset_size(const struct expr_symset *restrict esp);
-void expr_symset_callback(const struct expr_symset *restrict esp,void (*callback)(struct expr_symbol *esp,void *arg),void *arg);
+size_t expr_symset_size_s(const struct expr_symset *restrict esp,void *stack);
 size_t expr_symset_copy(struct expr_symset *restrict dst,const struct expr_symset *restrict src);
+size_t expr_symset_copy_s(struct expr_symset *restrict dst,const struct expr_symset *restrict src,void *stack);
 struct expr_symset *expr_symset_clone(const struct expr_symset *restrict ep);
+struct expr_symset *expr_symset_clone_s(const struct expr_symset *restrict ep,void *stack);
 int expr_isconst(const struct expr *restrict ep);
 int init_expr_const(struct expr *restrict ep,double val);
 struct expr *new_expr_const(double val);

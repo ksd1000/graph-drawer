@@ -28,7 +28,26 @@
 #pragma GCC diagnostic ignored "-Wunknown-warning-option"
 #endif
 
-#define STACK_DEFAULT(esp) (expr_symset_stack?expr_symset_stack:({size_t depth=(esp)->depth;depth<2?NULL:alloca((depth-1)*EXPR_SYMSET_DEPTHUNIT);}))
+//#define STACK_DEFAULT(esp) (expr_symset_stack?expr_symset_stack:({size_t depth=(esp)->depth;depth<2?NULL:alloca((depth-1)*EXPR_SYMSET_DEPTHUNIT);}))
+#define STACK_SIZEOFSSET(esp) ({size_t depth=(esp)->depth;depth<2?0:(depth-1)*EXPR_SYMSET_DEPTHUNIT;})
+#define STACK_DEFAULT(_stack,esp) \
+	__attribute__((cleanup(xfree_stack))) void *_stack##_heap;\
+	void *_stack;\
+	size_t _stack##_size;\
+	_stack##_size=STACK_SIZEOFSSET(esp);\
+	if(unlikely(!_stack##_size)){\
+		_stack##_heap=NULL;\
+		_stack=NULL;\
+	}else if(expr_symset_allow_heap_stack){\
+		_stack##_heap=xmalloc(_stack##_size);\
+		if(unlikely(!_stack##_heap))\
+			_stack=alloca(_stack##_size);\
+		else \
+			_stack=_stack##_heap;\
+	}else {\
+		_stack##_heap=NULL;\
+		_stack=alloca(_stack##_size);\
+	};((void)0)
 #define SYMDIM(sp) (*expr_symset_dim(sp))
 #define HOTLEN(sp) expr_symset_hotlen(sp)
 #define assume(cond) expr_assume(cond)
@@ -371,7 +390,7 @@ void *(*expr_reallocator)(void *,size_t)=realloc;
 void (*expr_deallocator)(void *)=free;
 void (*expr_contractor)(void *,size_t)=expr_contract;
 size_t expr_allocate_max=0x1000000000UL;
-void *expr_symset_stack=NULL;
+int expr_symset_allow_heap_stack=0;
 const size_t expr_page_size=PAGE_SIZE;
 
 #define free (use xfree() instead!)
@@ -394,6 +413,11 @@ static void xfree(void *p){
 	if(unlikely(!p))
 		abort();
 	expr_deallocator(p);
+}
+static void xfree_stack(void **restrict p){
+	if(!*p)
+		return;
+	expr_deallocator(*p);
 }
 #define ltod(_l) expr_ltod48(_l)
 #define ltol(_l) expr_ltol48(_l)
@@ -3089,7 +3113,8 @@ err0:
 static int expr_rmsymt(struct expr *restrict ep,struct expr_symbol **buf,size_t sz,int type){
 	struct expr_symbol **bufp=buf;
 	struct expr_symbol **bufp_end=buf+sz;
-	expr_symset_foreach(sp,ep->sset,STACK_DEFAULT(ep->sset)){
+	STACK_DEFAULT(stack,ep->sset);
+	expr_symset_foreach(sp,ep->sset,stack){
 		if(unlikely(bufp>=bufp_end)){
 			expr_symset_removea(ep->sset,buf,bufp-buf);
 			return 1;
@@ -4969,14 +4994,22 @@ struct expr_symset *new_expr_symset(void){
 }
 
 void expr_symset_free(struct expr_symset *restrict esp){
-	expr_symset_foreach4(sp,esp,STACK_DEFAULT(esp),EXPR_SYMNEXT){
+	STACK_DEFAULT(stack,esp);
+	expr_symset_free_s(esp,stack);
+}
+void expr_symset_free_s(struct expr_symset *restrict esp,void *stack){
+	expr_symset_foreach4(sp,esp,stack,EXPR_SYMNEXT){
 		xfree(sp);
 	}
 	if(esp->freeable)
 		xfree(esp);
 }
 void expr_symset_wipe(struct expr_symset *restrict esp){
-	expr_symset_foreach4(sp,esp,STACK_DEFAULT(esp),EXPR_SYMNEXT){
+	STACK_DEFAULT(stack,esp);
+	expr_symset_wipe_s(esp,stack);
+}
+void expr_symset_wipe_s(struct expr_symset *restrict esp,void *stack){
+	expr_symset_foreach4(sp,esp,stack,EXPR_SYMNEXT){
 		xfree(sp);
 	}
 	esp->syms=NULL;
@@ -5248,16 +5281,29 @@ int expr_symset_remove(struct expr_symset *restrict esp,const char *sym,size_t s
 	expr_symset_removea(esp,&r,1);
 	return 0;
 }
+int expr_symset_remove_s(struct expr_symset *restrict esp,const char *sym,size_t sz,void *stack){
+	struct expr_symbol *r;
+	r=expr_symset_search(esp,sym,sz);
+	if(!r)
+		return -1;
+	expr_symset_removea_s(esp,&r,1,stack);
+	return 0;
+}
 void expr_symset_removes(struct expr_symset *restrict esp,struct expr_symbol *sp){
 	expr_symset_removea(esp,&sp,1);
 }
+void expr_symset_removes_s(struct expr_symset *restrict esp,struct expr_symbol *sp,void *stack){
+	expr_symset_removea_s(esp,&sp,1,stack);
+}
 void expr_symset_removea(struct expr_symset *restrict esp,struct expr_symbol *const *spa,size_t n){
+	STACK_DEFAULT(stack,esp);
+	expr_symset_removea_s(esp,spa,n,stack);
+}
+void expr_symset_removea_s(struct expr_symset *restrict esp,struct expr_symbol *const *spa,size_t n,void *stack){
 	size_t depth;
 	struct expr_symbol **tail;
-	void *stack;
 	struct expr_symbol *const *spa_cur=spa;
 	struct expr_symbol *const *spa_end=spa+n;
-	stack=STACK_DEFAULT(esp);
 	while(spa_cur<spa_end){
 		*(*spa_cur)->tail=NULL;
 		++spa_cur;
@@ -5284,14 +5330,21 @@ void expr_symset_removea(struct expr_symset *restrict esp,struct expr_symbol *co
 	esp->removed_m+=n;
 }
 struct expr_symbol *expr_symset_rsearch(const struct expr_symset *restrict esp,void *addr){
-	expr_symset_foreach(sp,esp,STACK_DEFAULT(esp)){
+	STACK_DEFAULT(stack,esp);
+	return expr_symset_rsearch_s(esp,addr,stack);
+}
+struct expr_symbol *expr_symset_rsearch_s(const struct expr_symset *restrict esp,void *addr,void *stack){
+	expr_symset_foreach(sp,esp,stack){
 		if(unlikely(sp->un.uaddr==addr))
 			return sp;
 	}
 	return NULL;
 }
 size_t expr_symset_depth(const struct expr_symset *restrict esp){
-	void *stack=STACK_DEFAULT(esp);
+	STACK_DEFAULT(stack,esp);
+	return expr_symset_depth_s(esp,stack);
+}
+size_t expr_symset_depth_s(const struct expr_symset *restrict esp,void *stack){
 	size_t depth=0;
 	expr_symset_foreach(sp,esp,stack)
 		if((size_t)__inloop_sp>depth)
@@ -5299,24 +5352,32 @@ size_t expr_symset_depth(const struct expr_symset *restrict esp){
 	return depth?(depth-(size_t)stack)/EXPR_SYMSET_DEPTHUNIT+1:0;
 }
 size_t expr_symset_length(const struct expr_symset *restrict esp){
+	STACK_DEFAULT(stack,esp);
+	return expr_symset_length_s(esp,stack);
+}
+size_t expr_symset_length_s(const struct expr_symset *restrict esp,void *stack){
 	size_t length=0;
-	expr_symset_foreach(sp,esp,STACK_DEFAULT(esp))
+	expr_symset_foreach(sp,esp,stack)
 		length+=sp->length;
 	return length;
 }
 size_t expr_symset_size(const struct expr_symset *restrict esp){
+	STACK_DEFAULT(stack,esp);
+	return expr_symset_size_s(esp,stack);
+}
+size_t expr_symset_size_s(const struct expr_symset *restrict esp,void *stack){
 	size_t sz=0;
-	expr_symset_foreach(sp,esp,STACK_DEFAULT(esp))
+	expr_symset_foreach(sp,esp,stack)
 		++sz;
 	return sz;
 }
-void expr_symset_callback(const struct expr_symset *restrict esp,void (*callback)(struct expr_symbol *esp,void *arg),void *arg){
-	expr_symset_foreach(sp,esp,STACK_DEFAULT(esp))
-		callback(sp,arg);
-}
 size_t expr_symset_copy(struct expr_symset *restrict dst,const struct expr_symset *restrict src){
+	STACK_DEFAULT(stack,src);
+	return expr_symset_copy_s(dst,src,stack);
+}
+size_t expr_symset_copy_s(struct expr_symset *restrict dst,const struct expr_symset *restrict src,void *stack){
 	size_t n=0;
-	expr_symset_foreach(sp,src,STACK_DEFAULT(src)){
+	expr_symset_foreach(sp,src,stack){
 		if(likely(expr_symset_addcopy(dst,sp)))
 			++n;
 	}
@@ -5328,6 +5389,16 @@ struct expr_symset *expr_symset_clone(const struct expr_symset *restrict ep){
 		return NULL;
 	if(ep&&expr_symset_copy(es,ep)<ep->size){
 		expr_symset_free(es);
+		return NULL;
+	}
+	return es;
+}
+struct expr_symset *expr_symset_clone_s(const struct expr_symset *restrict ep,void *stack){
+	struct expr_symset *es=new_expr_symset();
+	if(!es)
+		return NULL;
+	if(ep&&expr_symset_copy_s(es,ep,stack)<ep->size){
+		expr_symset_free_s(es,stack);
 		return NULL;
 	}
 	return es;

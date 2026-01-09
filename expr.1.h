@@ -507,7 +507,7 @@ extern void *(*expr_reallocator)(void *,size_t);
 extern void (*expr_deallocator)(void *);
 extern void (*expr_contractor)(void *,size_t);
 extern size_t expr_allocate_max;
-extern void *expr_symset_stack;//MT-unsafe without mutex if not NULL
+extern int expr_symset_allow_heap_stack;
 //default=malloc,realloc,free,expr_contract,0x1000000000UL,NULL
 extern const size_t expr_page_size;
 

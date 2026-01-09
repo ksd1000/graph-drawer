@@ -3441,10 +3441,11 @@ symget:
 				case EXPR_MDFUNCTION:
 				case EXPR_MDEPFUNCTION:
 				case EXPR_ZAFUNCTION:
-					if(unlikely(!(flag&EXPR_SF_INJECTION)&&(ep->iflag&EXPR_IF_INJECTION_S)))
-						goto ein;
 					if(unlikely((flag&EXPR_SF_UNSAFE)&&(ep->iflag&EXPR_IF_PROTECT)))
 						goto pm;
+				case EXPR_FUNCTION:
+					if(unlikely(!(flag&EXPR_SF_INJECTION)&&(ep->iflag&EXPR_IF_INJECTION_S)))
+						goto ein;
 				default:
 					break;
 			}
@@ -3458,10 +3459,11 @@ symget:
 			case EXPR_MDFUNCTION:
 			case EXPR_MDEPFUNCTION:
 			case EXPR_ZAFUNCTION:
-				if(unlikely(!(flag&EXPR_SF_INJECTION)&&(ep->iflag&EXPR_IF_INJECTION_B)))
-					goto ein;
 				if(unlikely((flag&EXPR_SF_UNSAFE)&&(ep->iflag&EXPR_IF_PROTECT)))
 					goto pm;
+			case EXPR_FUNCTION:
+				if(unlikely(!(flag&EXPR_SF_INJECTION)&&(ep->iflag&EXPR_IF_INJECTION_B)))
+					goto ein;
 			default:
 				break;
 		}

@@ -41,10 +41,10 @@ const struct proj {
 	{"(5<<3)>>2",10},
 	{"5+3>>2",2},
 	{"5>>3+2",5.0/32},
-	{"drand48()-->x,x+2^x<3",1},
-	{"drand48()-->x,x+2^x>=3",0},
-	{"drand48()-->x,x+2^x>=0",1},
-	{"drand48()-->x,x+2^x<0",0},
+	{"drand48(&x0)-->x,x+2^x<3",1},
+	{"drand48(&x0)-->x,x+2^x>=3",0},
+	{"drand48(&x0)-->x,x+2^x>=0",1},
+	{"drand48(&x0)-->x,x+2^x<0",0},
 	{"!(5-2)",0},
 	{"!(5-5)",1},
 	{"!!(5-2)",1},
@@ -100,9 +100,9 @@ const struct eproj {
 	{"2+",EXPR_EEV},
 	{"2->",EXPR_EEV},
 	{"2->+",EXPR_EUO},
-	{"drand48(2)",EXPR_EZAFP},
-	{"drand48(",EXPR_EZAFP},
-	{"drand48",EXPR_EZAFP},
+	{"abort(2)",EXPR_EZAFP},
+	{"abort(",EXPR_EZAFP},
+	{"abort",EXPR_EZAFP},
 	{"var(defined_symbol,5),0",EXPR_EDS},
 	{"vmd(k,1,10,1,k,cmp,0)",EXPR_EVMD},
 	{"5-->v,&v[2]c",EXPR_EUSN},
@@ -118,7 +118,7 @@ const struct eproj {
 	{"flag(IF_PROTECT),&sin",EXPR_EPM},
 	{"undef(defined_symbol),defined_symbol",EXPR_ESYMBOL},
 	{"undef(defined_symbol){defined_symbol}",EXPR_ESYMBOL},
-	{"flag(IF_INJECTION),drand48()",EXPR_EIN},
+	{"flag(IF_INJECTION),drand48(&x0)",EXPR_EIN},
 	{NULL}
 };
 void errcheck(const char *e,int expect){
@@ -164,8 +164,10 @@ ab:
 	abort();
 }
 int main(int argc,char **argv){
+	double x0=expr_cast(expr_seed48(time(NULL)),double);
 	srand48(time(NULL)+getpid());
 	//expr_calc5("t+2","t",3,NULL,0);
+	expr_symset_add(&es,"x0",EXPR_VARIABLE,0,&x0);
 	expr_symset_add(&es,"defined_symbol",EXPR_CONSTANT,0,2304.0);
 	setvbuf(stdout,NULL,_IONBF,0);
 	for(const struct proj *p=projs;p->e;++p)
@@ -173,8 +175,8 @@ int main(int argc,char **argv){
 	for(const struct eproj *p=eprojs;p->e;++p)
 		errcheck(p->e,p->expect);
 	new_expr7("t^3+sin(t)+sum(n,0,100,1,sin(n*t))","t",NULL,EXPR_IF_INSTANT_FREE,1250,NULL,NULL);
-	assert(es.size==1);
-	assert(es.depth==1);
+	assert(es.size==2);
+	assert(es.depth==2);
 	expr_symset_wipe(&es);
 	for(const struct expr_builtin_keyword *p=expr_keywords;;++p){
 		if(!p->str){

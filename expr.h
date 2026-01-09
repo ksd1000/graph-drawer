@@ -150,6 +150,7 @@ EXPR_END
 #define EXPR_SF_PMD 4
 #define EXPR_SF_PME 8
 #define EXPR_SF_UNSAFE 16
+#define EXPR_SF_ALLOWADDR 32
 
 #define EXPR_SF_PEP 12
 #define EXPR_SF_PMASK (~12)
@@ -192,11 +193,65 @@ EXPR_END
 		union {\
 			__typeof(x) _x;\
 			__typeof(type) _o;\
-		} _un;\
-		_un._x=(x);\
-		_un._o;\
+		} _cast_un;\
+		_cast_un._x=(x);\
+		_cast_un._o;\
 	})
 
+#define expr_next48v(__val) ((0x5deece66dul*(__val)+0xb)&0xffffffffffffl)
+#define expr_next48(_seedp) ({\
+	long *restrict _next48_seed=(_seedp);\
+	*_next48_seed=expr_next48v(*_next48_seed);\
+})
+#define expr_seed48(__val) (0x330e|(((__val)&0xffffffffl)<<16))
+#define expr_next48l32(_seedp) (expr_next48(_seedp)&0xffffffffl)
+
+#define expr_get48(_addr) ({\
+	const uint16_t *_get48_addr=(_addr);\
+	(long)*(uint32_t *)_get48_addr|((long)_get48_addr[2]<<32l);\
+})
+#define expr_set48(_addr,_val) ({\
+	uint16_t *_set48_addr=(_addr);\
+	long _set48_val=(_val);\
+	*(uint32_t *)_set48_addr=(uint32_t)_set48_val;\
+	_set48_addr[2]=(uint16_t)(_set48_val>>32l);\
+})
+
+#define expr_ssnext48(_ss) ({\
+	struct expr_superseed *_ssnext48_ss=(_ss);\
+	uint16_t *_ssnext48_end,*_ssnext48_p;\
+	long _ssnext48_val,_ssnext48_r;\
+	_ssnext48_p=_ssnext48_ss->data;\
+	_ssnext48_end=_ssnext48_p+3*_ssnext48_ss->len;\
+	_ssnext48_r=expr_next48v(expr_get48(_ssnext48_p));\
+	_ssnext48_val=_ssnext48_r;\
+	expr_set48(_ssnext48_p,_ssnext48_r);\
+	_ssnext48_p+=3;\
+	while(expr_likely(_ssnext48_p<_ssnext48_end)){\
+		_ssnext48_r=expr_next48v(expr_get48(_ssnext48_p));\
+		_ssnext48_val+=_ssnext48_r;\
+		expr_set48(_ssnext48_p,_ssnext48_r);\
+		_ssnext48_p+=3;\
+	}\
+	_ssnext48_val&0xffffffffffffl;\
+})
+
+#define expr_ssgetnext48(_ss) ({\
+	const struct expr_superseed *_ssgetnext48_ss=(_ss);\
+	const uint16_t *_ssgetnext48_end,*_ssgetnext48_p;\
+	long _ssgetnext48_val,_ssgetnext48_r;\
+	_ssgetnext48_p=_ssgetnext48_ss->data;\
+	_ssgetnext48_end=_ssgetnext48_p+3*_ssgetnext48_ss->len;\
+	_ssgetnext48_r=expr_next48v(expr_get48(_ssgetnext48_p));\
+	_ssgetnext48_val=_ssgetnext48_r;\
+	_ssgetnext48_p+=3;\
+	while(expr_likely(_ssgetnext48_p<_ssgetnext48_end)){\
+		_ssgetnext48_r=expr_next48v(expr_get48(_ssgetnext48_p));\
+		_ssgetnext48_val+=_ssgetnext48_r;\
+		_ssgetnext48_p+=3;\
+	}\
+	_ssgetnext48_val&0xffffffffffffl;\
+})
 #define expr_symset_hot(_esp) ({const struct expr_symbol *restrict __esp=(_esp);(char *)(__esp->str+__esp->strlen+1);})
 #define expr_symset_hotlen(_esp) ({const struct expr_symbol *restrict __esp=(_esp);(size_t)__esp->length-(size_t)__esp->strlen-sizeof(struct expr_symbol)-2;})
 #define expr_symset_dim(_esp) ({const struct expr_symbol *restrict __esp=(_esp);(size_t *)(__esp->str+__esp->strlen+1);})
@@ -207,13 +262,14 @@ EXPR_END
 #define EXPR_SYMSET_DEPTHUNIT (2*sizeof(void *))
 
 #define expr_symbol_foreach4(_sp,_esp,_stack,_atindex) \
-	for(unsigned int __inloop_end=0,__inloop_index=0;!__inloop_end;({\
+	for(unsigned int __inloop_end=0,__inloop_index=0;({\
 		_Static_assert(__builtin_constant_p((_atindex)),"_atindex should be constant");\
 		_Static_assert(__builtin_constant_p((_atindex)<EXPR_SYMNEXT),"_atindex should be constant");\
 		_Static_assert(__builtin_constant_p((_atindex)>=EXPR_SYMNEXT),"_atindex should be constant");\
 		expr_static_castable((_stack),void *);\
 		expr_static_castable((_esp),const struct expr_symbol *);\
-	}))\
+		!__inloop_end;\
+	});)\
 	for(struct expr_symbol *_sp=(struct expr_symbol *)(_esp);!__inloop_end;)\
 	if(expr_unlikely(!_sp)){__inloop_end=1;break;}else\
 	for(struct expr_symbol **__inloop_stack=(struct expr_symbol **)(_stack),**__inloop_sp=__inloop_stack;expr_likely(!({for(;;){\
@@ -293,6 +349,10 @@ struct expr_vmdinfo {
 	double (*func)(size_t,double *);
 	double *args;
 	volatile double index;
+};
+struct expr_superseed {
+	size_t len;
+	uint16_t data[];//size=3*len
 };
 struct expr_rawdouble {
 	uint64_t base:52;

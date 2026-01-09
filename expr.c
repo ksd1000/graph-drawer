@@ -395,28 +395,47 @@ static void xfree(void *p){
 		abort();
 	expr_deallocator(p);
 }
-/*
-#define XASPRINTF_SIZE 128
-static int xasprintf_nullable(char **restrict strp, const char *restrict fmt,...){
-	va_list ap;
-	int r;
-	char *p;
-	va_start(ap,fmt);
-	p=xmalloc(XASPRINTF_SIZE);
-	if(!p)
-		goto err;
-	r=vsnprintf(p,XASPRINTF_SIZE,fmt,ap);
-	if(r>=XASPRINTF_SIZE){
-		xfree(p);
-		goto err;
-	}
-	va_end(ap);
-	return r;
-err:
-	va_end(ap);
-	return -1;
+static double expr_lrand48(double x){
+	return (double)((expr_next48(cast(x,long *))&0xffffffff0000l)>>17);
 }
-*/
+static double expr_mrand48(double x){
+	return (double)(int32_t)((expr_next48(cast(x,long *))&0xffffffff0000l)>>16);
+}
+static double expr_rand48(double x){
+	return (double)(expr_next48(cast(x,long *)));
+}
+static double expr_rand48_next(double x){
+	return (double)expr_next48v((long)x);
+}
+#define ltod(l) (cast((((l)&0xffffffffffffl)<<4)|0x3ff0000000000000l,double)-1.0)
+static double expr_drand48_next(double x){
+	return ltod(expr_next48v((cast(x+1.0,long)&0xffffffffffff0l)>>4));
+}
+static double expr_drand48(double x){
+	return ltod(expr_next48(cast(x,long *)));
+}
+static double expr_srand48(double x){
+	return cast(expr_seed48((long)x),double);
+}
+static double expr_ssdrand48(double x){
+	return ltod(expr_ssnext48(cast(x,struct expr_superseed *)));
+}
+static double expr_ssrand48(double x){
+	return (double)(expr_ssnext48(cast(x,struct expr_superseed *)));
+}
+static double expr_sslrand48(double x){
+	return (double)((expr_ssnext48(cast(x,struct expr_superseed *))&0xffffffff0000l)>>17);
+}
+static double expr_ssmrand48(double x){
+	return (double)(int32_t)((expr_ssnext48(cast(x,struct expr_superseed *))&0xffffffff0000l)>>16);
+}
+static double expr_ssnext48_b(double x){
+	return (double)expr_ssgetnext48(cast(x,const struct expr_superseed *));
+}
+static double expr_ssdnext48(double x){
+	return ltod(expr_ssgetnext48(cast(x,const struct expr_superseed *)));
+}
+
 uint64_t expr_gcd64(uint64_t x,uint64_t y){
 	uint64_t r;
 	int r1;
@@ -771,12 +790,14 @@ static __attribute__((noreturn)) void expr_trap(void){
 static __attribute__((noreturn)) void expr_ubehavior(void){
 	__builtin_unreachable();
 }
+/*
 static double expr_lrand48(void){
 	return (double)lrand48();
 }
 static double expr_mrand48(void){
 	return (double)mrand48();
 }
+*/
 static double expr_strtol(size_t n,double *args){
 	return (double)strtol(cast(*args,const char *),NULL,(int)args[1]);
 }
@@ -1479,6 +1500,8 @@ static double expr_hypot(size_t n,double *args){
 #define REGFSYM2(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SF_INJECTION}
 #define REGFSYM2_NI(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SF_UNSAFE}
 #define REGFSYM2_U(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SF_INJECTION|EXPR_SF_UNSAFE}
+#define REGFSYM2_NIU(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SF_UNSAFE}
+#define REGFSYM2_UA(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SF_ALLOWADDR|EXPR_SF_UNSAFE}
 #define REGZASYM2(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.zafunc=sym},.type=EXPR_ZAFUNCTION,.flag=0}
 #define REGZASYM2_U(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.zafunc=sym},.type=EXPR_ZAFUNCTION,.flag=EXPR_SF_UNSAFE}
 #define REGMDSYM2(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdfunc=sym},.dim=d,.type=EXPR_MDFUNCTION,.flag=EXPR_SF_INJECTION}
@@ -1577,6 +1600,7 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGCSYM_E(SF_PME),
 	REGCSYM_E(SF_PEP),
 	REGCSYM_E(SF_UNSAFE),
+	REGCSYM_E(SF_ALLOWADDR),
 
 	REGCSYM_E(ESYMBOL),
 	REGCSYM_E(EPT),
@@ -1716,13 +1740,26 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGFSYM(trunc),
 	REGFSYM(y0),
 	REGFSYM(y1),
+	REGFSYM2_UA("rand48",expr_rand48),
+	REGFSYM2_UA("drand48",expr_drand48),
+	REGFSYM2_UA("lrand48",expr_lrand48),
+	REGFSYM2_UA("mrand48",expr_mrand48),
+	REGFSYM2_NIU("ssrand48",expr_ssrand48),
+	REGFSYM2_NIU("ssdrand48",expr_ssdrand48),
+	REGFSYM2_NIU("sslrand48",expr_sslrand48),
+	REGFSYM2_NIU("ssmrand48",expr_ssmrand48),
+	REGFSYM2_NIU("ssnext48",expr_ssnext48_b),
+	REGFSYM2_NIU("ssdnext48",expr_ssdnext48),
+	REGFSYM2("srand48",expr_srand48),
+	REGFSYM2("drand48_next",expr_drand48_next),
+	REGFSYM2("rand48_next",expr_rand48_next),
 
 	REGZASYM2_U("abort",(double (*)(void))abort),
-	REGZASYM(drand48),
+//	REGZASYM(drand48),
 	REGZASYM2_U("explode",(double (*)(void))expr_explode),
 	REGZASYM2_U("frame",expr_frame),
-	REGZASYM2("lrand48",expr_lrand48),
-	REGZASYM2("mrand48",expr_mrand48),
+//	REGZASYM2("lrand48",expr_lrand48),
+//	REGZASYM2("mrand48",expr_mrand48),
 	REGZASYM2_U("trap",(double (*)(void))expr_trap),
 	REGZASYM2_U("ubehavior",(double (*)(void))expr_ubehavior),
 
@@ -1761,6 +1798,13 @@ const struct expr_builtin_symbol expr_symbols[]={
 #ifdef SYSCALL_DEFINED
 	REGMDSYM2_NIU("syscall",bsyscall,0),
 	REGFSYM_U(systype),
+	REGCSYM2("sysp0",1l<<32l),
+	REGCSYM2("sysp1",1l<<33l),
+	REGCSYM2("sysp2",1l<<34l),
+	REGCSYM2("sysp3",1l<<35l),
+	REGCSYM2("sysp4",1l<<36l),
+	REGCSYM2("sysp5",1l<<37l),
+	REGCSYM2("sysp6",1l<<38l),
 #endif
 
 	REGMDEPSYM2_NIW("assert",bassert,1ul),
@@ -3325,13 +3369,12 @@ symget:
 			sv.sv=&sym.es->un;
 			flag=sym.es->flag;
 			switch(type){
-				case EXPR_FUNCTION:
 				case EXPR_MDFUNCTION:
 				case EXPR_MDEPFUNCTION:
 				case EXPR_ZAFUNCTION:
-					if(!(flag&EXPR_SF_INJECTION)&&(ep->iflag&EXPR_IF_INJECTION_S))
+					if(unlikely(!(flag&EXPR_SF_INJECTION)&&(ep->iflag&EXPR_IF_INJECTION_S)))
 						goto ein;
-					if((flag&EXPR_SF_UNSAFE)&&(ep->iflag&EXPR_IF_PROTECT))
+					if(unlikely((flag&EXPR_SF_UNSAFE)&&(ep->iflag&EXPR_IF_PROTECT)))
 						goto pm;
 				default:
 					break;
@@ -3343,13 +3386,12 @@ symget:
 		flag=sym.ebs->flag;
 		type=sym.ebs->type;
 		switch(type){
-			case EXPR_FUNCTION:
 			case EXPR_MDFUNCTION:
 			case EXPR_MDEPFUNCTION:
 			case EXPR_ZAFUNCTION:
-				if(!(flag&EXPR_SF_INJECTION)&&(ep->iflag&EXPR_IF_INJECTION_B))
+				if(unlikely(!(flag&EXPR_SF_INJECTION)&&(ep->iflag&EXPR_IF_INJECTION_B)))
 					goto ein;
-				if((flag&EXPR_SF_UNSAFE)&&(ep->iflag&EXPR_IF_PROTECT))
+				if(unlikely((flag&EXPR_SF_UNSAFE)&&(ep->iflag&EXPR_IF_PROTECT)))
 					goto pm;
 			default:
 				break;
@@ -4011,6 +4053,27 @@ vzero:
 found:
 	switch(type){
 		case EXPR_FUNCTION:
+			if((flag&EXPR_SF_UNSAFE)&&(ep->iflag&EXPR_IF_PROTECT)){
+				if(unlikely(!(flag&EXPR_SF_ALLOWADDR)))
+					goto pm;
+				if(unlikely(p+2>=endp||p[1]!='&'))
+					goto pm;
+				un.ccp=getsym(p+2,endp);
+				if(unlikely(p+2==un.ccp)){
+					goto pm;
+				}
+				if(unlikely(!ep->sset||!(sym.es=expr_symset_search(ep->sset,p+2,un.ccp-p-2)))){
+					goto pm;
+				}
+				switch(sym.es->type){
+					case EXPR_VARIABLE:
+						break;
+					default:
+						goto pm;
+				}
+				type=1;
+			}else
+				type=0;
 			if(unlikely(p>=endp||*p!='(')){
 				serrinfo(ep->errinfo,e,p-e);
 				seterr(ep,EXPR_EFP);
@@ -4022,7 +4085,12 @@ found:
 				goto pterr;
 			if(unlikely(p==e+1))
 				goto envp;
-			v0=scan(ep,e+1,p,asym,asymlen);
+			if(type){
+				ep->iflag&=~EXPR_IF_PROTECT;
+				v0=scan(ep,e+1,p,asym,asymlen);
+				ep->iflag|=EXPR_IF_PROTECT;
+			}else
+				v0=scan(ep,e+1,p,asym,asymlen);
 			if(unlikely(!v0))
 				return NULL;
 			cknp(ep,expr_addcall(ep,v0,sv.sv->func,flag),return NULL);
@@ -4100,7 +4168,7 @@ treat_as_variable:
 					if(unlikely(!p))
 						goto pterr;
 					seterr(ep,EXPR_EPM);
-					serrinfo(ep->errinfo,e0,p-e0+1);
+					serrinfo(ep->errinfo,e0,e-e0);
 					return NULL;
 				}
 				switch(flag&~EXPR_SF_PMASK){
@@ -5122,12 +5190,12 @@ static void expr_symset_insert_forremove(struct expr_symset *restrict esp,struct
 		esp->removed=0;
 	}
 }
-*/
 #define sset_dec(esp,_length) \
 	--(esp)->size;\
 	(esp)->length-=(_length);\
 	++(esp)->removed;\
 	++(esp)->removed_m
+*/
 int expr_symset_remove(struct expr_symset *restrict esp,const char *sym,size_t sz){
 	struct expr_symbol *r;
 	r=expr_symset_search(esp,sym,sz);
@@ -5163,10 +5231,13 @@ void expr_symset_removea(struct expr_symset *restrict esp,struct expr_symbol *co
 				esp->removed=0;
 			}
 		}
-		sset_dec(esp,(*spa)->length);
+		esp->length-=(*spa)->length;
 		xfree(*spa);
 		++spa;
 	}
+	esp->size-=n;
+	esp->removed+=n;
+	esp->removed_m+=n;
 }
 struct expr_symbol *expr_symset_rsearch(const struct expr_symset *restrict esp,void *addr){
 	expr_symset_foreach(sp,esp,STACK_DEFAULT(esp)){

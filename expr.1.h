@@ -198,7 +198,14 @@ EXPR_END
 		_cast_un._o;\
 	})
 
-#define expr_next48v(__val) ((0x5deece66dul*(__val)+0xb)&0xffffffffffffl)
+#define EXPR_MAGIC48_A 0x5deece66dul
+#define EXPR_MAGIC48_B 0xb
+
+#define expr_ltod48(_l) (expr_cast((((_l)&0xffffffffffffl)<<4)|0x3ff0000000000000l,double)-1.0)
+#define expr_ltol48(_l) ((int32_t)(((_l)&0xffffffff0000l)>>17))
+#define expr_ltom48(_l) ((int32_t)(((_l)&0xffffffff0000l)>>16))
+
+#define expr_next48v(_val) (((EXPR_MAGIC48_A)*(_val)+(EXPR_MAGIC48_B))&0xffffffffffffl)
 #define expr_next48(_seedp) ({\
 	long *restrict _next48_seed=(_seedp);\
 	*_next48_seed=expr_next48v(*_next48_seed);\
@@ -218,7 +225,7 @@ EXPR_END
 })
 
 #define expr_ssnext48(_ss) ({\
-	struct expr_superseed *_ssnext48_ss=(_ss);\
+	struct expr_superseed48 *_ssnext48_ss=(_ss);\
 	uint16_t *_ssnext48_end,*_ssnext48_p;\
 	long _ssnext48_val,_ssnext48_r;\
 	_ssnext48_p=_ssnext48_ss->data;\
@@ -237,7 +244,7 @@ EXPR_END
 })
 
 #define expr_ssgetnext48(_ss) ({\
-	const struct expr_superseed *_ssgetnext48_ss=(_ss);\
+	const struct expr_superseed48 *_ssgetnext48_ss=(_ss);\
 	const uint16_t *_ssgetnext48_end,*_ssgetnext48_p;\
 	long _ssgetnext48_val,_ssgetnext48_r;\
 	_ssgetnext48_p=_ssgetnext48_ss->data;\
@@ -350,7 +357,7 @@ struct expr_vmdinfo {
 	double *args;
 	volatile double index;
 };
-struct expr_superseed {
+struct expr_superseed48 {
 	size_t len;
 	uint16_t data[];//size=3*len
 };

@@ -15,12 +15,12 @@
 #define UNABLE_GETADDR_IN_PROTECTED_MODE
 #define HIDE_WHERE_ERROR_OCCURS
 
-/*
 #define printval(x) warn(#x ":%lu",(unsigned long)(x))
 #define printvali(x) warn(#x ":%d",(int)(x))
 #define printvall(x) warn(#x ":%ld",(long)(x))
 #define printvald(x) warn(#x ":%lf",(double)(x))
 #define trap (warn("\nat file %s line %d",__FILE__,__LINE__),__builtin_trap())
+/*
 */
 #define warn(fmt,...) fprintf(stderr,fmt "\n",##__VA_ARGS__)
 
@@ -395,11 +395,14 @@ static void xfree(void *p){
 		abort();
 	expr_deallocator(p);
 }
+#define ltod(_l) expr_ltod48(_l)
+#define ltol(_l) expr_ltol48(_l)
+#define ltom(_l) expr_ltom48(_l)
 static double expr_lrand48(double x){
-	return (double)((expr_next48(cast(x,long *))&0xffffffff0000l)>>17);
+	return (double)ltol(expr_next48(cast(x,long *)));
 }
 static double expr_mrand48(double x){
-	return (double)(int32_t)((expr_next48(cast(x,long *))&0xffffffff0000l)>>16);
+	return (double)ltom(expr_next48(cast(x,long *)));
 }
 static double expr_rand48(double x){
 	return (double)(expr_next48(cast(x,long *)));
@@ -407,7 +410,6 @@ static double expr_rand48(double x){
 static double expr_rand48_next(double x){
 	return (double)expr_next48v((long)x);
 }
-#define ltod(l) (cast((((l)&0xffffffffffffl)<<4)|0x3ff0000000000000l,double)-1.0)
 static double expr_drand48_next(double x){
 	return ltod(expr_next48v((cast(x+1.0,long)&0xffffffffffff0l)>>4));
 }
@@ -417,23 +419,61 @@ static double expr_drand48(double x){
 static double expr_srand48(double x){
 	return cast(expr_seed48((long)x),double);
 }
+#define state48(bits,m,retval) \
+	double *a,*end=args+n-1;\
+	long c,found=-1;\
+	int_fast32_t i;\
+	if(args>=end)\
+		return NAN;\
+	for(i=0;likely(i!=(1<<(bits)));++i){\
+		a=args;\
+		c=((long)(uint32_t)(int32_t)*a<<(bits))|i;\
+		for(;;){\
+			c=expr_next48v(c);\
+			if(likely(m(c)!=(long)(uint32_t)(int32_t)a[1]))\
+				break;\
+			++a;\
+			if(unlikely(a>=end))\
+				break;\
+		}\
+		if(likely(a<end))\
+			continue;\
+		if(found<0){\
+			found=c;\
+		}else {\
+			return NAN;\
+		}\
+	}\
+	return found<0?INFINITY:(double)(retval)
+static double expr_lrand48_next(size_t n,double *args){
+	state48(17,ltol,ltol(expr_next48v(found)));
+}
+static double expr_lrand48_state(size_t n,double *args){
+	state48(17,ltol,found);
+}
+static double expr_mrand48_next(size_t n,double *args){
+	state48(16,ltom,ltom(expr_next48v(found)));
+}
+static double expr_mrand48_state(size_t n,double *args){
+	state48(16,ltom,found);
+}
 static double expr_ssdrand48(double x){
-	return ltod(expr_ssnext48(cast(x,struct expr_superseed *)));
+	return ltod(expr_ssnext48(cast(x,struct expr_superseed48 *)));
 }
 static double expr_ssrand48(double x){
-	return (double)(expr_ssnext48(cast(x,struct expr_superseed *)));
+	return (double)(expr_ssnext48(cast(x,struct expr_superseed48 *)));
 }
 static double expr_sslrand48(double x){
-	return (double)((expr_ssnext48(cast(x,struct expr_superseed *))&0xffffffff0000l)>>17);
+	return (double)ltol(expr_ssnext48(cast(x,struct expr_superseed48 *)));
 }
 static double expr_ssmrand48(double x){
-	return (double)(int32_t)((expr_ssnext48(cast(x,struct expr_superseed *))&0xffffffff0000l)>>16);
+	return (double)ltom(expr_ssnext48(cast(x,struct expr_superseed48 *)));
 }
 static double expr_ssnext48_b(double x){
-	return (double)expr_ssgetnext48(cast(x,const struct expr_superseed *));
+	return (double)expr_ssgetnext48(cast(x,const struct expr_superseed48 *));
 }
 static double expr_ssdnext48(double x){
-	return ltod(expr_ssgetnext48(cast(x,const struct expr_superseed *)));
+	return ltod(expr_ssgetnext48(cast(x,const struct expr_superseed48 *)));
 }
 
 uint64_t expr_gcd64(uint64_t x,uint64_t y){
@@ -1753,6 +1793,10 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGFSYM2("srand48",expr_srand48),
 	REGFSYM2("drand48_next",expr_drand48_next),
 	REGFSYM2("rand48_next",expr_rand48_next),
+	REGMDSYM2("lrand48_next",expr_lrand48_next,0),
+	REGMDSYM2("lrand48_state",expr_lrand48_state,0),
+	REGMDSYM2("mrand48_next",expr_mrand48_next,0),
+	REGMDSYM2("mrand48_state",expr_mrand48_state,0),
 
 	REGZASYM2_U("abort",(double (*)(void))abort),
 //	REGZASYM(drand48),

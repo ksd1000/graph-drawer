@@ -406,6 +406,7 @@ union expr_symvalue {
 	long ivalue;
 	unsigned long uvalue;
 	size_t size;
+	ssize_t off;
 	double *addr;
 	void *uaddr;
 	double (*func)(double);
@@ -414,13 +415,13 @@ union expr_symvalue {
 	double (*mdepfunc)(size_t,
 		const struct expr *,double);
 };
+_Static_assert(EXPR_SYMLEN<=64,"EXPR_SYMLEN is more than 6 bits");
 struct expr_symbol {
 	union expr_symvalue un;
 	struct expr_symbol *next[EXPR_SYMNEXT];
 	struct expr_symbol **tail;
-	unsigned int length;
-	unsigned short strlen;
-	unsigned char type,flag;
+	uint32_t length;
+	uint32_t strlen:6,type:3,flag:6,depthm1:17;
 	char str[];
 };
 struct expr_builtin_symbol {
@@ -449,15 +450,22 @@ struct expr_symset {
 	size_t length;
 	size_t length_m;//m:monotonic
 	size_t depth;
+	size_t depth_n;//amount of symbol at the deepest depth,
+		       //expr_symset_remove() may reduce this
+		       //value after removing a such symbol.
+		       //this value reaches 0 means that the
+		       //real depth of this symbol set is lower
+		       //than this->depth.
+	size_t depth_nm;//like depth_n but monotonic
 	//the this->depth is the maximal depth this reaches,it equals to the
 	//real depth if no symbol was removed by expr_symset_remove(this,.),
 	//one can use the expr_symset_depth() to get the real depth and run
-	//this->depth=expr_symset_depth(this) to correct it,which can save
-	//stack's memory to prevent the signal SIGSEGV or SIGKILL(by OOM) if
-	//there are symbols be removed frequently or you can add it to the
-	//source code of expr_symset_remove() to ensure this->depth equals
-	//to the real depth. but it is not suggested,for it will cost a lot
-	//of cpu time to travel through every symbol to get the real depth.
+	//expr_symset_correct(this) to correct it,which can save stack's
+	//memory to prevent the signal SIGSEGV or SIGKILL(by OOM) if there
+	//are symbols be removed frequently or you can add it to the source
+	//code of expr_symset_remove() to ensure this->depth equals to the
+	//real depth. but it is not suggested,for it will cost a lot of cpu
+	//time to travel through every symbol to get the real depth.
 	//this will be set to 0 when an expr_symset_wipe(this) is called.
 	unsigned int freeable,unused;
 };
@@ -509,6 +517,7 @@ extern void (*expr_deallocator)(void *);
 extern void (*expr_contractor)(void *,size_t);
 extern size_t expr_allocate_max;
 extern int expr_symset_allow_heap_stack;
+extern long expr_seed_default;
 //default=malloc,realloc,free,expr_contract,0x1000000000UL,NULL
 extern const size_t expr_page_size;
 
@@ -518,6 +527,8 @@ uint64_t expr_gcd64(uint64_t x,uint64_t y);
 double expr_gcd2(double x,double y);
 double expr_lcm2(double x,double y);
 void expr_mirror(double *buf,size_t size);
+void expr_memswap(void *restrict s1,void *restrict s2,size_t size);
+void expr_memfry48(void *restrict buf,size_t size,size_t n,long seed);
 void expr_fry(double *restrict v,size_t n);
 int expr_sort4(double *restrict v,size_t n,void *(*allocator)(size_t),void (*deallocator)(void *));
 void expr_sortq(double *restrict v,size_t n);
@@ -556,6 +567,7 @@ struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const cha
 struct expr_symbol *expr_symset_addcopy(struct expr_symset *restrict esp,const struct expr_symbol *restrict es);
 struct expr_symbol **expr_symset_search0(const struct expr_symset *restrict esp,const char *sym,size_t sz);
 struct expr_symbol *expr_symset_search(const struct expr_symset *restrict esp,const char *sym,size_t sz);
+struct expr_symbol *expr_symset_searchd(const struct expr_symset *restrict esp,const char *sym,size_t sz,size_t *depth);
 struct expr_symbol *expr_symset_insert(struct expr_symset *restrict esp,struct expr_symbol *restrict es);
 int expr_symset_remove(struct expr_symset *restrict esp,const char *sym,size_t sz);
 int expr_symset_remove_s(struct expr_symset *restrict esp,const char *sym,size_t sz,void *stack);
@@ -563,10 +575,21 @@ void expr_symset_removes(struct expr_symset *restrict esp,struct expr_symbol *sp
 void expr_symset_removes_s(struct expr_symset *restrict esp,struct expr_symbol *sp,void *stack);
 void expr_symset_removea(struct expr_symset *restrict esp,struct expr_symbol *const *spa,size_t n);
 void expr_symset_removea_s(struct expr_symset *restrict esp,struct expr_symbol *const *spa,size_t n,void *stack);
+int expr_symset_detach(struct expr_symset *restrict esp,const char *sym,size_t sz);
+int expr_symset_detach_s(struct expr_symset *restrict esp,const char *sym,size_t sz,void *stack);
+void expr_symset_detachs(struct expr_symset *restrict esp,struct expr_symbol *sp);
+void expr_symset_detachs_s(struct expr_symset *restrict esp,struct expr_symbol *sp,void *stack);
+void expr_symset_detacha(struct expr_symset *restrict esp,struct expr_symbol *const *spa,size_t n);
+void expr_symset_detacha_s(struct expr_symset *restrict esp,struct expr_symbol *const *spa,size_t n,void *stack);
+int expr_symset_recombine(struct expr_symset *restrict esp,long seed);
+int expr_symset_recombine_s(struct expr_symset *restrict esp,long seed,void *stack);
+int expr_symset_tryrecombine(struct expr_symset *restrict esp,long seed);
 struct expr_symbol *expr_symset_rsearch(const struct expr_symset *restrict esp,void *addr);
 struct expr_symbol *expr_symset_rsearch_s(const struct expr_symset *restrict esp,void *addr,void *stack);
 size_t expr_symset_depth(const struct expr_symset *restrict esp);
 size_t expr_symset_depth_s(const struct expr_symset *restrict esp,void *stack);
+void expr_symset_correct(struct expr_symset *restrict esp);
+void expr_symset_correct_s(struct expr_symset *restrict esp,void *stack);
 size_t expr_symset_length(const struct expr_symset *restrict esp);
 size_t expr_symset_length_s(const struct expr_symset *restrict esp,void *stack);
 size_t expr_symset_size(const struct expr_symset *restrict esp);

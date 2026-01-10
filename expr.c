@@ -392,6 +392,7 @@ void (*expr_deallocator)(void *)=free;
 void (*expr_contractor)(void *,size_t)=expr_contract;
 size_t expr_allocate_max=0x1000000000UL;
 int expr_symset_allow_heap_stack=0;
+long expr_seed_default=0;
 const size_t expr_page_size=PAGE_SIZE;
 
 #define free (use xfree() instead!)
@@ -552,6 +553,58 @@ void expr_mirror(double *buf,size_t size){
 		*buf=swapbuf;
 		--out;
 		++buf;
+	}
+}
+void expr_memswap(void *restrict s1,void *restrict s2,size_t size){
+	union {
+		int64_t swapbuf;
+		int32_t swapbuf32;
+		int16_t swapbuf16;
+		int8_t swapbuf8;
+	} un;
+	while(size>=8){
+		un.swapbuf=*(int64_t *)s1;
+		*(int64_t *)s1=*(int64_t *)s2;
+		*(int64_t *)s2=un.swapbuf;
+		size-=8;
+		++(*(int64_t **)&s1);
+		++(*(int64_t **)&s2);
+	}
+	if(size>=4){
+		un.swapbuf32=*(int32_t *)s1;
+		*(int32_t *)s1=*(int32_t *)s2;
+		*(int32_t *)s2=un.swapbuf32;
+		size-=4;
+		++(*(int32_t **)&s1);
+		++(*(int32_t **)&s2);
+	}
+	if(size>=2){
+		un.swapbuf16=*(int16_t *)s1;
+		*(int16_t *)s1=*(int16_t *)s2;
+		*(int16_t *)s2=un.swapbuf16;
+		size-=2;
+		++(*(int16_t **)&s1);
+		++(*(int16_t **)&s2);
+	}
+	if(size){
+		un.swapbuf8=*(int8_t *)s1;
+		*(int8_t *)s1=*(int8_t *)s2;
+		*(int8_t *)s2=un.swapbuf8;
+		size-=1;
+		++(*(int8_t **)&s1);
+		++(*(int8_t **)&s2);
+	}
+}
+void expr_memfry48(void *restrict buf,size_t size,size_t n,long seed){
+	size_t r;
+	seed=expr_seed48(seed);
+	for(size_t i=0;i<n;++i){
+		r=ltol(expr_next48(&seed))%n;
+		if(likely(r!=i))
+			expr_memswap((char *)buf+i*size,(char *)buf+r*size,size);
+		else if(i<n-1){
+			expr_memswap((char *)buf+i*size,(char *)buf+(i+1)*size,size);
+		}
 	}
 }
 void expr_fry(double *restrict v,size_t n){
@@ -5021,11 +5074,12 @@ void expr_symset_wipe_s(struct expr_symset *restrict esp,void *stack){
 	esp->size=0;
 	esp->removed=0;
 	esp->depth=0;
+	esp->depth_n=0;
 	esp->length=0;
 }
 static long firstdiff(const char *restrict s1,const char *restrict s2,size_t len1,size_t len2){
 	long r,r0;
-	long ampl=0x330e*EXPR_MAGIC48_A+EXPR_MAGIC48_B;
+	long ampl=(0x330e)*EXPR_MAGIC48_A+EXPR_MAGIC48_B;
 	do {
 		ampl=expr_next48v(ampl);
 		r=(int)(unsigned char)*(s1++)-(int)(unsigned char)*(s2++);
@@ -5041,6 +5095,7 @@ static long firstdiff(const char *restrict s1,const char *restrict s2,size_t len
 	}
 	//r0=(r*ampl)>>48l;
 	r0=r*ltod(ampl);
+	//return r==0?0:(r>0?r0+1:r0-1);
 	return r0?r0:r;
 }
 static long strdiff(const char *restrict s1,size_t len1,const char *restrict s2,size_t len2,long *sum){
@@ -5234,9 +5289,15 @@ struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const cha
 	if(unlikely((depth)>(esp)->depth)){\
 		esp->depth=(depth);\
 		esp->removed=0;\
+		esp->depth_n=1;\
+		++esp->depth_nm;\
+	}else if(unlikely((depth)==(esp)->depth)){\
+		++esp->depth_n;\
+		++esp->depth_nm;\
 	}
 	sset_inc(esp,ep->length,depth);
 	ep->tail=next;
+	ep->depthm1=depth-1;
 	*next=ep;
 	return ep;
 }
@@ -5252,6 +5313,7 @@ struct expr_symbol *expr_symset_addcopy(struct expr_symset *restrict esp,const s
 	memset(ep->next,0,EXPR_SYMNEXT*sizeof(struct expr_symbol *));
 	*tail=ep;
 	ep->tail=tail;
+	ep->depthm1=depth-1;
 	sset_inc(esp,ep->length,depth);
 	return ep;
 }
@@ -5300,26 +5362,28 @@ struct expr_symbol *expr_symset_insert(struct expr_symset *restrict esp,struct e
 	memset(es->next,0,EXPR_SYMNEXT*sizeof(struct expr_symbol *));
 	*tail=es;
 	es->tail=tail;
+	es->depthm1=depth-1;
 	sset_inc(esp,es->length,depth);
 	return es;
 }
-/*
-static void expr_symset_insert_forremove(struct expr_symset *restrict esp,struct expr_symbol *restrict es){
+static void expr_symset_reinsert(struct expr_symset *restrict esp,struct expr_symbol *restrict sp1){
 	size_t depth;
-	struct expr_symbol **tail=expr_symset_findtail(esp,es->str,es->strlen,&depth);
-	*tail=es;
-	es->tail=tail;
+	struct expr_symbol **tail;
+	memset(sp1->next,0,EXPR_SYMNEXT*sizeof(struct expr_symbol *));
+	tail=expr_symset_findtail(esp,sp1->str,sp1->strlen,&depth);
+	*tail=sp1;
+	sp1->tail=tail;
+	sp1->depthm1=depth-1;
 	if(unlikely(depth>esp->depth)){
 		esp->depth=depth;
 		esp->removed=0;
+		esp->depth_n=1;
+		++esp->depth_nm;
+	}else if(unlikely((depth)==(esp)->depth)){
+		++esp->depth_n;
+		++esp->depth_nm;
 	}
 }
-#define sset_dec(esp,_length) \
-	--(esp)->size;\
-	(esp)->length-=(_length);\
-	++(esp)->removed;\
-	++(esp)->removed_m
-*/
 int expr_symset_remove(struct expr_symset *restrict esp,const char *sym,size_t sz){
 	struct expr_symbol *r;
 	size_t depth;
@@ -5327,7 +5391,7 @@ int expr_symset_remove(struct expr_symset *restrict esp,const char *sym,size_t s
 	if(!r)
 		return -1;
 	expr_symset_removea(esp,&r,1);
-	return depth==esp->depth?1:0;
+	return 0;
 }
 int expr_symset_remove_s(struct expr_symset *restrict esp,const char *sym,size_t sz,void *stack){
 	struct expr_symbol *r;
@@ -5336,7 +5400,7 @@ int expr_symset_remove_s(struct expr_symset *restrict esp,const char *sym,size_t
 	if(!r)
 		return -1;
 	expr_symset_removea_s(esp,&r,1,stack);
-	return depth==esp->depth?1:0;
+	return 0;
 }
 void expr_symset_removes(struct expr_symset *restrict esp,struct expr_symbol *sp){
 	expr_symset_removea(esp,&sp,1);
@@ -5349,34 +5413,194 @@ void expr_symset_removea(struct expr_symset *restrict esp,struct expr_symbol *co
 	expr_symset_removea_s(esp,spa,n,stack);
 }
 void expr_symset_removea_s(struct expr_symset *restrict esp,struct expr_symbol *const *spa,size_t n,void *stack){
+	struct expr_symbol *const *spa_end=spa+n;
+	expr_symset_detacha_s(esp,spa,n,stack);
+	do {
+		xfree(*spa);
+		spa++;
+	}while(spa<spa_end);
+
+}
+int expr_symset_detach(struct expr_symset *restrict esp,const char *sym,size_t sz){
+	struct expr_symbol *r;
 	size_t depth;
-	struct expr_symbol **tail;
+	r=expr_symset_searchd(esp,sym,sz,&depth);
+	if(!r)
+		return -1;
+	expr_symset_detacha(esp,&r,1);
+	return 0;
+}
+int expr_symset_detach_s(struct expr_symset *restrict esp,const char *sym,size_t sz,void *stack){
+	struct expr_symbol *r;
+	size_t depth;
+	r=expr_symset_searchd(esp,sym,sz,&depth);
+	if(!r)
+		return -1;
+	expr_symset_detacha_s(esp,&r,1,stack);
+	return 0;
+}
+void expr_symset_detachs(struct expr_symset *restrict esp,struct expr_symbol *sp){
+	expr_symset_detacha(esp,&sp,1);
+}
+void expr_symset_detachs_s(struct expr_symset *restrict esp,struct expr_symbol *sp,void *stack){
+	expr_symset_detacha_s(esp,&sp,1,stack);
+}
+void expr_symset_detacha(struct expr_symset *restrict esp,struct expr_symbol *const *spa,size_t n){
+	STACK_DEFAULT(stack,esp);
+	expr_symset_detacha_s(esp,spa,n,stack);
+}
+void expr_symset_detacha_s(struct expr_symset *restrict esp,struct expr_symbol *const *spa,size_t n,void *stack){
+	size_t depthm1;
 	struct expr_symbol *const *spa_cur=spa;
 	struct expr_symbol *const *spa_end=spa+n;
-	while(spa_cur<spa_end){
-		*(*spa_cur)->tail=NULL;
-		++spa_cur;
+	if(likely(esp->depth<=(1<<17))){
+		depthm1=esp->depth-1;
+		do {
+			*(*spa_cur)->tail=NULL;
+			if((*spa_cur)->depthm1==depthm1)
+				--esp->depth_n;
+			++spa_cur;
+		}while(spa_cur<spa_end);
+	}else {
+		do {
+			*(*spa_cur)->tail=NULL;
+			++spa_cur;
+		}while(spa_cur<spa_end);
 	}
 	esp->size-=n;
 	esp->removed+=n;
 	esp->removed_m+=n;
-	while(spa<spa_end){
+	do {
 		expr_symbol_foreach4(sp1,*spa,stack,EXPR_SYMNEXT){
 			if(unlikely(sp1==*spa))
 				expr_breakforeach;
-			memset(sp1->next,0,EXPR_SYMNEXT*sizeof(struct expr_symbol *));
-			tail=expr_symset_findtail(esp,sp1->str,sp1->strlen,&depth);
-			*tail=sp1;
-			sp1->tail=tail;
-			if(unlikely(depth>esp->depth)){
-				esp->depth=depth;
-				esp->removed=0;
-			}
+			expr_symset_reinsert(esp,sp1);
 		}
 		esp->length-=(*spa)->length;
-		xfree(*spa);
 		++spa;
+	}while(spa<spa_end);
+}
+/*
+struct srpair {
+	struct expr_symbol *sp;
+	size_t sum;
+};
+static void srsum(const struct srpair *srp,const struct srpair *srp_end,struct srpair *excl){
+	size_t next[EXPR_SYMLEN];
+	long r;
+	const char *str;
+	size_t strl,sum;
+	str=excl->sp->str;
+	strl=excl->sp->strlen;
+	memset(next,0,EXPR_SYMLEN*sizeof(size_t));
+	do {
+		if(unlikely(srp==excl)){
+			++srp;
+			continue;
+		}
+		++next[modi(firstdiff(str,srp->sp->str,strl,srp->sp->strlen))];
+		++srp;
+	}while(srp<srp_end);
+	strl=0;
+	for(size_t i=0;i<EXPR_SYMNEXT;++i){
+		strl+=next[i];
 	}
+	sum=0;
+	for(size_t i=0;i<EXPR_SYMNEXT;++i){
+		r=next[i]*EXPR_SYMNEXT-strl;
+		if(r<0)
+			r=-r;
+		sum+=r;
+	}
+	excl->sum=sum;
+}
+static int srcmp(const struct srpair *s1,const struct srpair *s2){
+	size_t r1=s1->sum,r2=s2->sum;
+	return r1==r2?0:-(r1>r2?1:-1);
+}
+*/
+/*	srp_end=srp_cur;
+	srp_cur=srp;
+	do {
+		srsum(srp,srp_end,srp_cur);
+		++srp_cur;
+	}while(srp_cur<srp_end);
+	qsort(srp,esp->size,sizeof(struct srpair),(int (*)(const void *,const void *))srcmp);
+*/
+//	struct srpair *srp,*srp_cur,*srp_end;
+//not work
+int expr_symset_recombine(struct expr_symset *restrict esp,long seed){
+	//the function tries to recombine the symset randomly,which sometimes
+	//can reduce the depth of it. but it is not ensured,even probably make
+	//a greater depth,for I have not found an algorithm to find the best
+	//arrange to get the minimal depth.
+	STACK_DEFAULT(stack,esp);
+	return expr_symset_recombine_s(esp,seed,stack);
+}
+int expr_symset_recombine_s(struct expr_symset *restrict esp,long seed,void *stack){
+	struct expr_symbol **ss,**ss_cur,**p1,**p0;
+	struct expr_symbol *swapbuf;
+	if(unlikely(!esp->size))
+		return 0;
+	ss=xmalloc(esp->size*sizeof(struct expr_symbol *));
+	if(unlikely(!ss))
+		return -1;
+	ss_cur=ss;
+	expr_symset_foreach4(sp,esp,stack,EXPR_SYMNEXT){
+		*sp->tail=NULL;
+		*ss_cur=sp;
+		++ss_cur;
+	}
+	for(size_t i=0,endi=esp->size,i1;i<endi;++i){
+		i1=ltol(expr_next48(&seed))%endi;
+		if(likely(i1!=i)){
+			p0=ss+i;
+			p1=ss+i1;
+		}else if(i<endi-1){
+			p0=ss+i;
+			p1=ss+i+1;
+		}else
+			continue;
+		swapbuf=*p0;
+		*p0=*p1;
+		*p1=swapbuf;
+	}
+	//expr_memfry48(ss,sizeof(struct expr_symbol *),esp->size,expr_seed_default);
+	esp->depth=0;
+	esp->depth_n=0;
+	do {
+		expr_symset_reinsert(esp,*ss);
+		++ss;
+	}while(ss<ss_cur);
+	xfree(ss);
+	return 0;
+}
+int expr_symset_tryrecombine(struct expr_symset *restrict esp,long seed){
+	struct expr_symset *temp;
+	struct expr_symbol *b;
+	size_t d;
+	temp=expr_symset_clone(esp);
+	if(unlikely(!temp))
+		return -1;
+	if(unlikely(expr_symset_recombine(temp,seed)<0)){
+		expr_symset_free(temp);
+		return -1;
+	}
+	if(temp->depth>esp->depth){
+		expr_symset_free(temp);
+		return 1;
+	}
+	d=esp->depth;
+	esp->depth=temp->depth;
+	esp->depth_n=temp->depth_n;
+	esp->depth_nm+=temp->depth_nm;
+	b=esp->syms;
+	esp->syms=temp->syms;
+	temp->syms=b;
+	temp->depth=d;
+	expr_symset_free(temp);
+	return 0;
+
 }
 struct expr_symbol *expr_symset_rsearch(const struct expr_symset *restrict esp,void *addr){
 	STACK_DEFAULT(stack,esp);
@@ -5396,9 +5620,30 @@ size_t expr_symset_depth(const struct expr_symset *restrict esp){
 size_t expr_symset_depth_s(const struct expr_symset *restrict esp,void *stack){
 	size_t depth=0;
 	expr_symset_foreach(sp,esp,stack)
-		if((size_t)__inloop_sp>depth)
+		if(unlikely((size_t)__inloop_sp>depth))
 			depth=(size_t)__inloop_sp;
 	return depth?(depth-(size_t)stack)/EXPR_SYMSET_DEPTHUNIT+1:0;
+}
+void expr_symset_correct(struct expr_symset *restrict esp){
+	STACK_DEFAULT(stack,esp);
+	expr_symset_correct_s(esp,stack);
+}
+void expr_symset_correct_s(struct expr_symset *restrict esp,void *stack){
+	size_t depth=0,cdepth,n=0;
+	expr_symset_foreach(sp,esp,stack){
+		cdepth=((size_t)__inloop_sp-(size_t)stack)/EXPR_SYMSET_DEPTHUNIT+1;
+		if(likely(cdepth<depth)){
+			continue;
+		}else if(cdepth==depth){
+			++n;
+		}else {
+			depth=cdepth;
+			n=1;
+		}
+	}
+	esp->depth=depth;
+	esp->depth_n=n;
+	esp->removed=0;
 }
 size_t expr_symset_length(const struct expr_symset *restrict esp){
 	STACK_DEFAULT(stack,esp);

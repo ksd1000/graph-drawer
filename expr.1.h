@@ -415,13 +415,13 @@ union expr_symvalue {
 	double (*mdepfunc)(size_t,
 		const struct expr *,double);
 };
+_Static_assert(EXPR_SYMLEN<=64,"EXPR_SYMLEN is more than 6 bits");
 struct expr_symbol {
 	union expr_symvalue un;
 	struct expr_symbol *next[EXPR_SYMNEXT];
 	struct expr_symbol **tail;
-	unsigned int length;
-	unsigned short strlen;
-	unsigned char type,flag;
+	uint32_t length;
+	uint32_t strlen:6,type:3,flag:6,depthm1:17;
 	char str[];
 };
 struct expr_builtin_symbol {
@@ -450,15 +450,22 @@ struct expr_symset {
 	size_t length;
 	size_t length_m;//m:monotonic
 	size_t depth;
+	size_t depth_n;//amount of symbol at the deepest depth,
+		       //expr_symset_remove() may reduce this
+		       //value after removing a such symbol.
+		       //this value reaches 0 means that the
+		       //real depth of this symbol set is lower
+		       //than this->depth.
+	size_t depth_nm;//like depth_n but monotonic
 	//the this->depth is the maximal depth this reaches,it equals to the
 	//real depth if no symbol was removed by expr_symset_remove(this,.),
 	//one can use the expr_symset_depth() to get the real depth and run
-	//this->depth=expr_symset_depth(this) to correct it,which can save
-	//stack's memory to prevent the signal SIGSEGV or SIGKILL(by OOM) if
-	//there are symbols be removed frequently or you can add it to the
-	//source code of expr_symset_remove() to ensure this->depth equals
-	//to the real depth. but it is not suggested,for it will cost a lot
-	//of cpu time to travel through every symbol to get the real depth.
+	//expr_symset_correct(this) to correct it,which can save stack's
+	//memory to prevent the signal SIGSEGV or SIGKILL(by OOM) if there
+	//are symbols be removed frequently or you can add it to the source
+	//code of expr_symset_remove() to ensure this->depth equals to the
+	//real depth. but it is not suggested,for it will cost a lot of cpu
+	//time to travel through every symbol to get the real depth.
 	//this will be set to 0 when an expr_symset_wipe(this) is called.
 	unsigned int freeable,unused;
 };
@@ -510,6 +517,7 @@ extern void (*expr_deallocator)(void *);
 extern void (*expr_contractor)(void *,size_t);
 extern size_t expr_allocate_max;
 extern int expr_symset_allow_heap_stack;
+extern long expr_seed_default;
 //default=malloc,realloc,free,expr_contract,0x1000000000UL,NULL
 extern const size_t expr_page_size;
 

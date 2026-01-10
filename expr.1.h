@@ -406,6 +406,7 @@ union expr_symvalue {
 	long ivalue;
 	unsigned long uvalue;
 	size_t size;
+	ssize_t off;
 	double *addr;
 	void *uaddr;
 	double (*func)(double);

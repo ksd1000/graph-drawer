@@ -12,8 +12,9 @@
 #include <setjmp.h>
 #include <alloca.h>
 
-#define UNABLE_GETADDR_IN_PROTECTED_MODE
-#define HIDE_WHERE_ERROR_OCCURS
+#define UNABLE_GETADDR_IN_PROTECTED_MODE 1
+#define HIDE_WHERE_ERROR_OCCURS 1
+#define PHYSICAL_CONSTANT 0
 
 #define printval(x) warn(#x ":%lu",(unsigned long)(x))
 #define printvali(x) warn(#x ":%d",(int)(x))
@@ -67,7 +68,7 @@
 #endif
 
 
-#ifdef HIDE_WHERE_ERROR_OCCURS
+#if HIDE_WHERE_ERROR_OCCURS
 #define seterr(_ep,_eperror) ((_ep)->error=(_eperror))
 #else
 #define seterr(_ep,_eperror) (\
@@ -1075,7 +1076,7 @@ static double expr_xfree(double x){
 }
 static __attribute__((used,noreturn,deprecated)) void expr_unused(void){
 #if defined(__aarch64__)
-#define SYSCALL_DEFINED
+#define SYSCALL_DEFINED 1
 	asm volatile (
 		".global expr_syscall\n"
 		"expr_syscall:\n"
@@ -1084,7 +1085,7 @@ static __attribute__((used,noreturn,deprecated)) void expr_unused(void){
 		"ret"
 	);
 #elif defined(__x86_64__)
-#define SYSCALL_DEFINED
+#define SYSCALL_DEFINED 1
 	asm volatile (
 		".global expr_syscall\n"
 		"expr_syscall:\n"
@@ -1093,10 +1094,12 @@ static __attribute__((used,noreturn,deprecated)) void expr_unused(void){
 		"syscall\n"
 		"ret"
 	);
+#else
+#define SYSCALL_DEFINED 0
 #endif
 	__builtin_unreachable();
 }
-#ifdef SYSCALL_DEFINED
+#if SYSCALL_DEFINED
 static double bsyscall(size_t n,double *args){
 	long num;
 	long a[6];
@@ -1714,7 +1717,7 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGCSYM2("pi_4",M_PI_4),
 	REGCSYM2("sqrt2",M_SQRT2),
 	REGCSYM2("sqrt1_2",M_SQRT1_2),
-#ifdef PHYSICAL_CONSTANT
+#if PHYSICAL_CONSTANT
 	REGCSYM2("c",299792458.0),
 	REGCSYM2("e0",8.8541878128e-12),
 	REGCSYM2("e1",1.602176634e-19),
@@ -1863,7 +1866,7 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGMDSYM2("qmed",expr_qmed,0),
 	REGMDSYM2("qgmed",expr_qgmed,0),
 	REGMDSYM2("qmode",expr_qmode,0),
-#ifdef SYSCALL_DEFINED
+#if SYSCALL_DEFINED
 	REGMDSYM2_NIU("syscall",bsyscall,0),
 	REGFSYM_U(systype),
 	REGCSYM2("sysp0",1l<<32l),
@@ -3159,7 +3162,7 @@ static int expr_rmsym(struct expr *restrict ep,const char *sym,size_t sz){
 			xfree(r);
 			return 0;
 		default:
-			return expr_symset_remove(ep->sset,sym,sz);
+			return expr_symset_remove(ep->sset,sym,sz)<0;
 	}
 }
 static double *getvalue(struct expr *restrict ep,const char *e,const char *endp,const char **_p,const char *asym,size_t asymlen){
@@ -3302,7 +3305,7 @@ block:
 			p=findpair_dmark(e,endp);
 			if(unlikely(!p))
 				goto pterr;
-#ifdef UNABLE_GETADDR_IN_PROTECTED_MODE
+#if UNABLE_GETADDR_IN_PROTECTED_MODE
 			if(unlikely(ep->iflag&EXPR_IF_PROTECT)){
 				seterr(ep,EXPR_EPM);
 				serrinfo(ep->errinfo,e,p-e+1);
@@ -3321,7 +3324,7 @@ block:
 			e=p+1;
 			goto vend;
 		case '&':
-#ifdef UNABLE_GETADDR_IN_PROTECTED_MODE
+#if UNABLE_GETADDR_IN_PROTECTED_MODE
 			if(unlikely(ep->iflag&EXPR_IF_PROTECT)){
 				seterr(ep,EXPR_EPM);
 				*ep->errinfo='&';
@@ -5274,6 +5277,20 @@ struct expr_symbol *expr_symset_search(const struct expr_symset *restrict esp,co
 	}
 	return NULL;
 }
+struct expr_symbol *expr_symset_searchd(const struct expr_symset *restrict esp,const char *sym,size_t sz,size_t *depth){
+	long r;
+	size_t dep=1;
+	for(struct expr_symbol *p=esp->syms;p;){
+		if(unlikely(!strdiff(sym,sz,p->str,p->strlen,&r))){
+			*depth=dep;
+			return p;
+		}
+		r=modi(r);
+		p=p->next[r];
+		++dep;
+	}
+	return NULL;
+}
 struct expr_symbol *expr_symset_insert(struct expr_symset *restrict esp,struct expr_symbol *restrict es){
 	size_t depth;
 	struct expr_symbol **tail=expr_symset_findtail(esp,es->str,es->strlen,&depth);
@@ -5305,19 +5322,21 @@ static void expr_symset_insert_forremove(struct expr_symset *restrict esp,struct
 */
 int expr_symset_remove(struct expr_symset *restrict esp,const char *sym,size_t sz){
 	struct expr_symbol *r;
-	r=expr_symset_search(esp,sym,sz);
+	size_t depth;
+	r=expr_symset_searchd(esp,sym,sz,&depth);
 	if(!r)
 		return -1;
 	expr_symset_removea(esp,&r,1);
-	return 0;
+	return depth==esp->depth?1:0;
 }
 int expr_symset_remove_s(struct expr_symset *restrict esp,const char *sym,size_t sz,void *stack){
 	struct expr_symbol *r;
-	r=expr_symset_search(esp,sym,sz);
+	size_t depth;
+	r=expr_symset_searchd(esp,sym,sz,&depth);
 	if(!r)
 		return -1;
 	expr_symset_removea_s(esp,&r,1,stack);
-	return 0;
+	return depth==esp->depth?1:0;
 }
 void expr_symset_removes(struct expr_symset *restrict esp,struct expr_symbol *sp){
 	expr_symset_removea(esp,&sp,1);

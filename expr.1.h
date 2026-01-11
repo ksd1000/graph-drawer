@@ -228,7 +228,7 @@ EXPR_END
 #define expr_ssnext48(_ss) ({\
 	struct expr_superseed48 *_ssnext48_ss=(_ss);\
 	uint16_t *_ssnext48_end,*_ssnext48_p;\
-	long _ssnext48_val,_ssnext48_r;\
+	long _ssnext48_val,_ssnext48_r,_ssnext48_n=1;\
 	_ssnext48_p=_ssnext48_ss->data;\
 	_ssnext48_end=_ssnext48_p+3*_ssnext48_ss->len;\
 	_ssnext48_r=expr_next48v(expr_get48(_ssnext48_p));\
@@ -237,7 +237,8 @@ EXPR_END
 	_ssnext48_p+=3;\
 	while(expr_likely(_ssnext48_p<_ssnext48_end)){\
 		_ssnext48_r=expr_next48v(expr_get48(_ssnext48_p));\
-		_ssnext48_val+=_ssnext48_r;\
+		_ssnext48_val+=_ssnext48_r*_ssnext48_n;\
+		_ssnext48_n+=2;\
 		expr_set48(_ssnext48_p,_ssnext48_r);\
 		_ssnext48_p+=3;\
 	}\
@@ -247,7 +248,7 @@ EXPR_END
 #define expr_ssgetnext48(_ss) ({\
 	const struct expr_superseed48 *_ssgetnext48_ss=(_ss);\
 	const uint16_t *_ssgetnext48_end,*_ssgetnext48_p;\
-	long _ssgetnext48_val,_ssgetnext48_r;\
+	long _ssgetnext48_val,_ssgetnext48_r,_ssgetnext48_n=1;\
 	_ssgetnext48_p=_ssgetnext48_ss->data;\
 	_ssgetnext48_end=_ssgetnext48_p+3*_ssgetnext48_ss->len;\
 	_ssgetnext48_r=expr_next48v(expr_get48(_ssgetnext48_p));\
@@ -255,7 +256,8 @@ EXPR_END
 	_ssgetnext48_p+=3;\
 	while(expr_likely(_ssgetnext48_p<_ssgetnext48_end)){\
 		_ssgetnext48_r=expr_next48v(expr_get48(_ssgetnext48_p));\
-		_ssgetnext48_val+=_ssgetnext48_r;\
+		_ssgetnext48_val+=_ssgetnext48_r*_ssgetnext48_n;\
+		_ssgetnext48_n+=2;\
 		_ssgetnext48_p+=3;\
 	}\
 	_ssgetnext48_val&0xffffffffffffl;\

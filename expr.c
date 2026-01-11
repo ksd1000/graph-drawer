@@ -5547,7 +5547,6 @@ int expr_symset_recombine_s(struct expr_symset *restrict esp,long seed,void *sta
 		return -1;
 	ss_cur=ss;
 	expr_symset_foreach4(sp,esp,stack,EXPR_SYMNEXT){
-		*sp->tail=NULL;
 		*ss_cur=sp;
 		++ss_cur;
 	}
@@ -5566,6 +5565,7 @@ int expr_symset_recombine_s(struct expr_symset *restrict esp,long seed,void *sta
 		*p1=swapbuf;
 	}
 	//expr_memfry48(ss,sizeof(struct expr_symbol *),esp->size,expr_seed_default);
+	esp->syms=NULL;
 	esp->depth=0;
 	esp->depth_n=0;
 	do {

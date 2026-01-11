@@ -16,12 +16,12 @@
 #define HIDE_WHERE_ERROR_OCCURS 1
 #define PHYSICAL_CONSTANT 0
 
+/*
 #define printval(x) warn(#x ":%lu",(unsigned long)(x))
 #define printvali(x) warn(#x ":%d",(int)(x))
 #define printvall(x) warn(#x ":%ld",(long)(x))
 #define printvald(x) warn(#x ":%lf",(double)(x))
 #define trap (warn("\nat file %s line %d",__FILE__,__LINE__),__builtin_trap())
-/*
 */
 #define warn(fmt,...) fprintf(stderr,fmt "\n",##__VA_ARGS__)
 
@@ -2849,7 +2849,7 @@ evmd:
 			seterr(ep,EXPR_EVMD);
 			goto err0;
 		}
-		fp=sym.es->un.mdfunc;
+		fp=expr_symset_un(sym.es)->mdfunc;
 		*flag=sym.es->flag;
 	}else if((sym.ebs=expr_builtin_symbol_search(v[5],ssz))){
 		if(unlikely(sym.ebs->type!=EXPR_MDFUNCTION||sym.ebs->dim))
@@ -3440,7 +3440,7 @@ block:
 				}
 			}else {
 				type=sym.es->type;
-				un.uaddr=sym.es->un.uaddr;
+				un.uaddr=expr_symset_un(sym.es)->uaddr;
 			}
 			switch(type){
 				case EXPR_CONSTANT:
@@ -3494,7 +3494,7 @@ symget:
 				default:
 					break;
 			}
-			sv.sv=&sym.es->un;
+			sv.sv=expr_symset_un(sym.es);
 			flag=sym.es->flag;
 			switch(type){
 				case EXPR_MDFUNCTION:
@@ -4845,7 +4845,7 @@ tnv:
 					seterr(ep,EXPR_ETNV);
 					goto err;
 				}
-				cknp(ep,expr_addcopy(ep,esp->un.addr,v1),goto err);
+				cknp(ep,expr_addcopy(ep,expr_symset_un(esp)->addr,v1),goto err);
 bracket_end:
 				if(e>=endp)
 					continue;
@@ -4882,7 +4882,7 @@ bracket_end:
 					cknp(ep,v2,goto err);
 					esp->type=EXPR_VARIABLE;
 					esp->flag=0;
-					esp->un.addr=v2;
+					expr_symset_un(esp)->addr=v2;
 				}else {
 					v2=expr_createvar(ep,e,p1-e);
 					cknp(ep,v2,goto err);
@@ -5109,7 +5109,6 @@ void expr_symset_save_s(struct expr_symset *restrict esp,void *buf,void *stack){
 			sp->tail=prev->next+index;
 		}
 	}
-	return;
 }
 void expr_symset_move(struct expr_symset *restrict esp,ptrdiff_t off){
 	STACK_DEFAULT(stack,esp);
@@ -5121,6 +5120,127 @@ void expr_symset_move_s(struct expr_symset *restrict esp,ptrdiff_t off,void *sta
 			continue;
 		*sp->tail=(struct expr_symbol *)((intptr_t)*sp->tail+off);
 	}
+}
+ssize_t expr_symset_write(const struct expr_symset *restrict esp,ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd){
+	STACK_DEFAULT(stack,esp);
+	return expr_symset_write_s(esp,writer,fd,stack);
+}
+#define try_write(buf,size) \
+	r=writer(fd,(buf),(size));\
+	if(unlikely(r<0))\
+		goto err2;\
+	else if(r<(size))\
+		goto err3;((void)0)
+ssize_t expr_symset_write_s(const struct expr_symset *restrict esp,ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *stack){
+//	uintptr_t minsp=UINTPTR_MAX;
+	size_t maxlen=0,count;
+	ssize_t r;
+	ptrdiff_t off;
+	struct expr_symset_infile tempesp[1];
+	struct expr_symbol_infile *temp;
+//	struct expr_symbol **p;
+	expr_symset_foreach4(sp,esp,stack,0){
+//		if((uintptr_t)sp<minsp)
+//			minsp=(uintptr_t)sp;
+		off=sp->length;
+		if(unlikely(off>maxlen))
+			maxlen=off;
+	}
+	temp=xmalloc(align(maxlen)-EXPR_SYMBOL_EXTRA);
+	if(unlikely(!temp))
+		return -1;
+	tempesp->size=esp->size;
+//	tempesp->length=esp->length-EXPR_SYMBOL_EXTRA*esp->size;
+//	tempesp->maxlen=maxlen;
+	try_write(tempesp,sizeof(struct expr_symset_infile));
+	//if(unlikely(minsp==UINTPTR_MAX))
+	count=tempesp->size;
+	if(!count)
+		goto end;
+	++count;
+//	for(uintptr_t cur=minsp;--count;){
+	expr_symset_foreach4(sp,esp,stack,EXPR_SYMNEXT/2){
+		off=sp->length;
+		maxlen=off-EXPR_SYMBOL_EXTRA;
+		temp->length=maxlen;
+		temp->strlen=sp->strlen;
+		temp->type=sp->type;
+		temp->flag=sp->flag;
+		temp->unused=0;
+		memcpy(temp->str,sp->str,off-offsetof(struct expr_symbol,str));
+/*		memcpy(temp,(void *)cur,off);
+		if(unlikely(temp->tail==&esp->syms)){
+			temp->tail=(struct expr_symbol **)UINTPTR_MAX;
+		}else {
+			temp->tail=(struct expr_symbol **)((uintptr_t)temp->tail-minsp);
+		}
+		for(unsigned int i=0;i<EXPR_SYMNEXT;++i){
+			p=temp->next+i;
+			if(!*p)
+				continue;
+			*p=(struct expr_symbol *)((uintptr_t)*p-minsp);
+		}
+*/
+		//off1=align(off);
+		try_write(temp,maxlen);
+//		printval(maxlen);
+	}
+		//cur+=off1;
+//	}
+end:
+	xfree(temp);
+	return 0;
+err2:
+	xfree(temp);
+	return -r;
+err3:
+	xfree(temp);
+	return -2;
+}
+ssize_t expr_symset_read(struct expr_symset *restrict esp,const void *buf,size_t size){
+	const struct expr_symset_infile *esi;
+	const struct expr_symbol_infile *ebi;
+	struct expr_symbol *sp;
+	size_t count,len;
+	ssize_t added;
+	if(size<sizeof(struct expr_symset_infile))
+		return -1;
+	esi=(const struct expr_symset_infile *)buf;
+	count=esi->size;
+	ebi=(const struct expr_symbol_infile *)((uintptr_t)buf+sizeof(struct expr_symset_infile));
+	size-=sizeof(struct expr_symset_infile);
+	added=0;
+	while(count){
+//		printval((uintptr_t)ebi-(((uintptr_t)buf+sizeof(struct expr_symset_infile))));
+		if(unlikely(size<sizeof(struct expr_symbol_infile)))
+			break;
+//		printval(size);
+//		printval(ebi->length);
+		if(unlikely(ebi->length<sizeof(struct expr_symbol_infile)))
+			break;
+		if(unlikely(ebi->length>size))
+			return -((added<<2)|2);
+		len=ebi->length+EXPR_SYMBOL_EXTRA;
+//		printval(len);
+		sp=xmalloc(len);
+		if(!sp)
+			return -((added<<2)|3);
+		sp->length=len;
+		sp->strlen=ebi->strlen;
+		sp->type=ebi->type;
+		sp->flag=ebi->flag;
+		sp->saved=0;
+		memcpy(sp->str,ebi->str,ebi->length-offsetof(struct expr_symbol_infile,str));
+		if(unlikely(!expr_symset_insert(esp,sp))){
+			xfree(sp);
+		}else {
+			++added;
+		}
+		size-=ebi->length;
+		ebi=(const struct expr_symbol_infile *)((uintptr_t)ebi+ebi->length);
+		--count;
+	}
+	return unlikely(added<esi->size)?-(added<<2):added;
 }
 static long firstdiff(const char *restrict s1,const char *restrict s2,size_t len1,size_t len2){
 	long r,r0;
@@ -5215,12 +5335,12 @@ struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const cha
 		case EXPR_CONSTANT:
 		case EXPR_VARIABLE:
 		case EXPR_FUNCTION:
+		case EXPR_ZAFUNCTION:
+			len+=sizeof(union expr_symvalue);
 			break;
 		case EXPR_MDFUNCTION:
 		case EXPR_MDEPFUNCTION:
-			len+=sizeof(size_t);
-			break;
-		case EXPR_ZAFUNCTION:
+			len+=sizeof(union expr_symvalue)+sizeof(size_t);
 			break;
 		case EXPR_HOTFUNCTION:
 		case EXPR_ALIAS:
@@ -5245,30 +5365,30 @@ struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const cha
 	ep->strlen=symlen;
 	switch(type){
 		case EXPR_CONSTANT:
-			ep->un.value=va_arg(ap,double);
+			expr_symset_un(ep)->value=va_arg(ap,double);
 			break;
 		case EXPR_VARIABLE:
-			ep->un.addr=va_arg(ap,double *);
+			expr_symset_un(ep)->addr=va_arg(ap,double *);
 			break;
 		case EXPR_FUNCTION:
-			ep->un.func=va_arg(ap,double (*)(double));
+			expr_symset_un(ep)->func=va_arg(ap,double (*)(double));
 			break;
 		case EXPR_MDFUNCTION:
-			ep->un.mdfunc=va_arg(ap,double (*)(size_t,double *));
+			expr_symset_un(ep)->mdfunc=va_arg(ap,double (*)(size_t,double *));
 			SYMDIM(ep)=va_arg(ap,size_t);
 			break;
 		case EXPR_MDEPFUNCTION:
-			ep->un.mdepfunc=va_arg(ap,double (*)(size_t,
+			expr_symset_un(ep)->mdepfunc=va_arg(ap,double (*)(size_t,
 				const struct expr *,double));
 			SYMDIM(ep)=va_arg(ap,size_t);
 			break;
 		case EXPR_ZAFUNCTION:
-			ep->un.zafunc=va_arg(ap,double (*)(void));
+			expr_symset_un(ep)->zafunc=va_arg(ap,double (*)(void));
 			break;
 		case EXPR_HOTFUNCTION:
 		case EXPR_ALIAS:
 			p1=ep->str+symlen+1;
-			ep->un.size=len_expr;
+			expr_symset_un(ep)->size=len_expr;
 			memcpy(p1,p,len_expr);
 			p1[len_expr]=0;
 			break;
@@ -5615,7 +5735,7 @@ struct expr_symbol *expr_symset_rsearch(const struct expr_symset *restrict esp,v
 }
 struct expr_symbol *expr_symset_rsearch_s(const struct expr_symset *restrict esp,void *addr,void *stack){
 	expr_symset_foreach(sp,esp,stack){
-		if(unlikely(sp->un.uaddr==addr))
+		if(unlikely(expr_symset_un(sp)->uaddr==addr))
 			return sp;
 	}
 	return NULL;

@@ -144,6 +144,7 @@ EXPR_END
 #define EXPR_MDEPFUNCTION 4
 #define EXPR_ZAFUNCTION 5
 #define EXPR_HOTFUNCTION 6
+#define EXPR_ALIAS 7
 
 //expr symbol flag
 #define EXPR_SF_INJECTION 1
@@ -199,6 +200,7 @@ EXPR_END
 		_cast_un._o;\
 	})
 
+#define EXPR_ALIGN (sizeof(void))
 #define EXPR_MAGIC48_A 0x5deece66dul
 #define EXPR_MAGIC48_B 0xb
 
@@ -423,7 +425,7 @@ struct expr_symbol {
 	struct expr_symbol *next[EXPR_SYMNEXT];
 	struct expr_symbol **tail;
 	uint32_t length;
-	uint32_t strlen:6,type:3,flag:6,depthm1:17;
+	uint32_t strlen:6,type:3,flag:6,saved:1,depthm1:16;
 	char str[];
 };
 struct expr_builtin_symbol {
@@ -451,6 +453,8 @@ struct expr_symset {
 	size_t removed_m;//amount of all removed symbols
 	size_t length;
 	size_t length_m;//m:monotonic
+	size_t alength;
+	size_t alength_m;
 	size_t depth;
 	size_t depth_n;//amount of symbol at the deepest depth,
 		       //expr_symset_remove() may reduce this

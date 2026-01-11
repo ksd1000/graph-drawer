@@ -56,6 +56,7 @@
 #define unlikely(cond) expr_unlikely(cond)
 #define cast(X,T) expr_cast(X,T)
 #define eval(_ep,_input) expr_eval(_ep,_input)
+#define align(x) ((x)+(EXPR_ALIGN-1))&~(EXPR_ALIGN-1)
 
 #ifndef PAGE_SIZE
 #ifdef __unix__
@@ -3205,6 +3206,7 @@ static int expr_rmsym(struct expr *restrict ep,const char *sym,size_t sz){
 				case EXPR_MDEPFUNCTION:
 				case EXPR_ZAFUNCTION:
 				case EXPR_HOTFUNCTION:
+				case EXPR_ALIAS:
 					break;
 				default:
 					return 0;
@@ -3443,6 +3445,7 @@ block:
 			switch(type){
 				case EXPR_CONSTANT:
 				case EXPR_HOTFUNCTION:
+				case EXPR_ALIAS:
 					seterr(ep,EXPR_ECTA);
 					serrinfo(ep->errinfo,e,p-e);
 					return NULL;
@@ -4387,6 +4390,7 @@ treat_as_variable:
 			}
 			e=p+1;
 			goto vend;
+		case EXPR_ALIAS:
 		default:
 			goto symerr;
 	}
@@ -5050,15 +5054,19 @@ struct expr_symset *new_expr_symset(void){
 	ep->freeable=1;
 	return ep;
 }
-
+static void expr_symset_freesymbol_s(struct expr_symset *restrict esp,void *stack){
+	expr_symset_foreach4(sp,esp,stack,EXPR_SYMNEXT){
+		if(!sp->saved){
+			xfree(sp);
+		}
+	}
+}
 void expr_symset_free(struct expr_symset *restrict esp){
 	STACK_DEFAULT(stack,esp);
 	expr_symset_free_s(esp,stack);
 }
 void expr_symset_free_s(struct expr_symset *restrict esp,void *stack){
-	expr_symset_foreach4(sp,esp,stack,EXPR_SYMNEXT){
-		xfree(sp);
-	}
+	expr_symset_freesymbol_s(esp,stack);
 	if(esp->freeable)
 		xfree(esp);
 }
@@ -5067,15 +5075,52 @@ void expr_symset_wipe(struct expr_symset *restrict esp){
 	expr_symset_wipe_s(esp,stack);
 }
 void expr_symset_wipe_s(struct expr_symset *restrict esp,void *stack){
-	expr_symset_foreach4(sp,esp,stack,EXPR_SYMNEXT){
-		xfree(sp);
-	}
+	expr_symset_freesymbol_s(esp,stack);
 	esp->syms=NULL;
 	esp->size=0;
 	esp->removed=0;
 	esp->depth=0;
 	esp->depth_n=0;
 	esp->length=0;
+	esp->alength=0;
+}
+void expr_symset_save(struct expr_symset *restrict esp,void *buf){
+	STACK_DEFAULT(stack,esp);
+	expr_symset_save_s(esp,buf,stack);
+}
+void expr_symset_save_s(struct expr_symset *restrict esp,void *buf,void *stack){
+	ptrdiff_t off;
+	struct expr_symbol *prev;
+	size_t index;
+	expr_symset_foreach4(sp,(volatile struct expr_symset *)esp,stack,EXPR_SYMNEXT){
+		*sp->tail=(struct expr_symbol *)buf;
+		memcpy(buf,sp,sp->length);
+		off=align(sp->length);
+		if(!sp->saved){
+			xfree(sp);
+			((struct expr_symbol *)buf)->saved=1;
+		}
+		buf=(void *)((uintptr_t)buf+off);
+	}
+	expr_symset_foreach4(sp,(volatile struct expr_symset *)esp,stack,EXPR_SYMNEXT){
+		if(likely(__inloop_sp!=__inloop_stack)){
+			prev=*(__inloop_sp-1);
+			index=*((size_t *)__inloop_sp-2)-1;
+			sp->tail=prev->next+index;
+		}
+	}
+	return;
+}
+void expr_symset_move(struct expr_symset *restrict esp,ptrdiff_t off){
+	STACK_DEFAULT(stack,esp);
+	expr_symset_move_s(esp,off,stack);
+}
+void expr_symset_move_s(struct expr_symset *restrict esp,ptrdiff_t off,void *stack){
+	expr_symset_foreach4(sp,esp,stack,EXPR_SYMNEXT){
+		if(!sp->saved)
+			continue;
+		*sp->tail=(struct expr_symbol *)((intptr_t)*sp->tail+off);
+	}
 }
 static long firstdiff(const char *restrict s1,const char *restrict s2,size_t len1,size_t len2){
 	long r,r0;
@@ -5083,7 +5128,7 @@ static long firstdiff(const char *restrict s1,const char *restrict s2,size_t len
 	do {
 		ampl=expr_next48v(ampl);
 		r=(int)(unsigned char)*(s1++)-(int)(unsigned char)*(s2++);
-		if(unlikely(r))
+		if(r)
 			break;
 		--len1;
 		--len2;
@@ -5104,28 +5149,6 @@ static long strdiff(const char *restrict s1,size_t len1,const char *restrict s2,
 		return 0;
 	*sum=r;
 	return 1;
-/*	long ampl;
-	if(len1==len2){
-//		r=memcmp(s1,s2,len1);
-//		if(unlikely(!r))
-//			return 0;
-		r=firstdiff(s1,s2,len1);
-		*sum=r;
-		return !!r;
-	}
-	r=firstdiff(s1,s2,len1<len2?len1:len2);
-	if(r){
-		*sum=r;
-		return 1;
-	}
-	ampl=0x330e;
-	if(len1>len2){
-		*sum=(int)(unsigned char)s1[len2];
-	}else {
-		*sum=-(int)(unsigned char)s2[len1];
-	}
-	return 1;
-	*/
 }
 #define modi(d) ({\
 	long t=(d);\
@@ -5133,20 +5156,6 @@ static long strdiff(const char *restrict s1,size_t len1,const char *restrict s2,
 		t+=EXPR_SYMNEXT*((-t)/EXPR_SYMNEXT+1);\
 	t%EXPR_SYMNEXT;\
 })
-/*
-#define modi(d) ({\
-	int tmpvar;\
-	(d)*=EXPR_SYMMAGIC;\
-	tmpvar=(d)%EXPR_SYMNEXT;\
-	if((d)>=0||!tmpvar)\
-		(d)=tmpvar;\
-	else\
-		(d)=((d)+((-(d))/EXPR_SYMNEXT+!!tmpvar)*EXPR_SYMNEXT)%EXPR_SYMNEXT;\
-})
-#define modi(d,m) ({\
-	(d)=(((d)%(m)+(m))-1)/2;\
-})
-*/
 struct expr_symbol **expr_symset_findtail(struct expr_symset *restrict esp,const char *sym,size_t symlen,size_t *depth){
 	struct expr_symbol *p;
 	size_t dep;
@@ -5191,7 +5200,7 @@ struct expr_symbol *expr_symset_vadd(struct expr_symset *restrict esp,const char
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const char *sym,size_t symlen,int type,int flag,va_list ap){
 	struct expr_symbol *ep,**next;
-	size_t len,len_expr,depth;
+	size_t len,len_expr,depth,alen;
 	const char *p;
 	char *p1;
 	if(unlikely(!symlen))
@@ -5214,6 +5223,7 @@ struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const cha
 		case EXPR_ZAFUNCTION:
 			break;
 		case EXPR_HOTFUNCTION:
+		case EXPR_ALIAS:
 			p=(const char *)va_arg(ap,const void *);
 			if(flag&EXPR_SF_INJECTION)
 				len_expr=va_arg(ap,size_t);
@@ -5225,8 +5235,9 @@ struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const cha
 			return NULL;
 	}
 	ep=xmalloc(len);
-	if(unlikely(!ep))
+	if(unlikely(!ep)){
 		return NULL;
+	}
 	memset(ep->next,0,sizeof(ep->next));
 	ep->length=len;
 	memcpy(ep->str,sym,symlen);
@@ -5244,32 +5255,18 @@ struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const cha
 			break;
 		case EXPR_MDFUNCTION:
 			ep->un.mdfunc=va_arg(ap,double (*)(size_t,double *));
-			//ep->length+=sizeof(size_t);
-#define xrealloc_ep_in_vaddl(_size) \
-			ep1=xrealloc(ep,(_size));\
-			if(unlikely(!ep1)){\
-				xfree(ep);\
-				return NULL;\
-			}\
-			ep=ep1
-			//xrealloc_ep_in_vaddl(ep->length);
 			SYMDIM(ep)=va_arg(ap,size_t);
 			break;
 		case EXPR_MDEPFUNCTION:
 			ep->un.mdepfunc=va_arg(ap,double (*)(size_t,
 				const struct expr *,double));
-			//ep->length+=sizeof(size_t);
-			//xrealloc_ep_in_vaddl(ep->length);
 			SYMDIM(ep)=va_arg(ap,size_t);
 			break;
 		case EXPR_ZAFUNCTION:
 			ep->un.zafunc=va_arg(ap,double (*)(void));
 			break;
 		case EXPR_HOTFUNCTION:
-			//p=va_arg(ap,const char *);
-			//len_expr=strlen(p);
-			//ep->length+=len_expr+1;
-			//xrealloc_ep_in_vaddl(ep->length);
+		case EXPR_ALIAS:
 			p1=ep->str+symlen+1;
 			ep->un.size=len_expr;
 			memcpy(p1,p,len_expr);
@@ -5281,11 +5278,15 @@ struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const cha
 
 	ep->type=type;
 	ep->flag=flag;
+	ep->saved=0;
 #define sset_inc(esp,_length,depth) \
 	++(esp)->size;\
 	++(esp)->size_m;\
+	alen=align(_length);\
 	(esp)->length+=(_length);\
+	(esp)->alength+=alen;\
 	(esp)->length_m+=(_length);\
+	(esp)->alength_m+=alen;\
 	if(unlikely((depth)>(esp)->depth)){\
 		esp->depth=(depth);\
 		esp->removed=0;\
@@ -5303,7 +5304,7 @@ struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const cha
 }
 #pragma GCC diagnostic pop
 struct expr_symbol *expr_symset_addcopy(struct expr_symset *restrict esp,const struct expr_symbol *restrict es){
-	size_t depth;
+	size_t depth,alen;
 	struct expr_symbol **tail=expr_symset_findtail(esp,es->str,es->strlen,&depth);
 	struct expr_symbol *ep;
 	if(unlikely(!tail||!(ep=xmalloc(es->length)))){
@@ -5314,6 +5315,7 @@ struct expr_symbol *expr_symset_addcopy(struct expr_symset *restrict esp,const s
 	*tail=ep;
 	ep->tail=tail;
 	ep->depthm1=depth-1;
+	ep->saved=0;
 	sset_inc(esp,ep->length,depth);
 	return ep;
 }
@@ -5354,7 +5356,7 @@ struct expr_symbol *expr_symset_searchd(const struct expr_symset *restrict esp,c
 	return NULL;
 }
 struct expr_symbol *expr_symset_insert(struct expr_symset *restrict esp,struct expr_symbol *restrict es){
-	size_t depth;
+	size_t depth,alen;
 	struct expr_symbol **tail=expr_symset_findtail(esp,es->str,es->strlen,&depth);
 	if(unlikely(!tail)){
 		return NULL;
@@ -5416,7 +5418,8 @@ void expr_symset_removea_s(struct expr_symset *restrict esp,struct expr_symbol *
 	struct expr_symbol *const *spa_end=spa+n;
 	expr_symset_detacha_s(esp,spa,n,stack);
 	do {
-		xfree(*spa);
+		if(!(*spa)->saved)
+			xfree(*spa);
 		spa++;
 	}while(spa<spa_end);
 
@@ -5453,7 +5456,7 @@ void expr_symset_detacha_s(struct expr_symset *restrict esp,struct expr_symbol *
 	size_t depthm1;
 	struct expr_symbol *const *spa_cur=spa;
 	struct expr_symbol *const *spa_end=spa+n;
-	if(likely(esp->depth<=(1<<17))){
+	if(likely(esp->depth<=(1<<16))){
 		depthm1=esp->depth-1;
 		do {
 			*(*spa_cur)->tail=NULL;
@@ -5476,7 +5479,9 @@ void expr_symset_detacha_s(struct expr_symset *restrict esp,struct expr_symbol *
 				expr_breakforeach;
 			expr_symset_reinsert(esp,sp1);
 		}
-		esp->length-=(*spa)->length;
+		depthm1=(*spa)->length;
+		esp->length-=depthm1;
+		esp->alength-=align(depthm1);
 		++spa;
 	}while(spa<spa_end);
 }
@@ -5538,7 +5543,7 @@ int expr_symset_recombine(struct expr_symset *restrict esp,long seed){
 	return expr_symset_recombine_s(esp,seed,stack);
 }
 int expr_symset_recombine_s(struct expr_symset *restrict esp,long seed,void *stack){
-	struct expr_symbol **ss,**ss_cur,**p1,**p0;
+	struct expr_symbol **ss,**ss_cur,**ss_end,**p1,**p0;
 	struct expr_symbol *swapbuf;
 	if(unlikely(!esp->size))
 		return 0;
@@ -5555,7 +5560,7 @@ int expr_symset_recombine_s(struct expr_symset *restrict esp,long seed,void *sta
 		if(likely(i1!=i)){
 			p0=ss+i;
 			p1=ss+i1;
-		}else if(i<endi-1){
+		}else if(likely(i<endi-1)){
 			p0=ss+i;
 			p1=ss+i+1;
 		}else
@@ -5568,10 +5573,12 @@ int expr_symset_recombine_s(struct expr_symset *restrict esp,long seed,void *sta
 	esp->syms=NULL;
 	esp->depth=0;
 	esp->depth_n=0;
+	ss_end=ss_cur;
+	ss_cur=ss;
 	do {
-		expr_symset_reinsert(esp,*ss);
-		++ss;
-	}while(ss<ss_cur);
+		expr_symset_reinsert(esp,*ss_cur);
+		++ss_cur;
+	}while(ss_cur<ss_end);
 	xfree(ss);
 	return 0;
 }

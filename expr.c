@@ -2414,11 +2414,19 @@ static int expr_detach(struct expr *restrict ep){
 	return 0;
 }
 static int expr_createconst(struct expr *restrict ep,const char *symbol,size_t symlen,double val){
+	if(unlikely(!symlen)){
+		seterr(ep,EXPR_EEV);
+		return -1;
+	}
 	cknp(ep,expr_detach(ep)>=0,return -1);
 	return expr_symset_addl(ep->sset,symbol,symlen,EXPR_CONSTANT,0,val)?
 	0:-1;
 }
 static int expr_createsvar(struct expr *restrict ep,const char *symbol,size_t symlen,double val){
+	if(unlikely(!symlen)){
+		seterr(ep,EXPR_EEV);
+		return -1;
+	}
 	struct expr_resource *r;
 	cknp(ep,expr_detach(ep)>=0,return -1);
 	r=expr_newres(ep);
@@ -2429,7 +2437,12 @@ static int expr_createsvar(struct expr *restrict ep,const char *symbol,size_t sy
 	return expr_symset_addl(ep->sset,symbol,symlen,EXPR_VARIABLE,0,r->un.addr)?0:-1;
 }
 static int expr_createvar4(struct expr *restrict ep,const char *symbol,size_t symlen,double val){
-	double *r=expr_newvar(ep);
+	double *r;
+	if(unlikely(!symlen)){
+		seterr(ep,EXPR_EEV);
+		return -1;
+	}
+	r=expr_newvar(ep);
 	if(unlikely(!r))
 		return -1;
 	cknp(ep,expr_detach(ep)>=0,return -1);
@@ -2437,13 +2450,22 @@ static int expr_createvar4(struct expr *restrict ep,const char *symbol,size_t sy
 	return expr_symset_addl(ep->sset,symbol,symlen,EXPR_VARIABLE,0,r)?0:-1;
 }
 static double *expr_createvar(struct expr *restrict ep,const char *symbol,size_t symlen){
-	double *r=expr_newvar(ep);
+	double *r;
+	if(unlikely(!symlen)){
+		seterr(ep,EXPR_EEV);
+		return NULL;
+	}
+	r=expr_newvar(ep);
 	if(unlikely(!r))
 		return NULL;
 	cknp(ep,expr_detach(ep)>=0,return NULL);
 	return expr_symset_addl(ep->sset,symbol,symlen,EXPR_VARIABLE,0,r)?r:NULL;
 }
 static int expr_createhot(struct expr *restrict ep,const char *symbol,size_t symlen,const char *hotexpr,size_t hotlen,int flag){
+	if(unlikely(!symlen)){
+		seterr(ep,EXPR_EEV);
+		return -1;
+	}
 	cknp(ep,expr_detach(ep)>=0,return -1);
 	return expr_symset_addl(ep->sset,symbol,symlen,EXPR_HOTFUNCTION,flag|EXPR_SF_INJECTION,hotexpr,hotlen)?
 	0:-1;
@@ -3222,25 +3244,38 @@ static int expr_rmsym(struct expr *restrict ep,const char *sym,size_t sz){
 			return expr_symset_remove(ep->sset,sym,sz)<0;
 	}
 }
-static const struct expr_symbol *alias_target(struct expr *restrict ep,const struct expr_symbol *alias,const struct expr_builtin_symbol **bt){
+static const struct expr_symbol *alias_target(struct expr *restrict ep,const struct expr_symbol *alias,const struct expr_builtin_symbol **bt,int symerr){
 	size_t n=ep->sset->size-1,len,len0;
 	const char *p,*p0;
 	p0=alias->str;
 	len0=alias->strlen;
 	for(;;){
-		p=expr_symset_hot(alias);
-		len=HOTLEN(alias);
-		alias=expr_symset_search(ep->sset,p,len);
-		if(bt&&!(ep->iflag&EXPR_IF_NOBUILTIN)){
-			*bt=expr_builtin_symbol_search(p,len);
-			if(*bt)
-				return NULL;
-		}
-		if(unlikely(!alias)){
-			return NULL;
-		}
 		if(likely(alias->type!=EXPR_ALIAS)){
 			return alias;
+		}
+		p=expr_symset_hot(alias);
+		len=HOTLEN(alias);
+		if(!(ep->iflag&EXPR_IF_NOBUILTIN)&&len>=2&&p[0]==':'&&p[1]==':'){
+			p+=2;
+			len-=2;
+			alias=NULL;
+			goto builtin;
+		}
+		alias=expr_symset_search(ep->sset,p,len);
+		if(!(ep->iflag&EXPR_IF_NOBUILTIN)){
+builtin:
+			if(bt){
+				*bt=expr_builtin_symbol_search(p,len);
+				if(*bt)
+					return NULL;
+			}
+		}
+		if(unlikely(!alias)){
+			if(symerr){
+				serrinfo(ep->errinfo,p,len);
+				seterr(ep,EXPR_ESYMBOL);
+			}
+			return NULL;
 		}
 		if(unlikely(!n)){
 			serrinfo(ep->errinfo,p0,len0);
@@ -3511,7 +3546,7 @@ ecta:
 						return NULL;
 					case EXPR_ALIAS:
 						un.ebs=NULL;
-						sym.es=alias_target(ep,sym.es,&un.ebs);
+						sym.es=alias_target(ep,sym.es,&un.ebs,1);
 						if(!sym.es){
 							if(unlikely(!un.ebs))
 								return NULL;
@@ -3711,18 +3746,27 @@ c_fail:
 				}
 				cknp(ep,expr_detach(ep)>=0,goto c_fail);
 				if(!ep->sset||!(sv.es=expr_symset_search(ep->sset,sym.vv[0],dim=strlen(sym.vv[0])))){
-					seterr(ep,expr_builtin_symbol_search(sym.vv[0],dim)?
+					seterr(ep,!(ep->iflag&EXPR_IF_NOBUILTIN)&&expr_builtin_symbol_search(sym.vv[0],dim)?
 						EXPR_ETNV:EXPR_ESYMBOL);
 					serrinfo(ep->errinfo,sym.vv[0],dim);
 					goto c_fail;
-				}else switch(sv.es->type){
-					case EXPR_CONSTANT:
-					case EXPR_VARIABLE:
-						break;
-					default:
-						seterr(ep,EXPR_ETNV);
-						serrinfo(ep->errinfo,sym.vv[0],dim);
-						goto c_fail;
+				}else {
+alias_found_decl:
+					switch(sv.es->type){
+						case EXPR_CONSTANT:
+						case EXPR_VARIABLE:
+							break;
+						case EXPR_ALIAS:
+							sv.ces=alias_target(ep,sv.es,NULL,1);
+							if(likely(sv.ces)){
+								goto alias_found_decl;
+							}
+							goto c_fail;
+						default:
+							seterr(ep,EXPR_ETNV);
+							serrinfo(ep->errinfo,sym.vv[0],dim);
+							goto c_fail;
+					}
 				}
 				expr_free2(sym.vv);
 				flag=sv.es->flag;
@@ -3744,6 +3788,8 @@ c_fail:
 						goto c_fail;
 				}
 				dim=strlen(sym.vv[0]);
+				if(unlikely(!dim))
+					goto eev;
 				p4=getsym(sym.vv[0],sym.vv[0]+dim);
 				if(unlikely(*p4)){
 					seterr(ep,EXPR_EUO);
@@ -3842,8 +3888,17 @@ _label:\
 						++e;\
 						goto symerr;\
 					}\
-				}else \
-					_dest=sym.es->_field
+				}else {\
+					un.ebs=NULL;\
+					sv.ces=alias_target(ep,sym.es,&un.ebs,1);\
+					if(sv.ces){\
+						_dest=sv.ces->_field;\
+					}else if(likely(un.ebs)){\
+						_dest=un.ebs->_field;\
+					}else {\
+						return NULL;\
+					}\
+				}
 			case EXPR_AND:
 				symfield(type,flag,b1);
 				v0=expr_newvar(ep);
@@ -4039,6 +4094,8 @@ found1:
 						goto c_fail;
 				}
 				dim=strlen(sym.vv[0]);
+				if(unlikely(!dim))
+					goto eev;
 				p4=getsym(sym.vv[0],sym.vv[0]+dim);
 				if(unlikely(*p4)){
 					seterr(ep,EXPR_EUO);
@@ -4505,7 +4562,7 @@ treat_as_variable:
 			goto vend;
 		case EXPR_ALIAS:
 			un.ebs=NULL;
-			sv.ces=alias_target(ep,sym.es,&un.ebs);
+			sv.ces=alias_target(ep,sym.es,&un.ebs,0);
 			if(sv.ces){
 				sym.es=sv.ces;
 				goto alias_found;
@@ -4939,7 +4996,7 @@ envp:
 				}
 				e1=e;
 				e=p1;
-				if(*e=='['){
+				if(*p1=='['){
 					double *v3;
 					p1=findpair_bracket(e,endp);
 					if(unlikely(!p1))
@@ -4973,12 +5030,14 @@ multi_dim:
 					switch(esp->type){
 						case EXPR_VARIABLE:
 							break;
-						case EXPR_ALIAS:
-							esp=alias_target(ep,esp,NULL);
+							esp=alias_target(ep,esp,NULL,1);
+							if(unlikely(!esp))
+								goto err;
 							if(likely(esp->type==EXPR_VARIABLE))
 								break;
+						case EXPR_ALIAS:
 						default:
-							serrinfo(ep->errinfo,e,p1-e);
+							serrinfo(ep->errinfo,e1,p1-e1);
 tnv:
 							seterr(ep,EXPR_ETNV);
 							goto err;

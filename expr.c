@@ -3227,8 +3227,6 @@ static const struct expr_symbol *alias_target(struct expr *restrict ep,const str
 	const char *p,*p0;
 	p0=alias->str;
 	len0=alias->strlen;
-//	len=len0;
-//	p=p0;
 	for(;;){
 		p=expr_symset_hot(alias);
 		len=HOTLEN(alias);
@@ -3239,8 +3237,6 @@ static const struct expr_symbol *alias_target(struct expr *restrict ep,const str
 				return NULL;
 		}
 		if(unlikely(!alias)){
-			serrinfo(ep->errinfo,p,len);
-			ep->error=EXPR_ESYMBOL;
 			return NULL;
 		}
 		if(likely(alias->type!=EXPR_ALIAS)){
@@ -3248,11 +3244,29 @@ static const struct expr_symbol *alias_target(struct expr *restrict ep,const str
 		}
 		if(unlikely(!n)){
 			serrinfo(ep->errinfo,p0,len0);
-			ep->error=EXPR_EANT;
+			seterr(ep,EXPR_EANT);
 			return NULL;
 		}
 		--n;
 	}
+}
+static double *alias_scan(struct expr *restrict ep,const struct expr_symbol *alias,const char *asym,size_t asymlen){
+	size_t len;
+	const char *p;
+	struct expr_symset *esp,*old;
+	double *v0;
+	cknp(ep,expr_detach(ep)>=0,return NULL);
+	esp=expr_symset_clone(ep->sset);
+	cknp(ep,esp,return NULL);
+	p=expr_symset_hot(alias);
+	len=HOTLEN(alias);
+	expr_symset_remove(esp,p,len);
+	old=ep->sset;
+	ep->sset=esp;
+	v0=scan(ep,p,p+len,asym,asymlen);
+	ep->sset=old;
+	expr_symset_free(esp);
+	return v0;
 }
 
 static double *getvalue(struct expr *restrict ep,const char *e,const char *endp,const char **_p,const char *asym,size_t asymlen){
@@ -3285,6 +3299,8 @@ static double *getvalue(struct expr *restrict ep,const char *e,const char *endp,
 	union {
 		const union expr_symvalue *sv;
 		struct expr_symbol *es;
+		const struct expr_symbol *ces;
+		struct expr_symset *esp;
 	} sv;
 	int type,flag;
 	size_t dim=0;
@@ -3727,7 +3743,14 @@ c_fail:
 						memcpy(ep->errinfo,"hot",mincc(3,EXPR_SYMLEN));
 						goto c_fail;
 				}
-				if(ep->sset&&expr_symset_search(ep->sset,sym.vv[0],dim=strlen(sym.vv[0]))){
+				dim=strlen(sym.vv[0]);
+				p4=getsym(sym.vv[0],sym.vv[0]+dim);
+				if(unlikely(*p4)){
+					seterr(ep,EXPR_EUO);
+					*ep->errinfo=*p4;
+					goto c_fail;
+				}
+				if(ep->sset&&expr_symset_search(ep->sset,sym.vv[0],dim)){
 					seterr(ep,EXPR_EDS);
 					serrinfo(ep->errinfo,sym.vv[0],dim);
 					goto c_fail;
@@ -4015,7 +4038,14 @@ found1:
 						memcpy(ep->errinfo,"alias",mincc(5,EXPR_SYMLEN));
 						goto c_fail;
 				}
-				if(ep->sset&&expr_symset_search(ep->sset,sym.vv[0],dim=strlen(sym.vv[0]))){
+				dim=strlen(sym.vv[0]);
+				p4=getsym(sym.vv[0],sym.vv[0]+dim);
+				if(unlikely(*p4)){
+					seterr(ep,EXPR_EUO);
+					*ep->errinfo=*p4;
+					goto c_fail;
+				}
+				if(ep->sset&&expr_symset_search(ep->sset,sym.vv[0],dim)){
 					seterr(ep,EXPR_EDS);
 					serrinfo(ep->errinfo,sym.vv[0],dim);
 					goto c_fail;
@@ -4475,14 +4505,22 @@ treat_as_variable:
 			goto vend;
 		case EXPR_ALIAS:
 			un.ebs=NULL;
-			sym.es=alias_target(ep,sym.es,&un.ebs);
-			if(!sym.es){
-				if(unlikely(!un.ebs))
-					return NULL;
+			sv.ces=alias_target(ep,sym.es,&un.ebs);
+			if(sv.ces){
+				sym.es=sv.ces;
+				goto alias_found;
+			}
+			if(un.ebs){
 				sym.ebs=un.ebs;
 				goto alias_foundb;
 			}
-			goto alias_found;
+			if(unlikely(ep->error==EXPR_EANT))
+				return NULL;
+			v0=alias_scan(ep,sym.es,asym,asymlen);
+			if(unlikely(!v0))
+				return NULL;
+			e=p;
+			goto vend;
 		default:
 			goto symerr;
 	}
@@ -4975,7 +5013,7 @@ bracket_end:
 				}
 				if(ep->sset&&(esp=expr_symset_search(ep->sset,e,p1-e))
 				){
-					ep->error=EXPR_EDS;
+					seterr(ep,EXPR_EDS);
 					serrinfo(ep->errinfo,e,p1-e);
 					goto err;
 					/*

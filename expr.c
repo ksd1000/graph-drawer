@@ -1674,7 +1674,7 @@ const struct expr_builtin_keyword expr_keywords[]={
 	REGKEYN("ip",EXPR_IP,0,"ip(void)"),
 	REGKEYN("to",EXPR_TO,1,"to(val)"),
 	REGKEYN("to1",EXPR_TO1,1,"to(val)"),
-	REGKEYS("hot",EXPR_HOT,2,"hot(function_name,(args...){expression}) function_name=(args...){expression}"),
+	REGKEYSC("hot",EXPR_HOT,2,"hot(function_name,(args...){expression}) function_name=(args...){expression}"),
 	REGKEY("defined",EXPR_DIV,1,"defined(symbol)"),
 	REGKEY("typeof",EXPR_AND,1,"typeof(symbol)"),
 	REGKEY("flagof",EXPR_OR,1,"flagof(symbol)"),
@@ -1685,7 +1685,7 @@ const struct expr_builtin_keyword expr_keywords[]={
 	REGKEY("fix",EXPR_NEXT,1,"fix(expression value)"),
 	REGKEY("constant",EXPR_DIFF,1,"constant(expression value)"),
 	REGKEYS("try",EXPR_NEG,1,"try([new_symbol]){body}"),
-	REGKEYS("alias",EXPR_NOT,2,"alias(alias_name,target)"),
+	REGKEYC("alias",EXPR_NOT,2,"alias(alias_name,target)"),
 	{NULL}
 };
 const struct expr_builtin_symbol expr_symbols[]={

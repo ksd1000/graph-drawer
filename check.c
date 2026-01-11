@@ -78,6 +78,7 @@ const struct proj {
 	{"flagof(cos)&SF_INJECTION",1},
 	{"f=(u,v){u+v^2},f(7,4)",23},
 	{"undef(defined_symbol){1},defined_symbol",2304.0},
+	{"alias(x,defined_symbol);x",2304.0},
 	{NULL}
 
 };
@@ -119,6 +120,8 @@ const struct eproj {
 	{"undef(defined_symbol),defined_symbol",EXPR_ESYMBOL},
 	{"undef(defined_symbol){defined_symbol}",EXPR_ESYMBOL},
 	{"flag(IF_INJECTION),drand48(&x0)",EXPR_EIN},
+	{"alias(x,y);alias(y,x);x",EXPR_EANT},
+	{"alias(x,y);alias(y,z);alias(z,y);x",EXPR_EANT},
 	{NULL}
 };
 void errcheck(const char *e,int expect){

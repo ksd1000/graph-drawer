@@ -136,6 +136,7 @@ EXPR_END
 #define EXPR_EIN 20
 #define EXPR_EBS 21
 #define EXPR_EVZP 22
+#define EXPR_EANT 23
 
 #define EXPR_CONSTANT 0
 #define EXPR_VARIABLE 1

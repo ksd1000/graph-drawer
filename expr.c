@@ -16,12 +16,12 @@
 #define HIDE_WHERE_ERROR_OCCURS 1
 #define PHYSICAL_CONSTANT 0
 
-/*
 #define printval(x) warn(#x ":%lu",(unsigned long)(x))
 #define printvali(x) warn(#x ":%d",(int)(x))
 #define printvall(x) warn(#x ":%ld",(long)(x))
 #define printvald(x) warn(#x ":%lf",(double)(x))
 #define trap (warn("\nat file %s line %d",__FILE__,__LINE__),__builtin_trap())
+/*
 */
 #define warn(fmt,...) fprintf(stderr,fmt "\n",##__VA_ARGS__)
 
@@ -365,6 +365,7 @@ static const char *eerror[]={
 	[EXPR_EIN]="Injective function only",
 	[EXPR_EBS]="Cannot remove a builtin symbol",
 	[EXPR_EVZP]="Variable-length multi-demension function without a maximal length is not allowed in protected mode",
+	[EXPR_EANT]="Alias is not terminated",
 };
 const struct expr_libinfo expr_libinfo[1]={{
 	.version="pre-release",
@@ -1673,17 +1674,18 @@ const struct expr_builtin_keyword expr_keywords[]={
 	REGKEYN("ip",EXPR_IP,0,"ip(void)"),
 	REGKEYN("to",EXPR_TO,1,"to(val)"),
 	REGKEYN("to1",EXPR_TO1,1,"to(val)"),
-	REGKEY("hot",EXPR_HOT,2,"hot(function_name,(args...){expression}) function_name=(args...){expression}"),
+	REGKEYS("hot",EXPR_HOT,2,"hot(function_name,(args...){expression}) function_name=(args...){expression}"),
 	REGKEY("defined",EXPR_DIV,1,"defined(symbol)"),
 	REGKEY("typeof",EXPR_AND,1,"typeof(symbol)"),
 	REGKEY("flagof",EXPR_OR,1,"flagof(symbol)"),
-	REGKEY("undef",EXPR_XOR,1,"undef([symbol,...])[{scope}]"),
+	REGKEY("undef",EXPR_XOR,1,"undef([symbol])[{scope}]"),
 	REGKEY("static_if",EXPR_ANDL,3,"static_if(constant_expression cond){body}[{else_body}]"),
 	REGKEY("flag",EXPR_ORL,1,"flag([constant_expression new_flag])[{scope}]"),
 	REGKEY("scope",EXPR_XORL,1,"scope(){scope}"),
 	REGKEY("fix",EXPR_NEXT,1,"fix(expression value)"),
 	REGKEY("constant",EXPR_DIFF,1,"constant(expression value)"),
 	REGKEYS("try",EXPR_NEG,1,"try([new_symbol]){body}"),
+	REGKEYS("alias",EXPR_NOT,2,"alias(alias_name,target)"),
 	{NULL}
 };
 const struct expr_builtin_symbol expr_symbols[]={
@@ -3220,6 +3222,39 @@ static int expr_rmsym(struct expr *restrict ep,const char *sym,size_t sz){
 			return expr_symset_remove(ep->sset,sym,sz)<0;
 	}
 }
+static const struct expr_symbol *alias_target(struct expr *restrict ep,const struct expr_symbol *alias,const struct expr_builtin_symbol **bt){
+	size_t n=ep->sset->size-1,len,len0;
+	const char *p,*p0;
+	p0=alias->str;
+	len0=alias->strlen;
+//	len=len0;
+//	p=p0;
+	for(;;){
+		p=expr_symset_hot(alias);
+		len=HOTLEN(alias);
+		alias=expr_symset_search(ep->sset,p,len);
+		if(bt&&!(ep->iflag&EXPR_IF_NOBUILTIN)){
+			*bt=expr_builtin_symbol_search(p,len);
+			if(*bt)
+				return NULL;
+		}
+		if(unlikely(!alias)){
+			serrinfo(ep->errinfo,p,len);
+			ep->error=EXPR_ESYMBOL;
+			return NULL;
+		}
+		if(likely(alias->type!=EXPR_ALIAS)){
+			return alias;
+		}
+		if(unlikely(!n)){
+			serrinfo(ep->errinfo,p0,len0);
+			ep->error=EXPR_EANT;
+			return NULL;
+		}
+		--n;
+	}
+}
+
 static double *getvalue(struct expr *restrict ep,const char *e,const char *endp,const char **_p,const char *asym,size_t asymlen){
 	const char *p,*p2,*p4,*e0=e;
 	double *v0=NULL,*v1;
@@ -3235,6 +3270,9 @@ static double *getvalue(struct expr *restrict ep,const char *e,const char *endp,
 		char **vv1;
 		const char *ccp;
 		struct expr_symset *esp;
+		struct expr_symbol *ebp;
+		const struct expr_builtin_symbol *ebs;
+		size_t sz;
 	} un;
 	union {
 		const struct expr_symbol *es;
@@ -3433,24 +3471,42 @@ block:
 				}
 				sym.ebs=expr_builtin_symbol_search(e,p-e);
 				if(likely(sym.ebs)){
+alias_found1b:
 					type=sym.ebs->type;
+					switch(type){
+						case EXPR_CONSTANT:
+							goto ecta;
+						default:
+							break;
+					}
 					un.uaddr=sym.ebs->un.uaddr;
 				}else {
 					goto symerr;
 				}
 			}else {
+alias_found1:
 				type=sym.es->type;
+				switch(type){
+					case EXPR_CONSTANT:
+					case EXPR_HOTFUNCTION:
+ecta:
+						seterr(ep,EXPR_ECTA);
+						serrinfo(ep->errinfo,e,p-e);
+						return NULL;
+					case EXPR_ALIAS:
+						un.ebs=NULL;
+						sym.es=alias_target(ep,sym.es,&un.ebs);
+						if(!sym.es){
+							if(unlikely(!un.ebs))
+								return NULL;
+							sym.ebs=un.ebs;
+							goto alias_found1b;
+						}
+						goto alias_found1;
+					default:
+						break;
+				}
 				un.uaddr=expr_symset_un(sym.es)->uaddr;
-			}
-			switch(type){
-				case EXPR_CONSTANT:
-				case EXPR_HOTFUNCTION:
-				case EXPR_ALIAS:
-					seterr(ep,EXPR_ECTA);
-					serrinfo(ep->errinfo,e,p-e);
-					return NULL;
-				default:
-					break;
 			}
 			v0=expr_newvar(ep);
 			cknp(ep,v0,return NULL);
@@ -3486,6 +3542,7 @@ symget:
 			goto vend;
 		}
 		if(ep->sset&&(sym.es=expr_symset_search(ep->sset,e,p-e))){
+alias_found:
 			type=sym.es->type;
 			switch(type){
 				case EXPR_MDFUNCTION:
@@ -3512,6 +3569,7 @@ symget:
 		}
 	}
 	if(!(ep->iflag&EXPR_IF_NOBUILTIN)&&(sym.ebs=expr_builtin_symbol_search(e,p-e))){
+alias_foundb:
 		flag=sym.ebs->flag;
 		type=sym.ebs->type;
 		switch(type){
@@ -3943,6 +4001,31 @@ found1:
 					cknp(ep,!expr_createconst(ep,e+1,p-e-1,(double)flag),return NULL);
 				}
 				e=p2+1;
+				goto vend;
+			case EXPR_NOT:
+				sym.vv=expr_sep(ep,e,p-e+1);
+				if(unlikely(!sym.vv))
+					return NULL;
+				for(un.vv1=sym.vv;*un.vv1;++un.vv1);
+				switch(un.vv1-sym.vv){
+					case 2:
+						break;
+					default:
+						seterr(ep,EXPR_ENEA);
+						memcpy(ep->errinfo,"alias",mincc(5,EXPR_SYMLEN));
+						goto c_fail;
+				}
+				if(ep->sset&&expr_symset_search(ep->sset,sym.vv[0],dim=strlen(sym.vv[0]))){
+					seterr(ep,EXPR_EDS);
+					serrinfo(ep->errinfo,sym.vv[0],dim);
+					goto c_fail;
+				}
+				cknp(ep,expr_detach(ep)>=0,goto c_fail);
+				un.ebp=expr_symset_addl(ep->sset,sym.vv[0],dim,EXPR_ALIAS,0,sym.vv[1]);
+				expr_free2(sym.vv);
+				cknp(ep,un.ebp,return NULL);
+				v0=EXPR_VOID;
+				e=p+1;
 				goto vend;
 			case EXPR_ALO:
 				sym.vv=expr_sep(ep,e,p-e+1);
@@ -4391,6 +4474,15 @@ treat_as_variable:
 			e=p+1;
 			goto vend;
 		case EXPR_ALIAS:
+			un.ebs=NULL;
+			sym.es=alias_target(ep,sym.es,&un.ebs);
+			if(!sym.es){
+				if(unlikely(!un.ebs))
+					return NULL;
+				sym.ebs=un.ebs;
+				goto alias_foundb;
+			}
+			goto alias_found;
 		default:
 			goto symerr;
 	}
@@ -4839,11 +4931,20 @@ multi_dim:
 					cknp(ep,expr_addwrite(ep,v1,v3),goto err);
 					e=p1+1;
 					goto bracket_end;
-				}else if(unlikely(esp->type!=EXPR_VARIABLE)){
-					serrinfo(ep->errinfo,e,p1-e);
+				}else {
+					switch(esp->type){
+						case EXPR_VARIABLE:
+							break;
+						case EXPR_ALIAS:
+							esp=alias_target(ep,esp,NULL);
+							if(likely(esp->type==EXPR_VARIABLE))
+								break;
+						default:
+							serrinfo(ep->errinfo,e,p1-e);
 tnv:
-					seterr(ep,EXPR_ETNV);
-					goto err;
+							seterr(ep,EXPR_ETNV);
+							goto err;
+					}
 				}
 				cknp(ep,expr_addcopy(ep,expr_symset_un(esp)->addr,v1),goto err);
 bracket_end:
@@ -4874,6 +4975,10 @@ bracket_end:
 				}
 				if(ep->sset&&(esp=expr_symset_search(ep->sset,e,p1-e))
 				){
+					ep->error=EXPR_EDS;
+					serrinfo(ep->errinfo,e,p1-e);
+					goto err;
+					/*
 					cknp(ep,expr_detach(ep)>=0,goto err);
 					esp=expr_symset_search(ep->sset,e,p1-e);
 					if(unlikely(!esp))
@@ -4883,6 +4988,7 @@ bracket_end:
 					esp->type=EXPR_VARIABLE;
 					esp->flag=0;
 					expr_symset_un(esp)->addr=v2;
+					*/
 				}else {
 					v2=expr_createvar(ep,e,p1-e);
 					cknp(ep,v2,goto err);
@@ -5388,7 +5494,6 @@ struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const cha
 		case EXPR_HOTFUNCTION:
 		case EXPR_ALIAS:
 			p1=ep->str+symlen+1;
-			expr_symset_un(ep)->size=len_expr;
 			memcpy(p1,p,len_expr);
 			p1[len_expr]=0;
 			break;

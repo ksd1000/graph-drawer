@@ -1264,7 +1264,28 @@ static double expr_##s##sym##_c(const struct expr *args,size_t n,double input){\
 	*un.r op cast(v,type);\
 	return v;\
 }
-#define FMEM(sym,type) RMEM(sym,type) RMEMC(sym,type) ZMEM(sym,type) BMEM(sym,type,w,=) BMEM(sym,type,a,+=) BMEM(sym,type,s,-=) BMEM(sym,type,m,*=) BMEM(sym,type,d,/=)
+#define LMEM(sym,type,s,op)\
+static double expr_##s##sym(const struct expr *args,size_t n,double input){\
+	union {\
+		type *r;\
+		double dr;\
+	} un;\
+	double v;\
+	un.dr=eval(args,input);\
+	v=eval(args+1,input);\
+	return (double)(*un.r op (type)v);\
+}\
+static double expr_##s##sym##_c(const struct expr *args,size_t n,double input){\
+	union {\
+		type *r;\
+		double dr;\
+	} un;\
+	double v;\
+	un.dr=eval(args,input);\
+	v=eval(args+1,input);\
+	return (double)(*un.r op cast(v,type));\
+}
+#define FMEM(sym,type) RMEM(sym,type) RMEMC(sym,type) ZMEM(sym,type) BMEM(sym,type,w,=) BMEM(sym,type,a,+=) BMEM(sym,type,s,-=) BMEM(sym,type,m,*=) BMEM(sym,type,d,/=) LMEM(sym,type,e,==) LMEM(sym,type,l,<) LMEM(sym,type,g,>)
 #define MEM(sym,type) FMEM(sym,type) BMEM(sym,type,c,&=) BMEM(sym,type,o,|=) BMEM(sym,type,x,^=) BMEM(sym,type,sl,<<=) BMEM(sym,type,sr,>>=)
 MEM(8,int8_t);
 MEM(16,int16_t);
@@ -1287,7 +1308,7 @@ FMEM(l,long double);
 #define REGRMEM(s) REGFSYM2_NI("_r" #s,expr_r##s)
 #define REGRMEMC(s) REGFSYM2_NI("_r" #s "c",expr_r##s##_c)
 #define REGZMEM(s) REGFSYM2_NI("_z" #s,expr_z##s)
-#define REGFMEM(_s) REGRMEM(_s),REGRMEMC(_s),REGZMEM(_s),REGMEM2(_s,w),REGMEM2(_s,a),REGMEM2(_s,s),REGMEM2(_s,m),REGMEM2(_s,d)
+#define REGFMEM(_s) REGRMEM(_s),REGRMEMC(_s),REGZMEM(_s),REGMEM2(_s,w),REGMEM2(_s,a),REGMEM2(_s,s),REGMEM2(_s,m),REGMEM2(_s,d),REGMEM2(_s,e),REGMEM2(_s,l),REGMEM2(_s,g)
 #define REGMEM(_s) REGFMEM(_s) ,REGMEM2(_s,c),REGMEM2(_s,o),REGMEM2(_s,x),REGMEM2(_s,sl),REGMEM2(_s,sr)
 static double expr_dexp(double x){
 	return (double)EXPR_EDEXP(&x);

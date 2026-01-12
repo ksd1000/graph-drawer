@@ -917,6 +917,23 @@ static double expr_lrand48(void){
 static double expr_mrand48(void){
 	return (double)mrand48();
 }
+
+static int lcastp(const char *p,long *out){
+	char *end;
+	int base;
+	switch(*p){
+		case '0':
+			base=(p[1]=='x'?16:8);
+			break;
+		default:
+			base=10;
+			brrak;
+	}
+	*out=strtol(p,&end,base);
+	if(unlikely(*end!=')'))
+		return -1;
+	return 0;
+}
 */
 static double expr_strtol(double *args,size_t n){
 	return (double)strtol(cast(*args,const char *),NULL,(int)args[1]);
@@ -1311,8 +1328,32 @@ static double expr_x##sym(const struct expr *args,size_t n,double input){\
 	*un.r^=(type)v;\
 	return v;\
 }
+#define SLMEM(sym,type)\
+static double expr_sl##sym(const struct expr *args,size_t n,double input){\
+	union {\
+		type *r;\
+		double dr;\
+	} un;\
+	double v;\
+	un.dr=eval(args,input);\
+	v=eval(args+1,input);\
+	*un.r<<=(type)v;\
+	return v;\
+}
+#define SRMEM(sym,type)\
+static double expr_sr##sym(const struct expr *args,size_t n,double input){\
+	union {\
+		type *r;\
+		double dr;\
+	} un;\
+	double v;\
+	un.dr=eval(args,input);\
+	v=eval(args+1,input);\
+	*un.r>>=(type)v;\
+	return v;\
+}
 #define FMEM(sym,type) RMEM(sym,type) ZMEM(sym,type) WMEM(sym,type) AMEM(sym,type) SMEM(sym,type) MMEM(sym,type) DMEM(sym,type)
-#define MEM(sym,type) FMEM(sym,type) CMEM(sym,type) OMEM(sym,type) XMEM(sym,type)
+#define MEM(sym,type) FMEM(sym,type) CMEM(sym,type) OMEM(sym,type) XMEM(sym,type) SLMEM(sym,type) SRMEM(sym,type)
 MEM(8,int8_t);
 MEM(16,int16_t);
 MEM(32,int32_t);
@@ -1340,8 +1381,10 @@ FMEM(l,long double);
 #define REGCMEM(s) REGMDEPSYM2_NI("c" #s,expr_c##s,2ul)
 #define REGOMEM(s) REGMDEPSYM2_NI("o" #s,expr_o##s,2ul)
 #define REGXMEM(s) REGMDEPSYM2_NI("x" #s,expr_x##s,2ul)
+#define REGSLMEM(s) REGMDEPSYM2_NI("sl" #s,expr_sl##s,2ul)
+#define REGSRMEM(s) REGMDEPSYM2_NI("sr" #s,expr_sr##s,2ul)
 #define REGFMEM(s) REGRMEM(s),REGZMEM(s),REGWMEM(s),REGAMEM(s),REGSMEM(s),REGMMEM(s),REGDMEM(s)
-#define REGMEM(s) REGFMEM(s) ,REGCMEM(s),REGOMEM(s),REGXMEM(s)
+#define REGMEM(s) REGFMEM(s) ,REGCMEM(s),REGOMEM(s),REGXMEM(s),REGSLMEM(s),REGSRMEM(s)
 static double expr_dexp(double x){
 	return (double)EXPR_EDEXP(&x);
 }

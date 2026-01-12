@@ -3262,15 +3262,15 @@ static const struct expr_symbol *alias_target(struct expr *restrict ep,const str
 			goto builtin;
 		}
 		alias=expr_symset_search(ep->sset,p,len);
-		if(!(ep->iflag&EXPR_IF_NOBUILTIN)){
-builtin:
-			if(bt){
-				*bt=expr_builtin_symbol_search(p,len);
-				if(*bt)
-					return NULL;
-			}
-		}
 		if(unlikely(!alias)){
+			if(!(ep->iflag&EXPR_IF_NOBUILTIN)){
+builtin:
+				if(bt){
+					*bt=expr_builtin_symbol_search(p,len);
+					if(*bt)
+						return NULL;
+				}
+			}
 			switch(symerr){
 				case 0:
 					return NULL;
@@ -3387,6 +3387,8 @@ found:
 	if(type==EXPR_ALIAS&&follow){
 		ebs1=NULL;
 		sym.es=alias_target(ep,sym.es,&ebs1,follow);
+		if(follow==2)
+			follow=0;
 		if(sym.es){
 			goto alias_found;
 		}
@@ -3779,7 +3781,8 @@ c_fail:
 						un.v=0;
 						break;
 					case 2:
-						un.v=consteval(sym.vv[1],strlen(sym.vv[1]),asym,asymlen,ep->sset,ep);
+						dim=strlen(sym.vv[0]);
+						un.v=consteval(sym.vv[1],dim,asym,asymlen,ep->sset,ep);
 						if(unlikely(ep->error))
 							goto c_fail;
 						break;

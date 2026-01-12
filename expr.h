@@ -350,9 +350,8 @@ struct expr_mdinfo {
 	double *args;
 	const char *e;
 	union {
-		double (*func)(size_t,double *);
-		double (*funcep)(size_t,
-			const struct expr *,double);
+		double (*func)(double *,size_t);
+		double (*funcep)(const struct expr *,size_t,double);
 		void *uaddr;
 	} un;
 	size_t dim;
@@ -360,7 +359,7 @@ struct expr_mdinfo {
 struct expr_vmdinfo {
 	struct expr *fromep,*toep,*stepep,*ep;
 	size_t max;
-	double (*func)(size_t,double *);
+	double (*func)(double *,size_t);
 	double *args;
 	volatile double index;
 };
@@ -381,9 +380,8 @@ struct expr_inst {
 		void **uaddr2;
 		struct expr_inst **instaddr2;
 		struct expr_rawdouble *rdst;
-		double (**md2)(size_t,double *);
-		double (**me2)(size_t,
-			const struct expr *,double);
+		double (**md2)(double *,size_t);
+		double (**me2)(const struct expr *,size_t,double);
 	} dst;
 	union {
 		double *src;
@@ -417,9 +415,8 @@ union expr_symvalue {
 	void *uaddr;
 	double (*func)(double);
 	double (*zafunc)(void);
-	double (*mdfunc)(size_t,double *);
-	double (*mdepfunc)(size_t,
-		const struct expr *,double);
+	double (*mdfunc)(double *,size_t);
+	double (*mdepfunc)(const struct expr *,size_t,double);
 };
 _Static_assert(EXPR_SYMLEN<=64,"EXPR_SYMLEN is more than 6 bits");
 
@@ -485,6 +482,7 @@ struct expr_symset {
 };
 struct expr_symset_infile {
 	size_t size;
+	uint32_t maxlen;
 	char data[];
 }__attribute__((packed));
 struct expr_resource {
@@ -584,16 +582,22 @@ void expr_symset_move_s(struct expr_symset *restrict esp,ptrdiff_t off,void *sta
 ssize_t expr_symset_write(const struct expr_symset *restrict esp,ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd);
 ssize_t expr_symset_write_s(const struct expr_symset *restrict esp,ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *stack);
 ssize_t expr_symset_read(struct expr_symset *restrict esp,const void *buf,size_t size);
+ssize_t expr_symset_readfd(struct expr_symset *restrict esp,ssize_t (*reader)(intptr_t fd,void *buf,size_t size),intptr_t fd);
 struct expr_symbol **expr_symset_findtail(struct expr_symset *restrict esp,const char *sym,size_t symlen,size_t *depth);
+struct expr_symbol *expr_symbol_create(const char *sym,int type,int flag,...);
+struct expr_symbol *expr_symbol_createl(const char *sym,size_t symlen,int type,int flag,...);
+struct expr_symbol *expr_symbol_vcreate(const char *sym,int type,int flag,va_list ap);
 struct expr_symbol *expr_symset_add(struct expr_symset *restrict esp,const char *sym,int type,int flag,...);
 struct expr_symbol *expr_symset_addl(struct expr_symset *restrict esp,const char *sym,size_t symlen,int type,int flag,...);
 struct expr_symbol *expr_symset_vadd(struct expr_symset *restrict esp,const char *sym,int type,int flag,va_list ap);
+struct expr_symbol *expr_symbol_vcreatel(const char *sym,size_t symlen,int type,int flag,va_list ap);
 struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const char *sym,size_t symlen,int type,int flag,va_list ap);
 struct expr_symbol *expr_symset_addcopy(struct expr_symset *restrict esp,const struct expr_symbol *restrict es);
 struct expr_symbol **expr_symset_search0(const struct expr_symset *restrict esp,const char *sym,size_t sz);
 struct expr_symbol *expr_symset_search(const struct expr_symset *restrict esp,const char *sym,size_t sz);
 struct expr_symbol *expr_symset_searchd(const struct expr_symset *restrict esp,const char *sym,size_t sz,size_t *depth);
-struct expr_symbol *expr_symset_insert(struct expr_symset *restrict esp,struct expr_symbol *restrict es);
+int expr_symbol_check(const struct expr_symbol *restrict esp);
+int expr_symset_insert(struct expr_symset *restrict esp,struct expr_symbol *restrict es);
 int expr_symset_remove(struct expr_symset *restrict esp,const char *sym,size_t sz);
 int expr_symset_remove_s(struct expr_symset *restrict esp,const char *sym,size_t sz,void *stack);
 void expr_symset_removes(struct expr_symset *restrict esp,struct expr_symbol *sp);

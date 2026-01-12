@@ -350,9 +350,8 @@ struct expr_mdinfo {
 	double *args;
 	const char *e;
 	union {
-		double (*func)(size_t,double *);
-		double (*funcep)(size_t,
-			const struct expr *,double);
+		double (*func)(double *,size_t);
+		double (*funcep)(const struct expr *,size_t,double);
 		void *uaddr;
 	} un;
 	size_t dim;
@@ -360,7 +359,7 @@ struct expr_mdinfo {
 struct expr_vmdinfo {
 	struct expr *fromep,*toep,*stepep,*ep;
 	size_t max;
-	double (*func)(size_t,double *);
+	double (*func)(double *,size_t);
 	double *args;
 	volatile double index;
 };
@@ -381,9 +380,8 @@ struct expr_inst {
 		void **uaddr2;
 		struct expr_inst **instaddr2;
 		struct expr_rawdouble *rdst;
-		double (**md2)(size_t,double *);
-		double (**me2)(size_t,
-			const struct expr *,double);
+		double (**md2)(double *,size_t);
+		double (**me2)(const struct expr *,size_t,double);
 	} dst;
 	union {
 		double *src;
@@ -417,9 +415,8 @@ union expr_symvalue {
 	void *uaddr;
 	double (*func)(double);
 	double (*zafunc)(void);
-	double (*mdfunc)(size_t,double *);
-	double (*mdepfunc)(size_t,
-		const struct expr *,double);
+	double (*mdfunc)(double *,size_t);
+	double (*mdepfunc)(const struct expr *,size_t,double);
 };
 _Static_assert(EXPR_SYMLEN<=64,"EXPR_SYMLEN is more than 6 bits");
 
@@ -485,6 +482,7 @@ struct expr_symset {
 };
 struct expr_symset_infile {
 	size_t size;
+	uint32_t maxlen;
 	char data[];
 }__attribute__((packed));
 struct expr_resource {

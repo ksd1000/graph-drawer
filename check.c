@@ -20,8 +20,8 @@ const struct proj {
 	{"134|45.5&7.5",135.5},
 	{"134|(45.5&7.5)",135.5},
 	{"(134|45.5)&7.5",7.5},
-	{"6^3",216},
-	{"6^^3",5},
+	{"6**3",216},
+	{"6^3",5},
 	{"0&&1",0},
 	{"1&&0",0},
 	{"0&&0",0},
@@ -30,10 +30,10 @@ const struct proj {
 	{"1||0",1},
 	{"0||0",0},
 	{"1||1",1},
-	{"0^^^1",1},
-	{"1^^^0",1},
-	{"0^^^0",0},
-	{"1^^^1",0},
+	{"0^^1",1},
+	{"1^^0",1},
+	{"0^^0",0},
+	{"1^^1",0},
 	{"5-7+6",4},
 	{"5-(7+6)",-8},
 	{"5<<3>>2",10},
@@ -41,10 +41,10 @@ const struct proj {
 	{"(5<<3)>>2",10},
 	{"5+3>>2",2},
 	{"5>>3+2",5.0/32},
-	{"drand48(&x0)-->x,x+2^x<3",1},
-	{"drand48(&x0)-->x,x+2^x>=3",0},
-	{"drand48(&x0)-->x,x+2^x>=0",1},
-	{"drand48(&x0)-->x,x+2^x<0",0},
+	{"drand48(&x0)-->x,x+2**x<3",1},
+	{"drand48(&x0)-->x,x+2**x>=3",0},
+	{"drand48(&x0)-->x,x+2**x>=0",1},
+	{"drand48(&x0)-->x,x+2**x<0",0},
 	{"!(5-2)",0},
 	{"!(5-5)",1},
 	{"!!(5-2)",1},
@@ -76,7 +76,7 @@ const struct proj {
 	{"defined(sin)",2},
 	{"typeof(exp)",EXPR_FUNCTION},
 	{"flagof(cos)&SF_INJECTION",1},
-	{"f=(u,v){u+v^2},f(7,4)",23},
+	{"f=(u,v){u+v**2},f(7,4)",23},
 	{"undef(defined_symbol){1},defined_symbol",2304.0},
 	{"alias(x,defined_symbol);x",2304.0},
 	{NULL}
@@ -177,7 +177,7 @@ int main(int argc,char **argv){
 		check(p->e,p->expect);
 	for(const struct eproj *p=eprojs;p->e;++p)
 		errcheck(p->e,p->expect);
-	new_expr7("t^3+sin(t)+sum(n,0,100,1,sin(n*t))","t",NULL,EXPR_IF_INSTANT_FREE,1250,NULL,NULL);
+	new_expr7("t**3+sin(t)+sum(n,0,100,1,sin(n*t))","t",NULL,EXPR_IF_INSTANT_FREE,1250,NULL,NULL);
 	assert(es.size==2);
 	assert(es.depth==2);
 	expr_symset_wipe(&es);

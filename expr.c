@@ -76,7 +76,7 @@
 {\
 	int error=(_eperror);\
 	(_ep)->error=error;\
-	warn("error \"%s\" occurs at "__FILE__ " line:%d",expr_error(error),__LINE__);\
+	warn("error \"%s\" \"%s\" occurs at "__FILE__ " line:%d",expr_error(error),(_ep)->errinfo,__LINE__);\
 }\
 )
 #endif
@@ -1227,57 +1227,121 @@ static double expr_w##sym(const struct expr *args,size_t n,double input){\
 	*un.r=(type)v;\
 	return v;\
 }
-RMEM(8,int8_t)
-RMEM(16,int16_t)
-RMEM(32,int32_t)
-RMEM(64,int64_t)
-RMEM(m,intmax_t)
-RMEM(p,intptr_t)
-RMEM(z,ssize_t)
-RMEM(8u,uint8_t)
-RMEM(16u,uint16_t)
-RMEM(32u,uint32_t)
-RMEM(64u,uint64_t)
-RMEM(mu,uintmax_t)
-RMEM(pu,uintptr_t)
-RMEM(zu,size_t)
-RMEM(f,float)
-RMEM(l,long double)
-ZMEM(8,int8_t)
-ZMEM(16,int16_t)
-ZMEM(32,int32_t)
-ZMEM(64,int64_t)
-ZMEM(m,intmax_t)
-ZMEM(p,intptr_t)
-ZMEM(z,ssize_t)
-ZMEM(8u,uint8_t)
-ZMEM(16u,uint16_t)
-ZMEM(32u,uint32_t)
-ZMEM(64u,uint64_t)
-ZMEM(mu,uintmax_t)
-ZMEM(pu,uintptr_t)
-ZMEM(zu,size_t)
-ZMEM(f,float)
-ZMEM(l,long double)
-WMEM(8,int8_t)
-WMEM(16,int16_t)
-WMEM(32,int32_t)
-WMEM(64,int64_t)
-WMEM(m,intmax_t)
-WMEM(p,intptr_t)
-WMEM(z,ssize_t)
-WMEM(8u,uint8_t)
-WMEM(16u,uint16_t)
-WMEM(32u,uint32_t)
-WMEM(64u,uint64_t)
-WMEM(mu,uintmax_t)
-WMEM(pu,uintptr_t)
-WMEM(zu,size_t)
-WMEM(f,float)
-WMEM(l,long double)
+#define AMEM(sym,type)\
+static double expr_a##sym(const struct expr *args,size_t n,double input){\
+	union {\
+		type *r;\
+		double dr;\
+	} un;\
+	double v;\
+	un.dr=eval(args,input);\
+	v=eval(args+1,input);\
+	*un.r+=(type)v;\
+	return v;\
+}
+#define SMEM(sym,type)\
+static double expr_s##sym(const struct expr *args,size_t n,double input){\
+	union {\
+		type *r;\
+		double dr;\
+	} un;\
+	double v;\
+	un.dr=eval(args,input);\
+	v=eval(args+1,input);\
+	*un.r-=(type)v;\
+	return v;\
+}
+#define MMEM(sym,type)\
+static double expr_m##sym(const struct expr *args,size_t n,double input){\
+	union {\
+		type *r;\
+		double dr;\
+	} un;\
+	double v;\
+	un.dr=eval(args,input);\
+	v=eval(args+1,input);\
+	*un.r*=(type)v;\
+	return v;\
+}
+#define DMEM(sym,type)\
+static double expr_d##sym(const struct expr *args,size_t n,double input){\
+	union {\
+		type *r;\
+		double dr;\
+	} un;\
+	double v;\
+	un.dr=eval(args,input);\
+	v=eval(args+1,input);\
+	*un.r/=(type)v;\
+	return v;\
+}
+#define CMEM(sym,type)\
+static double expr_c##sym(const struct expr *args,size_t n,double input){\
+	union {\
+		type *r;\
+		double dr;\
+	} un;\
+	double v;\
+	un.dr=eval(args,input);\
+	v=eval(args+1,input);\
+	*un.r&=(type)v;\
+	return v;\
+}
+#define OMEM(sym,type)\
+static double expr_o##sym(const struct expr *args,size_t n,double input){\
+	union {\
+		type *r;\
+		double dr;\
+	} un;\
+	double v;\
+	un.dr=eval(args,input);\
+	v=eval(args+1,input);\
+	*un.r|=(type)v;\
+	return v;\
+}
+#define XMEM(sym,type)\
+static double expr_x##sym(const struct expr *args,size_t n,double input){\
+	union {\
+		type *r;\
+		double dr;\
+	} un;\
+	double v;\
+	un.dr=eval(args,input);\
+	v=eval(args+1,input);\
+	*un.r^=(type)v;\
+	return v;\
+}
+#define FMEM(sym,type) RMEM(sym,type) ZMEM(sym,type) WMEM(sym,type) AMEM(sym,type) SMEM(sym,type) MMEM(sym,type) DMEM(sym,type)
+#define MEM(sym,type) FMEM(sym,type) CMEM(sym,type) OMEM(sym,type) XMEM(sym,type)
+MEM(8,int8_t);
+MEM(16,int16_t);
+MEM(32,int32_t);
+MEM(64,int64_t);
+MEM(m,intmax_t);
+MEM(p,intptr_t);
+MEM(z,ssize_t);
+MEM(8u,uint8_t);
+MEM(16u,uint16_t);
+MEM(32u,uint32_t);
+MEM(64u,uint64_t);
+MEM(mu,uintmax_t);
+MEM(pu,uintptr_t);
+MEM(zu,size_t);
+FMEM(f,float);
+FMEM(d,double);
+FMEM(l,long double);
 #define REGRMEM(s) REGFSYM2_NI("r" #s,expr_r##s)
 #define REGZMEM(s) REGFSYM2_NI("z" #s,expr_z##s)
 #define REGWMEM(s) REGMDEPSYM2_NI("w" #s,expr_w##s,2ul)
+#define REGAMEM(s) REGMDEPSYM2_NI("a" #s,expr_a##s,2ul)
+#define REGSMEM(s) REGMDEPSYM2_NI("s" #s,expr_s##s,2ul)
+#define REGMMEM(s) REGMDEPSYM2_NI("m" #s,expr_m##s,2ul)
+#define REGDMEM(s) REGMDEPSYM2_NI("d" #s,expr_d##s,2ul)
+#define REGCMEM(s) REGMDEPSYM2_NI("c" #s,expr_c##s,2ul)
+#define REGOMEM(s) REGMDEPSYM2_NI("o" #s,expr_o##s,2ul)
+#define REGXMEM(s) REGMDEPSYM2_NI("x" #s,expr_x##s,2ul)
+#define REGFMEM(s) REGRMEM(s),REGZMEM(s),REGWMEM(s),REGAMEM(s),REGSMEM(s),REGMMEM(s),REGDMEM(s)
+#define REGMEM(s) REGFMEM(s) ,REGCMEM(s),REGOMEM(s),REGXMEM(s)
 static double expr_dexp(double x){
 	return (double)EXPR_EDEXP(&x);
 }
@@ -1947,54 +2011,23 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGMDEPSYM2_NI("xsort",bxsort,2ul),
 	REGMDEPSYM2_NI("sort_old",bsort_old,2ul),
 
-	REGRMEM(8),
-	REGRMEM(16),
-	REGRMEM(32),
-	REGRMEM(64),
-	REGRMEM(m),
-	REGRMEM(p),
-	REGRMEM(z),
-	REGRMEM(8u),
-	REGRMEM(16u),
-	REGRMEM(32u),
-	REGRMEM(64u),
-	REGRMEM(mu),
-	REGRMEM(pu),
-	REGRMEM(zu),
-	REGRMEM(f),
-	REGRMEM(l),
-	REGZMEM(8),
-	REGZMEM(16),
-	REGZMEM(32),
-	REGZMEM(64),
-	REGZMEM(m),
-	REGZMEM(p),
-	REGZMEM(z),
-	REGZMEM(8u),
-	REGZMEM(16u),
-	REGZMEM(32u),
-	REGZMEM(64u),
-	REGZMEM(mu),
-	REGZMEM(pu),
-	REGZMEM(zu),
-	REGZMEM(f),
-	REGZMEM(l),
-	REGWMEM(8),
-	REGWMEM(16),
-	REGWMEM(32),
-	REGWMEM(64),
-	REGWMEM(m),
-	REGWMEM(p),
-	REGWMEM(z),
-	REGWMEM(8u),
-	REGWMEM(16u),
-	REGWMEM(32u),
-	REGWMEM(64u),
-	REGWMEM(mu),
-	REGWMEM(pu),
-	REGWMEM(zu),
-	REGWMEM(f),
-	REGWMEM(l),
+	REGMEM(8),
+	REGMEM(16),
+	REGMEM(32),
+	REGMEM(64),
+	REGMEM(m),
+	REGMEM(p),
+	REGMEM(z),
+	REGMEM(8u),
+	REGMEM(16u),
+	REGMEM(32u),
+	REGMEM(64u),
+	REGMEM(mu),
+	REGMEM(pu),
+	REGMEM(zu),
+	REGFMEM(f),
+	REGFMEM(d),
+	REGFMEM(l),
 
 	REGMDEPSYM2("andl",expr_andl,0),
 	REGMDEPSYM2("findbound2",expr_findbound2,3),
@@ -2536,7 +2569,7 @@ static const char *findpair_brace(const char *c,const char *endp){
 err:
 	return NULL;
 }
-static const char *expr_unfindpair(const char *e,const char *c){
+static const char *unfindpair(const char *e,const char *c){
 	size_t lv=0;
 	if(*c!=')')
 		goto err;
@@ -3245,16 +3278,15 @@ static int expr_rmsym(struct expr *restrict ep,const char *sym,size_t sz){
 	}
 }
 static const struct expr_symbol *alias_target(struct expr *restrict ep,const struct expr_symbol *alias,const struct expr_builtin_symbol **bt,int symerr){
-	size_t n=ep->sset->size-1,len,len0;
+	size_t len,len0;
 	const char *p,*p0;
+	const struct expr_symbol *prev;
 	p0=alias->str;
 	len0=alias->strlen;
-	for(;;){
-		if(likely(alias->type!=EXPR_ALIAS)){
-			return alias;
-		}
+	for(size_t n=ep->sset->size-1;;--n){
 		p=expr_symset_hot(alias);
 		len=HOTLEN(alias);
+		prev=alias;
 		if(!(ep->iflag&EXPR_IF_NOBUILTIN)&&len>=2&&p[0]==':'&&p[1]==':'){
 			p+=2;
 			len-=2;
@@ -3271,18 +3303,25 @@ builtin:
 			}
 		}
 		if(unlikely(!alias)){
-			if(symerr){
-				serrinfo(ep->errinfo,p,len);
-				seterr(ep,EXPR_ESYMBOL);
+			switch(symerr){
+				case 0:
+					return NULL;
+				default:
+					serrinfo(ep->errinfo,p,len);
+					seterr(ep,EXPR_ESYMBOL);
+					return NULL;
+				case 2:
+					return prev;
 			}
-			return NULL;
+		}
+		if(likely(alias->type!=EXPR_ALIAS)){
+			return alias;
 		}
 		if(unlikely(!n)){
 			serrinfo(ep->errinfo,p0,len0);
 			seterr(ep,EXPR_EANT);
 			return NULL;
 		}
-		--n;
 	}
 }
 static double *alias_scan(struct expr *restrict ep,const struct expr_symbol *alias,const char *asym,size_t asymlen){
@@ -3303,11 +3342,123 @@ static double *alias_scan(struct expr *restrict ep,const struct expr_symbol *ali
 	expr_symset_free(esp);
 	return v0;
 }
-
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+static void *readsymbol(struct expr *restrict ep,const char *symbol,size_t symlen,const union expr_symvalue **_sv,int *_type,int *_flag,size_t *_dim,int follow,int symerr){
+	const union expr_symvalue *sv;
+	int type,flag;
+	size_t dim;
+	union {
+		const struct expr_symbol *es;
+		const struct expr_builtin_symbol *ebs;
+		void *uaddr;
+	} sym;
+	const struct expr_builtin_symbol *ebs1;
+	if(!(ep->iflag&EXPR_IF_NOBUILTIN)&&symlen>=2&&symbol[0]==':'&&symbol[1]==':'){
+		symbol+=2;
+		symlen-=2;
+		goto force_builtin;
+	}
+	if(!ep->sset||!(sym.es=expr_symset_search(ep->sset,symbol,symlen))){
+		goto try_builtin;
+	}
+alias_found:
+	type=sym.es->type;
+	flag=sym.es->flag;
+	switch(type){
+		case EXPR_HOTFUNCTION:
+		case EXPR_ALIAS:
+			break;
+		case EXPR_MDFUNCTION:
+		case EXPR_MDEPFUNCTION:
+			dim=SYMDIM(sym.es);
+		default:
+			sv=expr_symset_un(sym.es);
+			break;
+	}
+	switch(type){
+		case EXPR_MDFUNCTION:
+		case EXPR_MDEPFUNCTION:
+		case EXPR_ZAFUNCTION:
+			if(unlikely((flag&EXPR_SF_UNSAFE)&&(ep->iflag&EXPR_IF_PROTECT)))
+				goto pm;
+		case EXPR_FUNCTION:
+			if(unlikely(!(flag&EXPR_SF_INJECTION)&&(ep->iflag&EXPR_IF_INJECTION_S)))
+				goto ein;
+		default:
+			break;
+	}
+	goto found;
+try_builtin:
+	if(ep->iflag&EXPR_IF_NOBUILTIN){
+		goto esymbol;
+	}
+force_builtin:
+	if(!(sym.ebs=expr_builtin_symbol_search(symbol,symlen))){
+		goto esymbol;
+	}
+alias_foundb:
+	flag=sym.ebs->flag;
+	type=sym.ebs->type;
+	switch(type){
+		case EXPR_MDFUNCTION:
+		case EXPR_MDEPFUNCTION:
+		case EXPR_ZAFUNCTION:
+			if(unlikely((flag&EXPR_SF_UNSAFE)&&(ep->iflag&EXPR_IF_PROTECT)))
+				goto pm;
+		case EXPR_FUNCTION:
+			if(unlikely(!(flag&EXPR_SF_INJECTION)&&(ep->iflag&EXPR_IF_INJECTION_B)))
+				goto ein;
+		default:
+			break;
+	}
+	sv=&sym.ebs->un;
+	dim=sym.ebs->dim;
+//	goto found;
+found:
+	if(type==EXPR_ALIAS&&follow){
+		ebs1=NULL;
+		sym.es=alias_target(ep,sym.es,&ebs1,follow);
+		if(sym.es){
+			goto alias_found;
+		}
+		if(ebs1){
+			sym.ebs=ebs1;
+			goto alias_foundb;
+		}
+		return NULL;
+	}
+	if(_sv)
+		*_sv=sv;
+	if(_type)
+		*_type=type;
+	if(_flag)
+		*_flag=flag;
+	if(_sv)
+		*_sv=sv;
+	if(_dim)
+		*_dim=dim;
+	return sym.uaddr;
+pm:
+	serrinfo(ep->errinfo,symbol,symlen);
+	seterr(ep,EXPR_EPM);
+	return NULL;
+ein:
+	serrinfo(ep->errinfo,symbol,symlen);
+	seterr(ep,EXPR_EIN);
+	return NULL;
+esymbol:
+	if(symerr){
+		serrinfo(ep->errinfo,symbol,symlen);
+		seterr(ep,EXPR_ESYMBOL);
+	}
+	return NULL;
+}
+#pragma GCC diagnostic pop
 static double *getvalue(struct expr *restrict ep,const char *e,const char *endp,const char **_p,const char *asym,size_t asymlen){
 	const char *p,*p2,*p4,*e0=e;
 	double *v0=NULL,*v1;
-	int r0,builtin=0;
+	int r0;
 	union {
 		double v;
 		void *uaddr;
@@ -3330,6 +3481,7 @@ static double *getvalue(struct expr *restrict ep,const char *e,const char *endp,
 		char **vv;
 		struct branch *b;
 		struct expr_symset *esp;
+		void *uaddr;
 	} sym;
 	union {
 		const union expr_symvalue *sv;
@@ -3338,8 +3490,9 @@ static double *getvalue(struct expr *restrict ep,const char *e,const char *endp,
 		struct expr_symset *esp;
 	} sv;
 	int type,flag;
-	size_t dim=0;
-	if(*e=='+')++e;
+	size_t dim;
+	while(e<endp&&*e=='+')
+		++e;
 	if(e>=endp)
 		goto eev;
 	switch(*e){
@@ -3370,24 +3523,13 @@ envp:
 					goto dflt;
 				e+=1;
 				p=getsym(e,endp);
-				if(unlikely(p==e))
-					goto euo;
-				goto keyword;
-			}
-			if(ep->iflag&EXPR_IF_NOBUILTIN)
-				goto dflt;
-			e+=2;
-			p=getsym(e,endp);
-			if(unlikely(p==e)){
-euo:
-				if(e<endp&&expr_operator(*e)){
+				if(unlikely(p==e)){
 					*ep->errinfo=*e;
 					seterr(ep,EXPR_EUO);
 					return NULL;
 				}
-				goto symerr;
+				goto keyword;
 			}
-			builtin=1;
 			goto symget;
 		case 'd':
 			if(e+2>endp||e[1]!='o'||e[2]!='{')
@@ -3496,7 +3638,7 @@ block:
 					r0=1;
 					++e;
 					goto block;
-				case ':':
+/*				case ':':
 					if(ep->iflag&EXPR_IF_NOBUILTIN){
 						++e;
 						break;
@@ -3506,6 +3648,7 @@ block:
 						e+=3;
 						break;
 					}
+*/
 				default:
 					++e;
 					break;
@@ -3516,49 +3659,19 @@ block:
 				*ep->errinfo=*e;
 				return NULL;
 			}
-			if(builtin||!ep->sset||!(sym.es=expr_symset_search(ep->sset,e,p-e))){
-				if(ep->iflag&EXPR_IF_NOBUILTIN){
-					goto symerr;
-				}
-				sym.ebs=expr_builtin_symbol_search(e,p-e);
-				if(likely(sym.ebs)){
-alias_found1b:
-					type=sym.ebs->type;
-					switch(type){
-						case EXPR_CONSTANT:
-							goto ecta;
-						default:
-							break;
-					}
-					un.uaddr=sym.ebs->un.uaddr;
-				}else {
-					goto symerr;
-				}
-			}else {
-alias_found1:
-				type=sym.es->type;
-				switch(type){
-					case EXPR_CONSTANT:
-					case EXPR_HOTFUNCTION:
-ecta:
-						seterr(ep,EXPR_ECTA);
-						serrinfo(ep->errinfo,e,p-e);
-						return NULL;
-					case EXPR_ALIAS:
-						un.ebs=NULL;
-						sym.es=alias_target(ep,sym.es,&un.ebs,1);
-						if(!sym.es){
-							if(unlikely(!un.ebs))
-								return NULL;
-							sym.ebs=un.ebs;
-							goto alias_found1b;
-						}
-						goto alias_found1;
-					default:
-						break;
-				}
-				un.uaddr=expr_symset_un(sym.es)->uaddr;
+			sym.uaddr=readsymbol(ep,e,p-e,&sv.sv,&type,&flag,&dim,1,1);
+			if(!sym.uaddr)
+				return NULL;
+			switch(type){
+				case EXPR_CONSTANT:
+				case EXPR_HOTFUNCTION:
+					seterr(ep,EXPR_ECTA);
+					serrinfo(ep->errinfo,e,p-e);
+					return NULL;
+				default:
+					break;
 			}
+			un.uaddr=sv.sv->uaddr;
 			v0=expr_newvar(ep);
 			cknp(ep,v0,return NULL);
 			cknp(ep,expr_addconst_i(ep,v0,un.v),return NULL);
@@ -3584,59 +3697,18 @@ dflt:
 	}
 	p=getsym(e,endp);
 symget:
-	if(!builtin){
-		if(asym&&p-e==asymlen&&!memcmp(e,asym,p-e)){
-			v0=expr_newvar(ep);
-			cknp(ep,v0,return NULL);
-			cknp(ep,expr_addinput(ep,v0),return NULL);
-			e=p;
-			goto vend;
-		}
-		if(ep->sset&&(sym.es=expr_symset_search(ep->sset,e,p-e))){
-alias_found:
-			type=sym.es->type;
-			switch(type){
-				case EXPR_MDFUNCTION:
-				case EXPR_MDEPFUNCTION:
-					dim=SYMDIM(sym.es);
-				default:
-					break;
-			}
-			sv.sv=expr_symset_un(sym.es);
-			flag=sym.es->flag;
-			switch(type){
-				case EXPR_MDFUNCTION:
-				case EXPR_MDEPFUNCTION:
-				case EXPR_ZAFUNCTION:
-					if(unlikely((flag&EXPR_SF_UNSAFE)&&(ep->iflag&EXPR_IF_PROTECT)))
-						goto pm;
-				case EXPR_FUNCTION:
-					if(unlikely(!(flag&EXPR_SF_INJECTION)&&(ep->iflag&EXPR_IF_INJECTION_S)))
-						goto ein;
-				default:
-					break;
-			}
-			goto found;
-		}
+	if(asym&&p-e==asymlen&&!memcmp(e,asym,p-e)){
+		v0=expr_newvar(ep);
+		cknp(ep,v0,return NULL);
+		cknp(ep,expr_addinput(ep,v0),return NULL);
+		e=p;
+		goto vend;
 	}
-	if(!(ep->iflag&EXPR_IF_NOBUILTIN)&&(sym.ebs=expr_builtin_symbol_search(e,p-e))){
-alias_foundb:
-		flag=sym.ebs->flag;
-		type=sym.ebs->type;
-		switch(type){
-			case EXPR_MDFUNCTION:
-			case EXPR_MDEPFUNCTION:
-			case EXPR_ZAFUNCTION:
-				if(unlikely((flag&EXPR_SF_UNSAFE)&&(ep->iflag&EXPR_IF_PROTECT)))
-					goto pm;
-			case EXPR_FUNCTION:
-				if(unlikely(!(flag&EXPR_SF_INJECTION)&&(ep->iflag&EXPR_IF_INJECTION_B)))
-					goto ein;
-			default:
-				break;
-		}
-		sv.sv=&sym.ebs->un;
-		dim=sym.ebs->dim;
+	sym.uaddr=readsymbol(ep,e,p-e,&sv.sv,&type,&flag,&dim,2,0);
+	if(!sym.uaddr){
+		if(ep->error)
+			return NULL;
+	}else {
 		goto found;
 	}
 keyword:
@@ -3684,7 +3756,8 @@ c_fail:
 						expr_free2(sym.vv);
 						return NULL;
 				}
-				if(ep->sset&&expr_symset_search(ep->sset,sym.vv[0],dim=strlen(sym.vv[0]))){
+				dim=strlen(sym.vv[0]);
+				if(ep->sset&&expr_symset_search(ep->sset,sym.vv[0],dim)){
 					seterr(ep,EXPR_EDS);
 					serrinfo(ep->errinfo,sym.vv[0],dim);
 					goto c_fail;
@@ -4561,18 +4634,6 @@ treat_as_variable:
 			e=p+1;
 			goto vend;
 		case EXPR_ALIAS:
-			un.ebs=NULL;
-			sv.ces=alias_target(ep,sym.es,&un.ebs,0);
-			if(sv.ces){
-				sym.es=sv.ces;
-				goto alias_found;
-			}
-			if(un.ebs){
-				sym.ebs=un.ebs;
-				goto alias_foundb;
-			}
-			if(unlikely(ep->error==EXPR_EANT))
-				return NULL;
 			v0=alias_scan(ep,sym.es,asym,asymlen);
 			if(unlikely(!v0))
 				return NULL;
@@ -4596,10 +4657,12 @@ symerr:
 	serrinfo(ep->errinfo,e,p-e);
 	seterr(ep,EXPR_ESYMBOL);
 	return NULL;
+/*
 ein:
 	serrinfo(ep->errinfo,e,p-e);
 	seterr(ep,EXPR_EIN);
 	return NULL;
+*/
 sym_notfound:
 	if(unlikely(p+1>=endp||*p!='='))
 		goto symerr;
@@ -5101,8 +5164,12 @@ bracket_end:
 			}
 			goto end1;
 		case '*':
-			op=EXPR_MUL;
 			++e;
+			if(e<endp&&*e=='*'){
+				op=EXPR_POW;
+				++e;
+			}else
+				op=EXPR_MUL;
 			goto end1;
 		case '/':
 			op=EXPR_DIV;
@@ -5116,21 +5183,17 @@ bracket_end:
 			++e;
 			if(e<endp&&*e=='^'){
 				++e;
-				if(e<endp&&*e=='^'){
-					op=EXPR_XORL;
-					++e;
-				}else {
-					op=EXPR_XOR;
-				}
-			}else op=EXPR_POW;
+				op=EXPR_XORL;
+			}else
+				op=EXPR_XOR;
 			goto end1;
 		case '#':
 			++e;
 			if(e<endp&&*e=='#'){
 				op=EXPR_DIFF;
 				++e;
-			}
-			else op=EXPR_NEXT;
+			}else
+				op=EXPR_NEXT;
 			goto end1;
 		case ';':
 			if(e+1==endp)
@@ -5140,7 +5203,7 @@ bracket_end:
 			++e;
 			goto end1;
 		case ')':
-			if(unlikely(!expr_unfindpair(e0,e))){
+			if(unlikely(!unfindpair(e0,e))){
 pterr:
 				seterr(ep,EXPR_EPT);
 				goto err;

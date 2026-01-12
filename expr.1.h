@@ -149,11 +149,25 @@ EXPR_END
 
 //expr symbol flag
 #define EXPR_SF_INJECTION 1
+//a non-hot function has the INJECTION flag means the output value of it
+//depends only by the input value,and no any side effect.for HOTFUNCTION
+//and ALIAS it means a size argument is following the char * argument.
 #define EXPR_SF_WRITEIP 2
+//for MDEPFUNCTION,if it is called,the ->ip first-argument expression will
+//be set to current ip.
 #define EXPR_SF_PMD 4
+//for CONSTANT and VARIABLE,means the value of it is an address of a
+//multi-dimension function.
 #define EXPR_SF_PME 8
+//for CONSTANT and VARIABLE,means the value of it is an address of a
+//multi-dimension function with expression argument.
 #define EXPR_SF_UNSAFE 16
+//a non-hot function has the flag means it may allow user to read/write
+//the memory freely or make a system call.they are disabled in protected
+//mode.
 #define EXPR_SF_ALLOWADDR 32
+//only for a unsafe function,it means it is able and only able to accept
+//a address of a VARIABLE as its argument in protected mode.
 
 #define EXPR_SF_PEP 12
 #define EXPR_SF_PMASK (~12)

@@ -3490,14 +3490,17 @@ envp:
 				if(ep->iflag&EXPR_IF_NOKEYWORD)
 					goto dflt;
 				e+=1;
-				p=getsym(e,endp);
-				if(unlikely(p==e)){
-					*ep->errinfo=*e;
-					seterr(ep,EXPR_EUO);
-					return NULL;
+#define try_getsym \
+				p=getsym(e,endp);\
+				if(unlikely(p==e)){\
+					*ep->errinfo=*e;\
+					seterr(ep,EXPR_EUO);\
+					return NULL;\
 				}
+				try_getsym;
 				goto keyword;
 			}
+			try_getsym;
 			goto symget;
 		case 'd':
 			if(e+2>endp||e[1]!='o'||e[2]!='{')

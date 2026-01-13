@@ -11,6 +11,7 @@
 void show(const struct expr_libinfo *el){
 	fprintf(stdout,"expr version:%s\n",el->version);
 	fprintf(stdout,"compiler:%s\n",el->compiler_version);
+	fprintf(stdout,"platform:%s\n",el->platform);
 	fprintf(stdout,"compiled date:%s\n",el->date);
 	fprintf(stdout,"compiled time:%s\n",el->time);
 }

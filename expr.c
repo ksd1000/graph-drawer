@@ -375,6 +375,12 @@ const struct expr_libinfo expr_libinfo[1]={{
 #else
 		"Unknown",
 #endif
+	.platform=
+#ifdef PLATFORM
+		PLATFORM,
+#else
+		"Unknown",
+#endif
 	.date=__DATE__,
 	.time=__TIME__,
 }};

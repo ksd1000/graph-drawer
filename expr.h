@@ -351,6 +351,7 @@ EXPR_END
 struct expr_libinfo {
 	const char *version;
 	const char *compiler_version;
+	const char *platform;
 	const char *date;
 	const char *time;
 };

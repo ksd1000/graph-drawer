@@ -2199,6 +2199,14 @@ static void freemdinfo(struct expr_mdinfo *p){
 		xfree((void *)p->e);
 	xfree(p);
 }
+static void freehmdinfo(struct expr_hmdinfo *p){
+	for(size_t i=0;i<p->dim;++i)
+		expr_free(p->eps+i);
+	xfree(p->eps);
+	expr_free(p->hotfunc);
+	xfree(p->args);
+	xfree(p);
+}
 static void expr_freedata(struct expr_inst *restrict data,size_t size){
 	struct expr_inst *ip=data,*endp=data+size;
 	for(;ip<endp;++ip){
@@ -2206,10 +2214,7 @@ static void expr_freedata(struct expr_inst *restrict data,size_t size){
 			case SUMCASES:
 				freesuminfo(ip->un.es);
 				break;
-			case MDCASES:
-			case EXPR_PMD:
-			case EXPR_PME:
-			case EXPR_PMEP:
+			case MDCASES_WITHP:
 				freemdinfo(ip->un.em);
 				break;
 			case EXPR_VMD:
@@ -2220,6 +2225,9 @@ static void expr_freedata(struct expr_inst *restrict data,size_t size){
 				break;
 			case HOTCASES:
 				expr_free(ip->un.hotfunc);
+				break;
+			case EXPR_HMD:
+				freehmdinfo(ip->un.eh);
 				break;
 			default:
 				break;
@@ -2349,8 +2357,13 @@ static struct expr_inst *expr_addmep(struct expr *restrict ep,double *dst,struct
 static struct expr_inst *expr_addhot(struct expr *restrict ep,double *dst,struct expr *hot,int flag){
 	return expr_addop(ep,dst,hot,EXPR_HOT,flag);
 }
+/*
 static struct expr_inst *expr_addep(struct expr *restrict ep,double *dst,struct expr *hot,int flag){
 	return expr_addop(ep,dst,hot,EXPR_EP,flag);
+}
+*/
+static struct expr_inst *expr_addhmd(struct expr *restrict ep,double *dst,struct expr_hmdinfo *eh,int flag){
+	return expr_addop(ep,dst,eh,EXPR_HMD,flag);
 }
 static struct expr_inst *expr_addconst(struct expr *restrict ep,double *dst,double val){
 	return expr_addop(ep,dst,cast(val,void *),EXPR_CONST,0);
@@ -3114,11 +3127,10 @@ static double *scan(struct expr *restrict ep,const char *e,const char *endp,cons
 static double *gethot(struct expr *restrict ep,const char *e0,size_t sz,const char *e,const char *endp,const char *asym,size_t asymlen,const char *he,size_t helen,const char **ee,struct expr_symset *esp,int flag){
 	const char *p,*hend,*pe;
 	char **v,**ve;
-	struct expr *ep1;
-	size_t n,len;
-	double *v0,*v1;
+	size_t n,len,i;
+	double *v1;
+	struct expr_hmdinfo *eh;
 	//warn("(%s) len:%zu",he,helen);
-	//hend=he+strlen(he);
 	hend=he+helen;
 #define hot_sep(_e,_p,_end,_v,_act) \
 	if(unlikely(*_e!='(')){\
@@ -3146,19 +3158,25 @@ static double *gethot(struct expr *restrict ep,const char *e0,size_t sz,const ch
 		serrinfo(ep->errinfo,e0,sz);
 		goto err05;
 	}
-//	esp=expr_symset_clone(ep->sset);
-//	cknp(ep,esp,goto err05);
-	for(char **p1=v,**p1e=ve;*p1;++p1,++p1e){
+	eh=xmalloc(sizeof(struct expr_hmdinfo));
+	cknp(ep,eh,goto err05);
+	eh->args=xmalloc(n*sizeof(double));
+	cknp(ep,eh->args,xfree(eh);goto err05);
+	eh->eps=xmalloc(n*sizeof(struct expr));
+	cknp(ep,eh->eps,xfree(eh->args);xfree(eh);goto err05);
+	eh->dim=n;
+
+	v1=eh->args;
+	for(char **p1=v;;){
 		len=strlen(*p1);
 		expr_symset_remove(esp,*p1,len);
-		v0=expr_newvar(ep);
-		cknp(ep,v0,goto err1);
-		cknp(ep,expr_symset_addl(esp,*p1,len,EXPR_VARIABLE,0,v0),goto err1);
-		v1=scan(ep,*p1e,*p1e+strlen(*p1e),asym,asymlen);
-		if(unlikely(!v1))
-			goto err1;
-		cknp(ep,expr_addcopy(ep,v0,v1),goto err1);
+		cknp(ep,expr_symset_addl(esp,*p1,len,EXPR_VARIABLE,0,v1),goto err1);
+		++p1;
+		if(!*p1)
+			break;
+		++v1;
 	}
+
 	he=p+1;
 	if(he>=hend||*he!='{'){
 		seterr(ep,EXPR_EPT);
@@ -3171,20 +3189,34 @@ static double *gethot(struct expr *restrict ep,const char *e0,size_t sz,const ch
 		serrinfo(ep->errinfo,e0,sz);
 		goto err1;
 	}
-	ep1=new_expr8(he+1,p-he-1,asym,asymlen,esp,ep->iflag,&ep->error,ep->errinfo);
-	if(!ep1)
+	eh->hotfunc=new_expr8(he+1,p-he-1,asym,asymlen,esp,ep->iflag,&ep->error,ep->errinfo);
+	if(unlikely(!eh->hotfunc))
 		goto err1;
-	v0=expr_newvar(ep);
-	cknp(ep,v0,goto err2);
-	cknp(ep,expr_addep(ep,v0,ep1,flag&~EXPR_SF_INJECTION),goto err2);
-/*#define setsset2(_ep) if((_ep)->sset==esp)(_ep)->sset=ep->sset
-	setsset2(ep1);*/
+	for(i=0;i<n;++i){
+		if(unlikely(init_expr7(eh->eps+i,ve[i],strlen(ve[i]),asym,asymlen,ep->sset,ep->iflag)<0)){
+			for(ssize_t k=i-1;k>=0;--k)
+				expr_free(eh->eps+k);
+			goto err2;
+		}
+	}
+
+	v1=expr_newvar(ep);
+	cknp(ep,v1,goto err3);
+	cknp(ep,expr_addhmd(ep,v1,eh,flag&~EXPR_SF_INJECTION),goto err3);
 	expr_free2(ve);
 	expr_free2(v);
-	return v0;
+	return v1;
+err3:
+	freehmdinfo(eh);
+	goto err05;
 err2:
-	expr_free(ep1);
+	seterr(ep,eh->eps[i].error);
+	memcpy(ep->errinfo,eh->eps[i].errinfo,EXPR_SYMLEN);
+	expr_free(eh->hotfunc);
 err1:
+	xfree(eh->eps);
+	xfree(eh->args);
+	xfree(eh);
 //	expr_symset_free(esp);
 err05:
 	expr_free2(ve);
@@ -4312,15 +4344,15 @@ vzero:
 					un.eb=getbranchinfo(ep,NULL,0,NULL,0,sym.b,asym,asymlen);
 				}else
 					un.eb=getbranchinfo(ep,p2,e-p2,e,p-e+1,NULL,asym,asymlen);
-				if(unlikely(!un.uaddr)){
+				if(unlikely(!un.eb)){
 					return NULL;
 				}
 				if(kp->op==EXPR_IF){
 					v0=expr_newvar(ep);
-					cknp(ep,v0,return NULL);
+					cknp(ep,v0,freebranchinfo(un.eb);return NULL);
 				}else
 					v0=EXPR_VOID;
-				cknp(ep,expr_addop(ep,v0,un.uaddr,kp->op,flag),return NULL);
+				cknp(ep,expr_addop(ep,v0,un.uaddr,kp->op,flag),freebranchinfo(un.eb);return NULL);
 				e=p+1;
 				goto vend;
 			case EXPR_ANDL:
@@ -4375,26 +4407,36 @@ vzero:
 				un.ep=new_expr8(e+1,p-e-1,asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo);
 				if(unlikely(!un.ep))
 					return NULL;
-				cknp(ep,expr_addop(ep,v0=EXPR_VOID_NR,un.ep,EXPR_DO,0),return NULL);
+				cknp(ep,expr_addop(ep,v0=EXPR_VOID_NR,un.ep,EXPR_DO,0),expr_free(un.ep);return NULL);
 				e=p+1;
 				goto vend;
+#define addinfo(_op,dal) \
+				if(unlikely(!un.uaddr)){\
+					return NULL;\
+				}\
+				v0=expr_newvar(ep);\
+				cknp(ep,v0,dal(un.uaddr);return NULL);\
+				cknp(ep,expr_addop(ep,v0,un.uaddr,_op,flag),dal(un.uaddr);return NULL);\
+				e=p+1;\
+				goto vend
 			case EXPR_VMD:
 				un.ev=getvmdinfo(ep,p2,e-p2,e,p-e+1,asym,asymlen,&flag);
-				break;
+				addinfo(EXPR_VMD,freevmdinfo);
 			case SUMCASES:
 				un.es=getsuminfo(ep,p2,e-p2,e,p-e+1,asym,asymlen);
-				break;
+				addinfo(kp->op,freesuminfo);
 			default:
 				__builtin_unreachable();
 		}
-		if(unlikely(!un.uaddr)){
+/*		if(unlikely(!un.uaddr)){
 			return NULL;
 		}
 		v0=expr_newvar(ep);
 		cknp(ep,v0,return NULL);
 		cknp(ep,expr_addop(ep,v0,un.uaddr,kp->op,flag),return NULL);
 		e=p+1;
-		goto vend;
+		goto vend;*/
+		abort();
 	}
 	goto number;
 found:
@@ -4524,21 +4566,23 @@ treat_as_variable:
 						if(unlikely(!p))
 							goto pterr;
 						un.em=getmdinfo(ep,p2,e-p2,e,p-e+1,asym,asymlen,NULL,0,0);
-						if(unlikely(!un.em))
+						addinfo(EXPR_PMD,freemdinfo);
+						/*if(unlikely(!un.em))
 							return NULL;
 						cknp(ep,expr_addop(ep,v0,un.em,EXPR_PMD,0),return NULL);
 						e=p+1;
-						goto vend;
+						goto vend;*/
 					case EXPR_SF_PME:
 						p=findpair(e,endp);
 						if(unlikely(!p))
 							goto pterr;
 						un.em=getmdinfo(ep,p2,e-p2,e,p-e+1,asym,asymlen,NULL,0,1+!!(flag&EXPR_SF_WRITEIP));
-						if(unlikely(!un.em))
+						addinfo((flag&EXPR_SF_WRITEIP)?EXPR_PMEP:EXPR_PME,freemdinfo);
+						/*if(unlikely(!un.em))
 							return NULL;
 						cknp(ep,expr_addop(ep,v0,un.em,(flag&EXPR_SF_WRITEIP)?EXPR_PMEP:EXPR_PME,0),return NULL);
 						e=p+1;
-						goto vend;
+						goto vend;*/
 					case EXPR_SF_PEP:
 						p=findpair(e,endp);
 						if(unlikely(!p))
@@ -4598,11 +4642,11 @@ treat_as_variable:
 			cknp(ep,v0,return NULL);
 			switch(type){
 				case EXPR_MDFUNCTION:
-					cknp(ep,expr_addmd(ep,v0,un.em,flag),return NULL);
+					cknp(ep,expr_addmd(ep,v0,un.em,flag),freemdinfo(un.em);return NULL);
 					break;
 				case EXPR_MDEPFUNCTION:
 					cknp(ep,(flag&EXPR_SF_WRITEIP?expr_addmep:expr_addme)
-					(ep,v0,un.em,flag),return NULL);
+					(ep,v0,un.em,flag),freemdinfo(un.em);return NULL);
 					break;
 			}
 			e=p+1;
@@ -6800,6 +6844,7 @@ static int expr_override(enum expr_op op){
 		case EXPR_PZA:
 		case EXPR_EP:
 		case MDCASES:
+		case EXPR_HMD:
 		case EXPR_VMD:
 		case EXPR_READ:
 			return 1;
@@ -6828,6 +6873,10 @@ static int expr_vused(struct expr_inst *ip1,double *v){
 		if(ip1->op==EXPR_CONST&&(ip1->flag&EXPR_SF_INJECTION)&&cast(ip1->un.value,double *)==v)
 			return 1;
 		ov=expr_override(ip1->op);
+//		printval(ov);
+//		printval(v);
+//		printval(ip1->un.src);
+//		printval(ip1->op);
 		if((expr_usesrc(ip1->op)&&ip1->un.src==v)
 			||(ip1->dst.dst==v&&!ov)
 		){
@@ -6857,8 +6906,9 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 			case EXPR_IP:
 			case EXPR_TO:
 			case EXPR_TO1:
-			case MDCASES:
+			case MDCASES_WITHP:
 			case EXPR_VMD:
+			case EXPR_HMD:
 			case SUMCASES:
 			case BRANCHCASES:
 			case EXPR_DO:
@@ -6873,9 +6923,6 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 			case EXPR_LJ:
 			case EXPR_PBL:
 			case EXPR_PZA:
-			case EXPR_PMD:
-			case EXPR_PME:
-			case EXPR_PMEP:
 				return 0;
 			case SRCCASES:
 				if(!expr_varofep(ep,ip->un.src)&&
@@ -6966,6 +7013,14 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 				ip->un.em->eps->ip=ip;\
 			case EXPR_ME:\
 				*dest=ip->un.em->un.funcep(ip->un.em->eps,ip->un.em->dim,input);\
+				break
+#define CALHMD_INSWITCH(dest) case EXPR_HMD:\
+				ap=ip->un.eh->args;\
+				endp=ap+ip->un.eh->dim;\
+				epp=ip->un.eh->eps;\
+				for(;likely(ap<endp);++ap)\
+					*ap=eval(epp++,input);\
+				*dest=eval(ip->un.eh->hotfunc,input);\
 				break
 
 #define vmdeval_def(___ev,input) (\
@@ -7125,6 +7180,27 @@ static int expr_optimize_constexpr(struct expr *restrict ep){
 					continue;
 				result=vmdeval(ip->un.ev,input);
 				freevmdinfo(ip->un.ev);
+				ip->op=EXPR_CONST;
+				ip->flag=0;
+				ip->un.value=result;
+				expr_writeconsts(ep);
+				r=1;
+				break;
+			case EXPR_HMD:
+				if(!(ip->flag&EXPR_SF_INJECTION))
+					continue;
+				epp=ip->un.eh->eps;
+				endp1=epp+ip->un.eh->dim;
+				for(;epp<endp1;++epp){
+					if(!expr_constexpr(epp,NULL))
+						goto force_continue;
+				}
+				switch(ip->op){
+					CALHMD_INSWITCH((&result));
+					default:
+						__builtin_unreachable();
+				}
+				freehmdinfo(ip->un.eh);
 				ip->op=EXPR_CONST;
 				ip->flag=0;
 				ip->un.value=result;
@@ -7317,6 +7393,14 @@ static int expr_vcheck_ep(struct expr *restrict ep,struct expr_inst *ip0,double 
 					)
 					return 1;
 				break;
+			case EXPR_HMD:
+				for(size_t i=0;i<ip->un.eh->dim;++i){
+					if(expr_vcheck_ep(ip->un.eh->eps+i,ip->un.eh->eps[i].data,v))
+						return 1;
+				}
+				if(expr_vcheck_ep(ip->un.eh->hotfunc,ip->un.eh->hotfunc->data,v))
+					return 1;
+				break;
 			default:
 				break;
 		}
@@ -7445,6 +7529,7 @@ static int expr_injective_hotfunction_check(struct expr *restrict ep){
 			case EXPR_BL:
 			case EXPR_ZA:
 			case MDCASES:
+			case EXPR_HMD:
 				if(!(ip->flag&EXPR_SF_INJECTION))
 					return 0;
 				break;
@@ -7461,6 +7546,35 @@ static int expr_injective_hotfunction_check(struct expr *restrict ep){
 		}
 	}
 }
+#define checkeihc(V) (!expr_varofep(ep,V)&&(V<eh->args||V>=eh->args+eh->dim))
+static int expr_injective_hotmdfunction_check(struct expr_hmdinfo *eh){
+	struct expr *restrict ep=eh->hotfunc;
+	for(struct expr_inst *ip=ep->data;;++ip){
+		if(checkeihc(ip->dst.dst))
+			return 0;
+		switch(ip->op){
+			case EXPR_END:
+				return 1;
+			case EXPR_CONST:
+				break;
+			case EXPR_BL:
+			case EXPR_ZA:
+			case MDCASES:
+			case EXPR_HOT:
+			case EXPR_HMD:
+				if(!(ip->flag&EXPR_SF_INJECTION))
+					return 0;
+				break;
+			case SRCCASES:
+			if(checkeihc(ip->un.src))
+					return 0;
+				break;
+			default:
+			case EXPR_INPUT:
+				return 0;
+		}
+	}
+}
 static int expr_optimize_injective_hotfunction(struct expr *restrict ep){
 	int r=0;
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
@@ -7469,6 +7583,14 @@ static int expr_optimize_injective_hotfunction(struct expr *restrict ep){
 				if(ip->flag&EXPR_SF_INJECTION)
 					break;
 				if(!expr_injective_hotfunction_check(ip->un.hotfunc))
+					break;
+				ip->flag|=EXPR_SF_INJECTION;
+				r=1;
+				break;
+			case EXPR_HMD:
+				if(ip->flag&EXPR_SF_INJECTION)
+					break;
+				if(!expr_injective_hotmdfunction_check(ip->un.eh))
 					break;
 				ip->flag|=EXPR_SF_INJECTION;
 				r=1;
@@ -8031,6 +8153,7 @@ again:
 			case EXPR_TO1:\
 				ip=*ip->dst.instaddr2;\
 				break;\
+			CALHMD_INSWITCH(ip->dst.dst);\
 			case EXPR_END:\
 				_out;\
 			default:\

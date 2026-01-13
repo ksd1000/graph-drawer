@@ -99,6 +99,7 @@ EXPR_IP,
 EXPR_IPP,
 EXPR_TO,
 EXPR_TO1,
+EXPR_HMD,
 EXPR_END
 };
 
@@ -373,6 +374,12 @@ struct expr_mdinfo {
 	} un;
 	size_t dim;
 };
+struct expr_hmdinfo {
+	struct expr *eps;
+	double *args;
+	struct expr *hotfunc;
+	size_t dim;
+};
 struct expr_vmdinfo {
 	struct expr *fromep,*toep,*stepep,*ep;
 	size_t max;
@@ -418,6 +425,7 @@ struct expr_inst {
 		struct expr_branchinfo *eb;
 		struct expr_mdinfo *em;
 		struct expr_vmdinfo *ev;
+		struct expr_hmdinfo *eh;
 	} un;
 	enum expr_op op;
 	int flag;

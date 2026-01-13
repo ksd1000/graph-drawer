@@ -2600,6 +2600,7 @@ static const char *getsym_expo(const char *c,const char *endp){
 	}
 	return c;
 }
+/*
 static int atod2(const char *str,double *dst){
 	char *c;
 	*dst=strtod(str,&c);
@@ -2609,16 +2610,25 @@ static int atod2(const char *str,double *dst){
 		return 2;
 	else return 1;
 }
+*/
 static int atod(const char *str,size_t sz,double *dst){
-	int ret;
-	char *p0=xmalloc(sz+1),*p;
-	p=p0?p0:alloca(sz+1);
-	p[sz]=0;
-	memcpy(p,str,sz);
-	ret=atod2(p,dst);
-	if(likely(p0))
-		xfree(p0);
-	return ret;
+//	int ret;
+//	char *p0=xmalloc(sz+1),*p;
+//	char *p;
+//	p=p0?p0:alloca(sz+1);
+//	p[sz]=0;
+//	memcpy(p,str,sz);
+//	ret=atod2(p,dst);
+//	if(likely(p0))
+//		xfree(p0);
+//	return ret;
+	char *c;
+	*dst=strtod(str,&c);
+	if(unlikely(c==str))
+		return 0;
+	else if(unlikely(c-str!=sz))
+		return 2;
+	else return 1;
 }
 static char *expr_tok(char *restrict str,char **restrict saveptr){
 	char *s0=(char *)str;

@@ -11,21 +11,37 @@
 #include <alloca.h>
 #include <float.h>
 #include <pthread.h>
-#include "xdraw.h"
+#include "graph.h"
 #include "texts/text.h"
+#define muldiv(m1,m2,f) ((uint64_t)(m1)*(m2)/(f))
+#define muldiv_up(m1,m2,f) ({\
+	int64_t _p=(m1)*(m2);\
+	int32_t _f=(f);\
+	_p/_f+!!(_p%_f);\
+})
+/*
 static int32_t muldiv(int32_t m1,int32_t m2,int32_t f){
-	return (uint64_t)m1*m2/f;
+	return (int64_t)m1*m2/f;
 	//return m1/f*m2+m1%f*m2/f;
 }
 static int32_t muldiv_up(int32_t m1,int32_t m2,int32_t f){
-	uint64_t p=(uint64_t)m1*m2;
+	uint64_t p=(int64_t)m1*m2;
 	return p/f+!!(p%f);
 	//int32_t mod=m1%f;
 	//return m1/f*m2+mod*m2/f+!!mod;
 }
-#define xisnan(x) (expr_isnan(*(x)))
-#define min(a,b) ((a)<(b)?(a):(b))
-#define max(a,b) ((a)>(b)?(a):(b))
+*/
+#define xisnan(x) (isnan(*(x)))
+#define max(a,b) ({\
+	__auto_type _a=(a);\
+	__auto_type _b=(b);\
+	_a>_b?_a:_b;\
+})
+#define min(a,b) ({\
+	__auto_type _a=(a);\
+	__auto_type _b=(b);\
+	_a<_b?_a:_b;\
+})
 #define manhattan(x1,y1,x2,y2) (abs((x1)-(x2))+abs((y1)-(y2)))
 //#define free(v)
 //#define printf(v, ... ) abort()
@@ -289,52 +305,38 @@ double graph_pixelstep(const struct graph *restrict gp){
 	return min(x,y);
 }
 
-struct mtarg_ep {
-	struct graph *restrict gp;
-	uint32_t color;
-	int32_t bold;
-	const struct expr *restrict xep;
-	const struct expr *restrict yep;
-	double from,to,step;
-	volatile double *current;
-};
 struct mtarg {
 	struct graph *restrict gp;
 	uint32_t color;
 	int32_t bold;
-	double (*x)(double);
-	double (*y)(double);
-	const struct expr *restrict xep;
-	const struct expr *restrict yep;
+	double (*x)(double,void *);
+	double (*y)(double,void *);
+	void *arg;
 	double from,to,step;
 	volatile double *current;
 };
-static void *graph_drawthread_ep(struct mtarg_ep *mt){
-	graph_drawep(mt->gp,mt->color,mt->bold,mt->xep,mt->yep,mt->from,mt->to,mt->step,mt->current);
-	pthread_exit(NULL);
-}
 static void *graph_drawthread(struct mtarg *mt){
-	graph_draw(mt->gp,mt->color,mt->bold,mt->x,mt->y,mt->from,mt->to,mt->step,mt->current);
+	graph_draw(mt->gp,mt->color,mt->bold,mt->x,mt->y,mt->arg,mt->from,mt->to,mt->step,mt->current);
 	pthread_exit(NULL);
 }
-void graph_draw(struct graph *restrict gp,uint32_t color,int32_t bold,double (*x)(double),double (*y)(double),double from,double to,double step,volatile double *current){
+void graph_draw(struct graph *restrict gp,uint32_t color,int32_t bold,double (*x)(double,void *),double (*y)(double,void *),void *arg,double from,double to,double step,volatile double *current){
 	int32_t last[2]={-1,-1};
 	double cur_null,toms=to-step;
 	if(!current)current=&cur_null;
 	for(;from<=toms;from+=step){
-		graph_draw_point6(gp,color,bold,x(from),y(from),last);
+		graph_draw_point6(gp,color,bold,x(from,arg),y(from,arg),last);
 		*current=from;
 	}
 	*current=to;
-	graph_draw_point6(gp,color,bold,x(to),y(to),last);
+	graph_draw_point6(gp,color,bold,x(to,arg),y(to,arg),last);
 	*current=DBL_MAX;
 }
-void graph_draw_mt(struct graph *restrict gp,uint32_t color,int32_t bold,double (*x)(double),double (*y)(double),double from,double to,double step,volatile double *currents,int thread){
+void graph_draw_mt(struct graph *restrict gp,uint32_t color,int32_t bold,double (*x)(double,void *),double (*y)(double,void *),void *arg,double from,double to,double step,volatile double *currents,int thread){
 	pthread_t *pts;
 	struct mtarg *mts;
 	double last,gap,lpg;
 	if(thread<2/*||(to-from)<step*pow((double)(thread+1),2)*/){
-		graph_draw(gp,color,bold,x,y,from,to,step,currents);
+		graph_draw(gp,color,bold,x,y,arg,from,to,step,currents);
 		return;
 	}
 	pts=alloca(thread*sizeof(pthread_t));
@@ -347,6 +349,7 @@ void graph_draw_mt(struct graph *restrict gp,uint32_t color,int32_t bold,double 
 		mts[i].bold=bold;
 		mts[i].x=x;
 		mts[i].y=y;
+		mts[i].arg=arg;
 		lpg=last+gap;
 		if(lpg>to)lpg=to;
 		mts[i].from=last;
@@ -355,51 +358,6 @@ void graph_draw_mt(struct graph *restrict gp,uint32_t color,int32_t bold,double 
 		mts[i].step=step;
 		mts[i].current=currents?currents+i:NULL;
 		pthread_create(pts+i,NULL,(void *(*)(void *))graph_drawthread,mts+i);
-	}
-	for(int i=0;i<thread;++i){
-		pthread_join(pts[i],NULL);
-	}
-	return;
-}
-void graph_drawep(struct graph *restrict gp,uint32_t color,int32_t bold,const struct expr *restrict xep,const struct expr *restrict yep,double from,double to,double step,volatile double *current){
-	int32_t last[2]={-1,-1};
-	double cur_null,toms=to-step;
-	if(!current)current=&cur_null;
-	for(;from<=toms;from+=step){
-		graph_draw_point6(gp,color,bold,expr_eval(xep,from),expr_eval(yep,from),last);
-		*current=from;
-	}
-	*current=to;
-	graph_draw_point6(gp,color,bold,expr_eval(xep,to),expr_eval(yep,to),last);
-	*current=DBL_MAX;
-}
-
-void graph_drawep_mt(struct graph *restrict gp,uint32_t color,int32_t bold,const struct expr *restrict xeps,const struct expr *restrict yeps,double from,double to,double step,volatile double *currents,int thread){
-	pthread_t *pts;
-	struct mtarg_ep *mts;
-	double last,gap,lpg;
-	if(thread<2/*||(to-from)<step*pow((double)(thread+1),2)*/){
-		graph_drawep(gp,color,bold,xeps,yeps,from,to,step,currents);
-		return;
-	}
-	pts=alloca(thread*sizeof(pthread_t));
-	mts=alloca(thread*sizeof(struct mtarg_ep));
-	last=from;
-	gap=(to-from)/thread;
-	for(int i=0;i<thread;++i){
-		mts[i].gp=gp;
-		mts[i].color=color;
-		mts[i].bold=bold;
-		mts[i].xep=xeps+i;
-		mts[i].yep=yeps+i;
-		lpg=last+gap;
-		if(lpg>to)lpg=to;
-		mts[i].from=last;
-		mts[i].to=lpg;
-		last=lpg;
-		mts[i].step=step;
-		mts[i].current=currents?currents+i:NULL;
-		pthread_create(pts+i,NULL,(void *(*)(void *))graph_drawthread_ep,mts+i);
 	}
 	for(int i=0;i<thread;++i){
 		pthread_join(pts[i],NULL);

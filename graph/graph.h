@@ -2,10 +2,9 @@
  *License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>*
  *This is free software: you are free to change and redistribute it.           *
  *******************************************************************************/
-#ifndef _XDRAW_H_
-#define _XDRAW_H_
+#ifndef _GRAPH_H_
+#define _GRAPH_H_
 #include <stdint.h>
-#include "expr.h"
 struct graph {
 	char *buf,*textbuf;
 	double minx,maxx,miny,maxy;
@@ -33,10 +32,8 @@ void graph_free(struct graph *restrict gp);
 void graph_draw_point6(struct graph *restrict gp,uint32_t color,int32_t bold,double x,double y,int32_t last[2]);
 void graph_draw_point(struct graph *restrict gp,uint32_t color,int32_t bold,double x,double y);
 double graph_pixelstep(const struct graph *restrict gp);
-void graph_draw(struct graph *restrict gp,uint32_t color,int32_t bold,double (*x)(double),double (*y)(double),double from,double to,double step,volatile double *current);
-void graph_draw_mt(struct graph *restrict gp,uint32_t color,int32_t bold,double (*x)(double),double (*y)(double),double from,double to,double step,volatile double *currents,int thread);
-void graph_drawep(struct graph *restrict gp,uint32_t color,int32_t bold,const struct expr *restrict xep,const struct expr *restrict yep,double from,double to,double step,volatile double *current);
-void graph_drawep_mt(struct graph *restrict gp,uint32_t color,int32_t bold,const struct expr *restrict xeps,const struct expr *restrict yeps,double from,double to,double step,volatile double *currents,int thread);
+void graph_draw(struct graph *restrict gp,uint32_t color,int32_t bold,double (*x)(double,void *),double (*y)(double,void *),void *arg,double from,double to,double step,volatile double *current);
+void graph_draw_mt(struct graph *restrict gp,uint32_t color,int32_t bold,double (*x)(double,void *),double (*y)(double,void *),void *arg,double from,double to,double step,volatile double *currents,int thread);
 int graph_raycast(const struct graph *restrict gp,int32_t *restrict x1,int32_t *restrict y1,int32_t *restrict x2,int32_t *restrict y2);
 int graph_connect_pixel(struct graph *restrict gp,uint32_t color,int32_t bold,int32_t x1,int32_t y1,int32_t x2,int32_t y2);
 int graph_connect(struct graph *restrict gp,uint32_t color,int32_t bold,double x1,double y1,double x2,double y2);

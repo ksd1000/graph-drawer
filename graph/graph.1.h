@@ -2,10 +2,9 @@
  *License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>*
  *This is free software: you are free to change and redistribute it.           *
  *******************************************************************************/
-#ifndef _XDRAW_H_
-#define _XDRAW_H_
+#ifndef _GRAPH_H_
+#define _GRAPH_H_
 #include <stdint.h>
-#include "expr.h"
 struct graph {
 	char *buf,*textbuf;
 	double minx,maxx,miny,maxy;

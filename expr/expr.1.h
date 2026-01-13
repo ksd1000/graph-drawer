@@ -391,12 +391,12 @@ struct expr_vmdinfo {
 struct expr_superseed48 {
 	size_t len;
 	uint16_t data[];//size=3*len
-};
+}__attribute__((packed));;
 struct expr_rawdouble {
 	uint64_t base:52;
 	uint64_t exp:11;
 	uint64_t sign:1;
-} __attribute__((packed));
+}__attribute__((packed));
 struct expr_inst {
 	union {
 		double *dst;

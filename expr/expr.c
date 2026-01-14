@@ -2624,16 +2624,6 @@ static int atod2(const char *str,double *dst){
 }
 */
 static int atod(const char *str,size_t sz,double *dst){
-//	int ret;
-//	char *p0=xmalloc(sz+1),*p;
-//	char *p;
-//	p=p0?p0:alloca(sz+1);
-//	p[sz]=0;
-//	memcpy(p,str,sz);
-//	ret=atod2(p,dst);
-//	if(likely(p0))
-//		xfree(p0);
-//	return ret;
 	char *c;
 	*dst=strtod(str,&c);
 	if(unlikely(c==str))

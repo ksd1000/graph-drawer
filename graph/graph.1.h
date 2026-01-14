@@ -5,8 +5,11 @@
 #ifndef _GRAPH_H_
 #define _GRAPH_H_
 #include <stdint.h>
+#include "bitmap.h"
 struct graph {
-	char *buf,*textbuf;
+	char *buf;
+	struct bitmap *bm;
+	char *textbuf;
 	double minx,maxx,miny,maxy;
 	int32_t width,height,lastx,lasty;
 	uint32_t byte_width,hsize;

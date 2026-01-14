@@ -5,8 +5,11 @@
 #ifndef _GRAPH_H_
 #define _GRAPH_H_
 #include <stdint.h>
+#include "bitmap.h"
 struct graph {
-	char *buf,*textbuf;
+	char *buf;
+	struct bitmap *bm;
+	char *textbuf;
 	double minx,maxx,miny,maxy;
 	int32_t width,height,lastx,lasty;
 	uint32_t byte_width,hsize;
@@ -26,7 +29,7 @@ int32_t graph_draw_text(struct graph *restrict gp,uint32_t color,int32_t bold,co
 int32_t graph_xtop(const struct graph *restrict gp,double x);
 int32_t graph_ytop(const struct graph *restrict gp,double y);
 void graph_fill(struct graph *restrict gp,uint32_t color);
-int init_graph_frombmp(struct graph *restrict gp,void *bmp,size_t size,double minx,double maxx,double miny,double maxy);
+int init_graph_frombmp(struct graph *restrict gp,const void *bmp,size_t size,double minx,double maxx,double miny,double maxy);
 int init_graph(struct graph *restrict gp,int32_t width,int32_t height,uint16_t bpp,double minx,double maxx,double miny,double maxy);
 void graph_free(struct graph *restrict gp);
 void graph_draw_point6(struct graph *restrict gp,uint32_t color,int32_t bold,double x,double y,int32_t last[2]);
@@ -42,5 +45,4 @@ void graph_draw_grid(struct graph *restrict gp,uint32_t color,int32_t bold,doubl
 
 #define graph_bmpsize(gp) (*(uint32_t *)((gp)->buf-54+2))
 #define graph_getbmp(gp) ((gp)->buf-54)
-#define graph_colorat(gp,x,y) ((gp)->buf[(y)*(gp)->byte_width+(x)*(gp)->bpp])
 #endif

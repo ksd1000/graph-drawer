@@ -19,18 +19,6 @@
 	int32_t _f=(f);\
 	_p/_f+!!(_p%_f);\
 })
-/*
-static int32_t muldiv(int32_t m1,int32_t m2,int32_t f){
-	return (int64_t)m1*m2/f;
-	//return m1/f*m2+m1%f*m2/f;
-}
-static int32_t muldiv_up(int32_t m1,int32_t m2,int32_t f){
-	uint64_t p=(int64_t)m1*m2;
-	return p/f+!!(p%f);
-	//int32_t mod=m1%f;
-	//return m1/f*m2+mod*m2/f+!!mod;
-}
-*/
 #define xisnan(x) (isnan(*(x)))
 #define max(a,b) ({\
 	__auto_type _a=(a);\
@@ -71,7 +59,7 @@ static int shouldconnect(const struct graph *restrict gp,int32_t x1,int32_t y1,i
 #define ytop(y) ((int32_t)(((y)-gp->miny)/(gp->maxy-gp->miny)*gp->height))
 #define inrange(x,y) ((x)>=0&&(x)<gp->width&&(y)>=0&&(y)<gp->height)
 #define setpixel(px,py)\
-	memcpy(&graph_colorat(gp,px,py),&color,gp->bpp)
+	bm_setpixel6(gp->buf,gp->bpp,gp->byte_width,px,py,color)
 void graph_setpixel_bold(struct graph *restrict gp,uint32_t color,int32_t bold,int32_t x,int32_t y){
 	int32_t px,endx,py,py1,endy;
 	px=x-bold;
@@ -98,7 +86,7 @@ void graph_setpixel_bold(struct graph *restrict gp,uint32_t color,int32_t bold,i
 			}
 		}
 	}else if(inrange(x,y))
-	setpixel(x,y);
+		setpixel(x,y);
 	//graph_setpixel(gp,color,x,y);
 }
 static int32_t graph_drawchar(struct graph *restrict gp,uint32_t color,int32_t bold,int c,int32_t height,int32_t x,int32_t y,int test){
@@ -182,10 +170,11 @@ void graph_fill(struct graph *restrict gp,uint32_t color){
 		}
 	}
 }
-int init_graph_frombmp(struct graph *restrict gp,void *bmp,size_t size,double minx,double maxx,double miny,double maxy){
-	int32_t width,height,byte_width,hsize;
-	uint16_t bpp;
+int init_graph_frombmp(struct graph *restrict gp,const void *bmp,size_t size,double minx,double maxx,double miny,double maxy){
+//	int32_t width,height,byte_width,hsize;
+//	uint16_t bpp;
 	int r;
+	/*
 	if(size<54)return -1;
 	if(memcmp((char *)bmp,"BM",2))return -1;
 	bpp=*(uint16_t *)((char *)bmp+28);
@@ -204,14 +193,20 @@ int init_graph_frombmp(struct graph *restrict gp,void *bmp,size_t size,double mi
 	hsize=*(uint32_t *)((char *)bmp+10);
 	if(hsize+byte_width*height!=size)return -1;
 	if(*(uint32_t *)((char *)bmp+2)!=size)return -1;
-	//*(uint32_t *)((char *)bmp+14);
+	// *(uint32_t *)((char *)bmp+14);
 	if(*(uint32_t *)((char *)bmp+34)!=byte_width*height)return -1;
 	if(width<=0||height<=0||minx>=maxx||miny>=maxy)
 		return -1;
-	r=init_graph(gp,width,height,bpp,minx,maxx,miny,maxy);
-	if(r<0)return r;
-	memcpy(gp->buf,bmp+hsize,size-hsize);
+		*/
+#define inbmp ((const struct bitmap *)bmp)
+	if(bm_check(inbmp,size)<0)
+		return -1;
+	r=init_graph(gp,inbmp->width,inbmp->height,inbmp->bpp,minx,maxx,miny,maxy);
+	if(r<0)
+		return r;
+	memcpy(gp->buf,bmp+inbmp->pindex,size-inbmp->pindex);
 	return 0;
+#undef inbmp
 }
 int init_graph(struct graph *restrict gp,int32_t width,int32_t height,uint16_t bpp,double minx,double maxx,double miny,double maxy){
 	gp->byte_width=((width*bpp+31)>>5)<<2;
@@ -219,7 +214,8 @@ int init_graph(struct graph *restrict gp,int32_t width,int32_t height,uint16_t b
 	if(width<=0||height<=0||bpp<8||bpp&7||minx>=maxx||miny>=maxy)
 		return -1;
 	gp->hsize=54;
-	if((gp->buf=malloc(gp->hsize+gp->byte_width*height))==NULL)return -2;
+	if((gp->bm=malloc(gp->hsize+gp->byte_width*height))==NULL)
+		return -2;
 	if((gp->textbuf=malloc(TEXT_MAXOSIZE))==NULL){
 		free(gp->buf);
 		return -2;
@@ -233,8 +229,8 @@ int init_graph(struct graph *restrict gp,int32_t width,int32_t height,uint16_t b
 	gp->connect=1;
 	gp->arrow=1;
 	gp->draw_value=1;
-	//gp->lastx=gp->lasty=-1;
 	gp->bpp=bpp/8;
+	/*
 	memset(gp->buf,0,gp->hsize);
 	memcpy(gp->buf,"BM",2);
 	*(uint32_t *)(gp->buf+2)=54+gp->byte_width*height;
@@ -245,7 +241,9 @@ int init_graph(struct graph *restrict gp,int32_t width,int32_t height,uint16_t b
 	*(uint16_t *)(gp->buf+26)=1;
 	*(uint16_t *)(gp->buf+28)=bpp;
 	*(uint32_t *)(gp->buf+34)=gp->byte_width*height;
-	gp->buf+=gp->hsize;
+	*/
+	bm_init(gp->bm,width,height,bpp);
+	gp->buf=gp->bm->data;
 	return 0;
 }
 void graph_free(struct graph *restrict gp){
@@ -713,31 +711,27 @@ void graph_draw_grid(struct graph *restrict gp,uint32_t color,int32_t bold,doubl
 	graph_draw_hline(gp,color,bold,0,gp->width,ay);
 	graph_draw_vline(gp,color,bold,0,gp->height,ax);
 	if(gapx>DBL_EPSILON){
-	for(v=gapx;;v+=gapx){
-		px=xtop(v);
-		if(px+bold>=gp->width)break;
-		graph_draw_vline(gp,color,bold,0,gp->height-1,px);
-
-	}
-	for(v=-gapx;;v-=gapx){
-		px=xtop(v);
-		if(px-bold<0)break;
-		graph_draw_vline(gp,color,bold,0,gp->height-1,px);
-
-	}
+		for(v=gapx;;v+=gapx){
+			px=xtop(v);
+			if(px+bold>=gp->width)break;
+			graph_draw_vline(gp,color,bold,0,gp->height-1,px);
+		}
+		for(v=-gapx;;v-=gapx){
+			px=xtop(v);
+			if(px-bold<0)break;
+			graph_draw_vline(gp,color,bold,0,gp->height-1,px);
+		}
 	}
 	if(gapy>DBL_EPSILON){
-	for(v=gapy;;v+=gapy){
-		py=ytop(v);
-		if(py+bold>=gp->height)break;
-		graph_draw_hline(gp,color,bold,0,gp->width-1,py);
-
-	}
-	for(v=-gapy;;v-=gapy){
-		py=ytop(v);
-		if(py-bold<0)break;
-		graph_draw_hline(gp,color,bold,0,gp->width-1,py);
-
-	}
+		for(v=gapy;;v+=gapy){
+			py=ytop(v);
+			if(py+bold>=gp->height)break;
+			graph_draw_hline(gp,color,bold,0,gp->width-1,py);
+		}
+		for(v=-gapy;;v-=gapy){
+			py=ytop(v);
+			if(py-bold<0)break;
+			graph_draw_hline(gp,color,bold,0,gp->width-1,py);
+		}
 	}
 }

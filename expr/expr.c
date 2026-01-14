@@ -1678,6 +1678,7 @@ static double expr_hypot(double *args,size_t n){
 #define REGKEYSC(s,op,dim,desc) {s,op,EXPR_KF_SUBEXPR|EXPR_KF_SEPCOMMA,sizeof(s)-1,desc}
 #define REGKEYN(s,op,dim,desc) {s,op,EXPR_KF_NOPROTECT,sizeof(s)-1,desc}
 #define REGKEYCN(s,op,dim,desc) {s,op,EXPR_KF_SEPCOMMA|EXPR_KF_NOPROTECT,sizeof(s)-1,desc}
+#define REGKEYSN(s,op,dim,desc) {s,op,EXPR_KF_SUBEXPR|EXPR_KF_NOPROTECT,sizeof(s)-1,desc}
 #define REGKEYSCN(s,op,dim,desc) {s,op,EXPR_KF_SUBEXPR|EXPR_KF_SEPCOMMA|EXPR_KF_NOPROTECT,sizeof(s)-1,desc}
 const struct expr_builtin_keyword expr_keywords[]={
 	REGKEYSC("sum",EXPR_SUM,5,"sum(index_name,start_index,end_index,index_step,addend)"),
@@ -1698,18 +1699,18 @@ const struct expr_builtin_keyword expr_keywords[]={
 	REGKEYSC("while",EXPR_WHILE,3,"while(cond,body) while(cond){body}"),
 	REGKEYSC("dowhile",EXPR_DOW,3,"dowhile(cond,body) dowhile(cond){body}"),
 	REGKEYSC("don",EXPR_DON,3,"don(cond,body) don(cond){body}"),
-	REGKEYC("const",EXPR_CONST,2,"const(name,[constant_expression value]) name=(value)"),
-	REGKEYC("var",EXPR_MUL,2,"var(name,[constant_expression initial_value])"),
-	REGKEYN("double",EXPR_BL,1,"double(constant_expression count)"),
-	REGKEYN("byte",EXPR_COPY,1,"byte(constant_expression count)"),
-	REGKEYN("jmpbuf",EXPR_INPUT,1,"jmpbuf(constant_expression count)"),
+	REGKEYSC("const",EXPR_CONST,2,"const(name,[constant_expression value]) name=(value)"),
+	REGKEYSC("var",EXPR_MUL,2,"var(name,[constant_expression initial_value])"),
+	REGKEYSN("double",EXPR_BL,1,"double(constant_expression count)"),
+	REGKEYSN("byte",EXPR_COPY,1,"byte(constant_expression count)"),
+	REGKEYSN("jmpbuf",EXPR_INPUT,1,"jmpbuf(constant_expression count)"),
 	REGKEYCN("alloca",EXPR_ALO,2,"alloca(nmemb,[constant_expression size])"),
 	REGKEYN("setjmp",EXPR_SJ,1,"setjmp(jmp_buf)"),
 	REGKEYCN("longjmp",EXPR_LJ,2,"longjmp(jmp_buf,val)"),
-	REGKEYCN("eval",EXPR_EVAL,2,"eval(ep,[input])"),
-	REGKEYCN("decl",EXPR_ADD,2,"decl(symbol,[constant_expression flag])"),
-	REGKEY("static_assert",EXPR_SUB,1,"static_assert(constant_expression cond)"),
-	REGKEYN("ip",EXPR_IP,0,"ip(void)"),
+	REGKEYCN("eval",EXPR_EVAL,2,"eval(ep,input)"),
+	REGKEYSCN("decl",EXPR_ADD,2,"decl(symbol,[constant_expression flag])"),
+	REGKEYS("static_assert",EXPR_SUB,1,"static_assert(constant_expression cond)"),
+	REGKEYSN("ip",EXPR_IP,1,"ip([mode])"),
 	REGKEYN("to",EXPR_TO,1,"to(val)"),
 	REGKEYN("to1",EXPR_TO1,1,"to(val)"),
 	REGKEYSC("hot",EXPR_HOT,2,"hot(function_name,(args...){expression}) function_name=(args...){expression}"),
@@ -1717,13 +1718,15 @@ const struct expr_builtin_keyword expr_keywords[]={
 	REGKEY("typeof",EXPR_AND,1,"typeof(symbol)"),
 	REGKEY("flagof",EXPR_OR,1,"flagof(symbol)"),
 	REGKEY("undef",EXPR_XOR,1,"undef([symbol])[{scope}]"),
+	REGKEY("reset",EXPR_NOTL,1,"reset([symbol])[{scope}]"),
 	REGKEY("static_if",EXPR_ANDL,3,"static_if(constant_expression cond){body}[{else_body}]"),
 	REGKEY("flag",EXPR_ORL,1,"flag([constant_expression new_flag])[{scope}]"),
 	REGKEY("scope",EXPR_XORL,1,"scope(){scope}"),
-	REGKEY("fix",EXPR_NEXT,1,"fix(expression value)"),
-	REGKEY("constant",EXPR_DIFF,1,"constant(expression value)"),
+	REGKEYS("fix",EXPR_NEXT,1,"fix(expression value)"),
+	REGKEYS("constant",EXPR_DIFF,1,"constant(expression value)"),
 	REGKEYS("try",EXPR_NEG,1,"try([new_symbol]){body}"),
 	REGKEYC("alias",EXPR_NOT,2,"alias(alias_name,target)"),
+	REGKEYCN("return",EXPR_RET,2,"return(ep,val)"),
 	{NULL}
 };
 const struct expr_builtin_symbol expr_symbols[]={
@@ -1731,8 +1734,6 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGCSYM(DBL_MIN),
 	REGCSYM(DBL_TRUE_MIN),
 	REGCSYM(DBL_EPSILON),
-	REGCSYM2("DBL_SHIFT",(double)__builtin_ctzl(sizeof(double))),
-	REGCSYM2("DBL_SIZE",(double)sizeof(double)),
 
 	REGCSYM_E(CONSTANT),
 	REGCSYM_E(VARIABLE),
@@ -1792,7 +1793,6 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGCSYM(HUGE_VAL),
 	REGCSYM(HUGE_VALF),
 	REGCSYM(INFINITY),
-	REGCSYM2("JBLEN",(double)sizeof(struct expr_jmpbuf)),
 	REGCSYM(NAN),
 	REGCSYM2("NULL",(double)(size_t)NULL),
 	REGCSYM2("1_pi",M_1_PI),
@@ -1811,6 +1811,12 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGCSYM2("pi_4",M_PI_4),
 	REGCSYM2("sqrt2",M_SQRT2),
 	REGCSYM2("sqrt1_2",M_SQRT1_2),
+	REGCSYM2("DBL_SHIFT",(double)__builtin_ctzl(sizeof(double))),
+	REGCSYM2("DBL_SIZE",(double)sizeof(double)),
+	REGCSYM2("JBLEN",(double)sizeof(struct expr_jmpbuf)),
+	REGCSYM2("INSTLEN",(double)sizeof(struct expr_inst)),
+	REGCSYM2("IPP_OFF",(double)offsetof(struct expr,ipp)),
+	REGCSYM2("SIZE_OFF",(double)offsetof(struct expr,size)),
 #if PHYSICAL_CONSTANT
 	REGCSYM2("c",299792458.0),
 	REGCSYM2("e0",8.8541878128e-12),
@@ -2336,8 +2342,8 @@ static struct expr_inst *expr_addinput(struct expr *restrict ep,double *dst){
 static struct expr_inst *expr_addipp(struct expr *restrict ep,double *dst){
 	return expr_addop(ep,dst,NULL,EXPR_IPP,0);
 }
-static struct expr_inst *expr_addip(struct expr *restrict ep,double *dst){
-	return expr_addop(ep,dst,NULL,EXPR_IP,0);
+static struct expr_inst *expr_addip(struct expr *restrict ep,double *dst,size_t mode){
+	return expr_addop(ep,dst,(void *)mode,EXPR_IP,0);
 }
 static struct expr_inst *expr_addto(struct expr *restrict ep,double *dst){
 	return expr_addop(ep,dst,NULL,EXPR_TO,0);
@@ -3559,6 +3565,7 @@ envp:
 			dim=1;
 		case '{':
 			r0=0;
+			dim=0;
 block:
 			p=findpair_brace(e,endp);
 			if(unlikely(!p))
@@ -4041,31 +4048,59 @@ b0:
 					}
 				}
 found1:
-				cknp(ep,expr_detach(ep)>=0,return NULL);
-				if(p2){
-					un.esp=ep->sset?expr_symset_clone(ep->sset):new_expr_symset();
-					cknp(ep,un.esp,return NULL);
-					sym.esp=ep->sset;
-					ep->sset=un.esp;
-					if(unlikely(expr_rmsym(ep,e+1,p-e-1))){
-						++e;
-						goto symerr;
-					}
-					v0=scan(ep,p+2,p2,asym,asymlen);
-					ep->sset=sym.esp;
-					expr_symset_free(un.esp);
-					if(unlikely(!v0))
-						return NULL;
-					e=p2+1;
-				}else {
-					if(unlikely(expr_rmsym(ep,e+1,p-e-1))){
-						++e;
-						goto symerr;
-					}
-					v0=EXPR_VOID;
-					e=p+1;
+#define do_undef(_se) \
+				cknp(ep,expr_detach(ep)>=0,return NULL);\
+				if(p2){\
+					un.esp=ep->sset?expr_symset_clone(ep->sset):new_expr_symset();\
+					cknp(ep,un.esp,return NULL);\
+					sym.esp=ep->sset;\
+					ep->sset=un.esp;\
+					if(_se){\
+						if(unlikely(expr_rmsym(ep,e+1,p-e-1))){\
+							++e;\
+							goto symerr;\
+						}\
+					}else {\
+						expr_rmsym(ep,e+1,p-e-1);\
+					}\
+					v0=scan(ep,p+2,p2,asym,asymlen);\
+					ep->sset=sym.esp;\
+					expr_symset_free(un.esp);\
+					if(unlikely(!v0))\
+						return NULL;\
+					e=p2+1;\
+				}else {\
+					if(_se){\
+						if(unlikely(expr_rmsym(ep,e+1,p-e-1))){\
+							++e;\
+							goto symerr;\
+						}\
+					}else {\
+						expr_rmsym(ep,e+1,p-e-1);\
+					}\
+					v0=EXPR_VOID;\
+					e=p+1;\
+				}\
+				goto vend
+				do_undef(1);
+			case EXPR_NOTL:
+				if(p+1<endp&&p[1]=='{')
+					p2=findpair_brace(p+1,endp);
+				else
+					p2=NULL;
+				switch(e[1]){
+					case ')':
+					case '*':
+						goto found2;
+					default:
+						break;
 				}
-				goto vend;
+				if(!(ep->iflag&EXPR_IF_NOBUILTIN)&&e+2<p&&e[1]==':'&&e[2]==':'){
+					e+=2;
+					goto b0;
+				}
+found2:
+				do_undef(0);
 			case EXPR_ORL:
 				if(p==e+1){
 					v0=expr_newvar(ep);
@@ -4266,13 +4301,23 @@ found1:
 				goto vend;
 			case EXPR_IP:
 				if(p!=e+1){
-					seterr(ep,EXPR_EZAFP);
-					memcpy(ep->errinfo,"ip",mincc(2,EXPR_SYMLEN));
-					return NULL;
-				}
+					un.v=consteval(e+1,p-e-1,asym,asymlen,ep->sset,ep);
+					if(unlikely(ep->error))
+						return NULL;
+					dim=(size_t)un.v;
+					switch(dim){
+						case 0 ... 3:
+							break;
+						default:
+							seterr(ep,EXPR_EZAFP);
+							memcpy(ep->errinfo,"ip",mincc(2,EXPR_SYMLEN));
+							return NULL;
+					}
+				}else
+					dim=0;
 				v0=expr_newvar(ep);
 				cknp(ep,v0,return NULL);
-				cknp(ep,expr_addip(ep,v0),return NULL);
+				cknp(ep,expr_addip(ep,v0,dim),return NULL);
 				e=p+1;
 				goto vend;
 			case EXPR_TO:
@@ -4289,35 +4334,34 @@ found1:
 				cknp(ep,expr_addto1(ep,v0),return NULL);
 				e=p+1;
 				goto vend;
+#define EVALLIKE(_op,_err) \
+				sym.vv=expr_sep(ep,e,p-e+1);\
+				if(unlikely(!sym.vv))\
+					return NULL;\
+				for(un.vv1=sym.vv;*un.vv1;++un.vv1);\
+				switch(un.vv1-sym.vv){\
+					case 2:\
+						v0=scan(ep,sym.vv[1],sym.vv[1]+strlen(sym.vv[1]),asym,asymlen);\
+						if(unlikely(!v0))\
+							goto c_fail;\
+						break;\
+					default:\
+						seterr(ep,EXPR_ENEA);\
+						memcpy(ep->errinfo,_err,mincc(sizeof(_err)-1,EXPR_SYMLEN));\
+						goto c_fail;\
+				}\
+\
+				v1=scan(ep,sym.vv[0],sym.vv[0]+strlen(sym.vv[0]),asym,asymlen);\
+				expr_free2(sym.vv);\
+				if(unlikely(!v1))\
+					return NULL;\
+				cknp(ep,expr_addop(ep,v0,v1,_op,0),return NULL);\
+				e=p+1;\
+				goto vend
 			case EXPR_EVAL:
-				sym.vv=expr_sep(ep,e,p-e+1);
-				if(unlikely(!sym.vv))
-					return NULL;
-				for(un.vv1=sym.vv;*un.vv1;++un.vv1);
-				switch(un.vv1-sym.vv){
-					case 2:
-						v0=scan(ep,sym.vv[1],sym.vv[1]+strlen(sym.vv[1]),asym,asymlen);
-						if(unlikely(!v0))
-							goto c_fail;
-						break;
-					case 1:
-						v0=expr_newvar(ep);
-						cknp(ep,v0,goto c_fail);
-						cknp(ep,expr_addinput(ep,v0),return NULL);
-						break;
-					default:
-					seterr(ep,EXPR_ENEA);
-					memcpy(ep->errinfo,"eval",mincc(4,EXPR_SYMLEN));
-					goto c_fail;
-				}
-
-				v1=scan(ep,sym.vv[0],sym.vv[0]+strlen(sym.vv[0]),asym,asymlen);
-				expr_free2(sym.vv);
-				if(unlikely(!v1))
-					return NULL;
-				cknp(ep,expr_addop(ep,v0,v1,EXPR_EVAL,0),return NULL);
-				e=p+1;
-				goto vend;
+				EVALLIKE(EXPR_EVAL,"eval");
+			case EXPR_RET:
+				EVALLIKE(EXPR_RET,"return");
 			case BRANCHCASES:
 				if(p+1<endp&&p[1]=='{'){
 					sym.b=alloca(sizeof(struct branch));
@@ -5322,10 +5366,9 @@ end2:
 		cknp(ep,r1>=0,goto err);
 	}while(r1);
 	SETPREC3(EXPR_MUL,EXPR_DIV,EXPR_MOD)
+	SETPREC2(EXPR_NEXT,EXPR_DIFF)
 	SETPREC2(EXPR_ADD,EXPR_SUB)
 	SETPREC2(EXPR_SHL,EXPR_SHR)
-	SETPREC1(EXPR_NEXT)
-	SETPREC1(EXPR_DIFF)
 	SETPREC6(EXPR_LT,EXPR_LE,EXPR_GT,EXPR_GE,EXPR_SLE,EXPR_SGE)
 	SETPREC4(EXPR_SEQ,EXPR_SNE,EXPR_EQ,EXPR_NE)
 	SETPREC1(EXPR_AND)
@@ -6877,6 +6920,7 @@ static int expr_usesrc(enum expr_op op){
 		case EXPR_PBL:
 		case EXPR_PZA:
 		case EXPR_EVAL:
+		case EXPR_RET:
 			return 1;
 		default:
 			return 0;
@@ -6932,6 +6976,7 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 			case EXPR_EP:
 			case EXPR_WIF:
 			case EXPR_EVAL:
+			case EXPR_RET:
 			case EXPR_READ:
 			case EXPR_WRITE:
 			case EXPR_ALO:
@@ -7113,6 +7158,10 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 			size_t __max;\
 			struct expr_vmdinfo *restrict __ev;\
 		} sv;\
+		struct {\
+			struct expr *ep;\
+			struct expr_inst *end;\
+		} r;\
 		struct expr_jmpbuf *jp;\
 		void *up;\
 		double d;\
@@ -8141,6 +8190,7 @@ again:
 				break;\
 			case EXPR_WRITE:\
 				**ip->un.src2=*ip->dst.dst;\
+				ip=*(struct expr_inst *volatile *)&ip;\
 				break;\
 			case EXPR_ALO:\
 				un.up=alloca((ssize_t)*ip->dst.dst*ip->un.zu);\
@@ -8161,8 +8211,23 @@ again:
 				*ip->dst.uaddr2=&ip;\
 				break;\
 			case EXPR_IP:\
-				*ip->dst.instaddr2=ip;\
-				break;\
+				switch(ip->un.zu){\
+					case 0:\
+						*ip->dst.instaddr2=ip;\
+						goto break1;\
+					case 1:\
+						*ip->dst.instaddr2=ep->data+(ep->size-1);\
+						goto break1;\
+					case 2:\
+						*ip->dst.uaddr2=&ip;\
+						goto break1;\
+					case 3:\
+					       ((volatile struct expr *)ep)->ipp=&ip;\
+						*ip->dst.uaddr2=(void *)ep;\
+						goto break1;\
+					default:\
+						__builtin_unreachable();\
+				}\
 			case EXPR_TO:\
 				ip=*ip->dst.instaddr2;\
 				goto break2;\
@@ -8170,11 +8235,18 @@ again:
 				ip=*ip->dst.instaddr2;\
 				break;\
 			CALHMD_INSWITCH(ip->dst.dst);\
+			case EXPR_RET:\
+				un.r.ep=*ip->un.uaddr2;\
+				un.r.end=un.r.ep->data+un.r.ep->size-1;\
+				*un.r.end->dst.dst=*ip->dst.dst;\
+				*un.r.ep->ipp=un.r.end-1;\
+				break;\
 			case EXPR_END:\
 				_out;\
 			default:\
 				__builtin_unreachable();\
 		}\
+break1:\
 		++ip;\
 break2:
 

@@ -100,6 +100,7 @@ EXPR_IPP,
 EXPR_TO,
 EXPR_TO1,
 EXPR_HMD,
+EXPR_RET,
 EXPR_END
 };
 
@@ -403,6 +404,7 @@ struct expr_inst {
 		int64_t *idst;
 		void *uaddr;
 		void **uaddr2;
+		double **dst2;
 		struct expr_inst **instaddr2;
 		struct expr_rawdouble *rdst;
 		double (**md2)(double *,size_t);
@@ -413,6 +415,7 @@ struct expr_inst {
 		int64_t *isrc;
 		double **src2;
 		void *uaddr;
+		void **uaddr2;
 		double value;
 		ssize_t zd;
 		size_t zu;
@@ -523,12 +526,14 @@ struct expr_resource {
 };
 struct expr {
 	struct expr_inst *data;
+	struct expr_inst **ipp;
+	size_t size;
 	struct expr_inst *ip;
 	struct expr *parent;
 	double **vars;
 	struct expr_symset *sset;
 	struct expr_resource *res,*tail;
-	size_t size,length,vsize,vlength;
+	size_t length,vsize,vlength;
 	int error;
 	short iflag;
 	unsigned char freeable,sset_shouldfree;

@@ -8212,10 +8212,10 @@ again:
 						*ip->dst.instaddr2=ep->data+(ep->size-1);\
 						goto break1;\
 					case 2:\
-						*ip->dst.uaddr2=(struct expr_inst **)&ip;\
+						*ip->dst.uaddr2=&ip;\
 						goto break1;\
 					case 3:\
-					       ((volatile struct expr *)ep)->ipp=(struct expr_inst **)&ip;\
+					       ((volatile struct expr *)ep)->ipp=&ip;\
 						*ip->dst.uaddr2=(void *)ep;\
 						goto break1;\
 					default:\

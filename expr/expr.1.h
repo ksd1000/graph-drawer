@@ -291,7 +291,7 @@ EXPR_END
 #define expr_assume(cond) if(cond);else __builtin_unreachable()
 #define expr_likely(cond) __builtin_expect(!!(cond),1)
 #define expr_unlikely(cond) __builtin_expect(!!(cond),0)
-#define expr_static_castable(value,_type) __builtin_constant_p(((void (*)(_type))NULL)(value))
+#define expr_static_castable(value,_type) ((void)__builtin_constant_p(((int (*)(_type))NULL)(value)))
 #define EXPR_SYMSET_DEPTHUNIT (2*sizeof(void *))
 
 #define expr_symbol_foreach4(_sp,_esp,_stack,_atindex) \
@@ -392,7 +392,7 @@ struct expr_vmdinfo {
 struct expr_superseed48 {
 	size_t len;
 	uint16_t data[];//size=3*len
-}__attribute__((packed));;
+};
 struct expr_rawdouble {
 	uint64_t base:52;
 	uint64_t exp:11;
@@ -455,7 +455,7 @@ struct expr_symbol {
 	uint32_t length;
 	uint32_t strlen:6,type:3,flag:6,saved:1,depthm1:16;
 	char str[];
-}__attribute__((packed));
+};
 struct expr_symbol_infile {
 	uint32_t length;
 	uint16_t strlen:6,type:3,flag:6,unused:1;

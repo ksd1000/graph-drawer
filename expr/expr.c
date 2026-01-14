@@ -1068,8 +1068,8 @@ static double bassert(const struct expr *args,size_t n,double input){
 		const char *p,*e;
 		e=args->ip->un.em->e;
 		p=strchr(e,'(');
-		if(p){
-		}else p=e;
+		if(unlikely(!p))
+			p=e;
 		warn("assertion %s failed",p);
 		warn("ABORTING");
 		abort();
@@ -1126,6 +1126,34 @@ double expr_isinf(double x){
 }
 double expr_isnan(double x){
 	return EXPR_EDBASE(&x)&&EXPR_EDEXP(&x)==2047?1.0:0.0;
+}
+static double expr_longjmp_out(double *args,size_t n){
+	int val;
+	val=n<2?0:(int)args[1];
+	longjmp(cast(*args,void *),val);
+}
+static double expr_destruct(double *args,size_t n){
+	struct expr *ep;
+	double *a;
+	ep=cast(*args,struct expr *);
+	a=alloca((n-1)*sizeof(double));
+	if(n>1){
+		memcpy(a,args+1,(n-1)*sizeof(double));
+	}
+	expr_free(ep);
+	switch(n){
+		case 1:
+			break;
+		case 2:
+			cast(*a,double (*)(void))();
+			break;
+		default:
+			cast(*a,double (*)(double *,size_t))(a+1,n-2);
+			break;
+	}
+	warn("function for destruct() returns");
+	warn("ABORTING");
+	abort();
 }
 static double expr_malloc(double x){
 	union {
@@ -1990,6 +2018,8 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGMDEPSYM2_NI("hsort",bhsort,2ul),
 	REGMDEPSYM2_NI("xsort",bxsort,2ul),
 	REGMDEPSYM2_NI("sort_old",bsort_old,2ul),
+	REGMDSYM2_NIU("destruct",expr_destruct,0),
+	REGMDSYM2_NIU("longjmp_out",expr_longjmp_out,0),
 
 	REGMEM(8),
 	REGMEM(16),
@@ -2338,9 +2368,6 @@ static struct expr_inst *expr_addnotl(struct expr *restrict ep,double *dst){
 }
 static struct expr_inst *expr_addinput(struct expr *restrict ep,double *dst){
 	return expr_addop(ep,dst,NULL,EXPR_INPUT,0);
-}
-static struct expr_inst *expr_addipp(struct expr *restrict ep,double *dst){
-	return expr_addop(ep,dst,NULL,EXPR_IPP,0);
 }
 static struct expr_inst *expr_addip(struct expr *restrict ep,double *dst,size_t mode){
 	return expr_addop(ep,dst,(void *)mode,EXPR_IP,0);
@@ -2719,6 +2746,7 @@ fail:
 	xfree(p6);
 	return NULL;
 }
+static int init_expr8(struct expr *restrict ep,const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,struct expr *restrict parent);
 static struct expr_mdinfo *getmdinfo(struct expr *restrict ep,const char *e0,size_t sz,const char *e,size_t esz,const char *asym,size_t asymlen,void *func,size_t dim,int ifep){
 	char **v,**p;
 	char *pe;
@@ -2771,7 +2799,7 @@ static struct expr_mdinfo *getmdinfo(struct expr *restrict ep,const char *e0,siz
 		break;
 	}
 	for(i=0;i<em->dim;++i){
-		if(unlikely(init_expr7(em->eps+i,v[i],strlen(v[i]),asym,asymlen,ep->sset,ep->iflag)<0)){
+		if(unlikely(init_expr8(em->eps+i,v[i],strlen(v[i]),asym,asymlen,ep->sset,ep->iflag,ep)<0)){
 			for(ssize_t k=i-1;k>=0;--k)
 				expr_free(em->eps+k);
 			goto err2;
@@ -2817,7 +2845,10 @@ static void expr_seizeres(struct expr *restrict dst,struct expr *restrict src){
 	src->res=NULL;
 
 }
-static struct expr *new_expr10(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,int n,int *error,char errinfo[EXPR_SYMLEN],struct expr *parent);
+static struct expr *new_expr10(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,int n,int *error,char errinfo[EXPR_SYMLEN],struct expr *restrict parent);
+static struct expr *new_expr8p(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,int *error,char errinfo[EXPR_SYMLEN],struct expr *restrict parent){
+	return new_expr10(e,len,asym,asymlen,esp,flag,1,error,errinfo,parent);
+}
 static double consteval(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *sset,struct expr *restrict parent){
 	struct expr *ep;
 	double r;
@@ -2944,16 +2975,16 @@ evmd:
 	s0=strlen(v[0]);
 	expr_symset_remove(sset,v[0],s0);
 	cknp(ep,expr_symset_addl(sset,v[0],s0,EXPR_VARIABLE,0,&ev->index),goto err1);
-	ev->fromep=new_expr8(v[1],strlen(v[1]),asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo);
+	ev->fromep=new_expr8p(v[1],strlen(v[1]),asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo,ep);
 	if(unlikely(!ev->fromep))
 		goto err1;
-	ev->toep=new_expr8(v[2],strlen(v[2]),asym,asymlen,sset,ep->iflag,&ep->error,ep->errinfo);
+	ev->toep=new_expr8p(v[2],strlen(v[2]),asym,asymlen,sset,ep->iflag,&ep->error,ep->errinfo,ep);
 	if(unlikely(!ev->toep))
 		goto err2;
-	ev->stepep=new_expr8(v[3],strlen(v[3]),asym,asymlen,sset,ep->iflag,&ep->error,ep->errinfo);
+	ev->stepep=new_expr8p(v[3],strlen(v[3]),asym,asymlen,sset,ep->iflag,&ep->error,ep->errinfo,ep);
 	if(unlikely(!ev->stepep))
 		goto err3;
-	ev->ep=new_expr8(v[4],strlen(v[4]),asym,asymlen,sset,ep->iflag,&ep->error,ep->errinfo);
+	ev->ep=new_expr8p(v[4],strlen(v[4]),asym,asymlen,sset,ep->iflag,&ep->error,ep->errinfo,ep);
 	if(unlikely(!ev->ep))
 		goto err4;
 
@@ -3009,16 +3040,16 @@ static struct expr_suminfo *getsuminfo(struct expr *restrict ep,const char *e0,s
 	s0=strlen(v[0]);
 	expr_symset_remove(sset,v[0],s0);
 	cknp(ep,expr_symset_addl(sset,v[0],s0,EXPR_VARIABLE,0,&es->index),goto err1);
-	es->fromep=new_expr8(v[1],strlen(v[1]),asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo);
+	es->fromep=new_expr8p(v[1],strlen(v[1]),asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo,ep);
 	if(unlikely(!es->fromep))
 		goto err1;
-	es->toep=new_expr8(v[2],strlen(v[2]),asym,asymlen,sset,ep->iflag,&ep->error,ep->errinfo);
+	es->toep=new_expr8p(v[2],strlen(v[2]),asym,asymlen,sset,ep->iflag,&ep->error,ep->errinfo,ep);
 	if(unlikely(!es->toep))
 		goto err2;
-	es->stepep=new_expr8(v[3],strlen(v[3]),asym,asymlen,sset,ep->iflag,&ep->error,ep->errinfo);
+	es->stepep=new_expr8p(v[3],strlen(v[3]),asym,asymlen,sset,ep->iflag,&ep->error,ep->errinfo,ep);
 	if(unlikely(!es->stepep))
 		goto err3;
-	es->ep=new_expr8(v[4],strlen(v[4]),asym,asymlen,sset,ep->iflag,&ep->error,ep->errinfo);
+	es->ep=new_expr8p(v[4],strlen(v[4]),asym,asymlen,sset,ep->iflag,&ep->error,ep->errinfo,ep);
 	if(unlikely(!es->ep))
 		goto err4;
 	expr_free2(v);
@@ -3058,11 +3089,11 @@ static struct expr_branchinfo *getbranchinfo(struct expr *restrict ep,const char
 		eb=xmalloc(sizeof(struct expr_branchinfo));
 		cknp(ep,eb,goto err0);
 	//	while(cond,body,value)
-		eb->cond=new_expr8(b->cond,b->scond,asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo);
+		eb->cond=new_expr8p(b->cond,b->scond,asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo,ep);
 		if(unlikely(!eb->cond))
 			goto err1;
 		if(b->sbody){
-			eb->body=new_expr8(b->body,b->sbody,asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo);
+			eb->body=new_expr8p(b->body,b->sbody,asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo,ep);
 			if(unlikely(!eb->body))
 				goto err2;
 		}else {
@@ -3070,7 +3101,7 @@ static struct expr_branchinfo *getbranchinfo(struct expr *restrict ep,const char
 			cknp(ep,eb->body,goto err2);
 		}
 		if(b->svalue){
-			eb->value=new_expr8(b->value,b->svalue,asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo);
+			eb->value=new_expr8p(b->value,b->svalue,asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo,ep);
 			if(unlikely(!eb->value))
 				goto err3;
 		}else {
@@ -3103,14 +3134,14 @@ static struct expr_branchinfo *getbranchinfo(struct expr *restrict ep,const char
 	eb=xmalloc(sizeof(struct expr_branchinfo));
 	cknp(ep,eb,goto err0);
 //	while(cond,body,value)
-	eb->cond=new_expr8(v[0],strlen(v[0]),asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo);
+	eb->cond=new_expr8p(v[0],strlen(v[0]),asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo,ep);
 	if(unlikely(!eb->cond))
 		goto err1;
-	eb->body=new_expr8(v[1],strlen(v[1]),asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo);
+	eb->body=new_expr8p(v[1],strlen(v[1]),asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo,ep);
 	if(unlikely(!eb->body))
 		goto err2;
 	if(dim3){
-		eb->value=new_expr8(v[2],strlen(v[2]),asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo);
+		eb->value=new_expr8p(v[2],strlen(v[2]),asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo,ep);
 		if(unlikely(!eb->value))
 			goto err3;
 	}else {
@@ -3201,11 +3232,11 @@ static double *gethot(struct expr *restrict ep,const char *e0,size_t sz,const ch
 		serrinfo(ep->errinfo,e0,sz);
 		goto err1;
 	}
-	eh->hotfunc=new_expr8(he+1,p-he-1,asym,asymlen,esp,ep->iflag,&ep->error,ep->errinfo);
+	eh->hotfunc=new_expr8p(he+1,p-he-1,asym,asymlen,esp,ep->iflag,&ep->error,ep->errinfo,ep);
 	if(unlikely(!eh->hotfunc))
 		goto err1;
 	for(i=0;i<n;++i){
-		if(unlikely(init_expr7(eh->eps+i,ve[i],strlen(ve[i]),asym,asymlen,ep->sset,ep->iflag)<0)){
+		if(unlikely(init_expr8(eh->eps+i,ve[i],strlen(ve[i]),asym,asymlen,ep->sset,ep->iflag,ep)<0)){
 			for(ssize_t k=i-1;k>=0;--k)
 				expr_free(eh->eps+k);
 			goto err2;
@@ -3564,7 +3595,7 @@ block:
 				goto envp;
 			v0=expr_newvar(ep);
 			cknp(ep,v0,return NULL);
-			un.ep=new_expr8(e+1,p-e-1,asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo);
+			un.ep=new_expr8p(e+1,p-e-1,asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo,ep);
 			if(unlikely(!un.ep))
 				return NULL;
 			if(r0){
@@ -3639,19 +3670,22 @@ block:
 				case '#':
 					v0=expr_newvar(ep);
 					cknp(ep,v0,return NULL);
-					if(ep->parent)
+					if(ep->parent){
 						un.ep=ep->parent;
-					else
+						while(un.ep->parent)
+							un.ep=un.ep->parent;
+					}else
 						un.ep=(struct expr *)ep;
 					cknp(ep,expr_addconst(ep,v0,un.v),return NULL);
 					e+=2;
 					goto vend;
-				case '+':
+/*				case '+':
 					v0=expr_newvar(ep);
 					cknp(ep,v0,return NULL);
 					cknp(ep,expr_addipp(ep,v0),return NULL);
 					e+=2;
 					goto vend;
+*/
 				case '{':
 					r0=1;
 					++e;
@@ -4186,7 +4220,7 @@ found2:
 						type=1;
 						break;
 				}
-				un.ep=new_expr8(p+2,p2-p-2,asym,asymlen,ep->sset,ep->iflag,&flag,NULL);
+				un.ep=new_expr8p(p+2,p2-p-2,asym,asymlen,ep->sset,ep->iflag,&flag,NULL,ep);
 				if(un.ep){
 					flag=0;
 					v0=expr_newvar(ep);
@@ -4454,7 +4488,7 @@ vzero:
 					goto pterr;
 				if(unlikely(p==e+1))
 					goto envp;
-				un.ep=new_expr8(e+1,p-e-1,asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo);
+				un.ep=new_expr8p(e+1,p-e-1,asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo,ep);
 				if(unlikely(!un.ep))
 					return NULL;
 				cknp(ep,expr_addop(ep,v0=EXPR_VOID_NR,un.ep,EXPR_DO,0),expr_free(un.ep);return NULL);
@@ -4581,8 +4615,8 @@ found:
 			un.ccp=expr_symset_hot(sym.es);
 			dim=HOTLEN(sym.es);
 			sset_push(p2,p4);
-			un.ep=new_expr8(un.ccp,dim,asym,
-			asymlen,sym.esp,ep->iflag,&ep->error,ep->errinfo);
+			un.ep=new_expr8p(un.ccp,dim,asym,
+			asymlen,sym.esp,ep->iflag,&ep->error,ep->errinfo,ep);
 			expr_symset_free(sym.esp);
 			if(unlikely(!un.ep))
 				return NULL;
@@ -6346,7 +6380,7 @@ struct expr *new_expr_const(double val){
 	return r;
 }
 //R8
-static int init_expr8(struct expr *restrict ep,const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,struct expr *parent){
+static int init_expr8(struct expr *restrict ep,const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,struct expr *restrict parent){
 	union {
 		double *p;
 		double v;
@@ -6356,7 +6390,7 @@ static int init_expr8(struct expr *restrict ep,const char *e,size_t len,const ch
 	double *v;
 	memset(ep,0,sizeof(struct expr));
 	ep->sset=esp;
-	ep->parent=parent;
+	ep->parent=(struct expr *)parent;
 	ep->iflag=flag&~EXPR_IF_EXTEND_MASK;
 	if(ep->iflag&EXPR_IF_DETACHSYMSET){
 		cknp(ep,expr_detach(ep)>=0,return -1);
@@ -6414,7 +6448,7 @@ int init_expr5(struct expr *restrict ep,const char *e,const char *asym,struct ex
 int init_expr(struct expr *restrict ep,const char *e,const char *asym,struct expr_symset *esp){
 	return init_expr5(ep,e,asym,esp,0);
 }
-static struct expr *new_expr10(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,int n,int *error,char errinfo[EXPR_SYMLEN],struct expr *parent){
+static struct expr *new_expr10(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,int n,int *error,char errinfo[EXPR_SYMLEN],struct expr *restrict parent){
 	struct expr *ep,*ep0;
 	if(unlikely(n<1))
 		n=1;
@@ -6868,7 +6902,6 @@ static int expr_side(enum expr_op op){
 	switch(op){
 		case SRCCASES:
 		case EXPR_INPUT:
-		case EXPR_IPP:
 		case EXPR_IP:
 		case EXPR_CONST:
 		case EXPR_NEG:
@@ -6885,7 +6918,6 @@ static int expr_override(enum expr_op op){
 	switch(op){
 		case EXPR_COPY:
 		case EXPR_INPUT:
-		case EXPR_IPP:
 		case EXPR_IP:
 		case EXPR_CONST:
 		case BRANCHCASES:
@@ -6953,7 +6985,6 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 				if(ip->flag&EXPR_SF_INJECTION)
 					break;
 			case EXPR_INPUT:
-			case EXPR_IPP:
 			case EXPR_IP:
 			case EXPR_TO:
 			case EXPR_TO1:
@@ -7676,7 +7707,6 @@ static int expr_optimize_injection(struct expr *restrict ep){
 				continue;
 			switch(ip1->op){
 				case EXPR_INPUT:
-				case EXPR_IPP:
 				case EXPR_IP:
 					if(!expr_vcheck_ep(ep,ip+1,ip->dst.dst))
 						goto delete;
@@ -8200,9 +8230,6 @@ again:
 				un.s2.un.d=*ip->dst.dst;\
 				*un.s2.un.jp->ipp=un.s2.un.jp->ip;\
 				longjmp(un.s2.un.jp->jb,un.s2.val);\
-			case EXPR_IPP:\
-				*ip->dst.uaddr2=&ip;\
-				break;\
 			case EXPR_IP:\
 				switch(ip->un.zu){\
 					case 0:\

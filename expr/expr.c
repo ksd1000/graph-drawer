@@ -56,7 +56,7 @@
 #define unlikely(cond) expr_unlikely(cond)
 #define cast(X,T) expr_cast(X,T)
 #define eval(_ep,_input) expr_eval(_ep,_input)
-#define align(x) ((x)+(EXPR_ALIGN-1))&~(EXPR_ALIGN-1)
+#define align(x) (((x)+(EXPR_ALIGN-1))&~(EXPR_ALIGN-1))
 
 #ifndef PAGE_SIZE
 #ifdef __unix__
@@ -5465,7 +5465,8 @@ ssize_t expr_symset_write(const struct expr_symset *restrict esp,ssize_t (*write
 	if(unlikely(r<0))\
 		goto err2;\
 	else if(r<(size))\
-		goto err3;((void)0)
+		goto err3;\
+	((void)0)
 ssize_t expr_symset_write_s(const struct expr_symset *restrict esp,ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *stack){
 //	uintptr_t minsp=UINTPTR_MAX;
 	size_t maxlen=0,count;
@@ -7950,9 +7951,11 @@ again:
 	}
 
 }
+
 #pragma GCC diagnostic push
 //#pragma GCC diagnostic ignored "-Wunknown-warning-option"
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#pragma GCC diagnostic ignored "-Wdangling-pointer"
 
 #define sum (un.s0._sum)
 #define from (un.s0._from)
@@ -8209,10 +8212,10 @@ again:
 						*ip->dst.instaddr2=ep->data+(ep->size-1);\
 						goto break1;\
 					case 2:\
-						*ip->dst.uaddr2=&ip;\
+						*ip->dst.uaddr2=(struct expr_inst **)&ip;\
 						goto break1;\
 					case 3:\
-					       ((volatile struct expr *)ep)->ipp=&ip;\
+					       ((volatile struct expr *)ep)->ipp=(struct expr_inst **)&ip;\
 						*ip->dst.uaddr2=(void *)ep;\
 						goto break1;\
 					default:\

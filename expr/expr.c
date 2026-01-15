@@ -1226,7 +1226,7 @@ static double bsyscall(double *args,size_t n){
 	num=expr_syscall(a[0],a[1],a[2],a[3],a[4],a[5],num);
 	return (argt&1u)?cast(num,double):(double)num;
 }
-double systype(double x){
+static double systype(double x){
 	const char *p;
 	size_t len;
 	unsigned int r=0;

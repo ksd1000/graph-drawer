@@ -3603,7 +3603,7 @@ block:
 				cknp(ep,sym.er,expr_free(un.ep);return NULL);
 				sym.er->un.ep=un.ep;
 				sym.er->type=EXPR_HOTFUNCTION;
-				cknp(ep,expr_addconst(ep,v0,un.v),expr_free(un.ep);return NULL);
+				cknp(ep,expr_addconst(ep,v0,un.v),return NULL);
 			}else {
 				cknp(ep,expr_addop(ep,v0,un.ep,dim?EXPR_DO:EXPR_EP,0),expr_free(un.ep);return NULL);
 			}
@@ -4082,6 +4082,8 @@ found1:
 					if(_se){\
 						if(unlikely(expr_rmsym(ep,e+1,p-e-1))){\
 							++e;\
+							ep->sset=sym.esp;\
+							expr_symset_free(un.esp);\
 							goto symerr;\
 						}\
 					}else {\
@@ -4139,7 +4141,7 @@ found2:
 				flag=(int)un.v;
 				flag&=EXPR_IF_SETABLE;
 				type=ep->iflag;
-				if((type&EXPR_IF_PROTECT)&&(type&EXPR_IF_SETABLE&~flag)){
+				if(unlikely((type&EXPR_IF_PROTECT)&&(type&EXPR_IF_SETABLE&~flag))){
 					seterr(ep,EXPR_EPM);
 					serrinfo(ep->errinfo,"flag",mincc(4,EXPR_SYMLEN));
 					return NULL;
@@ -4158,7 +4160,7 @@ found2:
 				}
 				goto vend;
 			case EXPR_XORL:
-				if(p!=e+1){
+				if(unlikely(p!=e+1)){
 					seterr(ep,EXPR_EZAFP);
 					memcpy(ep->errinfo,"scope",mincc(5,EXPR_SYMLEN));
 					return NULL;
@@ -4224,7 +4226,7 @@ found2:
 				if(un.ep){
 					flag=0;
 					v0=expr_newvar(ep);
-					cknp(ep,v0,return NULL);
+					cknp(ep,v0,expr_free(un.ep);return NULL);
 					cknp(ep,expr_addop(ep,v0,un.ep,EXPR_EP,0),expr_free(un.ep);return NULL);
 				}else
 					v0=EXPR_VOID;
@@ -4308,10 +4310,9 @@ found2:
 					return NULL;
 				for(un.vv1=sym.vv;*un.vv1;++un.vv1);
 				if(unlikely(un.vv1-sym.vv!=2)){
-					expr_free2(sym.vv);
 					seterr(ep,EXPR_ENEA);
 					memcpy(ep->errinfo,"longjmp",mincc(7,EXPR_SYMLEN));
-					return NULL;
+					goto c_fail;
 				}
 				v0=scan(ep,sym.vv[0],sym.vv[0]+strlen(sym.vv[0]),asym,asymlen);
 				if(unlikely(!v0))
@@ -4723,7 +4724,7 @@ treat_as_variable:
 				return NULL;
 			}
 			v0=expr_newvar(ep);
-			cknp(ep,v0,return NULL);
+			cknp(ep,v0,freemdinfo(un.em);return NULL);
 			switch(type){
 				case EXPR_MDFUNCTION:
 					cknp(ep,expr_addmd(ep,v0,un.em,flag),freemdinfo(un.em);return NULL);

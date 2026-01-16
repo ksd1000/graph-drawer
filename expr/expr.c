@@ -6075,7 +6075,7 @@ void expr_symset_detacha_s(struct expr_symset *restrict esp,struct expr_symbol *
 	do {
 		expr_symbol_foreach4(sp1,*spa,stack,EXPR_SYMNEXT){
 			if(unlikely(sp1==*spa))
-				expr_breakforeach;
+				break;
 			expr_symset_reinsert(esp,sp1);
 		}
 		depthm1=(*spa)->length;

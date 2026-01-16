@@ -293,45 +293,23 @@ EXPR_END
 #define expr_static_castable(value,_type) ((void)__builtin_constant_p(((int (*)(_type))NULL)(value)))
 #define EXPR_SYMSET_DEPTHUNIT (2*sizeof(void *))
 
-#define expr_symbol_foreach4(_sp,_esp,_stack,_atindex) \
-	for(unsigned int __inloop_end=0,__inloop_index=0;({\
+#define expr_symbol_foreach5(_sp,_esp,_stack,_atindex,_label) \
+	for(unsigned int __inloop_index=0;;)if(0){\
 		_Static_assert(__builtin_constant_p((_atindex)),"_atindex should be constant");\
 		_Static_assert(__builtin_constant_p((_atindex)<EXPR_SYMNEXT),"_atindex should be constant");\
 		_Static_assert(__builtin_constant_p((_atindex)>=EXPR_SYMNEXT),"_atindex should be constant");\
 		expr_static_castable((_stack),void *);\
 		expr_static_castable((_esp),const struct expr_symbol *);\
-		!__inloop_end;\
-	});)\
-	for(struct expr_symbol *_sp=(struct expr_symbol *)(_esp);!__inloop_end;)\
-	if(expr_unlikely(!_sp)){__inloop_end=1;break;}else\
-	for(struct expr_symbol **__inloop_stack=(struct expr_symbol **)(_stack),**__inloop_sp=__inloop_stack;expr_likely(!({for(;;){\
-		if((_atindex)<EXPR_SYMNEXT){\
-			if(expr_unlikely(__inloop_index>=EXPR_SYMNEXT)){\
-				if(expr_unlikely(__inloop_sp==__inloop_stack)){\
-					__inloop_end=1;\
-					break;\
-				}\
-				_sp=EXPR_RPOP(__inloop_sp);\
-				__inloop_index=(unsigned int)(size_t)EXPR_RPOP(__inloop_sp);\
-				continue;\
+	expr_combine(expr_symset_foreach_label_,_label):break;}else\
+	for(struct expr_symbol *_sp=(struct expr_symbol *)(_esp);likely(_sp);({goto expr_combine(expr_symset_foreach_label_,_label);}))\
+	for(struct expr_symbol **__inloop_stack=(struct expr_symbol **)(_stack),**__inloop_sp=__inloop_stack;;({\
+		if(expr_unlikely(__inloop_index>=EXPR_SYMNEXT)){\
+			if(expr_unlikely(__inloop_sp==__inloop_stack)){\
+				goto expr_combine(expr_symset_foreach_label_,_label);\
 			}\
-		}\
-		break;\
-	}\
-	__inloop_end;\
-	}));({for(;;){\
-		if((_atindex)>=EXPR_SYMNEXT){\
-			if(expr_unlikely(__inloop_index>=EXPR_SYMNEXT)){\
-				if(expr_unlikely(__inloop_sp==__inloop_stack)){\
-					__inloop_end=1;\
-					break;\
-				}\
-				_sp=EXPR_RPOP(__inloop_sp);\
-				__inloop_index=(unsigned int)(size_t)EXPR_RPOP(__inloop_sp);\
-				break;\
-			}\
-		}\
-		if(!_sp->next[__inloop_index]){\
+			_sp=EXPR_RPOP(__inloop_sp);\
+			__inloop_index=(unsigned int)(size_t)EXPR_RPOP(__inloop_sp);\
+		}else if(!_sp->next[__inloop_index]){\
 			++__inloop_index;\
 		}else {\
 			EXPR_RPUSH(__inloop_sp)=(void *)(size_t)(__inloop_index+1);\
@@ -339,14 +317,13 @@ EXPR_END
 			_sp=_sp->next[__inloop_index];\
 			__inloop_index=0;\
 		}\
-		break;\
-	}}))if(expr_likely(__inloop_index!=(_atindex)))continue;else
+	}))if(expr_likely(__inloop_index!=(_atindex)))continue;else
 
+#define expr_combine(A,B) A##B
+#define expr_symbol_foreach4(_sp,_esp,_stack,_atindex) expr_symbol_foreach5(_sp,_esp,_stack,_atindex,__LINE__)
 #define expr_symset_foreach4(_sp,_esp,_stack,_atindex) expr_symbol_foreach4(_sp,(_esp)->syms,_stack,_atindex)
 
 #define expr_symset_foreach(_sp,_esp,_stack) expr_symset_foreach4(_sp,_esp,_stack,0)
-
-#define expr_breakforeach ({__inloop_end=1;break;})
 
 struct expr_libinfo {
 	const char *version;

@@ -219,7 +219,7 @@ EXPR_END
 		_cast_un._o;\
 	})
 
-#define EXPR_ALIGN (sizeof(void))
+#define EXPR_ALIGN (sizeof(void *))
 #define EXPR_MAGIC48_A 0x5deece66dul
 #define EXPR_MAGIC48_B 0xb
 
@@ -551,7 +551,7 @@ extern void (*expr_contractor)(void *,size_t);
 extern size_t expr_allocate_max;
 extern int expr_symset_allow_heap_stack;
 extern long expr_seed_default;
-//default=malloc,realloc,free,expr_contract,0x1000000000UL,NULL
+//default=malloc,realloc,free,expr_contract,0x400000000UL,NULL
 extern const size_t expr_page_size;
 
 long expr_syscall(long arg0,long arg1,long arg2,long arg3,long arg4,long arg5,long num);

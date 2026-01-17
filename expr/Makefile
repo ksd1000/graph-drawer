@@ -1,5 +1,5 @@
 CC := gcc
-CFLAG := -Wall -O3 -fPIC
+CFLAG := -Wall -Werror -O3 -fPIC
 LFLAG := -lc -lm
 PLATFORM := $(shell uname -a)
 all: expr.o expr-version

@@ -107,6 +107,7 @@ EXPR_END
 #define EXPR_VOID_NR ((void *)-2UL)
 
 #define EXPR_SYMSET_INITIALIZER {NULL,0UL,0UL,0UL,0}
+#define EXPR_MUTEX_INITIALIZER 0u
 
 #define EXPR_SYMLEN 64
 
@@ -493,7 +494,7 @@ struct expr_symset {
 	//real depth. but it is not suggested,for it will cost a lot of cpu
 	//time to travel through every symbol to get the real depth.
 	//this will be set to 0 when an expr_symset_wipe(this) is called.
-	unsigned int freeable,unused;
+	uint32_t freeable,mutex;
 };
 struct expr_symset_infile {
 	size_t size;

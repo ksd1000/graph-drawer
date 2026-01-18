@@ -429,6 +429,7 @@ static void xfree_stack(void **restrict p){
 		return;
 	expr_deallocator(*p);
 }
+
 #define ltod(_l) expr_ltod48(_l)
 #define ltol(_l) expr_ltol48(_l)
 #define ltom(_l) expr_ltom48(_l)
@@ -1205,6 +1206,26 @@ static __attribute__((used,noreturn,deprecated)) void expr_unused(void){
 #endif
 	__builtin_unreachable();
 }
+
+#if (SYSCALL_DEFINED)&&(__linux__)
+#include "mutex.h"
+void expr_mutex_lock(uint32_t *lock){
+	mutex_lock((mutex_t *)lock);
+}
+int expr_mutex_trylock(uint32_t *lock){
+	return mutex_trylock((mutex_t *)lock);
+}
+void expr_mutex_unlock(uint32_t *lock){
+	mutex_unlock((mutex_t *)lock);
+}
+void expr_mutex_spinlock(uint32_t *lock){
+	mutex_spinlock((mutex_t *)lock);
+}
+void expr_mutex_spinunlock(uint32_t *lock){
+	mutex_spinunlock((mutex_t *)lock);
+}
+#endif
+
 #if SYSCALL_DEFINED
 static double bsyscall(double *args,size_t n){
 	long num;

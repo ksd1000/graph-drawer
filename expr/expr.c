@@ -1880,6 +1880,8 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGCSYM_E(EIN),
 	REGCSYM_E(EBS),
 	REGCSYM_E(EVZP),
+	REGCSYM_E(EANT),
+	REGCSYM_E(EUDE),
 
 	REGCSYM(FLT_MAX),
 	REGCSYM(FLT_MIN),

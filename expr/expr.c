@@ -366,6 +366,7 @@ static const char *eerror[]={
 	[EXPR_EBS]="Cannot remove a builtin symbol",
 	[EXPR_EVZP]="Variable-length multi-demension function without a maximal length is not allowed in protected mode",
 	[EXPR_EANT]="Alias is not terminated",
+	[EXPR_EUDE]="User-defined error",
 };
 const struct expr_libinfo expr_libinfo[1]={{
 	.version="pre-release",
@@ -1819,6 +1820,7 @@ const struct expr_builtin_keyword expr_keywords[]={
 	REGKEYS("try",EXPR_NEG,1,"try([new_symbol]){body}"),
 	REGKEYC("alias",EXPR_NOT,2,"alias(alias_name,target)"),
 	REGKEYCN("return",EXPR_RET,2,"return(ep,val)"),
+	REGKEY("error",EXPR_TSTL,2,"error(const string)"),
 	{NULL}
 };
 const struct expr_builtin_symbol expr_symbols[]={
@@ -2159,6 +2161,8 @@ size_t expr_strscan(const char *s,size_t sz,char *restrict buf){
 	char *buf0=(char *)buf,v;
 	while(s<endp)switch(*s){
 		case '\\':
+			if(unlikely(s+1>=endp))
+				goto dflt;
 			switch(s[1]){
 				case '\\':
 					*(buf++)='\\';
@@ -2251,6 +2255,7 @@ fail:
 			}
 			break;
 		default:
+dflt:
 			*(buf++)=*(s++);
 			break;
 	}
@@ -4334,6 +4339,16 @@ found2:
 				v0=EXPR_VOID;
 				e=p+1;
 				goto vend;
+			case EXPR_TSTL:
+				if(p>e+1){
+					if(unlikely(e[1]!='\"'||findpair_dmark(e+1,endp)!=p-1))
+						goto pterr;
+					dim=p-e-3;
+					if(dim)
+						expr_strscan(e+2,minc(dim,EXPR_SYMLEN),ep->errinfo);
+				}
+				seterr(ep,EXPR_EUDE);
+				return NULL;
 			case EXPR_ALO:
 				sym.vv=expr_sep(ep,e,p-e+1);
 				if(unlikely(!sym.vv))

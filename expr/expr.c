@@ -2156,10 +2156,12 @@ size_t expr_builtin_symbol_addall(struct expr_symset *restrict esp){
 	}
 	return r;
 }
-size_t expr_strscan(const char *s,size_t sz,char *restrict buf){
+size_t expr_strscan(const char *s,size_t sz,char *restrict buf,size_t outsz){
 	const char *p,*s1,*endp=s+sz;
 	char *buf0=(char *)buf,v;
-	while(s<endp)switch(*s){
+	char *oend;
+	oend=buf0+outsz;
+	while(s<endp&&buf<oend)switch(*s){
 		case '\\':
 			if(unlikely(s+1>=endp))
 				goto dflt;
@@ -2274,7 +2276,7 @@ char *expr_astrscan(const char *s,size_t sz,size_t *restrict outsz){
 	buf=xmalloc(sz+1);
 	if(!buf)
 		return NULL;
-	*outsz=expr_strscan(s,sz,buf);
+	*outsz=expr_strscan(s,sz,buf,sz);
 	buf[*outsz]=0;
 	return buf;
 }
@@ -4345,7 +4347,7 @@ found2:
 						goto pterr;
 					dim=p-e-3;
 					if(dim)
-						expr_strscan(e+2,minc(dim,EXPR_SYMLEN),ep->errinfo);
+						expr_strscan(e+2,dim,ep->errinfo,EXPR_SYMLEN);
 				}
 				seterr(ep,EXPR_EUDE);
 				return NULL;

@@ -122,6 +122,8 @@ const struct eproj {
 	{"flag(IF_INJECTION),drand48(&x0)",EXPR_EIN},
 	{"alias(x,y);alias(y,x);x",EXPR_EANT},
 	{"alias(x,y);alias(y,z);alias(z,y);x",EXPR_EANT},
+	{"error()",EXPR_EUDE},
+	{"error(\"errname\")",EXPR_EUDE},
 	{NULL}
 };
 void errcheck(const char *e,int expect){

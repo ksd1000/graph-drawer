@@ -40,7 +40,6 @@ typedef _Atomic(uint32_t) mutex_t;
 	atomic_store((lock),0);\
 })
 
-#define expr_combine(A,B) A##B
 #define mutex_atomicl(lock,_label) for(mutex_lock(lock);;({mutex_unlock(lock);goto expr_combine(__atomic_label_,_label);}))if(0){expr_combine(__atomic_label_,_label):break;}else
 #define mutex_atomic(lock) mutex_atomicl(lock,__LINE__)
 #define mutex_spinatomicl(lock,_label) for(mutex_spinlock(lock);;({mutex_spinunlock(lock);goto expr_combine(__atomic_label_,_label);}))if(0){expr_combine(__atomic_label_,_label):break;}else

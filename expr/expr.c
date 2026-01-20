@@ -339,6 +339,7 @@
 struct expr_jmpbuf {
 	struct expr_inst **ipp;
 	struct expr_inst *ip;
+	double val;
 	jmp_buf jb;
 };
 static const char *eerror[]={
@@ -7256,7 +7257,7 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 				double d;\
 				struct expr_jmpbuf *jp;\
 			} un;\
-			int val;\
+			double val;\
 		} s2;\
 		struct {\
 			double _step,_from,_to;\
@@ -8307,13 +8308,13 @@ again:
 				un.d=*ip->dst.dst;\
 				un.jp->ipp=&ip;\
 				un.jp->ip=ip;\
-				*ip->dst.dst=(double)setjmp(un.jp->jb);\
+				*ip->dst.dst=setjmp(un.jp->jb)?un.jp->val:0.0;\
 				break;\
 			case EXPR_LJ:\
-				un.s2.val=(int)*ip->un.src;\
 				un.s2.un.d=*ip->dst.dst;\
+				un.s2.un.jp->val=*ip->un.src;\
 				*un.s2.un.jp->ipp=un.s2.un.jp->ip;\
-				longjmp(un.s2.un.jp->jb,un.s2.val);\
+				longjmp(un.s2.un.jp->jb,1);\
 			case EXPR_IP:\
 				switch(ip->un.zu){\
 					case 0:\

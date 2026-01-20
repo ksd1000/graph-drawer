@@ -510,7 +510,7 @@ struct expr_resource {
 		char *str;
 		struct expr *ep;
 	} un;
-	int type;
+	int type,unused;
 };
 struct expr {
 	struct expr_inst *data;

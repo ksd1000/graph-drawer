@@ -16,12 +16,12 @@
 #define HIDE_WHERE_ERROR_OCCURS 1
 #define PHYSICAL_CONSTANT 0
 
+/*
 #define printval(x) warn(#x ":%lu",(unsigned long)(x))
 #define printvali(x) warn(#x ":%d",(int)(x))
 #define printvall(x) warn(#x ":%ld",(long)(x))
 #define printvald(x) warn(#x ":%lf",(double)(x))
 #define trap (warn("\nat file %s line %d",__FILE__,__LINE__),__builtin_trap())
-/*
 */
 #define warn(fmt,...) fprintf(stderr,fmt "\n",##__VA_ARGS__)
 
@@ -29,7 +29,6 @@
 #pragma GCC diagnostic ignored "-Wunknown-warning-option"
 #endif
 
-//#define STACK_DEFAULT(esp) (expr_symset_stack?expr_symset_stack:({size_t depth=(esp)->depth;depth<2?NULL:alloca((depth-1)*EXPR_SYMSET_DEPTHUNIT);}))
 #define STACK_SIZEOFSSET(esp) ({size_t depth=(esp)->depth;depth<2?0:(depth-1)*EXPR_SYMSET_DEPTHUNIT;})
 #define STACK_DEFAULT(_stack,esp) \
 	__attribute__((cleanup(xfree_stack))) void *_stack##_heap;\
@@ -7257,7 +7256,6 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 				double d;\
 				struct expr_jmpbuf *jp;\
 			} un;\
-			double val;\
 		} s2;\
 		struct {\
 			double _step,_from,_to;\
@@ -8298,7 +8296,6 @@ again:
 				break;\
 			case EXPR_WRITE:\
 				**ip->un.src2=*ip->dst.dst;\
-				ip=*(struct expr_inst *volatile *)&ip;\
 				break;\
 			case EXPR_ALO:\
 				un.up=alloca((ssize_t)*ip->dst.dst*ip->un.zu);\
@@ -8308,7 +8305,8 @@ again:
 				un.d=*ip->dst.dst;\
 				un.jp->ipp=&ip;\
 				un.jp->ip=ip;\
-				*ip->dst.dst=setjmp(un.jp->jb)?un.jp->val:0.0;\
+				*ip->dst.dst=setjmp(un.jp->jb)?\
+				((volatile struct expr_jmpbuf *)un.jp)->val:0.0;\
 				break;\
 			case EXPR_LJ:\
 				un.s2.un.d=*ip->dst.dst;\
@@ -8352,6 +8350,7 @@ again:
 				__builtin_unreachable();\
 		}\
 break1:\
+		asm("":::"memory");\
 		++ip;\
 break2:
 

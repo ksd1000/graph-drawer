@@ -178,19 +178,19 @@ EXPR_END
 #define EXPR_IF_NOOPTIMIZE 1
 #define EXPR_IF_INSTANT_FREE 2
 
-#define EXPR_IF_NOBUILTIN 4
+//#define EXPR_IF_NOBUILTIN 4
+#define EXPR_IF_INJECTION 4
 #define EXPR_IF_NOKEYWORD 8
 #define EXPR_IF_PROTECT 16
-#define EXPR_IF_INJECTION_B 32
-#define EXPR_IF_INJECTION_S 64
+//#define EXPR_IF_INJECTION_B 32
+//#define EXPR_IF_INJECTION_S 64
 #define EXPR_IF_KEEPSYMSET 128
 #define EXPR_IF_DETACHSYMSET 256
 
 #define EXPR_IF_EXTEND_MASK (\
 		EXPR_IF_INSTANT_FREE\
 		)
-#define EXPR_IF_INJECTION (EXPR_IF_INJECTION_B|EXPR_IF_INJECTION_S)
-#define EXPR_IF_SETABLE (EXPR_IF_INJECTION|EXPR_IF_NOBUILTIN|EXPR_IF_NOKEYWORD|EXPR_IF_PROTECT)
+#define EXPR_IF_SETABLE (EXPR_IF_INJECTION|EXPR_IF_NOKEYWORD|EXPR_IF_PROTECT)
 
 //expr keyword flag
 #define EXPR_KF_SUBEXPR 1
@@ -285,10 +285,10 @@ EXPR_END
 	}\
 	_ssgetnext48_val&0xffffffffffffl;\
 })
-#define expr_symset_hot(_esp) ({const struct expr_symbol *restrict __esp=(_esp);(char *)(__esp->str+__esp->strlen+1);})
-#define expr_symset_hotlen(_esp) ({const struct expr_symbol *restrict __esp=(_esp);(size_t)__esp->length-(size_t)__esp->strlen-sizeof(struct expr_symbol)-2;})
-#define expr_symset_un(_esp) ({const struct expr_symbol *restrict __esp=(_esp);(union expr_symvalue *)(__esp->str+__esp->strlen+1);})
-#define expr_symset_dim(_esp) ({const struct expr_symbol *restrict __esp=(_esp);(size_t *)(__esp->str+__esp->strlen+1+sizeof(union expr_symvalue));})
+#define expr_symbol_hot(_esp) ({const struct expr_symbol *restrict __esp=(_esp);(char *)(__esp->str+__esp->strlen+1);})
+#define expr_symbol_hotlen(_esp) ({const struct expr_symbol *restrict __esp=(_esp);(size_t)__esp->length-(size_t)__esp->strlen-sizeof(struct expr_symbol)-2;})
+#define expr_symbol_un(_esp) ({const struct expr_symbol *restrict __esp=(_esp);(union expr_symvalue *)(__esp->str+__esp->strlen+1);})
+#define expr_symbol_dim(_esp) ({const struct expr_symbol *restrict __esp=(_esp);(size_t *)(__esp->str+__esp->strlen+1+sizeof(union expr_symvalue));})
 #define expr_assume(cond) if(cond);else __builtin_unreachable()
 #define expr_likely(cond) __builtin_expect(!!(cond),1)
 #define expr_unlikely(cond) __builtin_expect(!!(cond),0)
@@ -555,5 +555,6 @@ extern int expr_symset_allow_heap_stack;
 extern long expr_seed_default;
 //default=malloc,realloc,free,expr_contract,0x400000000UL,NULL
 extern const size_t expr_page_size;
+extern const size_t expr_symbols_size;
 
 long expr_syscall(long arg0,long arg1,long arg2,long arg3,long arg4,long arg5,long num);

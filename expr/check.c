@@ -7,7 +7,7 @@
 #include <time.h>
 #include <assert.h>
 #include <err.h>
-struct expr_symset es=EXPR_SYMSET_INITIALIZER;
+struct expr_symset *es;
 const struct proj {
 	const char *e;
 	double expect;
@@ -73,7 +73,7 @@ const struct proj {
 	{"asint(0#(128*2)#1)",257},
 	{"asint(0#(128*2)#1)",257},
 	{"static_assert(e>2.71),2",2},
-	{"defined(sin)",2},
+	{"defined(sin)",1},
 	{"typeof(exp)",EXPR_FUNCTION},
 	{"flagof(cos)&SF_INJECTION",1},
 	{"f=(u,v){u+v**2},f(7,4)",23},
@@ -114,7 +114,7 @@ const struct eproj {
 	{"static_assert(e>=2.72)",EXPR_ESAF},
 	{"static_assert(e<2.72)",EXPR_EVD},
 	{"flag(IF_PROTECT),vmd(k,1,10,1,k,add,0)",EXPR_EVZP},
-	{"undef(sin)",EXPR_EBS},
+	{"undef(sin)",EXPR_EVD},
 	{"flag(IF_PROTECT),flag(0)",EXPR_EPM},
 	{"flag(IF_PROTECT),&sin",EXPR_EPM},
 	{"undef(defined_symbol),defined_symbol",EXPR_ESYMBOL},
@@ -129,7 +129,7 @@ const struct eproj {
 void errcheck(const char *e,int expect){
 	int error;
 	printf("checking %s --- expect \"%s\"",e,expr_error(expect));
-	if(new_expr6(e,"t",&es,EXPR_IF_INSTANT_FREE,&error,NULL)){
+	if(new_expr6(e,"t",es,EXPR_IF_INSTANT_FREE,&error,NULL)){
 		printf("\nerror! %s should be \"%s\" but ok\n",e,expr_error(expect));
 		goto ab;
 	}else if(error!=expect){
@@ -147,17 +147,17 @@ void check(const char *e,double expect){
 	struct expr ep[1];
 	//static int k=0;if(k++==39)exit(0);
 	printf("checking %s --- expect %lg",e,expect);
-	if(init_expr5(ep,e,"t",&es,EXPR_IF_INSTANT_FREE)<0){
+	if(init_expr5(ep,e,"t",es,EXPR_IF_INSTANT_FREE)<0){
 		printf("\nerror! %s:%s\n",expr_error(ep->error),ep->errinfo);
 		goto ab;
 	}
 	//exit(0);
-	r=expr_calc5(e,NULL,NULL,&es,EXPR_IF_NOOPTIMIZE);
+	r=expr_calc5(e,NULL,NULL,es,EXPR_IF_NOOPTIMIZE);
 	if(memcmp(&r,&expect,sizeof(double))){
 		printf("\nerror! %s should be %lg but %lg\n",e,expect,r);
 		goto ab;
 	}
-	r=expr_calc5(e,NULL,NULL,&es,0);
+	r=expr_calc5(e,NULL,NULL,es,0);
 	if(memcmp(&r,&expect,sizeof(double))){
 		printf("\noptimization error! %s should be %lg but %lg\n",e,expect,r);
 		goto ab;
@@ -172,22 +172,23 @@ int main(int argc,char **argv){
 	double x0=expr_cast(expr_seed48(time(NULL)),double);
 	srand48(time(NULL)+getpid());
 	//expr_calc5("t+2","t",3,NULL,0);
-	expr_symset_add(&es,"x0",EXPR_VARIABLE,0,&x0);
-	expr_symset_add(&es,"defined_symbol",EXPR_CONSTANT,0,2304.0);
+	es=expr_builtin_symbol_convert(expr_symbols);
+	assert(es);
+	expr_symset_add(es,"x0",EXPR_VARIABLE,0,&x0);
+	expr_symset_add(es,"defined_symbol",EXPR_CONSTANT,0,2304.0);
 	setvbuf(stdout,NULL,_IONBF,0);
 	for(const struct proj *p=projs;p->e;++p)
 		check(p->e,p->expect);
 	for(const struct eproj *p=eprojs;p->e;++p)
 		errcheck(p->e,p->expect);
 	new_expr7("t**3+sin(t)+sum(n,0,100,1,sin(n*t))","t",NULL,EXPR_IF_INSTANT_FREE,1250,NULL,NULL);
-	assert(es.size==2);
-	assert(es.depth==2);
-	expr_symset_wipe(&es);
+	assert(es->size==expr_symbols_size+2);
+	expr_symset_free(es);
 	for(const struct expr_builtin_keyword *p=expr_keywords;;++p){
 		if(!p->str){
 			break;
 		}
-		if(expr_builtin_symbol_search(p->str,p->strlen)){
+		if(expr_builtin_symbol_search(expr_symbols,p->str,p->strlen)){
 			printf("conflict %s\n",p->str);
 			printf("ABORTING\n");
 			abort();

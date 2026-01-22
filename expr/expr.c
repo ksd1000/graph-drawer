@@ -2172,6 +2172,120 @@ struct expr_symset *expr_builtin_symbol_convert(const struct expr_builtin_symbol
 	}
 	return esp;
 }
+#define faction_stdio(name,fmt,val) \
+static ssize_t faction_##name(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,size_t sz){\
+	char *p=alloca(sz);\
+	int r;\
+	r=snprintf(p,sz,fmt,val);\
+	if(r>sz)\
+		r=sz;\
+	return writer(fd,p,r);\
+}
+faction_stdio(f,"%lf",*(double *)arg);
+faction_stdio(g,"%lg",*(double *)arg);
+faction_stdio(d,"%ld",(long)*(double *)arg);
+faction_stdio(u,"%lu",(unsigned long)*(double *)arg);
+static ssize_t faction_s(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,size_t sz){
+	size_t len=strlen(*arg);
+	return writer(fd,*arg,len);
+}
+static ssize_t faction_percent(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,size_t sz){
+	return writer(fd,"%",1);
+}
+struct expr_writefmt {
+	const char *op;
+	ssize_t (*action)(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,size_t sz);
+	size_t argc;
+};
+static const struct expr_writefmt writefmts[]={
+	{
+		.op="%",
+		.action=faction_percent,
+		.argc=0,
+	},
+	{
+		.op="f",
+		.action=faction_f,
+		.argc=1,
+	},
+	{
+		.op="g",
+		.action=faction_g,
+		.argc=1,
+	},
+	{
+		.op="s",
+		.action=faction_s,
+		.argc=1,
+	},
+	{
+		.op="d",
+		.action=faction_d,
+		.argc=1,
+	},
+	{
+		.op="u",
+		.action=faction_u,
+		.argc=1,
+	},
+	{NULL}
+};
+static uint8_t wfmts_table[256]={
+	['%']=1,
+	['f']=2,
+	['g']=3,
+	['s']=4,
+	['d']=5,
+	['u']=6,
+};
+#define wf_trywrite(buf,sz) {\
+	r=writer(fd,(buf),(sz));\
+	if(unlikely(r<0))\
+		return r;\
+	ret+=r;\
+}
+ssize_t expr_writef(const char *fmt,size_t fmtlen,ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *args,size_t arglen){
+	const char *endp=fmt+fmtlen,*fmt_old=fmt;
+	ssize_t r,ret=0,c;
+	const struct expr_writefmt *wfp;
+	for(;;){
+		if(unlikely(fmt>=endp)){
+			wf_trywrite(fmt_old,fmt-fmt_old);
+			break;
+		}
+		if(*fmt!='%'){
+			++fmt;
+			continue;
+		}
+		if(fmt>fmt_old){
+			wf_trywrite(fmt_old,fmt-fmt_old);
+			fmt_old=fmt;
+		}
+		++fmt;
+		if(unlikely(fmt>=endp))
+			break;
+		r=wfmts_table[*(unsigned char *)fmt];
+		if(unlikely(!r))
+			break;
+		wfp=writefmts+(r-1);
+		if(!(c=wfp->argc)){
+			r=wfp->action(writer,fd,NULL,128);
+		}else {
+			if(unlikely(arglen<c))
+				break;
+			arglen-=c;
+			r=wfp->action(writer,fd,args,128);
+			args+=c;
+		}
+		if(unlikely(r<0))
+			return -r;
+		ret+=r;
+		++fmt;
+		fmt_old=fmt;
+		continue;
+	}
+	return ret;
+}
 size_t expr_strscan(const char *s,size_t sz,char *restrict buf,size_t outsz){
 	const char *p,*s1,*endp=s+sz;
 	char *buf0=(char *)buf,v;
@@ -6259,11 +6373,17 @@ struct expr_symset *expr_symset_clone_s(const struct expr_symset *restrict ep,vo
 	return es;
 }
 static char *stpcpy_nospace(char *restrict s1,const char *restrict s2,const char *endp){
-	const char *s20=s2;
+	const char *s20=(const char *)s2;
 	int instr=0;
 	for(;s2<endp;++s2){
-		if(*s2=='\"'&&s2>s20&&s2[-1]!='\\')
+		if(unlikely(*s2=='\"'&&(s2==s20||s2[-1]!='\\')))
 			instr^=1;
+		else if(unlikely(!instr&&*s2=='#'&&(s2==s20||s2[-1]=='\n'))){
+			s2=strchr(s2+1,'\n');
+			if(unlikely(!s2))
+				break;
+			continue;
+		}
 		if(!instr&&expr_space(*s2))
 			continue;
 		*(s1++)=*s2;

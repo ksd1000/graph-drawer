@@ -591,6 +591,7 @@ const struct expr_builtin_symbol *expr_builtin_symbol_rsearch(const struct expr_
 struct expr_symbol *expr_builtin_symbol_add(struct expr_symset *restrict esp,const struct expr_builtin_symbol *p);
 size_t expr_builtin_symbol_addall(struct expr_symset *restrict esp,const struct expr_builtin_symbol *syms);
 struct expr_symset *expr_builtin_symbol_convert(const struct expr_builtin_symbol *syms);
+ssize_t expr_writef(const char *fmt,size_t fmtlen,ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *args,size_t arglen);
 size_t expr_strscan(const char *s,size_t sz,char *restrict buf,size_t outsz);
 char *expr_astrscan(const char *s,size_t sz,size_t *restrict outsz);
 void expr_free(struct expr *restrict ep);

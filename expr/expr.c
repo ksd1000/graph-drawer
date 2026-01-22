@@ -2230,7 +2230,7 @@ static const struct expr_writefmt writefmts[]={
 	},
 	{NULL}
 };
-static uint8_t wfmts_table[256]={
+static const uint8_t wfmts_table[256]={
 	['%']=1,
 	['f']=2,
 	['g']=3,

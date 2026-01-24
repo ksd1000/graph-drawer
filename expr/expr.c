@@ -1129,13 +1129,13 @@ int expr_isinf(double x){
 int expr_isnan(double x){
 	return EXPR_EDBASE(&x)&&EXPR_EDEXP(&x)==2047;
 }
-double expr_isfinite_b(double x){
+static double expr_isfinite_b(double x){
 	return EXPR_EDEXP(&x)!=2047?1.0:0.0;
 }
-double expr_isinf_b(double x){
+static double expr_isinf_b(double x){
 	return !EXPR_EDBASE(&x)&&EXPR_EDEXP(&x)==2047?1.0:0.0;
 }
-double expr_isnan_b(double x){
+static double expr_isnan_b(double x){
 	return EXPR_EDBASE(&x)&&EXPR_EDEXP(&x)==2047?1.0:0.0;
 }
 static double expr_longjmp_out(double *args,size_t n){
@@ -2270,39 +2270,6 @@ static ssize_t converter_d(ssize_t (*writer)(intptr_t fd,const void *buf,size_t 
 	}
 	cwrite_common(p,endp-p);
 }
-/*
-static ssize_t converter_u(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){
-	char nbuf[32];
-	uintptr_t val=*(const uintptr_t *)arg;
-	char *endp=nbuf+32;
-	char *p=endp;
-	ssize_t ext,sum,r,sz;
-	int positive;
-	if(val){
-		positive=1;
-		do {
-			*(--p)=(char)('0'+val%10);
-			val/=10;
-		}while(val);
-	}else {
-		positive=0;
-		*(--p)='0';
-	}
-	switch(positive){
-		case 1:
-			if(flag&(3ul<<62ul))
-				*(--p)='+';
-			break;
-		case 0:
-			if(flag&(1ul<<63ul))
-				*(--p)='+';
-			break;
-		default:
-			__builtin_unreachable();
-	}
-	cwrite_common(p,endp-p);
-}
-*/
 #define conv_x(name,base,conv_str,add0x,bufsz) \
 static ssize_t converter_##name(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){\
 	char nbuf[bufsz];\
@@ -2348,50 +2315,15 @@ conv_x(o,8,conv_btox,0,32);
 conv_x(b,2,conv_btox,0,72);
 conv_x(x,16,conv_btox,1,32);
 conv_x(X,16,conv_btoX,1,32);
-/*
-#define faction_stdio(name,__fmt,val) \
-static ssize_t faction_##name(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){\
-	char fmt[128];\
-	char *p=fmt;\
-	uint32_t width=flag&0x1ffffffful,digit=(flag>>29ul)&0x1ffffffful;\
-	const uint32_t sz=320;\
-	int r;\
-	*(p++)='%';\
-	if(flag&(1ul<<63ul))\
-		*(p++)='+';\
-	if(flag&(1ul<<62ul))\
-		*(p++)=' ';\
-	if(flag&(1ul<<61ul))\
-		*(p++)='-';\
-	if(flag&(1ul<<60ul))\
-		*(p++)='#';\
-	if(flag&(1ul<<59ul))\
-		*(p++)='0';\
-	if(width){\
-		p+=sprintf(p,"%zu",(size_t)width);\
-	}\
-	if(digit){\
-		p+=sprintf(p,".%zu",(size_t)digit);\
-	}\
-	strcpy(p,__fmt);\
-	p=alloca(sz);\
-	r=snprintf(p,sz,fmt,val);\
-	if(r>sz)\
-		r=sz;\
-	return writer(fd,p,r);\
-}
-//faction_stdio(f,"lf",*(double *)arg);
-faction_stdio(g,"lg",*(double *)arg);
-*/
 //WARNING:the converter is not accurated as libc printf.I have not find a way to fix it now.
 static ssize_t converter_f(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){
 	double val=*(const double *)arg;
 	char nbuf[320];
 	char *endp;
 	char *p;
-	int positive,f61;
+	int positive,f61,f58;
 	ssize_t ext,sum,r,sz;
-	uint32_t digit;
+	uint32_t digit,width;
 	intmax_t ds;
 	if(unlikely(!expr_isfinite(val))){
 		p=nbuf;
@@ -2436,34 +2368,76 @@ static ssize_t converter_f(ssize_t (*writer)(intptr_t fd,const void *buf,size_t 
 		*(p++)='0';
 	}
 	f61=!!(flag&(1ul<<61ul));
+	f58=!!(flag&(1ul<<58ul));
 	sz=(p-nbuf);
 	digit=(flag>>29ul)&0x1ffffffful;
-	if(digit)
-		sz+=1+digit;
+	width=flag&0x1ffffffful;
 #define writeext_f \
-	ext=(ssize_t)(flag&0x1ffffffful)-sz;\
+	ext=(ssize_t)width-sz;\
 	if(ext>0){\
 		c_trywriteext((flag&(1ul<<59ul))?'0':' ',ext);\
 	}
+	if(digit){
+		if(!f61&&f58&&width){
+			uint32_t digit1;
+			double val1;
+			val1=val;
+			digit1=digit;
+			r=0;
+			val1=fmod(val1,1);
+			if(val1==0.0){
+				goto digit_ok;
+			}
+			val1*=10;
+			++r;
+			for(;;){
+				++r;
+				if(unlikely(!(--digit1)))
+					break;
+				val1=fmod(val1*10,10);
+				if(f58&&val1==0.0){
+					goto digit_ok;
+				}
+			}
+digit_ok:
+			digit=r?r-1:0;
+		}
+	}
+	if(digit)
+		sz+=1+digit;
 	if(!f61){
 		writeext_f;
 	}
 	c_trywrite(nbuf,p-nbuf);
 	if(digit){
+		val=fmod(val,1);
+		if(f58&&val==0.0){
+			sz-=(ssize_t)(1+digit);
+			goto digit_end;
+		}
+		val*=10;
 		p=nbuf;
 		*(p++)='.';
-		do {
-			val=fmod(val*10,10);
+		for(;;){
 			*(p++)=(char)((unsigned char)val+'0');
 			if(unlikely(p>=endp)){
 				c_trywrite(nbuf,320);
 				p=nbuf;
 			}
-		}while(--digit);
+			if(unlikely(!(--digit)))
+				break;
+			val=fmod(val*10,10);
+			if(f58&&val==0.0){
+				sz-=(ssize_t)digit;
+				goto digit_end_1;
+			}
+		}
+digit_end_1:
 		if(likely(p>nbuf)){
 			c_trywrite(nbuf,p-nbuf);
 		}
 	}
+digit_end:
 	if(f61){
 		writeext_f;
 	}
@@ -2478,6 +2452,13 @@ static ssize_t faction_S(ssize_t (*writer)(intptr_t fd,const void *buf,size_t si
 	size_t len=*(const size_t *)(arg+1);
 	ssize_t r,sum,ext,sz;
 	cwrite_common(*arg,(ssize_t)len);
+}
+static ssize_t faction_c(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){
+#if (!defined(__BIG_ENDIAN__)||!__BIG_ENDIAN__)
+	return writer(fd,arg,1);
+#else
+	return writer(fd,(uint8_t *)arg+(sizeof(void *)-1),1);
+#endif
 }
 static ssize_t faction_percent(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){
 	return writer(fd,"%",1);
@@ -2495,11 +2476,6 @@ static const struct expr_writefmt writefmts[]={
 		.action=converter_f,
 		.argc=1,
 	},
-/*	{
-		.action=faction_g,
-		.argc=1,
-	},
-*/
 	{
 		.action=faction_s,
 		.argc=1,
@@ -2532,12 +2508,15 @@ static const struct expr_writefmt writefmts[]={
 		.action=converter_b,
 		.argc=1,
 	},
+	{
+		.action=faction_c,
+		.argc=1,
+	},
 	{NULL}
 };
 static const uint8_t wfmts_table[256]={
 	['%']=1,
 	['f']=2,
-//	['g']=3,
 	['s']=3,
 	['d']=4,
 	['u']=5,
@@ -2546,6 +2525,7 @@ static const uint8_t wfmts_table[256]={
 	['S']=8,
 	['o']=9,
 	['b']=10,
+	['c']=11,
 };
 #define wf_trywrite(buf,sz) {\
 	r=writer(fd,(buf),(sz));\
@@ -2606,6 +2586,10 @@ reflag:
 				goto reflag;
 			case 'z':
 				flag|=1ul<<59ul;
+				fmt_inc_check;
+				goto reflag;
+			case '*':
+				flag|=1ul<<58ul;
 				fmt_inc_check;
 				goto reflag;
 			default:

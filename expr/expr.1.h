@@ -372,7 +372,7 @@ struct expr_superseed48 {
 	uint16_t data[];//size=3*len
 };
 struct expr_rawdouble {
-#ifdef __LITTLE_ENDIAN__
+#if (!defined(__BIG_ENDIAN__)||!__BIG_ENDIAN__)
 	uint64_t base:52;
 	uint64_t exp:11;
 	uint64_t sign:1;
@@ -442,7 +442,7 @@ struct expr_symbol {
 };
 struct expr_symbol_infile {
 	uint32_t length;
-#ifdef __LITTLE_ENDIAN__
+#if (!defined(__BIG_ENDIAN__)||!__BIG_ENDIAN__)
 	uint16_t strlen:6,type:3,flag:6,unused:1;
 #else
 	uint16_t unused:1,flag:6,type:3,strlen:6;

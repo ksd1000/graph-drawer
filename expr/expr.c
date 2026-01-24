@@ -16,12 +16,12 @@
 #define HIDE_WHERE_ERROR_OCCURS 1
 #define PHYSICAL_CONSTANT 0
 
-/*
 #define printval(x) warn(#x ":%lu",(unsigned long)(x))
 #define printvali(x) warn(#x ":%d",(int)(x))
 #define printvall(x) warn(#x ":%ld",(long)(x))
 #define printvald(x) warn(#x ":%lf",(double)(x))
 #define trap (warn("\nat file %s line %d",__FILE__,__LINE__),__builtin_trap())
+/*
 */
 #define warn(fmt,...) fprintf(stderr,fmt "\n",##__VA_ARGS__)
 
@@ -865,25 +865,25 @@ static double expr_mul(double *args,size_t n){
 static double expr_cmp(double *args,size_t n){
 	return (double)memcmp(args,args+1,sizeof(double));
 }
-#define SIZE_BITS (8*sizeof(size_t))
-static double expr_pow_old_n(double *args,size_t n){
-	double x,r;
-	size_t p=(size_t)args[1],b;
-	if(!p)
-		return 1.0;
-	x=args[0];
+double expr_pow_old(double x,uintmax_t y){
+	double r;
+	size_t b;
 	r=1.0;
 	for(unsigned int i=0;;++i){
-		b=1<<i;
-		if(b&p){
+		b=((uintmax_t)1)<<i;
+		if(b&y){
 			r*=x;
-			p&=~b;
+			y&=~b;
 		}
-		if(!p)
+		if(unlikely(!y))
 			break;
 		x=x*x;
 	}
 	return r;
+}
+#define SIZE_BITS (8*sizeof(size_t))
+static double expr_pow_old_n(double *args,size_t n){
+	return expr_pow_old(*args,args[1]);
 }
 void expr_contract(void *buf,size_t size){
 	char *p=(char *)buf,*endp=(char *)buf+size-1;
@@ -1120,13 +1120,22 @@ static double expr_bzero(const struct expr *args,size_t n,double input){
 	memset(un.r,0,(size_t)eval(++args,input));
 	return 0.0;
 }
-double expr_isfinite(double x){
+int expr_isfinite(double x){
+	return EXPR_EDEXP(&x)!=2047;
+}
+int expr_isinf(double x){
+	return !EXPR_EDBASE(&x)&&EXPR_EDEXP(&x)==2047;
+}
+int expr_isnan(double x){
+	return EXPR_EDBASE(&x)&&EXPR_EDEXP(&x)==2047;
+}
+double expr_isfinite_b(double x){
 	return EXPR_EDEXP(&x)!=2047?1.0:0.0;
 }
-double expr_isinf(double x){
+double expr_isinf_b(double x){
 	return !EXPR_EDBASE(&x)&&EXPR_EDEXP(&x)==2047?1.0:0.0;
 }
-double expr_isnan(double x){
+double expr_isnan_b(double x){
 	return EXPR_EDBASE(&x)&&EXPR_EDEXP(&x)==2047?1.0:0.0;
 }
 static double expr_longjmp_out(double *args,size_t n){
@@ -1180,7 +1189,7 @@ static double expr_xfree(double x){
 	} un;
 	un.dr=x;
 	xfree(un.r);
-	return 0.0;
+	return un.dr;
 }
 static __attribute__((used,noreturn,deprecated)) void expr_unused(void){
 #if defined(__aarch64__)
@@ -1975,9 +1984,9 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGFSYM2("fact",expr_fact),
 	REGFSYM2("ffs",expr_ffs),
 	REGFSYM(floor),
-	REGFSYM2("isfinite",expr_isfinite),
-	REGFSYM2("isinf",expr_isinf),
-	REGFSYM2("isnan",expr_isnan),
+	REGFSYM2("isfinite",expr_isfinite_b),
+	REGFSYM2("isinf",expr_isinf_b),
+	REGFSYM2("isnan",expr_isnan_b),
 	REGFSYM(j0),
 	REGFSYM(j1),
 	REGFSYM(lgamma),
@@ -2140,6 +2149,8 @@ struct expr_symbol *expr_builtin_symbol_add(struct expr_symset *restrict esp,con
 	switch(p->type){
 		case EXPR_CONSTANT:
 			return expr_symset_addl(esp,p->str,p->strlen,EXPR_CONSTANT,p->flag,p->un.value);
+		case EXPR_VARIABLE:
+			return expr_symset_addl(esp,p->str,p->strlen,EXPR_VARIABLE,p->flag,p->un.addr);
 		case EXPR_FUNCTION:
 			return expr_symset_addl(esp,p->str,p->strlen,EXPR_FUNCTION,p->flag,p->un.func);
 		case EXPR_MDFUNCTION:
@@ -2148,6 +2159,10 @@ struct expr_symbol *expr_builtin_symbol_add(struct expr_symset *restrict esp,con
 			return expr_symset_addl(esp,p->str,p->strlen,EXPR_MDEPFUNCTION,p->flag,p->un.mdepfunc,(size_t)p->dim);
 		case EXPR_ZAFUNCTION:
 			return expr_symset_addl(esp,p->str,p->strlen,EXPR_ZAFUNCTION,p->flag,p->un.zafunc);
+		case EXPR_HOTFUNCTION:
+			return expr_symset_addl(esp,p->str,p->strlen,EXPR_HOTFUNCTION,0,p->un.hot);
+		case EXPR_ALIAS:
+			return expr_symset_addl(esp,p->str,p->strlen,EXPR_ALIAS,0,p->un.hot);
 		default:
 			__builtin_unreachable();
 	}
@@ -2172,60 +2187,349 @@ struct expr_symset *expr_builtin_symbol_convert(const struct expr_builtin_symbol
 	}
 	return esp;
 }
-#define faction_stdio(name,fmt,val) \
-static ssize_t faction_##name(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,size_t sz){\
-	char *p=alloca(sz);\
+#define c_trywrite(buf,sz) {\
+	r=writer(fd,(buf),(sz));\
+	if(unlikely(r<0))\
+		return r;\
+	sum+=r;\
+}
+#define c_trywriteext(c,sz) {\
+	r=writeext(writer,fd,(sz),(c));\
+	if(unlikely(r<0))\
+		return r;\
+	sum+=r;\
+}
+static ssize_t writeext(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,size_t count,int c){
+	char buf[128];
+	ssize_t r,sum;
+	if(count<=128){
+		memset(buf,c,count);
+		return writer(fd,buf,count);
+	}
+	memset(buf,c,128);
+	sum=0;
+	do {
+		c_trywrite(buf,128);
+		count-=128;
+	}while(count>128);
+	if(count){
+		c_trywrite(buf,count);
+	}
+	return sum;
+}
+#define cwrite_common(_s,_sz) \
+	sz=(_sz);\
+	ext=(ssize_t)(flag&0x1ffffffful)-sz;\
+	if(ext>0){\
+		sum=0;\
+		if(flag&(1ul<<61ul)){\
+			c_trywrite((_s),sz);\
+			c_trywriteext((flag&(1ul<<59ul))?'0':' ',ext);\
+		}else {\
+			c_trywriteext((flag&(1ul<<59ul))?'0':' ',ext);\
+			c_trywrite((_s),sz);\
+		}\
+		return sum;\
+	}\
+	return writer(fd,(_s),sz)
+static ssize_t converter_d(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){
+	char nbuf[32];
+	intptr_t val=*(const intptr_t *)arg;
+	char *endp=nbuf+32;
+	char *p=endp;
+	ssize_t ext,sum,r,sz;
+	int minus;
+	if(!val)
+		minus=2;
+	else if(val<0){
+		val=-val;
+		minus=1;
+	}else
+		minus=0;
+	if(val){
+		do {
+			*(--p)=(char)('0'+val%10);
+			val/=10;
+		}while(val);
+	}else
+		*(--p)='0';
+	switch(minus){
+		case 0:
+			if(flag&(3ul<<62ul))
+				*(--p)='+';
+			break;
+		case 1:
+			*(--p)='-';
+			break;
+		case 2:
+			if(flag&(1ul<<63ul))
+				*(--p)='+';
+			break;
+		default:
+			__builtin_unreachable();
+	}
+	cwrite_common(p,endp-p);
+}
+/*
+static ssize_t converter_u(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){
+	char nbuf[32];
+	uintptr_t val=*(const uintptr_t *)arg;
+	char *endp=nbuf+32;
+	char *p=endp;
+	ssize_t ext,sum,r,sz;
+	int positive;
+	if(val){
+		positive=1;
+		do {
+			*(--p)=(char)('0'+val%10);
+			val/=10;
+		}while(val);
+	}else {
+		positive=0;
+		*(--p)='0';
+	}
+	switch(positive){
+		case 1:
+			if(flag&(3ul<<62ul))
+				*(--p)='+';
+			break;
+		case 0:
+			if(flag&(1ul<<63ul))
+				*(--p)='+';
+			break;
+		default:
+			__builtin_unreachable();
+	}
+	cwrite_common(p,endp-p);
+}
+*/
+#define conv_x(name,base,conv_str,add0x,bufsz) \
+static ssize_t converter_##name(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){\
+	char nbuf[bufsz];\
+	uintptr_t val=*(const uintptr_t *)arg;\
+	char *endp=nbuf+bufsz;\
+	char *p=endp;\
+	ssize_t ext,sum,r,sz;\
+	int positive;\
+	if(val){\
+		positive=1;\
+		do {\
+			*(--p)=(char)conv_str[val%base];\
+			val/=base;\
+		}while(val);\
+	}else {\
+		positive=0;\
+		*(--p)='0';\
+	}\
+	if(add0x){\
+		if(flag&(1ul<<60ul)){\
+			*(--p)='x';\
+			*(--p)='0';\
+		}\
+	}\
+	switch(positive){\
+		case 1:\
+			if(flag&(3ul<<62ul))\
+				*(--p)='+';\
+			break;\
+		case 0:\
+			if(flag&(1ul<<63ul))\
+				*(--p)='+';\
+			break;\
+		default:\
+			__builtin_unreachable();\
+	}\
+	cwrite_common(p,endp-p);\
+}
+static const char conv_btox[]={"0123456789abcdef"};
+static const char conv_btoX[]={"0123456789ABCDEF"};
+conv_x(u,10,conv_btox,0,32);
+conv_x(o,8,conv_btox,0,32);
+conv_x(b,2,conv_btox,0,72);
+conv_x(x,16,conv_btox,1,32);
+conv_x(X,16,conv_btoX,1,32);
+/*
+#define faction_stdio(name,__fmt,val) \
+static ssize_t faction_##name(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){\
+	char fmt[128];\
+	char *p=fmt;\
+	uint32_t width=flag&0x1ffffffful,digit=(flag>>29ul)&0x1ffffffful;\
+	const uint32_t sz=320;\
 	int r;\
+	*(p++)='%';\
+	if(flag&(1ul<<63ul))\
+		*(p++)='+';\
+	if(flag&(1ul<<62ul))\
+		*(p++)=' ';\
+	if(flag&(1ul<<61ul))\
+		*(p++)='-';\
+	if(flag&(1ul<<60ul))\
+		*(p++)='#';\
+	if(flag&(1ul<<59ul))\
+		*(p++)='0';\
+	if(width){\
+		p+=sprintf(p,"%zu",(size_t)width);\
+	}\
+	if(digit){\
+		p+=sprintf(p,".%zu",(size_t)digit);\
+	}\
+	strcpy(p,__fmt);\
+	p=alloca(sz);\
 	r=snprintf(p,sz,fmt,val);\
 	if(r>sz)\
 		r=sz;\
 	return writer(fd,p,r);\
 }
-faction_stdio(f,"%lf",*(double *)arg);
-faction_stdio(g,"%lg",*(double *)arg);
-faction_stdio(d,"%ld",(long)*(double *)arg);
-faction_stdio(u,"%lu",(unsigned long)*(double *)arg);
-static ssize_t faction_s(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,size_t sz){
-	size_t len=strlen(*arg);
-	return writer(fd,*arg,len);
+//faction_stdio(f,"lf",*(double *)arg);
+faction_stdio(g,"lg",*(double *)arg);
+*/
+//WARNING:the converter is not accurated as libc printf.I have not find a way to fix it now.
+static ssize_t converter_f(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){
+	double val=*(const double *)arg;
+	char nbuf[320];
+	char *endp;
+	char *p;
+	int positive,f61;
+	ssize_t ext,sum,r,sz;
+	uint32_t digit;
+	intmax_t ds;
+	if(unlikely(!expr_isfinite(val))){
+		p=nbuf;
+#define write_sign_to_p(_neg) \
+		if(_neg){\
+			*(p++)='-';\
+		}else {\
+			if(flag&(3ul<<62ul))\
+				*(p++)='+';\
+		}
+		write_sign_to_p(EXPR_EDSIGN(&val));
+		*(uint32_t *)p=*(const uint32_t *)(expr_isinf(val)?"inf":"nan");
+		cwrite_common(nbuf,p==nbuf?3l:4l);
+	}
+	endp=nbuf+320;
+	p=endp;
+	if(EXPR_EDSIGN(&val)){
+		EXPR_EDSIGN(&val)=0;
+		positive=0;
+	}else {
+		positive=1;
+	}
+	sum=0;
+	p=nbuf;
+	write_sign_to_p(!positive);
+	if(likely(val>=1.0)){
+		double p10,p1;
+		char *p0;
+		ds=(intmax_t)(log(val)/M_LN10)+1;
+		p+=ds;
+		p0=p;
+		p1=1.0;
+		for(;;){
+			p10=p1*10;
+			*(--p0)=(char)((unsigned char)(fmod(val,p10)/p1)+'0');
+			--ds;
+			if(unlikely(!ds))
+				break;
+			p1=p10;
+		}
+	}else {
+		*(p++)='0';
+	}
+	f61=!!(flag&(1ul<<61ul));
+	sz=(p-nbuf);
+	digit=(flag>>29ul)&0x1ffffffful;
+	if(digit)
+		sz+=1+digit;
+#define writeext_f \
+	ext=(ssize_t)(flag&0x1ffffffful)-sz;\
+	if(ext>0){\
+		c_trywriteext((flag&(1ul<<59ul))?'0':' ',ext);\
+	}
+	if(!f61){
+		writeext_f;
+	}
+	c_trywrite(nbuf,p-nbuf);
+	if(digit){
+		p=nbuf;
+		*(p++)='.';
+		do {
+			val=fmod(val*10,10);
+			*(p++)=(char)((unsigned char)val+'0');
+			if(unlikely(p>=endp)){
+				c_trywrite(nbuf,320);
+				p=nbuf;
+			}
+		}while(--digit);
+		if(likely(p>nbuf)){
+			c_trywrite(nbuf,p-nbuf);
+		}
+	}
+	if(f61){
+		writeext_f;
+	}
+	return sum;
 }
-static ssize_t faction_percent(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,size_t sz){
+static ssize_t faction_s(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){
+	size_t len=strlen(*arg);
+	ssize_t r,sum,ext,sz;
+	cwrite_common(*arg,(ssize_t)len);
+}
+static ssize_t faction_S(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){
+	size_t len=*(const size_t *)(arg+1);
+	ssize_t r,sum,ext,sz;
+	cwrite_common(*arg,(ssize_t)len);
+}
+static ssize_t faction_percent(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){
 	return writer(fd,"%",1);
 }
 struct expr_writefmt {
-	const char *op;
-	ssize_t (*action)(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,size_t sz);
+	ssize_t (*action)(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag);
 	size_t argc;
 };
 static const struct expr_writefmt writefmts[]={
 	{
-		.op="%",
 		.action=faction_percent,
 		.argc=0,
 	},
 	{
-		.op="f",
-		.action=faction_f,
+		.action=converter_f,
 		.argc=1,
 	},
-	{
-		.op="g",
+/*	{
 		.action=faction_g,
 		.argc=1,
 	},
+*/
 	{
-		.op="s",
 		.action=faction_s,
 		.argc=1,
 	},
 	{
-		.op="d",
-		.action=faction_d,
+		.action=converter_d,
 		.argc=1,
 	},
 	{
-		.op="u",
-		.action=faction_u,
+		.action=converter_u,
+		.argc=1,
+	},
+	{
+		.action=converter_x,
+		.argc=1,
+	},
+	{
+		.action=converter_X,
+		.argc=1,
+	},
+	{
+		.action=faction_S,
+		.argc=2,
+	},
+	{
+		.action=converter_o,
+		.argc=1,
+	},
+	{
+		.action=converter_b,
 		.argc=1,
 	},
 	{NULL}
@@ -2233,10 +2537,15 @@ static const struct expr_writefmt writefmts[]={
 static const uint8_t wfmts_table[256]={
 	['%']=1,
 	['f']=2,
-	['g']=3,
-	['s']=4,
-	['d']=5,
-	['u']=6,
+//	['g']=3,
+	['s']=3,
+	['d']=4,
+	['u']=5,
+	['x']=6,
+	['X']=7,
+	['S']=8,
+	['o']=9,
+	['b']=10,
 };
 #define wf_trywrite(buf,sz) {\
 	r=writer(fd,(buf),(sz));\
@@ -2244,10 +2553,21 @@ static const uint8_t wfmts_table[256]={
 		return r;\
 	ret+=r;\
 }
+static int check_no_number(int c){
+	char buf[2];
+	char *p;
+	*buf=(char)c;
+	buf[1]=0;
+	strtol(buf,&p,10);
+	return p==buf;
+}
 ssize_t expr_writef(const char *fmt,size_t fmtlen,ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *args,size_t arglen){
 	const char *endp=fmt+fmtlen,*fmt_old=fmt;
 	ssize_t r,ret=0,c;
 	const struct expr_writefmt *wfp;
+	uint64_t flag,v;
+	if(unlikely(endp<=fmt||!check_no_number(endp[-1])))
+		return 0;
 	for(;;){
 		if(unlikely(fmt>=endp)){
 			wf_trywrite(fmt_old,fmt-fmt_old);
@@ -2261,7 +2581,51 @@ ssize_t expr_writef(const char *fmt,size_t fmtlen,ssize_t (*writer)(intptr_t fd,
 			wf_trywrite(fmt_old,fmt-fmt_old);
 			fmt_old=fmt;
 		}
-		++fmt;
+#define fmt_inc_check ++fmt;\
+		if(unlikely(fmt>=endp))\
+			goto end
+		fmt_inc_check;
+		flag=0;
+reflag:
+		switch(*fmt){
+			case '+':
+				flag|=1ul<<63ul;
+				fmt_inc_check;
+				goto reflag;
+			case ' ':
+				flag|=1ul<<62ul;
+				fmt_inc_check;
+				goto reflag;
+			case '-':
+				flag|=1ul<<61ul;
+				fmt_inc_check;
+				goto reflag;
+			case '#':
+				flag|=1ul<<60ul;
+				fmt_inc_check;
+				goto reflag;
+			case 'z':
+				flag|=1ul<<59ul;
+				fmt_inc_check;
+				goto reflag;
+			default:
+				break;
+		}
+		fmt_old=fmt;
+		v=strtol(fmt,(char **)&fmt,10);
+		if(fmt>fmt_old){
+			flag|=v&0x1ffffffful;
+		}
+		if(*fmt=='.'){
+			fmt_inc_check;
+			fmt_old=fmt;
+			v=strtol(fmt,(char **)&fmt,10);
+			if(fmt>fmt_old){
+				flag|=(v&0x1ffffffful)<<29ul;
+			}
+		}else {
+				flag|=6ul<<29ul;
+		}
 		if(unlikely(fmt>=endp))
 			break;
 		r=wfmts_table[*(unsigned char *)fmt];
@@ -2269,21 +2633,22 @@ ssize_t expr_writef(const char *fmt,size_t fmtlen,ssize_t (*writer)(intptr_t fd,
 			break;
 		wfp=writefmts+(r-1);
 		if(!(c=wfp->argc)){
-			r=wfp->action(writer,fd,NULL,128);
+			r=wfp->action(writer,fd,NULL,flag);
 		}else {
 			if(unlikely(arglen<c))
 				break;
 			arglen-=c;
-			r=wfp->action(writer,fd,args,128);
+			r=wfp->action(writer,fd,args,flag);
 			args+=c;
 		}
 		if(unlikely(r<0))
-			return -r;
+			return r;
 		ret+=r;
 		++fmt;
 		fmt_old=fmt;
 		continue;
 	}
+end:
 	return ret;
 }
 size_t expr_strscan(const char *s,size_t sz,char *restrict buf,size_t outsz){
@@ -5609,7 +5974,7 @@ end:
 	return 0;
 err2:
 	xfree(temp);
-	return -r;
+	return r;
 err3:
 	xfree(temp);
 	return -2;

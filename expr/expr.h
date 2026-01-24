@@ -401,7 +401,6 @@ struct expr_inst {
 		void *uaddr;
 		void **uaddr2;
 		double value;
-		ssize_t zd;
 		size_t zu;
 		struct expr *hotfunc;
 		struct expr **hotfunc2;
@@ -426,6 +425,7 @@ union expr_symvalue {
 	ssize_t off;
 	double *addr;
 	void *uaddr;
+	const char *hot; //for builtin symbols only
 	double (*func)(double);
 	double (*zafunc)(void);
 	double (*mdfunc)(double *,size_t);
@@ -575,11 +575,15 @@ double expr_or2(double x,double y);
 double expr_xor2(double x,double y);
 double expr_not(double x);
 double expr_exp_old(double x);
+double expr_pow_old(double x,uintmax_t y);
 void expr_contract(void *buf,size_t size);
 __attribute__((noreturn)) void expr_explode(void);
-double expr_isfinite(double x);
-double expr_isinf(double x);
-double expr_isnan(double x);
+int expr_isfinite(double x);
+int expr_isinf(double x);
+int expr_isnan(double x);
+double expr_isfinite_b(double x);
+double expr_isinf_b(double x);
+double expr_isnan_b(double x);
 void expr_mutex_lock(uint32_t *lock);
 int expr_mutex_trylock(uint32_t *lock);
 void expr_mutex_unlock(uint32_t *lock);

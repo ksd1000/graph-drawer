@@ -401,7 +401,6 @@ struct expr_inst {
 		void *uaddr;
 		void **uaddr2;
 		double value;
-		ssize_t zd;
 		size_t zu;
 		struct expr *hotfunc;
 		struct expr **hotfunc2;
@@ -426,6 +425,7 @@ union expr_symvalue {
 	ssize_t off;
 	double *addr;
 	void *uaddr;
+	const char *hot; //for builtin symbols only
 	double (*func)(double);
 	double (*zafunc)(void);
 	double (*mdfunc)(double *,size_t);

@@ -4488,6 +4488,7 @@ static void *readsymbol(struct expr *restrict ep,const char *symbol,size_t symle
 	if(!ep->sset||!(sym.es=expr_symset_search(ep->sset,symbol,symlen))){
 		goto esymbol;
 	}
+//	printf("reading:%s -- ",symbol);
 alias_found:
 	type=sym.es->type;
 	flag=sym.es->flag;
@@ -4512,6 +4513,7 @@ alias_found:
 		}
 		return NULL;
 	}
+//	printf("at:%p\n",expr_symbol_un(sym.es)->uaddr);
 	return sym.uaddr;
 pm:
 	serrinfo(ep->errinfo,symbol,symlen);
@@ -5518,10 +5520,10 @@ found:
 				if(unlikely(p+2==un.ccp)){
 					goto pm;
 				}
-				if(unlikely(!ep->sset||!(sym.es=expr_symset_search(ep->sset,p+2,un.ccp-p-2)))){
+				if(unlikely(!ep->sset||!(un.ebp=expr_symset_search(ep->sset,p+2,un.ccp-p-2)))){
 					goto pm;
 				}
-				switch(sym.es->type){
+				switch(un.ebp->type){
 					case EXPR_VARIABLE:
 						break;
 					default:
@@ -5542,13 +5544,17 @@ found:
 			if(unlikely(p==e+1))
 				goto envp;
 			if(type){
-				ep->iflag&=~EXPR_IF_PROTECT;
+				v0=expr_newvar(ep);
+				cknp(ep,v0,return NULL);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+				cknp(ep,expr_addconst(ep,v0,expr_symbol_un(un.ebp)->value),return NULL);
+#pragma GCC diagnostic pop
+			}else {
 				v0=scan(ep,e+1,p,asym,asymlen);
-				ep->iflag|=EXPR_IF_PROTECT;
-			}else
-				v0=scan(ep,e+1,p,asym,asymlen);
-			if(unlikely(!v0))
-				return NULL;
+				if(unlikely(!v0))
+					return NULL;
+			}
 			cknp(ep,expr_addcall(ep,v0,expr_symbol_un(sym.es)->func,flag),return NULL);
 			e=p+1;
 			goto vend;

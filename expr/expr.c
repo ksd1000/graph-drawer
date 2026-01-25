@@ -2290,7 +2290,7 @@ static ssize_t converter_##name(ssize_t (*writer)(intptr_t fd,const void *buf,si
 	}\
 	if(add0x){\
 		if(flag&(1ul<<60ul)){\
-			*(--p)='x';\
+			*(--p)=conv_str[base];\
 			*(--p)='0';\
 		}\
 	}\
@@ -2308,25 +2308,458 @@ static ssize_t converter_##name(ssize_t (*writer)(intptr_t fd,const void *buf,si
 	}\
 	cwrite_common(p,endp-p);\
 }
-static const char conv_btox[]={"0123456789abcdef"};
-static const char conv_btoX[]={"0123456789ABCDEF"};
+static const char conv_btox[]={"0123456789abcdefx"};
+static const char conv_btoX[]={"0123456789ABCDEFX"};
 conv_x(u,10,conv_btox,0,32);
 conv_x(o,8,conv_btox,0,32);
 conv_x(b,2,conv_btox,0,72);
 conv_x(x,16,conv_btox,1,32);
 conv_x(X,16,conv_btoX,1,32);
-//WARNING:the converter is not accurated as libc printf.I have not find a way to fix it now.
-static ssize_t converter_f(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){
-	double val=*(const double *)arg;
-	char nbuf[320];
-	char *endp;
-	char *p;
-	int positive,f61,f58;
-	ssize_t ext,sum,r,sz;
-	uint32_t digit,width;
-	intmax_t ds;
-	if(unlikely(!expr_isfinite(val))){
-		p=nbuf;
+static size_t extint_left(uint64_t *buf,size_t size,uint64_t bits){
+	uint64_t b64=bits/64;
+	size_t rsize=size;
+	uint64_t *p,*p0;
+	bits%=64;
+	if(b64){
+		rsize+=b64;
+		p0=buf+size-1;
+		p=p0+b64;
+		do{
+			*p=*p0;
+			--p0;
+			--p;
+		}while(p0>=buf);
+		do{
+			*p=0;
+			--p;
+		}while(p>=buf);
+	}
+	if(bits){
+		p=buf+rsize;
+		p0=p;
+		*p=0;
+		do {
+			*p=(p[-1]>>(64-bits))|(*p<<bits);
+			--p;
+		}while(p>buf);
+		*buf<<=bits;
+		if(*p0)
+			++rsize;
+	}
+	return rsize;
+}
+size_t extint_right(uint64_t *buf,size_t size,uint64_t bits){
+	uint64_t b64=bits/64;
+	size_t rsize=size;
+	uint64_t *p,*p0,*end;
+	if(b64){
+		if(rsize<=b64){
+			*buf=0;
+			return 1;
+		}
+		rsize-=b64;
+		p=buf;
+		p0=p+b64;
+		end=buf+rsize;
+		do{
+			*p=*p0;
+			++p;
+			if(p0>=end)
+				break;
+			++p0;
+		}while(p0<end);
+	}
+	bits%=64;
+	if(bits){
+		p=buf;
+		end=buf+rsize-1;
+		while(p<end){
+			*p=(p[1]<<(64-bits))|(*p>>bits);
+			++p;
+		}
+		*end>>=bits;
+		if(rsize>1&&!*end)
+			--rsize;
+	}
+	return rsize;
+}
+static size_t extint_add(uint64_t *buf,uint64_t addend){
+	uint64_t *restrict p=buf;
+	do {
+		addend=((*(p++)+=addend)<addend);
+	}while(addend);
+	return p-buf;
+}
+static size_t extint_mul(uint64_t *buf,size_t size,uint32_t factor,uint64_t *workspace){
+	uint32_t *restrict p;
+	uint32_t *restrict wp;
+	union {
+		uint64_t v;
+		size_t size;
+	} un;
+	buf[size]=0;
+	size_t size32=size<<1,csize32;
+	for(p=(uint32_t *)buf,wp=(uint32_t *)workspace;
+			(p-(uint32_t *)buf)<size32;
+			++p,++wp){
+		un.v=((uint64_t)*p)*factor;
+		*p=un.v&0xfffffffful;
+		*wp=(un.v>>32ul);
+	}
+	csize32=size32;
+	for(p=(uint32_t *)buf,wp=(uint32_t *)workspace;
+			(wp-(uint32_t *)workspace)<csize32;
+			++p,++wp){
+		if(!*wp)continue;
+		un.size=p-(uint32_t *)buf;
+		if(((uintptr_t)p)&7)
+			un.size=(un.size>>1)+1+
+				extint_add((uint64_t *)(p+1),*wp);
+		else {
+			*wp=((p[1]+=*wp)<*wp);
+			if(*wp){
+			un.size=(un.size>>1)+1+
+				extint_add((uint64_t *)(p+2),*wp);
+			}else continue;
+		}
+		if(un.size>size){
+			size=un.size;
+			size32=size<<1;
+		}
+	}
+	return size;
+}
+static size_t extint_div(uint64_t *buf,size_t size,uint32_t divisor,uint32_t *mod){
+	uint32_t *p=(uint32_t *)(buf+size);
+	uint64_t v;
+	size_t rsize=0;
+	uint32_t backup=0;
+	*(uint32_t *)p=0;
+	do {
+		--p;
+		v=*(uint64_t *)p/divisor;
+		*(uint64_t *)p%=divisor;
+		((uint32_t *)p)[1]=backup;
+		backup=v;
+		if(!v)
+			continue;
+		if(!rsize)
+			rsize=(p-(uint32_t *)buf)+1;
+	}while(p>(uint32_t *)buf);
+	if(mod)
+		*mod=*(uint32_t *)buf;
+	*(uint32_t *)buf=backup;
+	if(rsize)
+		return (rsize+1)>>1;
+	else
+		return 0;
+}
+static void extint_mirror(char *buf,size_t size){
+	char *out=buf+size-1;
+	register char swapbuf;
+	while(out>buf){
+		//printf("swap %c,%c\n",*buf,*out);
+		swapbuf=*out;
+		*out=*buf;
+		*buf=swapbuf;
+		--out;
+		++buf;
+	}
+}
+#define write_ascii(_op,_sz) \
+	uint32_t mod,ds=base,dsn,n;\
+	char *out=outbuf;\
+	for(n=1;;){\
+		dsn=ds*base;\
+		if(dsn>ds&&!(dsn%ds)){\
+			ds=dsn;\
+			++n;\
+		}else\
+			break;\
+	}\
+	for(;;){\
+		size=extint_div(buf,size,ds,&mod);\
+		if(size){\
+			for(dsn=n;dsn;--dsn){\
+				*(_op)=chars[mod%base];\
+				mod/=base;\
+			}\
+		}else {\
+			while(mod){\
+				*(_op)=chars[mod%base];\
+				mod/=base;\
+			}\
+			break;\
+		}\
+	}\
+	if(out==outbuf)\
+		*(_op)=chars[0];\
+	size=(_sz);\
+	return size
+static size_t extint_ascii_rev(uint64_t *buf,size_t size,const char *chars,uint32_t base,char *outbuf){
+	write_ascii(--out,outbuf-out);
+}
+#define conv_f0(_name,_base,_lnbase,_conv_str,_shift,_nsize,_inf,_nan,_how,_before_how) \
+static ssize_t converter_##_name(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){\
+	_Static_assert(__builtin_constant_p((_nsize)),"_nsize should be constant");\
+	double val=*(const double *)arg;\
+	struct {\
+		uint64_t w[69];\
+		char v[1096];\
+		uint64_t i[69-16];\
+		uint64_t ii[16];\
+		char n[_nsize];\
+	} bufst;\
+	char *endp;\
+	char *p;\
+	int positive,f61,f58;\
+	ssize_t ext,sum,r,sz,fsz,ds;\
+	uint32_t digit,width;\
+	if(unlikely(!expr_isfinite(val))){\
+		p=nbuf;\
+		write_sign_to_p(EXPR_EDSIGN(&val));\
+		*(uint32_t *)p=*(const uint32_t *)(expr_isinf(val)?_inf:_nan);\
+		cwrite_common(nbuf,p==nbuf?3l:4l);\
+	}\
+	endp=nbuf+_nsize;\
+	p=endp;\
+	if(EXPR_EDSIGN(&val)){\
+		EXPR_EDSIGN(&val)=0;\
+		positive=0;\
+	}else {\
+		positive=1;\
+	}\
+	sum=0;\
+	p=nbuf;\
+	write_sign_to_p(!positive);\
+	if(_base==16){\
+		if(flag&(1ul<<60ul)){\
+			*(p++)='0';\
+			*(p++)=_conv_str[_base];\
+		}\
+	}\
+	sz=(ssize_t)EXPR_EDEXP(&val)-1023;\
+	if(sz>=0){\
+		double fval;\
+		fval=floor(val);\
+		val-=fval;\
+		ds=(ssize_t)(log(fval)/(_lnbase))+1;\
+		assume(ds>0&&ds<=_nsize);\
+		p+=ds;\
+		*iival=EXPR_EDBASE(&fval)|(1ul<<52ul);\
+		sz-=52;\
+		if(sz){\
+			if(sz>0){\
+				r=extint_left(iival,1,sz);\
+			}else {\
+				*iival>>=-sz;\
+				r=1;\
+			}\
+		}else\
+			r=1;\
+		extint_ascii_rev(iival,r,conv_btox,_base,p);\
+	}else {\
+		*(p++)='0';\
+	}\
+	ds=p-nbuf;\
+	f61=!!(flag&(1ul<<61ul));\
+	f58=!!(flag&(1ul<<58ul));\
+	digit=(flag>>29ul)&0x1ffffffful;\
+	width=flag&0x1ffffffful;\
+	if(digit){\
+		fsz=(ssize_t)EXPR_EDEXP(&val);\
+		if(fsz)\
+			*ival=EXPR_EDBASE(&val)|(1ul<<52ul);\
+		else\
+			*ival=EXPR_EDBASE(&val)<<1ul;\
+		ext=1075-fsz;\
+		r=1;\
+		_shift;\
+		p=vbuf+1096;\
+		fsz=extint_ascii_rev(ival,r,_conv_str,_base,p);\
+		p-=fsz;\
+		ext-=fsz;\
+		if(ext>0){\
+			p-=ext;\
+			fsz+=ext;\
+			memset(p,'0',ext);\
+		}\
+		if(fsz){\
+			*(--p)='.';\
+			++fsz;\
+		}\
+	}else\
+		fsz=0;\
+	{\
+		_before_how;\
+		if(!f61){\
+			writeext_f;\
+		}\
+		_how;\
+		if(f61){\
+			writeext_f;\
+		}\
+	}\
+	return sum;\
+}
+#define conv_f(_name,_base,_lnbase,_conv_str,_shift,_nsize,_inf,_nan) conv_f0(_name,_base,_lnbase,_conv_str,_shift,_nsize,_inf,_nan,{\
+	c_trywrite(nbuf,ds);\
+	if(fsz){\
+		c_trywrite(p,fsz);\
+	}\
+	if(!f58&&fsz<digit){\
+		if(!fsz)\
+			c_trywrite(".",1);\
+		c_trywriteext('0',digit-fsz);\
+	}\
+},\
+	ext=digit+1;\
+	if(fsz>ext){\
+		fsz=ext;\
+	}\
+	for(endp=p+fsz-1;endp>=p&&*endp=='0';){\
+		--fsz;\
+		--endp;\
+	}\
+	if(fsz==1)\
+		fsz=0;\
+	sz=ds+(f58?fsz:digit);\
+)
+#define conv_fe(_name,_base,_lnbase,_conv_str,_shift,_nsize,_inf,_nan,_e) conv_f0(_name,_base,_lnbase,_conv_str,_shift,_nsize,_inf,_nan,\
+	if(r1<0){\
+		if(fsz){\
+			c_trywrite(p,1);\
+			c_trywrite(".",1);\
+			if(fsz>2){\
+				c_trywrite(p+1,fsz-1);\
+			}else {\
+				c_trywrite("0",1);\
+			}\
+		}\
+	}else {\
+		++firp;\
+		c_trywrite(nbuf,firp-nbuf);\
+		c_trywrite(".",1);\
+		r1=(nbuf+ds)-firp-iz;\
+		if(r1>=digit){\
+			ext=0;\
+			r1=digit;\
+		}else {\
+			ext=digit-r1;\
+		}\
+		c_trywrite(firp,r1);\
+		if(ext){\
+			if(fsz){\
+				ext=fsz>ext?ext:fsz;\
+				c_trywrite(p,ext);\
+			}else \
+				c_trywrite("0",ext=1);\
+		}\
+		fsz=r1+ext;\
+	}\
+	if(!f58&&fsz<digit){\
+		c_trywriteext('0',digit-fsz);\
+	}\
+	c_trywrite(ebuf,esz);\
+,\
+	char ebuf[8];\
+	char *firp;\
+	ssize_t r1;\
+	ssize_t r2;\
+	ssize_t esz;\
+	ssize_t iz;\
+	{\
+	r1=ds-1;\
+	sz=0;\
+	if(!fsz){\
+		goto nofsz;\
+	}\
+	++p;\
+	--fsz;\
+	switch(ds){\
+		case 1:\
+			firp=nbuf;\
+			if(*nbuf=='0')\
+				goto onzero;\
+			break;\
+		case 2:\
+			switch(*nbuf){\
+				case '+':\
+				case '-':\
+					--r1;\
+					firp=nbuf+1;\
+					if(nbuf[1]=='0')\
+						goto onzero;\
+					break;\
+				default:\
+					firp=nbuf;\
+					break;\
+			}\
+			break;\
+		default:\
+nofsz:\
+			switch(*nbuf){\
+				case '+':\
+				case '-':\
+					firp=nbuf+1;\
+					break;\
+				default:\
+					firp=nbuf;\
+					break;\
+			}\
+			break;\
+onzero:\
+		endp=p+fsz;\
+		for(--r1;p<endp;){\
+			if(*p=='0'){\
+				--r1;\
+				++p;\
+				--fsz;\
+				continue;\
+			}\
+			break;\
+		}\
+	}\
+	if(fsz>digit){\
+		fsz=digit;\
+	}\
+	for(endp=p+fsz-1;endp>=p&&*endp=='0';){\
+		--fsz;\
+		--endp;\
+	}\
+	*ebuf=(_e);\
+	r2=r1;\
+	if(r2<0){\
+		ebuf[1]='-';\
+		r2=-r2;\
+	}else {\
+		ebuf[1]='+';\
+	}\
+	sz+=2;\
+	endp=ebuf+1;\
+	do {\
+		*(++endp)=_conv_str[r2%10];\
+		++sz;\
+	}while((r2/=10));\
+	if(endp>ebuf+2)\
+		extint_mirror(ebuf+2,endp-(ebuf+1));\
+	esz=sz;\
+	sz+=ds+(f58?fsz:digit);\
+	if(!fsz)\
+		++sz;\
+	for(iz=0,endp=nbuf+ds;--endp>nbuf;){\
+		if(*endp=='0')\
+			++iz;\
+		else\
+			break;\
+	}\
+	sz-=iz;\
+})
+#define writeext_f \
+	ext=(ssize_t)width-sz;\
+	if(ext>0){\
+		c_trywriteext((flag&(1ul<<59ul))?'0':' ',ext);\
+	}
 #define write_sign_to_p(_neg) \
 		if(_neg){\
 			*(p++)='-';\
@@ -2334,115 +2767,100 @@ static ssize_t converter_f(ssize_t (*writer)(intptr_t fd,const void *buf,size_t 
 			if(flag&(3ul<<62ul))\
 				*(p++)='+';\
 		}
-		write_sign_to_p(EXPR_EDSIGN(&val));
-		*(uint32_t *)p=*(const uint32_t *)(expr_isinf(val)?"inf":"nan");
-		cwrite_common(nbuf,p==nbuf?3l:4l);
-	}
-	endp=nbuf+320;
-	p=endp;
-	if(EXPR_EDSIGN(&val)){
-		EXPR_EDSIGN(&val)=0;
-		positive=0;
-	}else {
-		positive=1;
-	}
-	sum=0;
-	p=nbuf;
-	write_sign_to_p(!positive);
-	if(likely(val>=1.0)){
-		double p10,p1;
-		char *p0;
-		ds=(intmax_t)(log(val)/M_LN10)+1;
-		p+=ds;
-		p0=p;
-		p1=1.0;
-		for(;;){
-			p10=p1*10;
-			*(--p0)=(char)((unsigned char)(fmod(val,p10)/p1)+'0');
-			--ds;
-			if(unlikely(!ds))
-				break;
-			p1=p10;
+#define vbuf (bufst.v)
+#define nbuf (bufst.n)
+#define ival (bufst.i)
+#define iival (bufst.ii)
+#define workspace (bufst.w)
+#define ival_mul_pow(n,M) \
+		for(int i=fsz/(n);i;--i)\
+			r=extint_mul(ival,r,M,workspace);\
+		fsz%=(n)
+#define ival_mul_pow_nl(n,M) \
+		if(fsz>=(n)){\
+			r=extint_mul(ival,r,M,workspace);\
+			fsz-=(n);\
 		}
-	}else {
-		*(p++)='0';
-	}
-	f61=!!(flag&(1ul<<61ul));
-	f58=!!(flag&(1ul<<58ul));
-	sz=(p-nbuf);
-	digit=(flag>>29ul)&0x1ffffffful;
-	width=flag&0x1ffffffful;
-#define writeext_f \
-	ext=(ssize_t)width-sz;\
-	if(ext>0){\
-		c_trywriteext((flag&(1ul<<59ul))?'0':' ',ext);\
-	}
-	if(digit){
-		if(!f61&&f58&&width){
-			uint32_t digit1;
-			double val1;
-			val1=val;
-			digit1=digit;
-			r=0;
-			val1=fmod(val1,1);
-			if(val1==0.0){
-				goto digit_ok;
-			}
-			val1*=10;
-			++r;
-			for(;;){
-				++r;
-				if(unlikely(!(--digit1)))
-					break;
-				val1=fmod(val1*10,10);
-				if(f58&&val1==0.0){
-					goto digit_ok;
-				}
-			}
-digit_ok:
-			digit=r?r-1:0;
+#define ival_mul_pow_nlm(n,M) \
+		if(fsz>=(n)){\
+			r=extint_mul(ival,r,M,workspace);\
 		}
-	}
-	if(digit)
-		sz+=1+digit;
-	if(!f61){
-		writeext_f;
-	}
-	c_trywrite(nbuf,p-nbuf);
-	if(digit){
-		val=fmod(val,1);
-		if(f58&&val==0.0){
-			sz-=(ssize_t)(1+digit);
-			goto digit_end;
-		}
-		val*=10;
-		p=nbuf;
-		*(p++)='.';
-		for(;;){
-			*(p++)=(char)((unsigned char)val+'0');
-			if(unlikely(p>=endp)){
-				c_trywrite(nbuf,320);
-				p=nbuf;
-			}
-			if(unlikely(!(--digit)))
-				break;
-			val=fmod(val*10,10);
-			if(f58&&val==0.0){
-				sz-=(ssize_t)digit;
-				goto digit_end_1;
-			}
-		}
-digit_end_1:
-		if(likely(p>nbuf)){
-			c_trywrite(nbuf,p-nbuf);
-		}
-	}
-digit_end:
-	if(f61){
-		writeext_f;
-	}
-	return sum;
-}
+#define ival_mul5p \
+		fsz=ext;\
+		ival_mul_pow(13,1220703125u);\
+		ival_mul_pow_nl(8,390625);\
+		ival_mul_pow_nl(4,625);\
+		ival_mul_pow_nl(2,25);\
+		ival_mul_pow_nlm(1,5)
+#define ival_mul3p \
+		fsz=ext;\
+		ival_mul_pow(20,3486784401u);\
+		ival_mul_pow_nl(16,43046721);\
+		ival_mul_pow_nl(8,6561);\
+		ival_mul_pow_nl(4,81);\
+		ival_mul_pow_nl(2,9);\
+		ival_mul_pow_nlm(1,3)
+#define ival_mul7p \
+		fsz=ext;\
+		ival_mul_pow(11,1977326743u);\
+		ival_mul_pow_nl(8,5764801);\
+		ival_mul_pow_nl(4,2401);\
+		ival_mul_pow_nl(2,49);\
+		ival_mul_pow_nlm(1,7)
+#define ival_mul9p \
+		fsz=ext;\
+		ival_mul_pow(10,3486784401u);\
+		ival_mul_pow_nl(8,43046721);\
+		ival_mul_pow_nl(4,6561);\
+		ival_mul_pow_nl(8,81);\
+		ival_mul_pow_nlm(1,9)
+#define ival_mul11p \
+		fsz=ext;\
+		ival_mul_pow(9,2357947691u);\
+		ival_mul_pow_nl(8,214358881);\
+		ival_mul_pow_nl(4,14641);\
+		ival_mul_pow_nl(2,121);\
+		ival_mul_pow_nlm(1,11)
+#define ival_mul13p \
+		fsz=ext;\
+		ival_mul_pow(8,815730721u);\
+		ival_mul_pow_nl(4,28561);\
+		ival_mul_pow_nl(2,169);\
+		ival_mul_pow_nlm(1,13)
+#define ival_mul15p \
+		fsz=ext;\
+		ival_mul_pow(8,2562890625u);\
+		ival_mul_pow_nl(4,50625);\
+		ival_mul_pow_nl(2,225);\
+		ival_mul_pow_nlm(1,15)
+#define nbuf_size(x) (((x)+23ul)&~7ul)
+conv_f(f,10,M_LN10,conv_btox,ival_mul5p,nbuf_size(308),"inf","nan");
+conv_f(F,10,M_LN10,conv_btoX,ival_mul5p,nbuf_size(308),"INF","NAN");
+conv_f(a,16,4*M_LN2,conv_btox,r=extint_left(ival,r,3*ext),nbuf_size(256),"inf","nan");
+conv_f(A,16,4*M_LN2,conv_btoX,r=extint_left(ival,r,3*ext),nbuf_size(256),"INF","NAN");
+conv_f(O,8,3*M_LN2,conv_btoX,r=extint_left(ival,r,2*ext),nbuf_size(342),"INF","NAN");
+conv_f(B,2,M_LN2,conv_btoX,,nbuf_size(1024),"INF","NAN");
+conv_f(x12,2,M_LN2,conv_btox,,nbuf_size(1024),"inf","nan");
+conv_f(x13,3,log(3),conv_btox,ival_mul3p;r=extint_right(ival,r,ext),nbuf_size(646),"inf","nan");
+conv_f(x14,4,2*M_LN2,conv_btox,r=extint_left(ival,r,ext),nbuf_size(512),"inf","nan");
+conv_f(x15,5,log(5),conv_btox,ival_mul5p;r=extint_right(ival,r,ext),nbuf_size(441),"inf","nan");
+conv_f(x16,6,log(6),conv_btox,ival_mul3p,nbuf_size(396),"inf","nan");
+conv_f(x17,7,log(7),conv_btox,ival_mul7p;r=extint_right(ival,r,ext),nbuf_size(364),"inf","nan");
+conv_f(x18,8,3*M_LN2,conv_btox,r=extint_left(ival,r,2*ext),nbuf_size(342),"inf","nan");
+conv_f(x19,9,log(9),conv_btox,ival_mul9p;r=extint_right(ival,r,ext),nbuf_size(323),"inf","nan");
+conv_f(x1b,11,log(11),conv_btox,ival_mul11p;r=extint_right(ival,r,ext),nbuf_size(296),"inf","nan");
+conv_f(x1c,12,log(12),conv_btox,ival_mul3p;r=extint_left(ival,r,2*ext),nbuf_size(285),"inf","nan");
+conv_f(x1d,13,log(13),conv_btox,ival_mul13p;r=extint_right(ival,r,ext),nbuf_size(276),"inf","nan");
+conv_f(x1e,14,log(14),conv_btox,ival_mul7p;r=extint_left(ival,r,ext),nbuf_size(268),"inf","nan");
+conv_f(x1f,15,log(15),conv_btox,ival_mul15p;r=extint_right(ival,r,ext),nbuf_size(262),"inf","nan");
+conv_fe(fe,10,M_LN10,conv_btox,ival_mul5p,nbuf_size(308),"inf","nan",'e');
+conv_fe(fE,10,M_LN10,conv_btox,ival_mul5p,nbuf_size(308),"inf","nan",'E');
+//5-441,396,364,8,323,10,296,285,276,268,262;
+#undef nbuf
+#undef vbuf
+#undef ival
+#undef iival
+#undef workspace
 static ssize_t faction_s(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){
 	size_t len=strlen(*arg);
 	ssize_t r,sum,ext,sz;
@@ -2460,11 +2878,22 @@ static ssize_t faction_c(ssize_t (*writer)(intptr_t fd,const void *buf,size_t si
 	return writer(fd,(uint8_t *)arg+(sizeof(void *)-1),1);
 #endif
 }
+static ssize_t faction_g(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){
+	double val=fabs(*(const double *)arg),vl;
+	return ((val==0.0||((vl=log(val)/log(10))>=-4&&vl<((flag>>29ul)&0x1ffffffful)))?
+	converter_f:converter_fe)(writer,fd,arg,flag|(1ul<<58ul));
+}
+static ssize_t faction_G(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){
+	double val=fabs(*(const double *)arg),vl;
+	return ((val==0.0||((vl=log(val)/log(10))>=-4&&vl<((flag>>29ul)&0x1ffffffful)))?
+	converter_f:converter_fE)(writer,fd,arg,flag|(1ul<<58ul));
+}
 static ssize_t faction_percent(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){
 	return writer(fd,"%",1);
 }
+typedef ssize_t (*fmt_handler)(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag);
 struct expr_writefmt {
-	ssize_t (*action)(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag);
+	fmt_handler action;
 	size_t argc;
 };
 static const struct expr_writefmt writefmts[]={
@@ -2512,11 +2941,102 @@ static const struct expr_writefmt writefmts[]={
 		.action=faction_c,
 		.argc=1,
 	},
+	{
+		.action=converter_F,
+		.argc=1,
+	},
+	{
+		.action=converter_a,
+		.argc=1,
+	},
+	{
+		.action=converter_A,
+		.argc=1,
+	},
+	{
+		.action=converter_B,
+		.argc=1,
+	},
+	{
+		.action=converter_O,
+		.argc=1,
+	},
+	{
+		.action=converter_x12,
+		.argc=1,
+	},
+	{
+		.action=converter_x14,
+		.argc=1,
+	},
+	{
+		.action=converter_x16,
+		.argc=1,
+	},
+	{
+		.action=converter_x18,
+		.argc=1,
+	},
+	{
+		.action=converter_x1c,
+		.argc=1,
+	},
+	{
+		.action=converter_x1e,
+		.argc=1,
+	},
+	{
+		.action=converter_x13,
+		.argc=1,
+	},
+	{
+		.action=converter_x15,
+		.argc=1,
+	},
+	{
+		.action=converter_x17,
+		.argc=1,
+	},
+	{
+		.action=converter_x19,
+		.argc=1,
+	},
+	{
+		.action=converter_x1b,
+		.argc=1,
+	},
+	{
+		.action=converter_x1d,
+		.argc=1,
+	},
+	{
+		.action=converter_x1f,
+		.argc=1,
+	},
+	{
+		.action=converter_fe,
+		.argc=1,
+	},
+	{
+		.action=converter_fE,
+		.argc=1,
+	},
+	{
+		.action=faction_g,
+		.argc=1,
+	},
+	{
+		.action=faction_G,
+		.argc=1,
+	},
 	{NULL}
 };
-static const uint8_t wfmts_table[256]={
+static const uint8_t wfmts_table[128]={
+	['n']=255,
+	['N']=254,
 	['%']=1,
 	['f']=2,
+	['\x1a']=2,
 	['s']=3,
 	['d']=4,
 	['u']=5,
@@ -2526,6 +3046,30 @@ static const uint8_t wfmts_table[256]={
 	['o']=9,
 	['b']=10,
 	['c']=11,
+	['F']=12,
+	['a']=13,
+	['\x10']=13,
+	['\x11']=13,
+	['A']=14,
+	['B']=15,
+	['O']=16,
+	['\x12']=17,
+	['\x14']=18,
+	['\x16']=19,
+	['\x18']=20,
+	['\x1c']=21,
+	['\x1e']=22,
+	['\x13']=23,
+	['\x15']=24,
+	['\x17']=25,
+	['\x19']=26,
+	['\x1b']=27,
+	['\x1d']=28,
+	['\x1f']=29,
+	['e']=30,
+	['E']=31,
+	['g']=32,
+	['G']=33,
 };
 #define wf_trywrite(buf,sz) {\
 	r=writer(fd,(buf),(sz));\
@@ -2612,22 +3156,40 @@ reflag:
 		}
 		if(unlikely(fmt>=endp))
 			break;
-		r=wfmts_table[*(unsigned char *)fmt];
-		if(unlikely(!r))
-			break;
-		wfp=writefmts+(r-1);
-		if(!(c=wfp->argc)){
-			r=wfp->action(writer,fd,NULL,flag);
-		}else {
-			if(unlikely(arglen<c))
+		r=wfmts_table[*(unsigned char *)fmt&(unsigned char)0x7f];
+		switch(r){
+			case 0:
+				goto end;
+			case 255:
+				if(unlikely(!arglen))
+					break;
+				*(size_t *)*args=(size_t)ret;
+				--arglen;
+				++args;
 				break;
-			arglen-=c;
-			r=wfp->action(writer,fd,args,flag);
-			args+=c;
+			case 254:
+				if(unlikely(!arglen))
+					break;
+				*(double *)*args=(double)ret;
+				--arglen;
+				++args;
+				break;
+			default:
+				wfp=writefmts+(r-1);
+				if(!(c=wfp->argc)){
+					r=wfp->action(writer,fd,NULL,flag);
+				}else {
+					if(unlikely(arglen<c))
+						break;
+					arglen-=c;
+					r=wfp->action(writer,fd,args,flag);
+					args+=c;
+				}
+				if(unlikely(r<0))
+					return r;
+				ret+=r;
+				break;
 		}
-		if(unlikely(r<0))
-			return r;
-		ret+=r;
 		++fmt;
 		fmt_old=fmt;
 		continue;

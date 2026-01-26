@@ -556,8 +556,7 @@ struct expr_callback {
 
 extern const struct expr_writefmt expr_writefmts_default[];
 extern const size_t expr_writefmts_default_size;
-extern const struct expr_writefmt *expr_writefmts;
-extern uint8_t expr_writefmts_table[128];
+extern const uint8_t expr_writefmts_table_default[128];
 
 extern const struct expr_builtin_symbol expr_symbols[];
 extern const struct expr_builtin_keyword expr_keywords[];

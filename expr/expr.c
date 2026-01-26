@@ -17,6 +17,7 @@
 #define PHYSICAL_CONSTANT 0
 
 #define printval(x) warn(#x ":%lu",(unsigned long)(x))
+#define printvalx(x) warn(#x ":%lx",(unsigned long)(x))
 #define printvali(x) warn(#x ":%d",(int)(x))
 #define printvall(x) warn(#x ":%ld",(long)(x))
 #define printvald(x) warn(#x ":%lf",(double)(x))
@@ -2187,8 +2188,8 @@ struct expr_symset *expr_builtin_symbol_convert(const struct expr_builtin_symbol
 	}
 	return esp;
 }
-#define c_trywrite(buf,sz) {\
-	r=writer(fd,(buf),(sz));\
+#define c_trywrite(buf,sz) if(likely((r=(sz))>0)){\
+	r=writer(fd,(buf),r);\
 	if(unlikely(r<0))\
 		return r;\
 	sum+=r;\
@@ -2202,6 +2203,8 @@ struct expr_symset *expr_builtin_symbol_convert(const struct expr_builtin_symbol
 static ssize_t writeext(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,size_t count,int c){
 	char buf[128];
 	ssize_t r,sum;
+	if(unlikely((ssize_t)count)<=0)
+		return 0;
 	if(count<=128){
 		memset(buf,c,count);
 		return writer(fd,buf,count);
@@ -2234,7 +2237,7 @@ static ssize_t writeext(ssize_t (*writer)(intptr_t fd,const void *buf,size_t siz
 		}\
 		return sum;\
 	}\
-	return writer(fd,(_s),sz)
+	return likely(sz>0)?writer(fd,(_s),sz):0;
 static ssize_t converter_d(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){
 	char nbuf[32];
 	intptr_t val=*(const intptr_t *)arg;
@@ -3197,6 +3200,7 @@ const uint8_t expr_writefmts_table_default[128]={
 	['u']=5,
 	['\x0a']=5,
 	['x']=6,
+	['\x01']=10,
 	['X']=7,
 	['S']=8,
 	['o']=9,
@@ -3206,7 +3210,6 @@ const uint8_t expr_writefmts_table_default[128]={
 	['c']=11,
 	['F']=12,
 	['a']=13,
-	['\x10']=13,
 	['\x11']=13,
 	['A']=14,
 	['B']=15,
@@ -3349,7 +3352,7 @@ reflag:
 		}
 		if(unlikely(fmt>=endp))
 			break;
-		r=table[*(unsigned char *)fmt&(unsigned char)0x7f];
+		r=table[*(uint8_t *)fmt&(uint8_t)0x7f];
 		switch(r){
 			case 0:
 				goto end;
@@ -3439,20 +3442,54 @@ reflag:
 					fmt_dorepeat(NULL);
 					forward=0;
 				}else if(arrlen&&c==1){
-					const char *aps;
-					uintmax_t val;
+					uintptr_t aps;
+					uintmax_t val,mask;
 					if(unlikely(!arglen))
 						goto argfail;
-					aps=*args;
+					aps=(uintptr_t)*args;
 					argnext1;
+#define t_copy(T) *(T *)&val=*(T *)aps
+#define t_ocopy(T,_off) *(T *)((uintptr_t)&val+(_off))=*(T *)(aps+(_off))
+#define bit_copy(_bit) \
+	switch(_bit){\
+		case 1:\
+			t_copy(uint8_t);\
+			break;\
+		case 2:\
+			t_copy(uint16_t);\
+			break;\
+		case 3:\
+			t_copy(uint16_t);\
+			t_ocopy(uint8_t,2);\
+			break;\
+		case 4:\
+			t_copy(uint32_t);\
+			break;\
+		case 5:\
+			t_copy(uint32_t);\
+			t_ocopy(uint8_t,4);\
+			break;\
+		case 6:\
+			t_copy(uint32_t);\
+			t_ocopy(uint16_t,4);\
+			break;\
+		case 7:\
+			t_copy(uint32_t);\
+			t_ocopy(uint16_t,4);\
+			t_ocopy(uint8_t,6);\
+			break;\
+		default:\
+			__builtin_unreachable();\
+	}
 					for(;;){
 						if(arrwid<8){
-							memcpy(&val,aps,arrwid);
-							memset((uint8_t *)&val+arrwid,
-							wfp->arg_signed&&
-							(val&(0x80ul<<((arrwid-1)*8)))?
-							0xff:0
-							,8-arrwid);
+							mask=(1ul<<(arrwid*8))-1ul;
+							bit_copy(arrwid);
+							if(wfp->arg_signed&&
+							(val&(0x80ul<<((arrwid-1)*8))))
+								val=(~0ul&~mask)|(val&mask);
+							else
+								val&=mask;
 						}else
 							val=*(uint64_t *)aps;
 						fmt_once((void **)&val);

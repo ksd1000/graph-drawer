@@ -18,41 +18,7 @@
 static size_t sbsize_max=0;
 static size_t sbosize_max=0;
 ssize_t readall(int fd,void **pbuf){
-	char *buf,*p;
-	size_t bufsiz,r1;
-	ssize_t r,ret=0;
-	int i;
-	bufsiz=BUFSIZE;
-	if((buf=malloc(BUFSIZE))==NULL)return -errno;
-	//memset(buf,0,BUFSIZE);
-	//lseek(fd,0,SEEK_SET);
-	r1=0;
-	while((r=read(fd,buf+ret,BUFSIZE-r1))>0){
-		r1+=r;
-		ret+=r;
-		if(ret==bufsiz){
-			bufsiz+=BUFSIZE;
-			if((p=realloc(buf,bufsiz))==NULL){
-				i=errno;
-				free(buf);
-				return -i;
-			}
-			buf=p;
-		//	memset(buf+bufsiz-BUFSIZE,0,BUFSIZE);
-			r1=0;
-		}
-	}
-	if(ret==bufsiz){
-	if((p=realloc(buf,bufsiz+1))==NULL){
-		i=errno;
-		free(buf);
-		return -i;
-	}
-	buf=p;
-	}
-	buf[ret]=0;
-	*pbuf=buf;
-	return ret;
+	return expr_file_readfd((void *)read,fd,0,pbuf);
 }
 static int scanv(const unsigned char *data,int32_t x){
 	const unsigned char *text=data+*(int32_t *)(data+10);

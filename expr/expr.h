@@ -10,17 +10,18 @@
 #include <stdarg.h>
 #include <limits.h>
 
-#ifdef __unix__
-#include <sys/types.h>
-#else
 #ifndef _SSIZE_T_DEFINED_
 #define _SSIZE_T_DEFINED_
 typedef ptrdiff_t ssize_t;
+#else
+_Static_assert(sizeof(ssize_t)==sizeof(ptrdiff_t),"ssize_t size error");
+#endif
+
 #ifndef SSIZE_MAX
+_Static_assert(sizeof(ssize_t)==sizeof(ptrdiff_t),"ssize_t size error");
 #define SSIZE_MAX PTRDIFF_MAX
 #endif
-#endif
-#endif
+
 
 enum expr_op :int {
 EXPR_COPY=0,
@@ -100,6 +101,7 @@ EXPR_TO,
 EXPR_TO1,
 EXPR_HMD,
 EXPR_RET,
+EXPR_SVC,
 EXPR_END
 };
 
@@ -398,6 +400,7 @@ struct expr_inst {
 	union {
 		double *dst;
 		int64_t *idst;
+		intptr_t *pdst;
 		void *uaddr;
 		void **uaddr2;
 		double **dst2;
@@ -573,7 +576,210 @@ extern long expr_seed_default;
 extern const size_t expr_page_size;
 extern const size_t expr_symbols_size;
 
-long expr_syscall(long arg0,long arg1,long arg2,long arg3,long arg4,long arg5,long num);
+#define expr_internal_regvar(_name) register intptr_t _name asm(#_name)
+
+#ifndef EXPR_SYSIN
+#if defined(__aarch64__)
+#define EXPR_SYSIN "svc #0"
+#define EXPR_SYSID x8
+#define EXPR_SYSRE x0
+#define EXPR_SYSA0 x0
+#define EXPR_SYSA1 x1
+#define EXPR_SYSA2 x2
+#define EXPR_SYSA3 x3
+#define EXPR_SYSA4 x4
+#define EXPR_SYSA5 x5
+#define EXPR_SYSAM 6
+#define EXPR_SYSE0 expr_internal_regvar(x0)
+#define EXPR_SYSE1
+#define EXPR_SYSE2
+#define EXPR_SYSE3
+#define EXPR_SYSE4
+#define EXPR_SYSE5
+#define EXPR_SYSE6
+#define EXPR_SYSE7
+#elif defined(__x86_64__)
+#define EXPR_SYSIN "syscall"
+#define EXPR_SYSID rax
+#define EXPR_SYSRE rax
+#define EXPR_SYSA0 rdi
+#define EXPR_SYSA1 rsi
+#define EXPR_SYSA2 rdx
+#define EXPR_SYSA3 r10
+#define EXPR_SYSA4 r8
+#define EXPR_SYSA5 r9
+#define EXPR_SYSAM 6
+#define EXPR_SYSE0
+#define EXPR_SYSE1
+#define EXPR_SYSE2
+#define EXPR_SYSE3
+#define EXPR_SYSE4
+#define EXPR_SYSE5
+#define EXPR_SYSE6
+#define EXPR_SYSE7
+#endif
+#endif
+
+#ifdef EXPR_SYSIN
+#define expr_internal_syscall(N,num,a0,a1,a2,a3,a4,a5,a6) expr_internal_syscall_reg##N(num,a0,a1,a2,a3,a4,a5,a6,EXPR_SYSID,EXPR_SYSA0,EXPR_SYSA1,EXPR_SYSA2,EXPR_SYSA3,EXPR_SYSA4,EXPR_SYSA5,EXPR_SYSA6,EXPR_SYSRE,EXPR_SYSE0,EXPR_SYSE1,EXPR_SYSE2,EXPR_SYSE3,EXPR_SYSE4,EXPR_SYSE5,EXPR_SYSE6,EXPR_SYSE7)
+#else
+#define expr_internal_syscall(N,num,a0,a1,a2,a3,a4,a5,a6) ((intptr_t)0)
+#define EXPR_SYSAM 0
+#pragma message("internal syscall is not implemented")
+#endif
+
+#define expr_internal_syscall0(num) expr_internal_syscall(0,num,,,,,,,)
+#define expr_internal_syscall1(num,a0) expr_internal_syscall(1,num,a0,,,,,,)
+#define expr_internal_syscall2(num,a0,a1) expr_internal_syscall(2,num,a0,a1,,,,,)
+#define expr_internal_syscall3(num,a0,a1,a2) expr_internal_syscall(3,num,a0,a1,a2,,,,)
+#define expr_internal_syscall4(num,a0,a1,a2,a3) expr_internal_syscall(4,num,a0,a1,a2,a3,,,)
+#define expr_internal_syscall5(num,a0,a1,a2,a3,a4) expr_internal_syscall(5,num,a0,a1,a2,a3,a4,,)
+#define expr_internal_syscall6(num,a0,a1,a2,a3,a4,a5) expr_internal_syscall(6,num,a0,a1,a2,a3,a4,a5,)
+#define expr_internal_syscall7(num,a0,a1,a2,a3,a4,a5,a6) expr_internal_syscall(7,num,a0,a1,a2,a3,a4,a5,a6,)
+
+#define expr_internal_syscall_reg7(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ({\
+		expr_internal_regvar(ID)=(num);\
+		expr_internal_regvar(A0)=(a0);\
+		expr_internal_regvar(A1)=(a1);\
+		expr_internal_regvar(A2)=(a2);\
+		expr_internal_regvar(A3)=(a3);\
+		expr_internal_regvar(A4)=(a4);\
+		expr_internal_regvar(A5)=(a5);\
+		expr_internal_regvar(A6)=(a6);\
+		E7;\
+		asm(\
+		EXPR_SYSIN \
+		:"=r"(RE)\
+		:"r"(A0),"r"(A1),"r"(A2),"r"(A3),"r"(A4),"r"(A5),"r"(A6),"r"(ID)\
+		:"memory");\
+		RE;\
+})
+#define expr_internal_syscall_reg6(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ({\
+		expr_internal_regvar(ID)=(num);\
+		expr_internal_regvar(A0)=(a0);\
+		expr_internal_regvar(A1)=(a1);\
+		expr_internal_regvar(A2)=(a2);\
+		expr_internal_regvar(A3)=(a3);\
+		expr_internal_regvar(A4)=(a4);\
+		expr_internal_regvar(A5)=(a5);\
+		E6;\
+		asm(\
+		EXPR_SYSIN \
+		:"=r"(RE)\
+		:"r"(A0),"r"(A1),"r"(A2),"r"(A3),"r"(A4),"r"(A5),"r"(ID)\
+		:"memory");\
+		RE;\
+})
+#define expr_internal_syscall_reg5(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ({\
+		expr_internal_regvar(ID)=(num);\
+		expr_internal_regvar(A0)=(a0);\
+		expr_internal_regvar(A1)=(a1);\
+		expr_internal_regvar(A2)=(a2);\
+		expr_internal_regvar(A3)=(a3);\
+		expr_internal_regvar(A4)=(a4);\
+		E5;\
+		asm(\
+		EXPR_SYSIN \
+		:"=r"(RE)\
+		:"r"(A0),"r"(A1),"r"(A2),"r"(A3),"r"(A4),"r"(ID)\
+		:"memory");\
+		RE;\
+})
+#define expr_internal_syscall_reg4(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ({\
+		expr_internal_regvar(ID)=(num);\
+		expr_internal_regvar(A0)=(a0);\
+		expr_internal_regvar(A1)=(a1);\
+		expr_internal_regvar(A2)=(a2);\
+		expr_internal_regvar(A3)=(a3);\
+		E4;\
+		asm(\
+		EXPR_SYSIN \
+		:"=r"(RE)\
+		:"r"(A0),"r"(A1),"r"(A2),"r"(A3),"r"(ID)\
+		:"memory");\
+		RE;\
+})
+#define expr_internal_syscall_reg3(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ({\
+		expr_internal_regvar(ID)=(num);\
+		expr_internal_regvar(A0)=(a0);\
+		expr_internal_regvar(A1)=(a1);\
+		expr_internal_regvar(A2)=(a2);\
+		E3;\
+		asm(\
+		EXPR_SYSIN \
+		:"=r"(RE)\
+		:"r"(A0),"r"(A1),"r"(A2),"r"(ID)\
+		:"memory");\
+		RE;\
+})
+#define expr_internal_syscall_reg2(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ({\
+		expr_internal_regvar(ID)=(num);\
+		expr_internal_regvar(A0)=(a0);\
+		expr_internal_regvar(A1)=(a1);\
+		E2;\
+		asm(\
+		EXPR_SYSIN \
+		:"=r"(RE)\
+		:"r"(A0),"r"(A1),"r"(ID)\
+		:"memory");\
+		RE;\
+})
+#define expr_internal_syscall_reg1(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ({\
+		expr_internal_regvar(ID)=(num);\
+		expr_internal_regvar(A0)=(a0);\
+		E1;\
+		asm(\
+		EXPR_SYSIN \
+		:"=r"(RE)\
+		:"r"(A0),"r"(ID)\
+		:"memory");\
+		RE;\
+})
+#define expr_internal_syscall_reg0(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ({\
+		expr_internal_regvar(ID)=(num);\
+		E0;\
+		asm(\
+		EXPR_SYSIN \
+		:"=r"(RE)\
+		:"r"(ID)\
+		:"memory");\
+		RE;\
+})
+
+#define expr_internal_syscall_ncase_inswitch0(dest,num,a0,a1,a2,a3,a4,a5,a6) case 0:(dest)=expr_internal_syscall0(num);break
+#define expr_internal_syscall_ncase_inswitch1(dest,num,a0,a1,a2,a3,a4,a5,a6) case 1:(dest)=expr_internal_syscall1(num,a0);break
+#define expr_internal_syscall_ncase_inswitch2(dest,num,a0,a1,a2,a3,a4,a5,a6) case 2:(dest)=expr_internal_syscall2(num,a0,a1);break
+#define expr_internal_syscall_ncase_inswitch3(dest,num,a0,a1,a2,a3,a4,a5,a6) case 3:(dest)=expr_internal_syscall3(num,a0,a1,a2);break
+#define expr_internal_syscall_ncase_inswitch4(dest,num,a0,a1,a2,a3,a4,a5,a6) case 4:(dest)=expr_internal_syscall4(num,a0,a1,a2,a3);break
+#define expr_internal_syscall_ncase_inswitch5(dest,num,a0,a1,a2,a3,a4,a5,a6) case 5:(dest)=expr_internal_syscall5(num,a0,a1,a2,a3,a4);break
+#define expr_internal_syscall_ncase_inswitch6(dest,num,a0,a1,a2,a3,a4,a5,a6) case 6:(dest)=expr_internal_syscall6(num,a0,a1,a2,a3,a4,a5);break
+#define expr_internal_syscall_ncase_inswitch7(dest,num,a0,a1,a2,a3,a4,a5,a6) case 7:(dest)=expr_internal_syscall7(num,a0,a1,a2,a3,a4,a5,a6);break
+#if (EXPR_SYSAM==0)
+#define expr_internal_syscall_ncase_inswitch(dest,num,a0,a1,a2,a3,a4,a5,a6) expr_internal_syscall_ncase_inswitch0(dest,num,a0,a1,a2,a3,a4,a5,a6)
+#elif (EXPR_SYSAM==1)
+#define expr_internal_syscall_ncase_inswitch(dest,num,a0,a1,a2,a3,a4,a5,a6) expr_internal_syscall_ncase_inswitch0(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch1(dest,num,a0,a1,a2,a3,a4,a5,a6)
+#elif (EXPR_SYSAM==2)
+#define expr_internal_syscall_ncase_inswitch(dest,num,a0,a1,a2,a3,a4,a5,a6) expr_internal_syscall_ncase_inswitch0(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch1(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch2(dest,num,a0,a1,a2,a3,a4,a5,a6)
+#elif (EXPR_SYSAM==3)
+#define expr_internal_syscall_ncase_inswitch(dest,num,a0,a1,a2,a3,a4,a5,a6) expr_internal_syscall_ncase_inswitch0(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch1(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch2(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch3(dest,num,a0,a1,a2,a3,a4,a5,a6)
+#elif (EXPR_SYSAM==4)
+#define expr_internal_syscall_ncase_inswitch(dest,num,a0,a1,a2,a3,a4,a5,a6) expr_internal_syscall_ncase_inswitch0(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch1(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch2(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch3(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch4(dest,num,a0,a1,a2,a3,a4,a5,a6)
+#elif (EXPR_SYSAM==5)
+#define expr_internal_syscall_ncase_inswitch(dest,num,a0,a1,a2,a3,a4,a5,a6) expr_internal_syscall_ncase_inswitch0(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch1(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch2(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch3(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch4(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch5(dest,num,a0,a1,a2,a3,a4,a5,a6)
+#elif (EXPR_SYSAM==6)
+#define expr_internal_syscall_ncase_inswitch(dest,num,a0,a1,a2,a3,a4,a5,a6) expr_internal_syscall_ncase_inswitch0(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch1(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch2(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch3(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch4(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch5(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch6(dest,num,a0,a1,a2,a3,a4,a5,a6)
+#elif (EXPR_SYSAM==7)
+#define expr_internal_syscall_ncase_inswitch(dest,num,a0,a1,a2,a3,a4,a5,a6) expr_internal_syscall_ncase_inswitch0(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch1(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch2(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch3(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch4(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch5(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch6(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch7(dest,num,a0,a1,a2,a3,a4,a5,a6)
+#else
+#define expr_internal_syscall_ncase_inswitch(dest,num,a0,a1,a2,a3,a4,a5,a6) ((intptr_t)0)
+#pragma message("only 0-7 arguments syscall is supported")
+#endif
+#define expr_internal_syscall_eval(dest,N,num,a0,a1,a2,a3,a4,a5,a6) ({\
+	switch(N){\
+		expr_internal_syscall_ncase_inswitch(dest,num,a0,a1,a2,a3,a4,a5,a6);\
+		__builtin_unreachable();\
+	}\
+})
 const char *expr_error(int error);
 uint64_t expr_gcd64(uint64_t x,uint64_t y);
 double expr_gcd2(double x,double y);
@@ -602,6 +808,14 @@ int expr_mutex_trylock(uint32_t *lock);
 void expr_mutex_unlock(uint32_t *lock);
 void expr_mutex_spinlock(uint32_t *lock);
 void expr_mutex_spinunlock(uint32_t *lock);
+intptr_t expr_warped_syscall0(int num);
+intptr_t expr_warped_syscall1(int num,intptr_t a0);
+intptr_t expr_warped_syscall2(int num,intptr_t a0,intptr_t a1);
+intptr_t expr_warped_syscall3(int num,intptr_t a0,intptr_t a1,intptr_t a2);
+intptr_t expr_warped_syscall4(int num,intptr_t a0,intptr_t a1,intptr_t a2,intptr_t a3);
+intptr_t expr_warped_syscall5(int num,intptr_t a0,intptr_t a1,intptr_t a2,intptr_t a3,intptr_t a4);
+intptr_t expr_warped_syscall6(int num,intptr_t a0,intptr_t a1,intptr_t a2,intptr_t a3,intptr_t a4,intptr_t a5);
+intptr_t expr_warped_syscall7(int num,intptr_t a0,intptr_t a1,intptr_t a2,intptr_t a3,intptr_t a4,intptr_t a5,intptr_t a6);
 double expr_multilevel_derivate(const struct expr *ep,double input,long level,double epsilon);
 const struct expr_builtin_symbol *expr_builtin_symbol_search(const struct expr_builtin_symbol *syms,const char *sym,size_t sz);
 const struct expr_builtin_symbol *expr_builtin_symbol_rsearch(const struct expr_builtin_symbol *syms,void *addr);
@@ -628,6 +842,7 @@ ssize_t expr_symset_write(const struct expr_symset *restrict esp,ssize_t (*write
 ssize_t expr_symset_write_s(const struct expr_symset *restrict esp,ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *stack);
 ssize_t expr_symset_read(struct expr_symset *restrict esp,const void *buf,size_t size);
 ssize_t expr_symset_readfd(struct expr_symset *restrict esp,ssize_t (*reader)(intptr_t fd,void *buf,size_t size),intptr_t fd);
+ssize_t expr_file_readfd(ssize_t (*reader)(intptr_t fd,void *buf,size_t size),intptr_t fd,size_t tail,void *savep);
 struct expr_symbol **expr_symset_findtail(struct expr_symset *restrict esp,const char *sym,size_t symlen,size_t *depth);
 struct expr_symbol *expr_symbol_create(const char *sym,int type,int flag,...);
 struct expr_symbol *expr_symbol_createl(const char *sym,size_t symlen,int type,int flag,...);

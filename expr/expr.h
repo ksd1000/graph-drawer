@@ -334,6 +334,18 @@ struct expr_libinfo {
 	const char *date;
 	const char *time;
 };
+struct expr_writefmt {
+	ssize_t (*action)(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag);
+	uint8_t argc,arg_signed;
+	uint8_t unused[6];
+};
+struct expr_writeflag {
+#if (!defined(__BIG_ENDIAN__)||!__BIG_ENDIAN__)
+	uint64_t width:29,digit:29,eq:1,zero:1,sharp:1,minus:1,space:1,plus:1;
+#else
+	uint64_t plus:1,space:1,minus:1,sharp:1,zero:1,eq:1,digit:29,width:29;
+#endif
+};
 struct expr;
 struct expr_symset;
 struct expr_suminfo {
@@ -541,6 +553,11 @@ struct expr_callback {
 	void (*after)(const struct expr *restrict ep,struct expr_inst *ip,void *arg);
 	void *arg;
 };
+
+extern const struct expr_writefmt expr_writefmts_default[];
+extern const size_t expr_writefmts_default_size;
+extern const struct expr_writefmt *expr_writefmts;
+extern uint8_t expr_writefmts_table[128];
 
 extern const struct expr_builtin_symbol expr_symbols[];
 extern const struct expr_builtin_keyword expr_keywords[];

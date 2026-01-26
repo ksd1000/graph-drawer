@@ -2217,9 +2217,12 @@ static ssize_t writeext(ssize_t (*writer)(intptr_t fd,const void *buf,size_t siz
 	}
 	return sum;
 }
+#define flag_width(_f) ((_f)&0x1ffffffful)
+#define flag_digit(_f) (((_f)>>29ul)&0x1ffffffful)
+#define DIGIT_DEFAULT 0x1ffffffful
 #define cwrite_common(_s,_sz) \
 	sz=(_sz);\
-	ext=(ssize_t)(flag&0x1ffffffful)-sz;\
+	ext=(ssize_t)flag_width(flag)-sz;\
 	if(ext>0){\
 		sum=0;\
 		if(flag&(1ul<<61ul)){\
@@ -2270,7 +2273,7 @@ static ssize_t converter_d(ssize_t (*writer)(intptr_t fd,const void *buf,size_t 
 	}
 	cwrite_common(p,endp-p);
 }
-#define conv_x(name,base,conv_str,add0x,bufsz) \
+#define conv_x(name,base,conv_str,bufsz) \
 static ssize_t converter_##name(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){\
 	char nbuf[bufsz];\
 	uintptr_t val=*(const uintptr_t *)arg;\
@@ -2288,7 +2291,7 @@ static ssize_t converter_##name(ssize_t (*writer)(intptr_t fd,const void *buf,si
 		positive=0;\
 		*(--p)='0';\
 	}\
-	if(add0x){\
+	if(base==16){\
 		if(flag&(1ul<<60ul)){\
 			*(--p)=conv_str[base];\
 			*(--p)='0';\
@@ -2310,11 +2313,22 @@ static ssize_t converter_##name(ssize_t (*writer)(intptr_t fd,const void *buf,si
 }
 static const char conv_btox[]={"0123456789abcdefx"};
 static const char conv_btoX[]={"0123456789ABCDEFX"};
-conv_x(u,10,conv_btox,0,32);
-conv_x(o,8,conv_btox,0,32);
-conv_x(b,2,conv_btox,0,72);
-conv_x(x,16,conv_btox,1,32);
-conv_x(X,16,conv_btoX,1,32);
+conv_x(u,10,conv_btox,32);
+conv_x(o,8,conv_btox,32);
+conv_x(b,2,conv_btox,72);
+conv_x(x,16,conv_btox,32);
+conv_x(X,16,conv_btoX,32);
+conv_x(x03,3,conv_btox,48);
+conv_x(x04,4,conv_btox,48);
+conv_x(x05,5,conv_btox,32);
+conv_x(x06,6,conv_btox,32);
+conv_x(x07,7,conv_btox,32);
+conv_x(x09,9,conv_btox,32);
+conv_x(x0b,11,conv_btox,32);
+conv_x(x0c,12,conv_btox,32);
+conv_x(x0d,13,conv_btox,32);
+conv_x(x0e,14,conv_btox,32);
+conv_x(x0f,15,conv_btox,32);
 static size_t extint_left(uint64_t *buf,size_t size,uint64_t bits){
 	uint64_t b64=bits/64;
 	size_t rsize=size;
@@ -2564,8 +2578,10 @@ static ssize_t converter_##_name(ssize_t (*writer)(intptr_t fd,const void *buf,s
 	ds=p-nbuf;\
 	f61=!!(flag&(1ul<<61ul));\
 	f58=!!(flag&(1ul<<58ul));\
-	digit=(flag>>29ul)&0x1ffffffful;\
-	width=flag&0x1ffffffful;\
+	digit=flag_digit(flag);\
+	if(digit==DIGIT_DEFAULT)\
+		digit=6;\
+	width=flag_width(flag);\
 	if(digit){\
 		fsz=(ssize_t)EXPR_EDEXP(&val);\
 		if(fsz)\
@@ -2623,7 +2639,7 @@ static ssize_t converter_##_name(ssize_t (*writer)(intptr_t fd,const void *buf,s
 	}\
 	if(fsz==1)\
 		fsz=0;\
-	sz=ds+(f58?fsz:digit);\
+	sz=ds+(f58?fsz:ext);\
 )
 #define conv_fe(_name,_base,_lnbase,_conv_str,_shift,_nsize,_inf,_nan,_e) conv_f0(_name,_base,_lnbase,_conv_str,_shift,_nsize,_inf,_nan,\
 	if(r1<0){\
@@ -2639,7 +2655,8 @@ static ssize_t converter_##_name(ssize_t (*writer)(intptr_t fd,const void *buf,s
 	}else {\
 		++firp;\
 		c_trywrite(nbuf,firp-nbuf);\
-		c_trywrite(".",1);\
+		if(digit)\
+			c_trywrite(".",1);\
 		r1=(nbuf+ds)-firp-iz;\
 		if(r1>=digit){\
 			ext=0;\
@@ -2744,7 +2761,7 @@ onzero:\
 	if(endp>ebuf+2)\
 		extint_mirror(ebuf+2,endp-(ebuf+1));\
 	esz=sz;\
-	sz+=ds+(f58?fsz:digit);\
+	sz+=ds+(f58?fsz+!!digit:digit);\
 	if(!fsz)\
 		++sz;\
 	for(iz=0,endp=nbuf+ds;--endp>nbuf;){\
@@ -2754,6 +2771,8 @@ onzero:\
 			break;\
 	}\
 	sz-=iz;\
+	if(!digit)\
+		--sz;\
 })
 #define writeext_f \
 	ext=(ssize_t)width-sz;\
@@ -2862,41 +2881,109 @@ conv_fe(fE,10,M_LN10,conv_btox,ival_mul5p,nbuf_size(308),"inf","nan",'E');
 #undef iival
 #undef workspace
 static ssize_t faction_s(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){
-	size_t len=strlen(*arg);
+	size_t len;
 	ssize_t r,sum,ext,sz;
+	uint64_t digit=flag_digit(flag);
+	if(unlikely(!*arg)){
+		cwrite_common("(null)",6);
+	}
+	len=(digit!=DIGIT_DEFAULT)?strnlen(*arg,digit):strlen(*arg);
 	cwrite_common(*arg,(ssize_t)len);
 }
 static ssize_t faction_S(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){
 	size_t len=*(const size_t *)(arg+1);
 	ssize_t r,sum,ext,sz;
+	uint64_t digit=flag_digit(flag);
+	if(digit!=DIGIT_DEFAULT&&digit<len)
+		len=digit;
 	cwrite_common(*arg,(ssize_t)len);
 }
+#define faction_hexdump(name,conv_str) \
+static ssize_t faction_##name(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){\
+	size_t len=*(const size_t *)(arg+1);\
+	ssize_t r,sum,ext;\
+	uint8_t buf[960];\
+	uint8_t *p,*endp,*datap;\
+	uint8_t data;\
+	int f61=!!(flag&(1ul<<61ul)),f60=!!(flag&(1ul<<60ul)),f63=!!(flag&(1ul<<63ul));\
+	ext=(ssize_t)flag_width(flag)-(f60?4:2)*(ssize_t)len;\
+	if(f63&&len>1)\
+		ext-=(ssize_t)(len-1);\
+	sum=0;\
+	if(!f61&&ext>0){\
+		c_trywriteext((flag&(1ul<<59ul))?'0':' ',ext);\
+	}\
+	if(len){\
+		p=buf;\
+		endp=buf+sizeof(buf);\
+		for(datap=*arg;;){\
+			data=*datap;\
+			if(f60){\
+				*(p++)='0';\
+				*(p++)=conv_str[16];\
+			}\
+			*(p++)=conv_str[data>>4];\
+			*(p++)=conv_str[data&15];\
+			if(f63&&likely(len>1))\
+				*(p++)=',';\
+			if(unlikely(!--len))\
+				break;\
+			if(unlikely(p>=endp)){\
+				c_trywrite(buf,sizeof(buf));\
+				p=buf;\
+			}\
+			++datap;\
+		}\
+		if(likely(p>buf)){\
+			c_trywrite(buf,p-buf);\
+		}\
+	}\
+	if(f61&&ext>0){\
+		c_trywriteext((flag&(1ul<<59ul))?'0':' ',ext);\
+	}\
+	return sum;\
+}
+faction_hexdump(h,conv_btox);
+faction_hexdump(H,conv_btoX);
 static ssize_t faction_c(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){
 #if (!defined(__BIG_ENDIAN__)||!__BIG_ENDIAN__)
 	return writer(fd,arg,1);
 #else
-	return writer(fd,(uint8_t *)arg+(sizeof(void *)-1),1);
+	return writer(fd,(const uint8_t *)arg+(sizeof(void *)-1),1);
 #endif
+}
+static inline uint64_t flag2digit(uint64_t flag){
+	flag=flag_digit(flag);
+	return flag==DIGIT_DEFAULT?6:flag;
 }
 static ssize_t faction_g(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){
 	double val=fabs(*(const double *)arg),vl;
-	return ((val==0.0||((vl=log(val)/log(10))>=-4&&vl<((flag>>29ul)&0x1ffffffful)))?
+	return ((val==0.0||((vl=log(val)/log(10))>=-4&&vl<flag2digit(flag)))?
 	converter_f:converter_fe)(writer,fd,arg,flag|(1ul<<58ul));
 }
 static ssize_t faction_G(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){
 	double val=fabs(*(const double *)arg),vl;
-	return ((val==0.0||((vl=log(val)/log(10))>=-4&&vl<((flag>>29ul)&0x1ffffffful)))?
+	return ((val==0.0||((vl=log(val)/log(10))>=-4&&vl<flag2digit(flag)))?
 	converter_f:converter_fE)(writer,fd,arg,flag|(1ul<<58ul));
+}
+static ssize_t faction_p(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){
+	if(!*arg){
+		ssize_t r,sum,ext,sz;
+		cwrite_common("null",4l);
+	}
+	return converter_x(writer,fd,arg,flag|(1ul<<60ul));
+}
+static ssize_t faction_P(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){
+	if(!*arg){
+		ssize_t r,sum,ext,sz;
+		cwrite_common("NULL",4l);
+	}
+	return converter_X(writer,fd,arg,flag|(1ul<<60ul));
 }
 static ssize_t faction_percent(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){
 	return writer(fd,"%",1);
 }
-typedef ssize_t (*fmt_handler)(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag);
-struct expr_writefmt {
-	fmt_handler action;
-	size_t argc;
-};
-static const struct expr_writefmt writefmts[]={
+const struct expr_writefmt expr_writefmts_default[]={
 	{
 		.action=faction_percent,
 		.argc=0,
@@ -2912,6 +2999,7 @@ static const struct expr_writefmt writefmts[]={
 	{
 		.action=converter_d,
 		.argc=1,
+		.arg_signed=1,
 	},
 	{
 		.action=converter_u,
@@ -3029,22 +3117,93 @@ static const struct expr_writefmt writefmts[]={
 		.action=faction_G,
 		.argc=1,
 	},
-	{NULL}
+	{
+		.action=faction_p,
+		.argc=1,
+	},
+	{
+		.action=faction_P,
+		.argc=1,
+	},
+	{
+		.action=converter_x03,
+		.argc=1,
+	},
+	{
+		.action=converter_x04,
+		.argc=1,
+	},
+	{
+		.action=converter_x05,
+		.argc=1,
+	},
+	{
+		.action=converter_x06,
+		.argc=1,
+	},
+	{
+		.action=converter_x07,
+		.argc=1,
+	},
+	{
+		.action=converter_x09,
+		.argc=1,
+	},
+	{
+		.action=converter_x0b,
+		.argc=1,
+	},
+	{
+		.action=converter_x0c,
+		.argc=1,
+	},
+	{
+		.action=converter_x0d,
+		.argc=1,
+	},
+	{
+		.action=converter_x0e,
+		.argc=1,
+	},
+	{
+		.action=converter_x0f,
+		.argc=1,
+	},
+	{
+		.action=faction_h,
+		.argc=2,
+	},
+	{
+		.action=faction_H,
+		.argc=2,
+	},
 };
-static const uint8_t wfmts_table[128]={
+const size_t expr_writefmts_default_size=arrsize(expr_writefmts_default);
+const struct expr_writefmt *expr_writefmts=expr_writefmts_default;
+uint8_t expr_writefmts_table[128]={
 	['n']=255,
 	['N']=254,
+	['r']=253,
+	['l']=252,
+	['L']=251,
+	['T']=250,
+	['t']=249,
+	['k']=248,
+	['q']=0,
 	['%']=1,
 	['f']=2,
 	['\x1a']=2,
 	['s']=3,
 	['d']=4,
 	['u']=5,
+	['\x0a']=5,
 	['x']=6,
 	['X']=7,
 	['S']=8,
 	['o']=9,
+	['\x08']=9,
 	['b']=10,
+	['\x02']=10,
 	['c']=11,
 	['F']=12,
 	['a']=13,
@@ -3070,6 +3229,21 @@ static const uint8_t wfmts_table[128]={
 	['E']=31,
 	['g']=32,
 	['G']=33,
+	['p']=34,
+	['P']=35,
+	['\x03']=36,
+	['\x04']=37,
+	['\x05']=38,
+	['\x06']=39,
+	['\x07']=40,
+	['\x09']=41,
+	['\x0b']=42,
+	['\x0c']=43,
+	['\x0d']=44,
+	['\x0e']=45,
+	['\x0f']=46,
+	['h']=47,
+	['H']=48,
 };
 #define wf_trywrite(buf,sz) {\
 	r=writer(fd,(buf),(sz));\
@@ -3090,6 +3264,11 @@ ssize_t expr_writef(const char *fmt,size_t fmtlen,ssize_t (*writer)(intptr_t fd,
 	ssize_t r,ret=0,c;
 	const struct expr_writefmt *wfp;
 	uint64_t flag,v;
+	const char *delim=NULL,*tail=NULL;
+	size_t delimsz=0,tailsz=0,arrlen=0;
+	uint32_t loop=0;
+	uint8_t ac_prev[256];
+	uint8_t aci=0,i,forward=0,arrwid=0;
 	if(unlikely(endp<=fmt||!check_no_number(endp[-1])))
 		return 0;
 	for(;;){
@@ -3128,66 +3307,172 @@ reflag:
 				flag|=1ul<<60ul;
 				fmt_inc_check;
 				goto reflag;
-			case 'z':
+			case '0':
 				flag|=1ul<<59ul;
 				fmt_inc_check;
 				goto reflag;
-			case '*':
+			case '=':
 				flag|=1ul<<58ul;
 				fmt_inc_check;
 				goto reflag;
 			default:
 				break;
 		}
-		fmt_old=fmt;
-		v=strtol(fmt,(char **)&fmt,10);
+#define argnext1 --arglen;++args;ac_prev[aci++]=1
+#define argnext(N) if(unlikely(arglen<(N)))goto argfail;arglen-=(N);args+=(N);ac_prev[aci++]=(N)
+#define argback(N) for(uint8_t n=(N);n;--n){i=ac_prev[--aci];arglen+=i;args-=i;}
+#define argunback(N) for(uint8_t n=(N);n;--n){i=ac_prev[++aci];if(unlikely(arglen<i))goto argfail;arglen-=i;args+=i;}
+#define get_next_arg64 \
+		fmt_old=fmt;\
+		if(*fmt=='*'){\
+			if(unlikely(!arglen))\
+				goto argfail;\
+			v=*(const uint64_t *)args;\
+			fmt_inc_check;\
+			argnext1;\
+		}else\
+			v=strtol(fmt,(char **)&fmt,10)
+		get_next_arg64;
 		if(fmt>fmt_old){
 			flag|=v&0x1ffffffful;
 		}
 		if(*fmt=='.'){
 			fmt_inc_check;
-			fmt_old=fmt;
-			v=strtol(fmt,(char **)&fmt,10);
+			get_next_arg64;
 			if(fmt>fmt_old){
 				flag|=(v&0x1ffffffful)<<29ul;
 			}
 		}else {
-				flag|=6ul<<29ul;
+				flag|=DIGIT_DEFAULT<<29ul;
 		}
 		if(unlikely(fmt>=endp))
 			break;
-		r=wfmts_table[*(unsigned char *)fmt&(unsigned char)0x7f];
+		r=expr_writefmts_table[*(unsigned char *)fmt&(unsigned char)0x7f];
 		switch(r){
 			case 0:
 				goto end;
 			case 255:
 				if(unlikely(!arglen))
-					break;
+					goto argfail;
 				*(size_t *)*args=(size_t)ret;
-				--arglen;
-				++args;
+				argnext1;
 				break;
 			case 254:
 				if(unlikely(!arglen))
-					break;
+					goto argfail;
 				*(double *)*args=(double)ret;
-				--arglen;
-				++args;
+				argnext1;
 				break;
-			default:
-				wfp=writefmts+(r-1);
-				if(!(c=wfp->argc)){
-					r=wfp->action(writer,fd,NULL,flag);
+			case 253:
+				v=flag_width(flag);
+				if(!v)
+					v=1;
+				if(flag&1ul<<61ul){
+					argunback(v);
 				}else {
-					if(unlikely(arglen<c))
-						break;
-					arglen-=c;
-					r=wfp->action(writer,fd,args,flag);
-					args+=c;
+					argback(v);
 				}
-				if(unlikely(r<0))
-					return r;
-				ret+=r;
+				break;
+			case 252:
+				loop=flag_width(flag);
+				break;
+			case 251:
+				loop=flag_width(flag);
+				forward=1;
+				break;
+			case 250:
+#define setdlm(dlm,dsz) \
+				dsz=flag_width(flag);\
+				if(dsz){\
+					const char *d1;\
+					dlm=fmt+1;\
+					d1=dlm+dsz;\
+					if(unlikely(d1>=endp||d1<dlm))\
+						goto argfail;\
+					fmt+=dsz;\
+				}
+				setdlm(delim,delimsz);
+				break;
+			case 249:
+				setdlm(tail,tailsz);
+				break;
+			case 248:
+				arrlen=flag_digit(flag);
+				if(unlikely(arrlen>8||!arglen))
+					goto argfail;
+				arrwid=(arrlen==DIGIT_DEFAULT?8:arrlen);
+				arrlen=flag_width(flag);
+				break;
+#define fmt_repeat if(!loop)loop=1;for(;loop;--loop)
+#define fmt_once(_arg) \
+	r=wfp->action(writer,fd,(_arg),flag);\
+	if(unlikely(r<0))\
+		return r;\
+	ret+=r
+#define fmt_dorepeat(_arg) \
+	fmt_repeat {\
+		if(!__builtin_constant_p(_arg)){\
+			if(forward){\
+				if(unlikely(arglen<c))\
+					goto argfail;\
+			}\
+		}\
+		fmt_once(_arg);\
+		if(tailsz){\
+			wf_trywrite(tail,tailsz);\
+		}\
+		if(delimsz&&loop>1){\
+			wf_trywrite(delim,delimsz);\
+		}\
+		if(!__builtin_constant_p(_arg)){\
+			if(forward){\
+				argnext(c);\
+			}\
+		}\
+	}
+			default:
+				wfp=expr_writefmts+(r-1);
+				
+				if(!(c=wfp->argc)){
+					fmt_dorepeat(NULL);
+					forward=0;
+				}else if(arrlen&&c==1){
+					const char *aps;
+					uintmax_t val;
+					if(unlikely(!arglen))
+						goto argfail;
+					aps=*args;
+					argnext1;
+					for(;;){
+						if(arrwid<8){
+							memcpy(&val,aps,arrwid);
+							memset((uint8_t *)&val+arrwid,
+							wfp->arg_signed&&
+							(val&(0x80ul<<((arrwid-1)*8)))?
+							0xff:0
+							,8-arrwid);
+						}else
+							val=*(uint64_t *)aps;
+						fmt_once((void **)&val);
+						if(tailsz){
+							wf_trywrite(tail,tailsz);
+						}
+						if(delimsz&&arrlen>1){
+							wf_trywrite(delim,delimsz);
+						}
+						if(unlikely(!--arrlen))
+							break;
+						aps+=arrwid;
+					}
+				}else {
+					if(!forward&&unlikely(arglen<c))
+						goto argfail;
+					fmt_dorepeat(args);
+					if(!forward){
+						argnext(c);
+					}else
+						forward=0;
+				}
 				break;
 		}
 		++fmt;
@@ -3196,6 +3481,8 @@ reflag:
 	}
 end:
 	return ret;
+argfail:
+	return 0;
 }
 size_t expr_strscan(const char *s,size_t sz,char *restrict buf,size_t outsz){
 	const char *p,*s1,*endp=s+sz;
@@ -3520,6 +3807,7 @@ static struct expr_inst *expr_addconst(struct expr *restrict ep,double *dst,doub
 	return expr_addop(ep,dst,cast(val,void *),EXPR_CONST,0);
 }
 static struct expr_inst *expr_addconst_i(struct expr *restrict ep,double *dst,double val){
+//	the address of a variable may be used so it cannot be optimized out.
 	return expr_addop(ep,dst,cast(val,void *),EXPR_CONST,EXPR_SF_INJECTION);
 }
 static struct expr_inst *expr_addalo(struct expr *restrict ep,double *dst,size_t zu){

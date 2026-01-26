@@ -3179,8 +3179,7 @@ const struct expr_writefmt expr_writefmts_default[]={
 	},
 };
 const size_t expr_writefmts_default_size=arrsize(expr_writefmts_default);
-const struct expr_writefmt *expr_writefmts=expr_writefmts_default;
-uint8_t expr_writefmts_table[128]={
+const uint8_t expr_writefmts_table_default[128]={
 	['n']=255,
 	['N']=254,
 	['r']=253,
@@ -3260,6 +3259,9 @@ static int check_no_number(int c){
 	return p==buf;
 }
 ssize_t expr_writef(const char *fmt,size_t fmtlen,ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *args,size_t arglen){
+	return expr_writef_r(fmt,fmtlen,writer,fd,args,arglen,expr_writefmts_default,expr_writefmts_table_default);
+}
+ssize_t expr_writef_r(const char *fmt,size_t fmtlen,ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *args,size_t arglen,const struct expr_writefmt *fmts,const uint8_t *table){
 	const char *endp=fmt+fmtlen,*fmt_old=fmt;
 	ssize_t r,ret=0,c;
 	const struct expr_writefmt *wfp;
@@ -3347,7 +3349,7 @@ reflag:
 		}
 		if(unlikely(fmt>=endp))
 			break;
-		r=expr_writefmts_table[*(unsigned char *)fmt&(unsigned char)0x7f];
+		r=table[*(unsigned char *)fmt&(unsigned char)0x7f];
 		switch(r){
 			case 0:
 				goto end;
@@ -3431,7 +3433,7 @@ reflag:
 		}\
 	}
 			default:
-				wfp=expr_writefmts+(r-1);
+				wfp=fmts+(r-1);
 				
 				if(!(c=wfp->argc)){
 					fmt_dorepeat(NULL);

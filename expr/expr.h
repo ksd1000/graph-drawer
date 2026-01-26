@@ -556,8 +556,7 @@ struct expr_callback {
 
 extern const struct expr_writefmt expr_writefmts_default[];
 extern const size_t expr_writefmts_default_size;
-extern const struct expr_writefmt *expr_writefmts;
-extern uint8_t expr_writefmts_table[128];
+extern const uint8_t expr_writefmts_table_default[128];
 
 extern const struct expr_builtin_symbol expr_symbols[];
 extern const struct expr_builtin_keyword expr_keywords[];
@@ -611,6 +610,7 @@ size_t expr_builtin_symbol_addall(struct expr_symset *restrict esp,const struct 
 struct expr_symset *expr_builtin_symbol_convert(const struct expr_builtin_symbol *syms);
 size_t extint_right(uint64_t *buf,size_t size,uint64_t bits);
 ssize_t expr_writef(const char *fmt,size_t fmtlen,ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *args,size_t arglen);
+ssize_t expr_writef_r(const char *fmt,size_t fmtlen,ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *args,size_t arglen,const struct expr_writefmt *fmts,const uint8_t *table);
 size_t expr_strscan(const char *s,size_t sz,char *restrict buf,size_t outsz);
 char *expr_astrscan(const char *s,size_t sz,size_t *restrict outsz);
 void expr_free(struct expr *restrict ep);

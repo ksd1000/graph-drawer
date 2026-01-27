@@ -4899,6 +4899,7 @@ static double *getvalue(struct expr *restrict ep,const char *e,const char *endp,
 		struct expr_symset *esp;
 		struct expr_symbol *ebp;
 		size_t sz;
+		int flag;
 	} un;
 	union {
 		const struct expr_symbol *es;
@@ -5501,12 +5502,26 @@ found2:
 				if(unlikely(ep->error))
 					return NULL;
 				flag=(int)un.v;
+				if(flag&EXPR_IF_UNSAFE)
+					setunsafe(ep);
 				flag&=EXPR_IF_SETABLE;
 				type=ep->iflag;
-				if(unlikely((type&EXPR_IF_PROTECT)&&(type&EXPR_IF_SETABLE&~flag))){
-					seterr(ep,EXPR_EPM);
-					serrinfo(ep->errinfo,"flag",mincc(4,EXPR_SYMLEN));
-					return NULL;
+				un.flag=type;
+				if(type&EXPR_IF_PROTECT){
+					if(flag==(type&~EXPR_IF_PROTECT)){
+						if(likely(type&EXPR_IF_UNSAFE)){
+							type&=~EXPR_IF_PROTECT;
+						}else {
+							goto flpm;
+						}
+					}else {
+						if(unlikely(type&EXPR_IF_SETABLE&~flag)){
+flpm:
+							seterr(ep,EXPR_EPM);
+							serrinfo(ep->errinfo,"flag",mincc(4,EXPR_SYMLEN));
+							return NULL;
+						}
+					}
 				}
 				ep->iflag=(type&~EXPR_IF_SETABLE)|flag;
 				++p;
@@ -5515,7 +5530,7 @@ found2:
 					if(unlikely(!v0))
 						return NULL;
 					e=p2+1;
-					ep->iflag=type;
+					ep->iflag=un.flag;
 				}else {
 					v0=EXPR_VOID;
 					e=p;

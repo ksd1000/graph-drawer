@@ -14,6 +14,7 @@ void show(const struct expr_libinfo *el){
 	fprintf(stdout,"platform:%s\n",el->platform);
 	fprintf(stdout,"compiled date:%s\n",el->date);
 	fprintf(stdout,"compiled time:%s\n",el->time);
+	fprintf(stdout,"license:%s\n",el->license);
 }
 size_t all=0;
 #ifdef __unix__

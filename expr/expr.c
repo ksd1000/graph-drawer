@@ -330,12 +330,6 @@
 })
 #define not(_x) xor2(9007199254740991.0/* 2^53-1*/,(_x))
 #pragma GCC diagnostic pop
-struct expr_jmpbuf {
-	struct expr_inst **ipp;
-	struct expr_inst *ip;
-	double val;
-	jmp_buf jb;
-};
 static const char *eerror[]={
 	[0]="Unknown error",
 	[EXPR_ESYMBOL]="Unknown symbol",
@@ -428,6 +422,23 @@ static inline void *xrealloc_ff(void *old,size_t size){
 		return NULL;
 	}
 	return r;
+}
+static inline void *xautoadd(void **restrict old,size_t *restrict size,size_t *restrict length,size_t n,size_t extend){
+	void *r;
+	size_t old_size=*size,new_length;
+	if(old_size<*length){
+		++(*size);
+		return (uint8_t *)*old+old_size*n;
+	}
+	new_length=*length+extend;
+	r=xrealloc(*old,new_length*n);
+	if(unlikely(!r)){
+		return NULL;
+	}
+	*old=r;
+	*length=new_length;
+	++(*size);
+	return (uint8_t *)r+old_size*n;
 }
 static inline void xfree_stack(void **restrict p){
 	if(!*p)
@@ -1186,6 +1197,15 @@ static double expr_new(double x){
 	un.r=xmalloc((size_t)fabs(x)*sizeof(double));
 	return un.dr;
 }
+static double expr_realloc(double *args,size_t n){
+	union {
+		void *r;
+		double dr;
+	} un;
+	un.dr=args[0];
+	un.r=xrealloc(un.r,(size_t)args[1]);
+	return un.dr;
+}
 static double expr_xfree(double x){
 	union {
 		void *r;
@@ -1468,6 +1488,8 @@ static double expr_asdouble(double x){
 		un.u=(uint64_t)x;
 	return un.v;
 }
+#define nex0(x) (cast((int64_t)(x),double))
+#define dif0(x) ((double)cast((x),int64_t))
 static double expr_asint(double x){
 	union {
 		int64_t d;
@@ -1854,7 +1876,6 @@ const struct expr_builtin_keyword expr_keywords[]={
 	REGKEYSC("var",EXPR_MUL,2,"var(name,[constant_expression initial_value])"),
 	REGKEYSCN("double",EXPR_BL,1,"double(constant_expression count)"),
 	REGKEYSCN("byte",EXPR_COPY,1,"byte(constant_expression count)"),
-	REGKEYSCN("jmpbuf",EXPR_INPUT,1,"jmpbuf(constant_expression count)"),
 	REGKEYCN("alloca",EXPR_ALO,2,"alloca(nmemb,[constant_expression size])"),
 	REGKEYN("setjmp",EXPR_SJ,1,"setjmp(jmp_buf)"),
 	REGKEYCN("longjmp",EXPR_LJ,2,"longjmp(jmp_buf,val)"),
@@ -1879,7 +1900,8 @@ const struct expr_builtin_keyword expr_keywords[]={
 	REGKEYC("alias",EXPR_NOT,2,"alias(alias_name,target)"),
 	REGKEYCN("return",EXPR_RET,2,"return(ep,val)"),
 	REGKEY("error",EXPR_TSTL,2,"error(const string)"),
-	REGKEYCN("svc",EXPR_SVC,3,"eval(sys_num,arg[],constant_expression n)"),
+	REGKEYCN("svcp",EXPR_SVCP,3,"svc(sys_num,arg[],constant_expression n)"),
+	REGKEYCN("svc",EXPR_SVC,EXPR_SYSAM+1,"svcn(sys_num,...)"),
 	{NULL}
 };
 const struct expr_builtin_symbol expr_symbols[]={
@@ -1906,6 +1928,7 @@ const struct expr_builtin_symbol expr_symbols[]={
 //	REGCSYM_E(IF_INJECTION_S),
 	REGCSYM_E(IF_KEEPSYMSET),
 	REGCSYM_E(IF_DETACHSYMSET),
+	REGCSYM_E(IF_UNSAFE),
 	REGCSYM_E(IF_EXTEND_MASK),
 	REGCSYM_E(IF_SETABLE),
 
@@ -1968,7 +1991,7 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGCSYM2("sqrt1_2",M_SQRT1_2),
 	REGCSYM2("DBL_SHIFT",(double)__builtin_ctzl(sizeof(double))),
 	REGCSYM2("DBL_SIZE",(double)sizeof(double)),
-	REGCSYM2("JBLEN",(double)sizeof(struct expr_jmpbuf)),
+	REGCSYM2("jmpbuf",(double)sizeof(struct expr_internal_jmpbuf)),
 	REGCSYM2("INSTLEN",(double)sizeof(struct expr_inst)),
 	REGCSYM2("IPP_OFF",(double)offsetof(struct expr,ipp)),
 	REGCSYM2("SIZE_OFF",(double)offsetof(struct expr,size)),
@@ -2092,6 +2115,7 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGFSYM2_NI("exit",expr_exit),
 	REGFSYM2_NI("exitif",expr_exitif),
 	REGFSYM2_NI("malloc",expr_malloc),
+	REGMDSYM2_NIU("realloc",expr_realloc,2),
 	REGFSYM2_NI("new",expr_new),
 	REGFSYM2_NI("free",expr_xfree),
 	REGFSYM2_NI("system",expr_system),
@@ -2369,22 +2393,23 @@ static ssize_t converter_##name(ssize_t (*writer)(intptr_t fd,const void *buf,si
 }
 static const char conv_btox[]={"0123456789abcdefx"};
 static const char conv_btoX[]={"0123456789ABCDEFX"};
-conv_x(u,10,conv_btox,32);
-conv_x(o,8,conv_btox,32);
-conv_x(b,2,conv_btox,72);
-conv_x(x,16,conv_btox,32);
-conv_x(X,16,conv_btoX,32);
+conv_x(x81,16,conv_btox,32);
+conv_x(x82,2,conv_btox,72);
 conv_x(x83,3,conv_btox,48);
 conv_x(x84,4,conv_btox,48);
 conv_x(x85,5,conv_btox,32);
 conv_x(x86,6,conv_btox,32);
 conv_x(x87,7,conv_btox,32);
+conv_x(x88,8,conv_btox,32);
 conv_x(x89,9,conv_btox,32);
+conv_x(x8a,10,conv_btox,32);
 conv_x(x8b,11,conv_btox,32);
 conv_x(x8c,12,conv_btox,32);
 conv_x(x8d,13,conv_btox,32);
 conv_x(x8e,14,conv_btox,32);
 conv_x(x8f,15,conv_btox,32);
+
+conv_x(x91,16,conv_btoX,32);
 conv_x(x9b,11,conv_btoX,32);
 conv_x(x9c,12,conv_btoX,32);
 conv_x(x9d,13,conv_btoX,32);
@@ -2574,7 +2599,7 @@ static void extint_mirror(char *buf,size_t size){
 static size_t extint_ascii_rev(uint64_t *buf,size_t size,const char *chars,uint32_t base,char *outbuf){
 	write_ascii(--out,outbuf-out);
 }
-#define conv_f0(_name,_base,_lnbase,_conv_str,_shift,_nsize,_inf,_nan,_how,_before_how) \
+#define conv_f0(_name,_base,_lnbase,_conv_str,_shift,_nsize,_how,_before_how) \
 static ssize_t converter_##_name(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){\
 	_Static_assert(__builtin_constant_p((_nsize)),"_nsize should be constant");\
 	double val=*(const double *)arg;\
@@ -2593,7 +2618,10 @@ static ssize_t converter_##_name(ssize_t (*writer)(intptr_t fd,const void *buf,s
 	if(unlikely(!expr_isfinite(val))){\
 		p=nbuf;\
 		write_sign_to_p(EXPR_EDSIGN(&val));\
-		*(uint32_t *)p=*(const uint32_t *)(expr_isinf(val)?_inf:_nan);\
+		if(_conv_str==conv_btoX)\
+			*(uint32_t *)p=*(const uint32_t *)(expr_isinf(val)?"INF":"NAN");\
+		else\
+			*(uint32_t *)p=*(const uint32_t *)(expr_isinf(val)?"inf":"nan");\
 		cwrite_common(nbuf,p==nbuf?3l:4l);\
 	}\
 	endp=nbuf+_nsize;\
@@ -2679,7 +2707,7 @@ static ssize_t converter_##_name(ssize_t (*writer)(intptr_t fd,const void *buf,s
 	}\
 	return sum;\
 }
-#define conv_f(_name,_base,_lnbase,_conv_str,_shift,_nsize,_inf,_nan) conv_f0(_name,_base,_lnbase,_conv_str,_shift,_nsize,_inf,_nan,{\
+#define conv_f(_name,_base,_lnbase,_conv_str,_shift,_nsize) conv_f0(_name,_base,_lnbase,_conv_str,_shift,_nsize,{\
 	c_trywrite(nbuf,ds);\
 	if(fsz){\
 		c_trywrite(p,fsz);\
@@ -2702,7 +2730,7 @@ static ssize_t converter_##_name(ssize_t (*writer)(intptr_t fd,const void *buf,s
 		fsz=0;\
 	sz=ds+(f58?fsz:ext);\
 )
-#define conv_fe(_name,_base,_lnbase,_conv_str,_shift,_nsize,_inf,_nan,_e) conv_f0(_name,_base,_lnbase,_conv_str,_shift,_nsize,_inf,_nan,\
+#define conv_fe(_name,_base,_lnbase,_conv_str,_shift,_nsize,_e) conv_f0(_name,_base,_lnbase,_conv_str,_shift,_nsize,\
 	if(r1<0){\
 		if(fsz){\
 			c_trywrite(p,1);\
@@ -2892,7 +2920,7 @@ onzero:\
 		ival_mul_pow(10,3486784401u);\
 		ival_mul_pow_nl(8,43046721);\
 		ival_mul_pow_nl(4,6561);\
-		ival_mul_pow_nl(8,81);\
+		ival_mul_pow_nl(2,81);\
 		ival_mul_pow_nlm(1,9)
 #define ival_mul11p \
 		fsz=ext;\
@@ -2914,32 +2942,37 @@ onzero:\
 		ival_mul_pow_nl(2,225);\
 		ival_mul_pow_nlm(1,15)
 #define nbuf_size(x) (((x)+23ul)&~7ul)
-conv_f(f,10,M_LN10,conv_btox,ival_mul5p,nbuf_size(308),"inf","nan");
-conv_f(F,10,M_LN10,conv_btoX,ival_mul5p,nbuf_size(308),"INF","NAN");
-conv_f(a,16,4*M_LN2,conv_btox,r=extint_left(ival,r,3*ext),nbuf_size(256),"inf","nan");
-conv_f(A,16,4*M_LN2,conv_btoX,r=extint_left(ival,r,3*ext),nbuf_size(256),"INF","NAN");
-conv_f(O,8,3*M_LN2,conv_btoX,r=extint_left(ival,r,2*ext),nbuf_size(342),"INF","NAN");
-conv_f(B,2,M_LN2,conv_btoX,,nbuf_size(1024),"INF","NAN");
-conv_f(xa2,2,M_LN2,conv_btox,,nbuf_size(1024),"inf","nan");
-conv_f(xa3,3,log(3),conv_btox,ival_mul3p;r=extint_right(ival,r,ext),nbuf_size(646),"inf","nan");
-conv_f(xa4,4,2*M_LN2,conv_btox,r=extint_left(ival,r,ext),nbuf_size(512),"inf","nan");
-conv_f(xa5,5,log(5),conv_btox,ival_mul5p;r=extint_right(ival,r,ext),nbuf_size(441),"inf","nan");
-conv_f(xa6,6,log(6),conv_btox,ival_mul3p,nbuf_size(396),"inf","nan");
-conv_f(xa7,7,log(7),conv_btox,ival_mul7p;r=extint_right(ival,r,ext),nbuf_size(364),"inf","nan");
-conv_f(xa8,8,3*M_LN2,conv_btox,r=extint_left(ival,r,2*ext),nbuf_size(342),"inf","nan");
-conv_f(xa9,9,log(9),conv_btox,ival_mul9p;r=extint_right(ival,r,ext),nbuf_size(323),"inf","nan");
-conv_f(xab,11,log(11),conv_btox,ival_mul11p;r=extint_right(ival,r,ext),nbuf_size(296),"inf","nan");
-conv_f(xac,12,log(12),conv_btox,ival_mul3p;r=extint_left(ival,r,2*ext),nbuf_size(285),"inf","nan");
-conv_f(xad,13,log(13),conv_btox,ival_mul13p;r=extint_right(ival,r,ext),nbuf_size(276),"inf","nan");
-conv_f(xae,14,log(14),conv_btox,ival_mul7p;r=extint_left(ival,r,ext),nbuf_size(268),"inf","nan");
-conv_f(xaf,15,log(15),conv_btox,ival_mul15p;r=extint_right(ival,r,ext),nbuf_size(262),"inf","nan");
-conv_f(xbb,11,log(11),conv_btoX,ival_mul11p;r=extint_right(ival,r,ext),nbuf_size(296),"inf","nan");
-conv_f(xbc,12,log(12),conv_btoX,ival_mul3p;r=extint_left(ival,r,2*ext),nbuf_size(285),"inf","nan");
-conv_f(xbd,13,log(13),conv_btoX,ival_mul13p;r=extint_right(ival,r,ext),nbuf_size(276),"inf","nan");
-conv_f(xbe,14,log(14),conv_btoX,ival_mul7p;r=extint_left(ival,r,ext),nbuf_size(268),"inf","nan");
-conv_f(xbf,15,log(15),conv_btoX,ival_mul15p;r=extint_right(ival,r,ext),nbuf_size(262),"inf","nan");
-conv_fe(fe,10,M_LN10,conv_btox,ival_mul5p,nbuf_size(308),"inf","nan",'e');
-conv_fe(fE,10,M_LN10,conv_btox,ival_mul5p,nbuf_size(308),"inf","nan",'E');
+#define fconvs(convstr,pref) \
+conv_f(expr_combine(pref,1),16,4*M_LN2,convstr,r=extint_left(ival,r,3*ext),nbuf_size(256));\
+conv_f(expr_combine(pref,2),2,M_LN2,convstr,,nbuf_size(1024));\
+conv_f(expr_combine(pref,3),3,log(3),convstr,ival_mul3p;r=extint_right(ival,r,ext),nbuf_size(646));\
+conv_f(expr_combine(pref,4),4,2*M_LN2,convstr,r=extint_left(ival,r,ext),nbuf_size(512));\
+conv_f(expr_combine(pref,5),5,log(5),convstr,ival_mul5p;r=extint_right(ival,r,ext),nbuf_size(441));\
+conv_f(expr_combine(pref,6),6,log(6),convstr,ival_mul3p,nbuf_size(396));\
+conv_f(expr_combine(pref,7),7,log(7),convstr,ival_mul7p;r=extint_right(ival,r,ext),nbuf_size(364));\
+conv_f(expr_combine(pref,8),8,3*M_LN2,convstr,r=extint_left(ival,r,2*ext),nbuf_size(342));\
+conv_f(expr_combine(pref,9),9,log(9),convstr,ival_mul9p;r=extint_right(ival,r,ext),nbuf_size(323));\
+conv_f(expr_combine(pref,a),10,M_LN10,convstr,ival_mul5p,nbuf_size(308));\
+conv_f(expr_combine(pref,b),11,log(11),convstr,ival_mul11p;r=extint_right(ival,r,ext),nbuf_size(296));\
+conv_f(expr_combine(pref,c),12,log(12),convstr,ival_mul3p;r=extint_left(ival,r,2*ext),nbuf_size(285));\
+conv_f(expr_combine(pref,d),13,log(13),convstr,ival_mul13p;r=extint_right(ival,r,ext),nbuf_size(276));\
+conv_f(expr_combine(pref,e),14,log(14),convstr,ival_mul7p;r=extint_left(ival,r,ext),nbuf_size(268));\
+conv_f(expr_combine(pref,f),15,log(15),convstr,ival_mul15p;r=extint_right(ival,r,ext),nbuf_size(262))
+fconvs(conv_btox,xa);
+fconvs(conv_btoX,xb);
+conv_fe(fe,10,M_LN10,conv_btox,ival_mul5p,nbuf_size(308),'e');
+conv_fe(fE,10,M_LN10,conv_btox,ival_mul5p,nbuf_size(308),'E');
+/*
+conv_f(B,2,M_LN2,conv_btoX,,nbuf_size(1024));
+conv_f(O,8,3*M_LN2,conv_btoX,r=extint_left(ival,r,2*ext),nbuf_size(342));
+conv_f(F,10,M_LN10,conv_btoX,ival_mul5p,nbuf_size(308));
+conv_f(A,16,4*M_LN2,conv_btoX,r=extint_left(ival,r,3*ext),nbuf_size(256));
+conv_f(xbb,11,log(11),conv_btoX,ival_mul11p;r=extint_right(ival,r,ext),nbuf_size(296));
+conv_f(xbc,12,log(12),conv_btoX,ival_mul3p;r=extint_left(ival,r,2*ext),nbuf_size(285));
+conv_f(xbd,13,log(13),conv_btoX,ival_mul13p;r=extint_right(ival,r,ext),nbuf_size(276));
+conv_f(xbe,14,log(14),conv_btoX,ival_mul7p;r=extint_left(ival,r,ext),nbuf_size(268));
+conv_f(xbf,15,log(15),conv_btoX,ival_mul15p;r=extint_right(ival,r,ext),nbuf_size(262));
+*/
 //5-441,396,364,8,323,10,296,285,276,268,262;
 #undef nbuf
 #undef vbuf
@@ -3025,361 +3058,186 @@ static inline uint64_t flag2digit(uint64_t flag){
 static ssize_t faction_g(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){
 	double val=fabs(*(const double *)arg),vl;
 	return ((val==0.0||((vl=log(val)/log(10))>=-4&&vl<flag2digit(flag)))?
-	converter_f:converter_fe)(writer,fd,arg,flag|(1ul<<58ul));
+	converter_xaa:converter_fe)(writer,fd,arg,flag|(1ul<<58ul));
 }
 static ssize_t faction_G(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){
 	double val=fabs(*(const double *)arg),vl;
 	return ((val==0.0||((vl=log(val)/log(10))>=-4&&vl<flag2digit(flag)))?
-	converter_f:converter_fE)(writer,fd,arg,flag|(1ul<<58ul));
+	converter_xba:converter_fE)(writer,fd,arg,flag|(1ul<<58ul));
 }
 static ssize_t faction_p(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){
 	if(!*arg){
 		ssize_t r,sum,ext,sz;
 		cwrite_common("null",4l);
 	}
-	return converter_x(writer,fd,arg,flag|(1ul<<60ul));
+	return converter_x81(writer,fd,arg,flag|(1ul<<60ul));
 }
 static ssize_t faction_P(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){
 	if(!*arg){
 		ssize_t r,sum,ext,sz;
 		cwrite_common("NULL",4l);
 	}
-	return converter_X(writer,fd,arg,flag|(1ul<<60ul));
+	return converter_x91(writer,fd,arg,flag|(1ul<<60ul));
 }
 static ssize_t faction_percent(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){
 	return writer(fd,"%",1);
 }
+#define fmtc_register(_act,_argc,_sign,_op,...) {\
+	.action=(_act),\
+	.argc=(_argc),\
+	.arg_signed=(_sign),\
+	.op={_op,##__VA_ARGS__},\
+}
 const struct expr_writefmt expr_writefmts_default[]={
-	{
-		.action=faction_percent,
-		.argc=0,
-	},
-	{
-		.action=converter_f,
-		.argc=1,
-	},
-	{
-		.action=faction_s,
-		.argc=1,
-	},
-	{
-		.action=converter_d,
-		.argc=1,
-		.arg_signed=1,
-	},
-	{
-		.action=converter_u,
-		.argc=1,
-	},
-	{
-		.action=converter_x,
-		.argc=1,
-	},
-	{
-		.action=converter_X,
-		.argc=1,
-	},
-	{
-		.action=faction_S,
-		.argc=2,
-	},
-	{
-		.action=converter_o,
-		.argc=1,
-	},
-	{
-		.action=converter_b,
-		.argc=1,
-	},
-	{
-		.action=faction_c,
-		.argc=1,
-	},
-	{
-		.action=converter_F,
-		.argc=1,
-	},
-	{
-		.action=converter_a,
-		.argc=1,
-	},
-	{
-		.action=converter_A,
-		.argc=1,
-	},
-	{
-		.action=converter_B,
-		.argc=1,
-	},
-	{
-		.action=converter_O,
-		.argc=1,
-	},
-	{
-		.action=converter_xa2,
-		.argc=1,
-	},
-	{
-		.action=converter_xa4,
-		.argc=1,
-	},
-	{
-		.action=converter_xa6,
-		.argc=1,
-	},
-	{
-		.action=converter_xa8,
-		.argc=1,
-	},
-	{
-		.action=converter_xac,
-		.argc=1,
-	},
-	{
-		.action=converter_xae,
-		.argc=1,
-	},
-	{
-		.action=converter_xa3,
-		.argc=1,
-	},
-	{
-		.action=converter_xa5,
-		.argc=1,
-	},
-	{
-		.action=converter_xa7,
-		.argc=1,
-	},
-	{
-		.action=converter_xa9,
-		.argc=1,
-	},
-	{
-		.action=converter_xab,
-		.argc=1,
-	},
-	{
-		.action=converter_xad,
-		.argc=1,
-	},
-	{
-		.action=converter_xaf,
-		.argc=1,
-	},
-	{
-		.action=converter_fe,
-		.argc=1,
-	},
-	{
-		.action=converter_fE,
-		.argc=1,
-	},
-	{
-		.action=faction_g,
-		.argc=1,
-	},
-	{
-		.action=faction_G,
-		.argc=1,
-	},
-	{
-		.action=faction_p,
-		.argc=1,
-	},
-	{
-		.action=faction_P,
-		.argc=1,
-	},
-	{
-		.action=converter_x83,
-		.argc=1,
-	},
-	{
-		.action=converter_x84,
-		.argc=1,
-	},
-	{
-		.action=converter_x85,
-		.argc=1,
-	},
-	{
-		.action=converter_x86,
-		.argc=1,
-	},
-	{
-		.action=converter_x87,
-		.argc=1,
-	},
-	{
-		.action=converter_x89,
-		.argc=1,
-	},
-	{
-		.action=converter_x8b,
-		.argc=1,
-	},
-	{
-		.action=converter_x8c,
-		.argc=1,
-	},
-	{
-		.action=converter_x8d,
-		.argc=1,
-	},
-	{
-		.action=converter_x8e,
-		.argc=1,
-	},
-	{
-		.action=converter_x8f,
-		.argc=1,
-	},
-	{
-		.action=faction_h,
-		.argc=2,
-	},
-	{
-		.action=faction_H,
-		.argc=2,
-	},
-	{
-		.action=converter_x9b,
-		.argc=1,
-	},
-	{
-		.action=converter_x9c,
-		.argc=1,
-	},
-	{
-		.action=converter_x9d,
-		.argc=1,
-	},
-	{
-		.action=converter_x9e,
-		.argc=1,
-	},
-	{
-		.action=converter_x9f,
-		.argc=1,
-	},
-	{
-		.action=converter_xbb,
-		.argc=1,
-	},
-	{
-		.action=converter_xbc,
-		.argc=1,
-	},
-	{
-		.action=converter_xbd,
-		.argc=1,
-	},
-	{
-		.action=converter_xbe,
-		.argc=1,
-	},
-	{
-		.action=converter_xbf,
-		.argc=1,
-	},
+	fmtc_register(faction_percent,0,0,'%'),
+
+	fmtc_register(converter_x81,1,0,'\x81','x'),
+	fmtc_register(converter_x82,1,0,'\x82','\x92','b'),
+	fmtc_register(converter_x83,1,0,'\x83','\x93'),
+	fmtc_register(converter_x84,1,0,'\x84','\x94'),
+	fmtc_register(converter_x85,1,0,'\x85','\x95'),
+	fmtc_register(converter_x86,1,0,'\x86','\x96'),
+	fmtc_register(converter_x87,1,0,'\x87','\x97'),
+	fmtc_register(converter_x88,1,0,'\x88','\x98','o'),
+	fmtc_register(converter_x89,1,0,'\x89','\x99'),
+	fmtc_register(converter_x8a,1,0,'\x8a','\x9a','u'),
+	fmtc_register(converter_x8b,1,0,'\x8b'),
+	fmtc_register(converter_x8c,1,0,'\x8c'),
+	fmtc_register(converter_x8d,1,0,'\x8d'),
+	fmtc_register(converter_x8e,1,0,'\x8e'),
+	fmtc_register(converter_x8f,1,0,'\x8f'),
+
+	fmtc_register(converter_x91,1,0,'\x91','X'),
+	fmtc_register(converter_x9b,1,0,'\x9b'),
+	fmtc_register(converter_x9c,1,0,'\x9c'),
+	fmtc_register(converter_x9d,1,0,'\x9d'),
+	fmtc_register(converter_x9e,1,0,'\x9e'),
+	fmtc_register(converter_x9f,1,0,'\x9f'),
+
+	fmtc_register(converter_xa1,1,0,'\xa1','a'),
+	fmtc_register(converter_xa2,1,0,'\xa2'),
+	fmtc_register(converter_xa3,1,0,'\xa3'),
+	fmtc_register(converter_xa4,1,0,'\xa4'),
+	fmtc_register(converter_xa5,1,0,'\xa5'),
+	fmtc_register(converter_xa6,1,0,'\xa6'),
+	fmtc_register(converter_xa7,1,0,'\xa7'),
+	fmtc_register(converter_xa8,1,0,'\xa8'),
+	fmtc_register(converter_xa9,1,0,'\xa9'),
+	fmtc_register(converter_xaa,1,0,'\xaa','f'),
+	fmtc_register(converter_xab,1,0,'\xab'),
+	fmtc_register(converter_xac,1,0,'\xac'),
+	fmtc_register(converter_xad,1,0,'\xad'),
+	fmtc_register(converter_xae,1,0,'\xae'),
+	fmtc_register(converter_xaf,1,0,'\xaf'),
+
+	fmtc_register(converter_xb1,1,0,'\xb1','A'),
+	fmtc_register(converter_xb2,1,0,'\xb2','B'),
+	fmtc_register(converter_xb3,1,0,'\xb3'),
+	fmtc_register(converter_xb4,1,0,'\xb4'),
+	fmtc_register(converter_xb5,1,0,'\xb5'),
+	fmtc_register(converter_xb6,1,0,'\xb6'),
+	fmtc_register(converter_xb7,1,0,'\xb7'),
+	fmtc_register(converter_xb8,1,0,'\xb8','O'),
+	fmtc_register(converter_xb9,1,0,'\xb9'),
+	fmtc_register(converter_xba,1,0,'\xba','F'),
+	fmtc_register(converter_xbb,1,0,'\xbb'),
+	fmtc_register(converter_xbc,1,0,'\xbc'),
+	fmtc_register(converter_xbd,1,0,'\xbd'),
+	fmtc_register(converter_xbe,1,0,'\xbe'),
+	fmtc_register(converter_xbf,1,0,'\xbf'),
+
+	fmtc_register(faction_s,1,0,'s'),
+	fmtc_register(faction_S,2,0,'S'),
+	fmtc_register(faction_c,1,0,'c'),
+	fmtc_register(converter_d,1,1,'d'),
+	fmtc_register(converter_fe,1,0,'e'),
+	fmtc_register(converter_fE,1,0,'E'),
+	fmtc_register(faction_g,1,0,'g'),
+	fmtc_register(faction_G,1,0,'G'),
+	fmtc_register(faction_p,1,0,'p'),
+	fmtc_register(faction_P,1,0,'P'),
+	fmtc_register(faction_h,2,0,'h'),
+	fmtc_register(faction_H,2,0,'H'),
+
 };
-const size_t expr_writefmts_default_size=arrsize(expr_writefmts_default);
+const uint8_t expr_writefmts_default_size=arrsize(expr_writefmts_default);
 const uint8_t expr_writefmts_table_default[256]={
-	['n']=255,
-	['N']=254,
-	['r']=253,
-	['l']=252,
-	['L']=251,
-	['T']=250,
-	['t']=249,
-	['k']=248,
-	['Q']=247,
-	['q']=0,
-	['%']=1,
-	['f']=2,
-	['\xaa']=2,
-	['\xba']=2,
-	['s']=3,
-	['d']=4,
-	['u']=5,
-	['\x8a']=5,
-	['\x9a']=5,
-	['x']=6,
-	['\x81']=6,
-	['X']=7,
-	['\x91']=7,
-	['S']=8,
-	['o']=9,
-	['\x88']=9,
-	['\x98']=9,
-	['b']=10,
-	['\x82']=10,
-	['\x92']=10,
-	['c']=11,
-	['F']=12,
-	['a']=13,
-	['\xa1']=13,
-	['A']=14,
-	['\xb1']=14,
-	['B']=15,
-	['O']=16,
-	['\xa2']=17,
-	['\xb2']=17,
-	['\xa4']=18,
-	['\xb4']=18,
-	['\xa6']=19,
-	['\xb6']=19,
-	['\xa8']=20,
-	['\xb8']=20,
-	['\xac']=21,
-	['\xae']=22,
-	['\xa3']=23,
-	['\xb3']=23,
-	['\xa5']=24,
-	['\xb5']=24,
-	['\xa7']=25,
-	['\xb7']=25,
-	['\xa9']=26,
-	['\xb9']=26,
-	['\xab']=27,
-	['\xad']=28,
-	['\xaf']=29,
-	['e']=30,
-	['E']=31,
-	['g']=32,
-	['G']=33,
-	['p']=34,
-	['P']=35,
-	['\x83']=36,
-	['\x93']=36,
-	['\x84']=37,
-	['\x94']=37,
-	['\x85']=38,
-	['\x95']=38,
-	['\x86']=39,
-	['\x96']=39,
-	['\x87']=40,
-	['\x97']=40,
-	['\x89']=41,
-	['\x99']=41,
-	['\x8b']=42,
-	['\x8c']=43,
-	['\x8d']=44,
-	['\x8e']=45,
-	['\x8f']=46,
-	['h']=47,
-	['H']=48,
-	['\x9b']=49,
-	['\x9c']=50,
-	['\x9d']=51,
-	['\x9e']=52,
-	['\x9f']=53,
-	['\xbb']=54,
-	['\xbc']=55,
-	['\xbd']=56,
-	['\xbe']=57,
-	['\xbf']=58,
+['q']=0,
+['n']=255,
+['N']=254,
+['r']=253,
+['l']=252,
+['L']=251,
+['T']=250,
+['t']=249,
+['k']=248,
+['Q']=247,
+['@']=246,
+
+['%']=1,
+['\x81']=2,['x']=2,
+['\x82']=3,['\x92']=3,['b']=3,
+['\x83']=4,['\x93']=4,
+['\x84']=5,['\x94']=5,
+['\x85']=6,['\x95']=6,
+['\x86']=7,['\x96']=7,
+['\x87']=8,['\x97']=8,
+['\x88']=9,['\x98']=9,['o']=9,
+['\x89']=10,['\x99']=10,
+['\x8a']=11,['\x9a']=11,['u']=11,
+['\x8b']=12,
+['\x8c']=13,
+['\x8d']=14,
+['\x8e']=15,
+['\x8f']=16,
+['\x91']=17,['X']=17,
+['\x9b']=18,
+['\x9c']=19,
+['\x9d']=20,
+['\x9e']=21,
+['\x9f']=22,
+['\xa1']=23,['a']=23,
+['\xa2']=24,
+['\xa3']=25,
+['\xa4']=26,
+['\xa5']=27,
+['\xa6']=28,
+['\xa7']=29,
+['\xa8']=30,
+['\xa9']=31,
+['\xaa']=32,['f']=32,
+['\xab']=33,
+['\xac']=34,
+['\xad']=35,
+['\xae']=36,
+['\xaf']=37,
+['\xb1']=38,['A']=38,
+['\xb2']=39,['B']=39,
+['\xb3']=40,
+['\xb4']=41,
+['\xb5']=42,
+['\xb6']=43,
+['\xb7']=44,
+['\xb8']=45,['O']=45,
+['\xb9']=46,
+['\xba']=47,['F']=47,
+['\xbb']=48,
+['\xbc']=49,
+['\xbd']=50,
+['\xbe']=51,
+['\xbf']=52,
+['s']=53,
+['S']=54,
+['c']=55,
+['d']=56,
+['e']=57,
+['E']=58,
+['g']=59,
+['G']=60,
+['p']=61,
+['P']=62,
+['h']=63,
+['H']=64,
 };
 #define wf_trywrite(buf,sz) {\
 	r=writer(fd,(buf),(sz));\
@@ -3407,7 +3265,7 @@ ssize_t expr_writef_r(const char *fmt,size_t fmtlen,ssize_t (*writer)(intptr_t f
 	size_t delimsz=0,tailsz=0,arrlen=0;
 	uint32_t loop=0;
 	uint8_t ac_prev[256];
-	uint8_t aci=0,i,forward=0,arrwid=0;
+	uint8_t aci=0,i,forward=0,arrwid=0,current;
 	if(unlikely(endp<=fmt||!check_no_number(endp[-1])))
 		return 0;
 	for(;;){
@@ -3486,7 +3344,9 @@ reflag:
 		}
 		if(unlikely(fmt>=endp))
 			break;
-		r=table[*(uint8_t *)fmt];
+		current=*(uint8_t *)fmt;
+current_get:
+		r=table[current];
 		switch(r){
 			case 0:
 				goto end;
@@ -3549,6 +3409,12 @@ reflag:
 					goto end;
 				argnext1;
 				break;
+			case 246:
+				if(unlikely(!arglen))
+					goto argfail;
+				current=*(uint8_t *)args;
+				argnext1;
+				goto current_get;
 #define fmt_repeat if(!loop)loop=1;for(;loop;--loop)
 #define fmt_once(_arg) \
 	r=wfp->action(writer,fd,(_arg),flag);\
@@ -3869,6 +3735,16 @@ static inline void expr_free_keepres(struct expr *restrict ep){
 		expr_symset_free(ep->sset);
 	}
 }
+static inline void setunsafe(struct expr *restrict ep){
+	struct expr *p;
+	if(ep->parent){
+		p=ep->parent;
+		do {
+			p->iflag|=EXPR_IF_UNSAFE;
+		}while((p=p->parent));
+	}
+	ep->iflag|=EXPR_IF_UNSAFE;
+}
 void expr_free(struct expr *restrict ep){
 	struct expr *ep0=(struct expr *)ep;
 	struct expr_resource *erp,*erp1;
@@ -3901,13 +3777,15 @@ start:
 #define EXTEND_SIZE 16
 static inline struct expr_inst *expr_addop(struct expr *restrict ep,void *dst,void *src,enum expr_op op,int flag){
 	struct expr_inst *ip;
-	if(ep->size>=ep->length){
+	ip=xautoadd((void **)&ep->data,&ep->size,&ep->length,sizeof(struct expr_inst),EXTEND_SIZE*sizeof(struct expr_inst));
+/*	if(ep->size>=ep->length){
 		ep->data=xrealloc_ff(ep->data,
 		(ep->length+=EXTEND_SIZE)*sizeof(struct expr_inst));
 		if(!ep->data)
 			return NULL;
-	}
-	ip=ep->data+ep->size++;
+	}*/
+	if(unlikely(!ip))
+		return NULL;
 	ip->op=op;
 	ip->dst.uaddr=dst;
 	ip->un.uaddr=src;
@@ -3932,32 +3810,21 @@ static inline struct expr_inst *expr_addcall(struct expr *restrict ep,double *ds
 static inline struct expr_inst *expr_addlj(struct expr *restrict ep,double *dst,double *src){
 	return expr_addop(ep,dst,src,EXPR_LJ,0);
 }
-static inline struct expr_inst *expr_addsj(struct expr *restrict ep,double *dst){
-	return expr_addop(ep,dst,NULL,EXPR_SJ,0);
+static inline struct expr_inst *expr_addun(struct expr *restrict ep,double *dst,enum expr_op op){
+	return expr_addop(ep,dst,NULL,op,0);
 }
-static inline struct expr_inst *expr_addneg(struct expr *restrict ep,double *dst){
-	return expr_addop(ep,dst,NULL,EXPR_NEG,0);
-}
-static inline struct expr_inst *expr_addnot(struct expr *restrict ep,double *dst){
-	return expr_addop(ep,dst,NULL,EXPR_NOT,0);
-}
-static inline struct expr_inst *expr_addnotl(struct expr *restrict ep,double *dst){
-	return expr_addop(ep,dst,NULL,EXPR_NOTL,0);
-}
-static inline struct expr_inst *expr_addinput(struct expr *restrict ep,double *dst){
-	return expr_addop(ep,dst,NULL,EXPR_INPUT,0);
-}
+#define expr_addsj(ep,dst) expr_addun(ep,dst,EXPR_SJ)
+#define expr_addneg(ep,dst) expr_addun(ep,dst,EXPR_NEG)
+#define expr_addnot(ep,dst) expr_addun(ep,dst,EXPR_NOT)
+#define expr_addnotl(ep,dst) expr_addun(ep,dst,EXPR_NOTL)
+#define expr_addinput(ep,dst) expr_addun(ep,dst,EXPR_INPUT)
+#define expr_addto(ep,dst) expr_addun(ep,dst,EXPR_TO)
+#define expr_addto1(ep,dst) expr_addun(ep,dst,EXPR_TO1)
+#define expr_addend(ep,dst) expr_addun(ep,dst,EXPR_END)
+#define expr_addnex0(ep,dst) expr_addun(ep,dst,EXPR_NEX0)
+#define expr_adddif0(ep,dst) expr_addun(ep,dst,EXPR_DIF0)
 static inline struct expr_inst *expr_addip(struct expr *restrict ep,double *dst,size_t mode){
 	return expr_addop(ep,dst,(void *)mode,EXPR_IP,0);
-}
-static inline struct expr_inst *expr_addto(struct expr *restrict ep,double *dst){
-	return expr_addop(ep,dst,NULL,EXPR_TO,0);
-}
-static inline struct expr_inst *expr_addto1(struct expr *restrict ep,double *dst){
-	return expr_addop(ep,dst,NULL,EXPR_TO1,0);
-}
-static inline struct expr_inst *expr_addend(struct expr *restrict ep,double *dst){
-	return expr_addop(ep,dst,NULL,EXPR_END,0);
 }
 static inline struct expr_inst *expr_addza(struct expr *restrict ep,double *dst,double (*zafunc)(void),int flag){
 	return expr_addop(ep,dst,zafunc,EXPR_ZA,flag);
@@ -3974,8 +3841,11 @@ static inline struct expr_inst *expr_addmep(struct expr *restrict ep,double *dst
 static inline struct expr_inst *expr_addhot(struct expr *restrict ep,double *dst,struct expr *hot,int flag){
 	return expr_addop(ep,dst,hot,EXPR_HOT,flag);
 }
-static inline struct expr_inst *expr_addsvc(struct expr *restrict ep,double *dst,double *src,int flag){
-	return expr_addop(ep,dst,src,EXPR_SVC,flag);
+static inline struct expr_inst *expr_addsvc(struct expr *restrict ep,double *dst,int flag){
+	return expr_addop(ep,dst,NULL,EXPR_SVC,flag);
+}
+static inline struct expr_inst *expr_addsvcp(struct expr *restrict ep,double *dst,double *src,int flag){
+	return expr_addop(ep,dst,src,EXPR_SVCP,flag);
 }
 /*
 static inline struct expr_inst *expr_addep(struct expr *restrict ep,double *dst,struct expr *hot,int flag){
@@ -4021,7 +3891,7 @@ static double *expr_newvar(struct expr *restrict ep){
 	double *r=xmalloc(sizeof(double)),**p;
 	if(unlikely(!r))
 		return NULL;
-	if(ep->vsize>=ep->vlength){
+/*	if(ep->vsize>=ep->vlength){
 		p=xrealloc(ep->vars,
 			(ep->vlength+=EXTEND_SIZE)*sizeof(double *));
 		if(unlikely(!p)){
@@ -4029,8 +3899,11 @@ static double *expr_newvar(struct expr *restrict ep){
 			return NULL;
 		}
 		ep->vars=p;
-	}
-	*(ep->vars+ep->vsize++)=r;
+	}*/
+	p=xautoadd((void **)&ep->vars,&ep->vsize,&ep->vlength,sizeof(double *),EXTEND_SIZE*sizeof(double *));
+	if(unlikely(!p))
+		return NULL;
+	*p=r;
 	*r=NAN;
 	return r;
 }
@@ -4534,6 +4407,9 @@ static struct expr_vmdinfo *getvmdinfo(struct expr *restrict ep,const char *e0,s
 		cknp(ep,ev->args,goto err05);
 		ev->max=max;
 	}else {
+		if(*flag&EXPR_SF_UNSAFE){
+			setunsafe(ep);
+		}
 		ev=xmalloc(sizeof(struct expr_vmdinfo));
 		cknp(ep,ev,goto err0);
 		if(max){
@@ -4543,6 +4419,7 @@ static struct expr_vmdinfo *getvmdinfo(struct expr *restrict ep,const char *e0,s
 		}else {
 			ev->args=NULL;
 			ev->max=0;
+			setunsafe(ep);
 		}
 	}
 	sset=expr_symset_clone(ep->sset);
@@ -4966,8 +4843,11 @@ alias_found:
 		case EXPR_MDFUNCTION:
 		case EXPR_MDEPFUNCTION:
 		case EXPR_ZAFUNCTION:
-			if(unlikely((flag&EXPR_SF_UNSAFE)&&(ep->iflag&EXPR_IF_PROTECT)))
-				goto pm;
+			if(flag&EXPR_SF_UNSAFE){
+				if(unlikely(ep->iflag&EXPR_IF_PROTECT))
+					goto pm;
+				setunsafe(ep);
+			}
 		case EXPR_FUNCTION:
 			if(unlikely(!(flag&EXPR_SF_INJECTION)&&(ep->iflag&EXPR_IF_INJECTION)))
 				goto ein;
@@ -5120,6 +5000,7 @@ block:
 				serrinfo(ep->errinfo,e,p-e+1);
 				return NULL;
 			}
+			setunsafe(ep);
 			if(unlikely(p==e+1))
 				goto envp;
 			v1=scan(ep,e+1,p,asym,asymlen);
@@ -5149,6 +5030,7 @@ block:
 				return NULL;
 			}
 #endif
+			setunsafe(ep);
 			un.uaddr=expr_astrscan(e+1,p-e-1,&dim);
 			if(unlikely(!un.uaddr))
 				break;
@@ -5168,6 +5050,7 @@ block:
 				return NULL;
 			}
 #endif
+			setunsafe(ep);
 			if(e+1<endp)switch(e[1]){
 				case '#':
 					v0=expr_newvar(ep);
@@ -5274,10 +5157,13 @@ keyword:
 			kp->str;++kp){
 		if(likely(p-e!=kp->strlen||memcmp(e,kp->str,p-e)))
 			continue;
-		if(unlikely((ep->iflag&EXPR_IF_PROTECT)&&(kp->flag&EXPR_KF_NOPROTECT))){
-			seterr(ep,EXPR_EPM);
-			serrinfo(ep->errinfo,kp->str,kp->strlen);
-			return NULL;
+		if(kp->flag&EXPR_KF_NOPROTECT){
+			if(unlikely(ep->iflag&EXPR_IF_PROTECT)){
+				seterr(ep,EXPR_EPM);
+				serrinfo(ep->errinfo,kp->str,kp->strlen);
+				return NULL;
+			}
+			setunsafe(ep);
 		}
 		if(unlikely(p>=endp||*p!='(')){
 			serrinfo(ep->errinfo,e,p-e);
@@ -5437,7 +5323,7 @@ alias_found_decl:
 				e=p+1;
 				goto vend;
 			case EXPR_INPUT:
-				type=sizeof(struct expr_jmpbuf);
+				type=sizeof(struct expr_internal_jmpbuf);
 				goto use_byte;
 			case EXPR_COPY:
 				type=1;
@@ -5783,7 +5669,7 @@ found2:
 				cknp(ep,expr_addalo(ep,v0,dim),return NULL);
 				e=p+1;
 				goto vend;
-			case EXPR_SVC:
+			case EXPR_SVCP:
 				sym.vv=expr_sep(ep,e,p-e+1);
 				if(unlikely(!sym.vv))
 					return NULL;
@@ -5804,7 +5690,7 @@ found2:
 					default:
 svc_enea:
 						seterr(ep,EXPR_ENEA);
-						memcpy(ep->errinfo,"svc",mincc(3,EXPR_SYMLEN));
+						memcpy(ep->errinfo,"svcp",mincc(4,EXPR_SYMLEN));
 						goto c_fail;
 				}
 				v0=scan(ep,sym.vv[0],sym.vv[0]+strlen(sym.vv[0]),asym,asymlen);
@@ -5814,7 +5700,40 @@ svc_enea:
 				expr_free2(sym.vv);
 				if(unlikely(!v1))
 					return NULL;
-				cknp(ep,expr_addsvc(ep,v0,v1,(int)dim),return NULL);
+				cknp(ep,expr_addsvcp(ep,v0,v1,(int)dim),return NULL);
+				e=p+1;
+				goto vend;
+			case EXPR_SVC:
+				sym.vv=expr_sep(ep,e,p-e+1);
+				if(unlikely(!sym.vv))
+					return NULL;
+				for(un.vv1=sym.vv;*un.vv1;++un.vv1);
+				dim=un.vv1-sym.vv;
+				switch(dim){
+					case 1 ... EXPR_SYSAM+1:
+						break;
+					default:
+						seterr(ep,EXPR_ENEA);
+						memcpy(ep->errinfo,"svc",mincc(3,EXPR_SYMLEN));
+						goto c_fail;
+				}
+				v0=scan(ep,sym.vv[0],sym.vv[0]+strlen(sym.vv[0]),asym,asymlen);
+				if(unlikely(!v0))
+					goto c_fail;
+				--dim;
+				if(dim){
+					sv.i=0;
+					do {
+						un.ccp=sym.vv[sv.i+1];
+						v1=scan(ep,un.ccp,un.ccp+strlen(un.ccp),asym,asymlen);
+						if(unlikely(!v1))
+							goto c_fail;
+						cknp(ep,expr_addcopy(ep,ep->args+sv.i,v1),goto c_fail);
+						++sv.i;
+					}while(sv.i<dim);
+				}
+				expr_free2(sym.vv);
+				cknp(ep,expr_addsvc(ep,v0,(int)dim),return NULL);
 				e=p+1;
 				goto vend;
 			case EXPR_SJ:
@@ -6047,27 +5966,34 @@ vzero:
 found:
 	switch(type){
 		case EXPR_FUNCTION:
-			if((flag&EXPR_SF_UNSAFE)&&(ep->iflag&EXPR_IF_PROTECT)){
-				if(unlikely(!(flag&EXPR_SF_ALLOWADDR)))
-					goto pm;
-				if(unlikely(p+2>=endp||p[1]!='&'))
-					goto pm;
+			if(flag&EXPR_SF_UNSAFE){
+				if(!(flag&EXPR_SF_ALLOWADDR))
+					goto fpm;
+				if(p+2>=endp||p[1]!='&')
+					goto fpm;
 				un.ccp=getsym(p+2,endp);
 				if(unlikely(p+2==un.ccp)){
-					goto pm;
+					goto fpm;
 				}
 				if(unlikely(!ep->sset||!(un.ebp=expr_symset_search(ep->sset,p+2,un.ccp-p-2)))){
-					goto pm;
+					goto fpm;
 				}
 				switch(un.ebp->type){
 					case EXPR_VARIABLE:
-						break;
+						type=1;
+						goto fok;
 					default:
-						goto pm;
+						goto fpm;
 				}
-				type=1;
-			}else
-				type=0;
+			}
+			type=0;
+			goto fok;
+fpm:
+			if(unlikely(ep->iflag&EXPR_IF_PROTECT))
+				goto pm;
+			type=0;
+			setunsafe(ep);
+fok:
 			if(unlikely(p>=endp||*p!='(')){
 				serrinfo(ep->errinfo,e,p-e);
 				seterr(ep,EXPR_EFP);
@@ -6169,6 +6095,7 @@ treat_as_variable:
 					serrinfo(ep->errinfo,e0,e-e0);
 					return NULL;
 				}
+				setunsafe(ep);
 				switch(flag&~EXPR_SF_PMASK){
 					case EXPR_SF_PMD:
 						p=findpair(e,endp);
@@ -6367,6 +6294,7 @@ vend:
 			serrinfo(ep->errinfo,e0,p-e0+1);
 			return NULL;
 		}
+		setunsafe(ep);
 		do{
 			double *v2;
 			p=findpair_bracket(e,endp);
@@ -6392,9 +6320,9 @@ struct vnode {
 	struct vnode *next;
 	double *v;
 	enum expr_op op;
-	unsigned int unary;
+	uint64_t unary;
 };
-static struct vnode *vn(double *v,enum expr_op op,unsigned int unary){
+static struct vnode *vn(double *v,enum expr_op op,uint64_t unary){
 	struct vnode *p;
 	p=xmalloc(sizeof(struct vnode));
 	if(unlikely(!p))
@@ -6405,7 +6333,7 @@ static struct vnode *vn(double *v,enum expr_op op,unsigned int unary){
 	p->unary=unary;
 	return p;
 }
-static struct vnode *vnadd(struct vnode *vp,double *v,enum expr_op op,unsigned int unary){
+static struct vnode *vnadd(struct vnode *vp,double *v,enum expr_op op,uint64_t unary){
 	struct vnode *p;
 	if(unlikely(!vp))
 		return vn(v,op,unary);
@@ -6420,39 +6348,32 @@ static struct vnode *vnadd(struct vnode *vp,double *v,enum expr_op op,unsigned i
 	return vp;
 }
 
-static int do_unary(struct expr *restrict ep,struct vnode *ev,int prec){
-	int r=0;;
+static int do_unary(struct expr *restrict ep,struct vnode *ev){
+	int r=0;
 	for(struct vnode *p=ev;p;p=p->next){
 redo:
-	switch(prec){
-		case 2:
-			switch(p->unary&3){
-				case 2:
-					cknp(ep,expr_addnotl(ep,p->v),return -1);
-					break;
-				case 3:
-					cknp(ep,expr_addnot(ep,p->v),return -1);
-					break;
-				default:
-					continue;
-			}
-			r=1;
-			p->unary>>=2;
-			goto redo;
-		case 4:
-			switch(p->unary&3){
-				case 1:
-					cknp(ep,expr_addneg(ep,p->v),return -1);
-					break;
-				default:
-					continue;
-			}
-			r=1;
-			p->unary>>=2;
-			goto redo;
-		default:
-			continue;
-	}
+		switch(p->unary&7ul){
+			case 1:
+				cknp(ep,expr_addneg(ep,p->v),return -1);
+				break;
+			case 2:
+				cknp(ep,expr_addnotl(ep,p->v),return -1);
+				break;
+			case 3:
+				cknp(ep,expr_addnot(ep,p->v),return -1);
+				break;
+			case 4:
+				cknp(ep,expr_addnex0(ep,p->v),return -1);
+				break;
+			case 5:
+				cknp(ep,expr_adddif0(ep,p->v),return -1);
+				break;
+			default:
+				continue;
+		}
+		r=1;
+		p->unary>>=3ul;
+		goto redo;
 	}
 	return r;
 }
@@ -6478,9 +6399,8 @@ static double *scan(struct expr *restrict ep,const char *e,const char *endp,cons
 	double *v1;
 	const char *e0=e,*e1;
 	enum expr_op op=EXPR_COPY,op0;
-	unsigned int unary;
+	uint64_t unary;
 	struct vnode *ev=NULL,*p;
-	int r,r1;
 	do {
 	unary=0;
 redo:
@@ -6488,7 +6408,9 @@ redo:
 		case '-':
 		case '!':
 		case '~':
-			if(unlikely(unary&0xc0000000)){
+		case '#':
+		case '=':
+			if(unlikely(unary&(0xf000000000000000ul))){
 				if(e<endp&&expr_operator(*e)){
 euo:
 					*ep->errinfo=*e;
@@ -6509,19 +6431,31 @@ eev:
 				goto eev;
 			goto redo;
 		case '-':
-			unary=(unary<<2)|1;
+			unary=(unary<<3ul)|1ul;
 			++e;
 			if(unlikely(e>=endp))
 				goto eev;
 			goto redo;
 		case '!':
-			unary=(unary<<2)|2;
+			unary=(unary<<3ul)|2ul;
 			++e;
 			if(unlikely(e>=endp))
 				goto eev;
 			goto redo;
 		case '~':
-			unary=(unary<<2)|3;
+			unary=(unary<<3ul)|3ul;
+			++e;
+			if(unlikely(e>=endp))
+				goto eev;
+			goto redo;
+		case '#':
+			unary=(unary<<3ul)|4ul;
+			++e;
+			if(unlikely(e>=endp))
+				goto eev;
+			goto redo;
+		case '=':
+			unary=(unary<<3ul)|5ul;
 			++e;
 			if(unlikely(e>=endp))
 				goto eev;
@@ -6631,6 +6565,7 @@ rescan:
 								serrinfo(ep->errinfo,e,p1-e+1);
 								goto err;
 							}
+							setunsafe(ep);
 							if(unlikely(p1==e+1)){
 envp:
 								seterr(ep,EXPR_ENVP);
@@ -6658,6 +6593,7 @@ envp:
 								serrinfo(ep->errinfo,e,p1-e+1);
 								goto err;
 							}
+							setunsafe(ep);
 							e1=e;
 							goto multi_dim;
 						default:
@@ -6694,6 +6630,7 @@ envp:
 						serrinfo(ep->errinfo,e1,p1-e1+1);
 						goto err;
 					}
+					setunsafe(ep);
 					if(unlikely(p1==e+1))
 						goto envp;
 					while(p1+1<endp&&p1[1]=='['){
@@ -6901,17 +6838,8 @@ end2:
 			vnunionp;\
 		}\
 	}
-	cknp(ep,do_unary(ep,ev,2)>=0,goto err);
+	cknp(ep,do_unary(ep,ev)>=0,goto err);
 	SETPREC1(EXPR_POW)
-	cknp(ep,do_unary(ep,ev,4)>=0,goto err);
-	do{
-		r=do_unary(ep,ev,2);
-		cknp(ep,r>=0,goto err);
-		if(!r)
-			break;
-		r1=do_unary(ep,ev,4);
-		cknp(ep,r1>=0,goto err);
-	}while(r1);
 	SETPREC3(EXPR_MUL,EXPR_DIV,EXPR_MOD)
 	SETPREC2(EXPR_NEXT,EXPR_DIFF)
 	SETPREC2(EXPR_ADD,EXPR_SUB)
@@ -8472,6 +8400,8 @@ static int expr_side(enum expr_op op){
 		case EXPR_NOT:
 		case EXPR_NOTL:
 		case EXPR_TSTL:
+		case EXPR_NEX0:
+		case EXPR_DIF0:
 		case EXPR_ALO:
 			return 0;
 		default:
@@ -8508,7 +8438,8 @@ static int expr_usesrc(enum expr_op op){
 		case EXPR_PZA:
 		case EXPR_EVAL:
 		case EXPR_RET:
-		case EXPR_SVC:
+//		case EXPR_SVC:
+		case EXPR_SVCP:
 			return 1;
 		default:
 			return 0;
@@ -8565,6 +8496,7 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 			case EXPR_EVAL:
 			case EXPR_RET:
 			case EXPR_SVC:
+			case EXPR_SVCP:
 			case EXPR_READ:
 			case EXPR_WRITE:
 			case EXPR_ALO:
@@ -8724,7 +8656,7 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 		struct {\
 			union {\
 				double d;\
-				struct expr_jmpbuf *jp;\
+				struct expr_internal_jmpbuf *jp;\
 			} un;\
 		} s2;\
 		struct {\
@@ -8740,8 +8672,9 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 		struct {\
 			intptr_t num;\
 			const intptr_t *arg;\
+			int count;\
 		} svc;\
-		struct expr_jmpbuf *jp;\
+		struct expr_internal_jmpbuf *jp;\
 		void *up;\
 		double d;\
 		size_t index;\
@@ -9111,6 +9044,8 @@ static void expr_optimize_constneg(struct expr *restrict ep){
 			case EXPR_NOT:
 			case EXPR_NOTL:
 			case EXPR_TSTL:
+			case EXPR_NEX0:
+			case EXPR_DIF0:
 				break;
 			default:
 				continue;
@@ -9134,6 +9069,12 @@ static void expr_optimize_constneg(struct expr *restrict ep){
 				case EXPR_TSTL:
 					ip1->un.value=(ip1->un.value!=0.0)?
 						1.0:0.0;
+					break;
+				case EXPR_NEX0:
+					ip1->un.value=nex0(ip1->un.value);
+					break;
+				case EXPR_DIF0:
+					ip1->un.value=dif0(ip1->un.value);
 					break;
 				default:
 					continue;
@@ -9620,6 +9561,12 @@ again:
 			case EXPR_NOT:\
 				*ip->dst.dst=not(*ip->dst.dst);\
 				break;\
+			case EXPR_NEX0:\
+				*ip->dst.idst=(int64_t)*ip->dst.dst;\
+				break;\
+			case EXPR_DIF0:\
+				*ip->dst.dst=(double)*ip->dst.idst;\
+				break;\
 			case EXPR_NOTL:\
 				*ip->dst.dst=(*ip->dst.dst==0.0)?\
 					1.0:\
@@ -9780,7 +9727,7 @@ again:
 				un.jp->ipp=&ip;\
 				un.jp->ip=ip;\
 				*ip->dst.dst=setjmp(un.jp->jb)?\
-				((volatile struct expr_jmpbuf *)un.jp)->val:0.0;\
+				((volatile struct expr_internal_jmpbuf *)un.jp)->val:0.0;\
 				break;\
 			case EXPR_LJ:\
 				un.s2.un.d=*ip->dst.dst;\
@@ -9819,6 +9766,11 @@ again:
 				*un.r.ep->ipp=un.r.end-1;\
 				break;\
 			case EXPR_SVC:\
+				un.svc.num=(intptr_t)*ip->dst.dst;\
+				un.svc.arg=(const intptr_t *)ep->args;\
+				expr_internal_syscall_eval(*ip->dst.pdst,ip->flag,un.svc.num,un.svc.arg[0],un.svc.arg[1],un.svc.arg[2],un.svc.arg[3],un.svc.arg[4],un.svc.arg[5],un.svc.arg[6]);\
+				break;\
+			case EXPR_SVCP:\
 				un.svc.num=(intptr_t)*ip->dst.dst;\
 				un.svc.arg=(const intptr_t *)*ip->un.uaddr2;\
 				expr_internal_syscall_eval(*ip->dst.pdst,ip->flag,un.svc.num,un.svc.arg[0],un.svc.arg[1],un.svc.arg[2],un.svc.arg[3],un.svc.arg[4],un.svc.arg[5],un.svc.arg[6]);\

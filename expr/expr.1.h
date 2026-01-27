@@ -59,6 +59,8 @@ EXPR_NEG,
 EXPR_NOT,
 EXPR_NOTL,
 EXPR_TSTL,
+EXPR_NEX0,
+EXPR_DIF0,
 EXPR_IF,
 EXPR_WHILE,
 EXPR_DO,
@@ -103,6 +105,7 @@ EXPR_TO1,
 EXPR_HMD,
 EXPR_RET,
 EXPR_SVC,
+EXPR_SVCP,
 EXPR_END
 };
 
@@ -189,6 +192,7 @@ EXPR_END
 //#define EXPR_IF_INJECTION_S 64
 #define EXPR_IF_KEEPSYMSET 128
 #define EXPR_IF_DETACHSYMSET 256
+#define EXPR_IF_UNSAFE 512
 
 #define EXPR_IF_EXTEND_MASK (\
 		EXPR_IF_INSTANT_FREE\
@@ -342,7 +346,7 @@ struct expr_libinfo {
 struct expr_writefmt {
 	ssize_t (*action)(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag);
 	uint8_t argc,arg_signed;
-	uint8_t unused[6];
+	uint8_t op[6];
 };
 struct expr_writeflag {
 #if (!defined(__BIG_ENDIAN__)||!__BIG_ENDIAN__)
@@ -530,22 +534,6 @@ struct expr_resource {
 	} un;
 	int type,unused;
 };
-struct expr {
-	struct expr_inst *data;
-	struct expr_inst **ipp;
-	size_t size;
-	struct expr_inst *ip;
-	struct expr *parent;
-	double **vars;
-	struct expr_symset *sset;
-	struct expr_resource *res,*tail;
-	size_t length,vsize,vlength;
-	int error;
-	short iflag;
-	unsigned char freeable,sset_shouldfree;
-	char errinfo[EXPR_SYMLEN];
-	char extra_data[];
-};
 
 union expr_double {
 	double val;
@@ -567,7 +555,7 @@ struct expr_internal_jmpbuf {
 };
 
 extern const struct expr_writefmt expr_writefmts_default[];
-extern const size_t expr_writefmts_default_size;
+extern const uint8_t expr_writefmts_default_size;
 extern const uint8_t expr_writefmts_table_default[256];
 
 extern const struct expr_builtin_symbol expr_symbols[];
@@ -789,3 +777,21 @@ extern const size_t expr_symbols_size;
 		__builtin_unreachable();\
 	}\
 })
+
+struct expr {
+	struct expr_inst *data;
+	struct expr_inst **ipp;
+	size_t size;
+	struct expr_inst *ip;
+	struct expr *parent;
+	double **vars;
+	struct expr_symset *sset;
+	struct expr_resource *res,*tail;
+	size_t length,vsize,vlength;
+	double args[EXPR_SYSAM];
+	int error;
+	short iflag;
+	unsigned char freeable,sset_shouldfree;
+	char errinfo[EXPR_SYMLEN];
+	char extra_data[];
+};

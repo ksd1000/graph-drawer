@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <getopt.h>
+#include <ctype.h>
 void show(const struct expr_libinfo *el){
 	fprintf(stdout,"expr version:%s\n",el->version);
 	fprintf(stdout,"compiler:%s\n",el->compiler_version);
@@ -26,7 +27,7 @@ double freemem(void){
 }
 #else
 double freemem(void){
-	return 0;
+	return 1.0;
 }
 #endif
 const char hchars[]={"BKMGTPEZY"};
@@ -80,6 +81,7 @@ const struct option ops[]={
 	{"trap",0,NULL,'t'},
 	{"unreachable",0,NULL,'u'},
 	{"help",0,NULL,'h'},
+	{"table",0,NULL,'T'},
 	{NULL},
 };
 void show_help(void){
@@ -89,16 +91,45 @@ void show_help(void){
 			"\t--segv ,-s\twrite 0 to NULL\n"
 			"\t--trap ,-t\tcall __builtin_trap\n"
 			"\t--unreachable ,-u\tcall __builtin_unreachable\n"
+			"\t--table ,-T\twrite the table for writef()\n"
 			"\t--help ,-h\tshow this help\n"
 			,stdout);
+	exit(EXIT_SUCCESS);
+}
+void table_write(void){
+	const struct expr_writefmt *f;
+	uint8_t c,nextline=0;
+	for(uint8_t i=0;i<expr_writefmts_default_size;){
+		f=expr_writefmts_default+i;
+		++i;
+		for(uint8_t j=0;j<6;++j){
+			if(!(c=f->op[j]))
+				continue;
+			nextline=1;
+			switch(isprint(c)){
+				case 0:
+					fprintf(stdout,"[\'\\x%x\']=%d,",(int)c,(int)i);
+					break;
+				default:
+					fprintf(stdout,"[\'%c\']=%d,",(int)c,(int)i);
+					break;
+			}
+		}
+		if(nextline){
+			nextline=0;
+			fprintf(stdout,"\n");
+		}
+	}
 	exit(EXIT_SUCCESS);
 }
 int main(int argc,char **argv){
 	opterr=1;
 	for(;;){
-		switch(getopt_long(argc,argv,"ae::sthu",ops,NULL)){
+		switch(getopt_long(argc,argv,"ae::sthuT",ops,NULL)){
 			case 'h':
 				show_help();
+			case 'T':
+				table_write();
 			case 'e':
 				expr_allocator=alloc_hook;
 				expr_contractor=contract_hook;

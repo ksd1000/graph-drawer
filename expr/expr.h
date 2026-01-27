@@ -9,6 +9,7 @@
 #include <stddef.h>
 #include <stdarg.h>
 #include <limits.h>
+#include <setjmp.h>
 
 #ifndef _SSIZE_T_DEFINED_
 #define _SSIZE_T_DEFINED_
@@ -324,6 +325,7 @@ EXPR_END
 	}))if(expr_likely(__inloop_index!=(_atindex)))continue;else
 
 #define expr_combine(A,B) A##B
+#define expr_mstring(X) #X
 #define expr_symbol_foreach4(_sp,_esp,_stack,_atindex) expr_symbol_foreach5(_sp,_esp,_stack,_atindex,__LINE__)
 #define expr_symset_foreach4(_sp,_esp,_stack,_atindex) expr_symbol_foreach4(_sp,(_esp)->syms,_stack,_atindex)
 
@@ -335,6 +337,7 @@ struct expr_libinfo {
 	const char *platform;
 	const char *date;
 	const char *time;
+	const char *license;
 };
 struct expr_writefmt {
 	ssize_t (*action)(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag);
@@ -556,10 +559,16 @@ struct expr_callback {
 	void (*after)(const struct expr *restrict ep,struct expr_inst *ip,void *arg);
 	void *arg;
 };
+struct expr_internal_jmpbuf {
+	struct expr_inst **ipp;
+	struct expr_inst *ip;
+	double val;
+	jmp_buf jb;
+};
 
 extern const struct expr_writefmt expr_writefmts_default[];
 extern const size_t expr_writefmts_default_size;
-extern const uint8_t expr_writefmts_table_default[128];
+extern const uint8_t expr_writefmts_table_default[256];
 
 extern const struct expr_builtin_symbol expr_symbols[];
 extern const struct expr_builtin_keyword expr_keywords[];
@@ -647,7 +656,7 @@ extern const size_t expr_symbols_size;
 		expr_internal_regvar(A5)=(a5);\
 		expr_internal_regvar(A6)=(a6);\
 		E7;\
-		asm(\
+		asm volatile(\
 		EXPR_SYSIN \
 		:"=r"(RE)\
 		:"r"(A0),"r"(A1),"r"(A2),"r"(A3),"r"(A4),"r"(A5),"r"(A6),"r"(ID)\
@@ -663,7 +672,7 @@ extern const size_t expr_symbols_size;
 		expr_internal_regvar(A4)=(a4);\
 		expr_internal_regvar(A5)=(a5);\
 		E6;\
-		asm(\
+		asm volatile(\
 		EXPR_SYSIN \
 		:"=r"(RE)\
 		:"r"(A0),"r"(A1),"r"(A2),"r"(A3),"r"(A4),"r"(A5),"r"(ID)\
@@ -678,7 +687,7 @@ extern const size_t expr_symbols_size;
 		expr_internal_regvar(A3)=(a3);\
 		expr_internal_regvar(A4)=(a4);\
 		E5;\
-		asm(\
+		asm volatile(\
 		EXPR_SYSIN \
 		:"=r"(RE)\
 		:"r"(A0),"r"(A1),"r"(A2),"r"(A3),"r"(A4),"r"(ID)\
@@ -692,7 +701,7 @@ extern const size_t expr_symbols_size;
 		expr_internal_regvar(A2)=(a2);\
 		expr_internal_regvar(A3)=(a3);\
 		E4;\
-		asm(\
+		asm volatile(\
 		EXPR_SYSIN \
 		:"=r"(RE)\
 		:"r"(A0),"r"(A1),"r"(A2),"r"(A3),"r"(ID)\
@@ -705,7 +714,7 @@ extern const size_t expr_symbols_size;
 		expr_internal_regvar(A1)=(a1);\
 		expr_internal_regvar(A2)=(a2);\
 		E3;\
-		asm(\
+		asm volatile(\
 		EXPR_SYSIN \
 		:"=r"(RE)\
 		:"r"(A0),"r"(A1),"r"(A2),"r"(ID)\
@@ -717,7 +726,7 @@ extern const size_t expr_symbols_size;
 		expr_internal_regvar(A0)=(a0);\
 		expr_internal_regvar(A1)=(a1);\
 		E2;\
-		asm(\
+		asm volatile(\
 		EXPR_SYSIN \
 		:"=r"(RE)\
 		:"r"(A0),"r"(A1),"r"(ID)\
@@ -728,7 +737,7 @@ extern const size_t expr_symbols_size;
 		expr_internal_regvar(ID)=(num);\
 		expr_internal_regvar(A0)=(a0);\
 		E1;\
-		asm(\
+		asm volatile(\
 		EXPR_SYSIN \
 		:"=r"(RE)\
 		:"r"(A0),"r"(ID)\
@@ -738,7 +747,7 @@ extern const size_t expr_symbols_size;
 #define expr_internal_syscall_reg0(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ({\
 		expr_internal_regvar(ID)=(num);\
 		E0;\
-		asm(\
+		asm volatile(\
 		EXPR_SYSIN \
 		:"=r"(RE)\
 		:"r"(ID)\

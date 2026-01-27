@@ -379,6 +379,7 @@ const struct expr_libinfo expr_libinfo[1]={{
 #endif
 	.date=__DATE__,
 	.time=__TIME__,
+	.license="GPL v3+",
 }};
 //const static char ntoc[]={"0123456789abcdefg"};
 const char *expr_error(int error){
@@ -2231,7 +2232,9 @@ struct expr_symset *expr_builtin_symbol_convert(const struct expr_builtin_symbol
 	if(unlikely(!esp))
 		return NULL;
 	for(;syms->str;++syms){
-		if(unlikely(!expr_builtin_symbol_add(esp,syms))){
+		struct expr_symbol *r;
+		if(unlikely(!(r=expr_builtin_symbol_add(esp,syms)))){
+			trap;
 			expr_symset_free(esp);
 			return NULL;
 		}
@@ -2371,17 +2374,22 @@ conv_x(o,8,conv_btox,32);
 conv_x(b,2,conv_btox,72);
 conv_x(x,16,conv_btox,32);
 conv_x(X,16,conv_btoX,32);
-conv_x(x03,3,conv_btox,48);
-conv_x(x04,4,conv_btox,48);
-conv_x(x05,5,conv_btox,32);
-conv_x(x06,6,conv_btox,32);
-conv_x(x07,7,conv_btox,32);
-conv_x(x09,9,conv_btox,32);
-conv_x(x0b,11,conv_btox,32);
-conv_x(x0c,12,conv_btox,32);
-conv_x(x0d,13,conv_btox,32);
-conv_x(x0e,14,conv_btox,32);
-conv_x(x0f,15,conv_btox,32);
+conv_x(x83,3,conv_btox,48);
+conv_x(x84,4,conv_btox,48);
+conv_x(x85,5,conv_btox,32);
+conv_x(x86,6,conv_btox,32);
+conv_x(x87,7,conv_btox,32);
+conv_x(x89,9,conv_btox,32);
+conv_x(x8b,11,conv_btox,32);
+conv_x(x8c,12,conv_btox,32);
+conv_x(x8d,13,conv_btox,32);
+conv_x(x8e,14,conv_btox,32);
+conv_x(x8f,15,conv_btox,32);
+conv_x(x9b,11,conv_btoX,32);
+conv_x(x9c,12,conv_btoX,32);
+conv_x(x9d,13,conv_btoX,32);
+conv_x(x9e,14,conv_btoX,32);
+conv_x(x9f,15,conv_btoX,32);
 static size_t extint_left(uint64_t *buf,size_t size,uint64_t bits){
 	uint64_t b64=bits/64;
 	size_t rsize=size;
@@ -2912,19 +2920,24 @@ conv_f(a,16,4*M_LN2,conv_btox,r=extint_left(ival,r,3*ext),nbuf_size(256),"inf","
 conv_f(A,16,4*M_LN2,conv_btoX,r=extint_left(ival,r,3*ext),nbuf_size(256),"INF","NAN");
 conv_f(O,8,3*M_LN2,conv_btoX,r=extint_left(ival,r,2*ext),nbuf_size(342),"INF","NAN");
 conv_f(B,2,M_LN2,conv_btoX,,nbuf_size(1024),"INF","NAN");
-conv_f(x12,2,M_LN2,conv_btox,,nbuf_size(1024),"inf","nan");
-conv_f(x13,3,log(3),conv_btox,ival_mul3p;r=extint_right(ival,r,ext),nbuf_size(646),"inf","nan");
-conv_f(x14,4,2*M_LN2,conv_btox,r=extint_left(ival,r,ext),nbuf_size(512),"inf","nan");
-conv_f(x15,5,log(5),conv_btox,ival_mul5p;r=extint_right(ival,r,ext),nbuf_size(441),"inf","nan");
-conv_f(x16,6,log(6),conv_btox,ival_mul3p,nbuf_size(396),"inf","nan");
-conv_f(x17,7,log(7),conv_btox,ival_mul7p;r=extint_right(ival,r,ext),nbuf_size(364),"inf","nan");
-conv_f(x18,8,3*M_LN2,conv_btox,r=extint_left(ival,r,2*ext),nbuf_size(342),"inf","nan");
-conv_f(x19,9,log(9),conv_btox,ival_mul9p;r=extint_right(ival,r,ext),nbuf_size(323),"inf","nan");
-conv_f(x1b,11,log(11),conv_btox,ival_mul11p;r=extint_right(ival,r,ext),nbuf_size(296),"inf","nan");
-conv_f(x1c,12,log(12),conv_btox,ival_mul3p;r=extint_left(ival,r,2*ext),nbuf_size(285),"inf","nan");
-conv_f(x1d,13,log(13),conv_btox,ival_mul13p;r=extint_right(ival,r,ext),nbuf_size(276),"inf","nan");
-conv_f(x1e,14,log(14),conv_btox,ival_mul7p;r=extint_left(ival,r,ext),nbuf_size(268),"inf","nan");
-conv_f(x1f,15,log(15),conv_btox,ival_mul15p;r=extint_right(ival,r,ext),nbuf_size(262),"inf","nan");
+conv_f(xa2,2,M_LN2,conv_btox,,nbuf_size(1024),"inf","nan");
+conv_f(xa3,3,log(3),conv_btox,ival_mul3p;r=extint_right(ival,r,ext),nbuf_size(646),"inf","nan");
+conv_f(xa4,4,2*M_LN2,conv_btox,r=extint_left(ival,r,ext),nbuf_size(512),"inf","nan");
+conv_f(xa5,5,log(5),conv_btox,ival_mul5p;r=extint_right(ival,r,ext),nbuf_size(441),"inf","nan");
+conv_f(xa6,6,log(6),conv_btox,ival_mul3p,nbuf_size(396),"inf","nan");
+conv_f(xa7,7,log(7),conv_btox,ival_mul7p;r=extint_right(ival,r,ext),nbuf_size(364),"inf","nan");
+conv_f(xa8,8,3*M_LN2,conv_btox,r=extint_left(ival,r,2*ext),nbuf_size(342),"inf","nan");
+conv_f(xa9,9,log(9),conv_btox,ival_mul9p;r=extint_right(ival,r,ext),nbuf_size(323),"inf","nan");
+conv_f(xab,11,log(11),conv_btox,ival_mul11p;r=extint_right(ival,r,ext),nbuf_size(296),"inf","nan");
+conv_f(xac,12,log(12),conv_btox,ival_mul3p;r=extint_left(ival,r,2*ext),nbuf_size(285),"inf","nan");
+conv_f(xad,13,log(13),conv_btox,ival_mul13p;r=extint_right(ival,r,ext),nbuf_size(276),"inf","nan");
+conv_f(xae,14,log(14),conv_btox,ival_mul7p;r=extint_left(ival,r,ext),nbuf_size(268),"inf","nan");
+conv_f(xaf,15,log(15),conv_btox,ival_mul15p;r=extint_right(ival,r,ext),nbuf_size(262),"inf","nan");
+conv_f(xbb,11,log(11),conv_btoX,ival_mul11p;r=extint_right(ival,r,ext),nbuf_size(296),"inf","nan");
+conv_f(xbc,12,log(12),conv_btoX,ival_mul3p;r=extint_left(ival,r,2*ext),nbuf_size(285),"inf","nan");
+conv_f(xbd,13,log(13),conv_btoX,ival_mul13p;r=extint_right(ival,r,ext),nbuf_size(276),"inf","nan");
+conv_f(xbe,14,log(14),conv_btoX,ival_mul7p;r=extint_left(ival,r,ext),nbuf_size(268),"inf","nan");
+conv_f(xbf,15,log(15),conv_btoX,ival_mul15p;r=extint_right(ival,r,ext),nbuf_size(262),"inf","nan");
 conv_fe(fe,10,M_LN10,conv_btox,ival_mul5p,nbuf_size(308),"inf","nan",'e');
 conv_fe(fE,10,M_LN10,conv_btox,ival_mul5p,nbuf_size(308),"inf","nan",'E');
 //5-441,396,364,8,323,10,296,285,276,268,262;
@@ -3103,55 +3116,55 @@ const struct expr_writefmt expr_writefmts_default[]={
 		.argc=1,
 	},
 	{
-		.action=converter_x12,
+		.action=converter_xa2,
 		.argc=1,
 	},
 	{
-		.action=converter_x14,
+		.action=converter_xa4,
 		.argc=1,
 	},
 	{
-		.action=converter_x16,
+		.action=converter_xa6,
 		.argc=1,
 	},
 	{
-		.action=converter_x18,
+		.action=converter_xa8,
 		.argc=1,
 	},
 	{
-		.action=converter_x1c,
+		.action=converter_xac,
 		.argc=1,
 	},
 	{
-		.action=converter_x1e,
+		.action=converter_xae,
 		.argc=1,
 	},
 	{
-		.action=converter_x13,
+		.action=converter_xa3,
 		.argc=1,
 	},
 	{
-		.action=converter_x15,
+		.action=converter_xa5,
 		.argc=1,
 	},
 	{
-		.action=converter_x17,
+		.action=converter_xa7,
 		.argc=1,
 	},
 	{
-		.action=converter_x19,
+		.action=converter_xa9,
 		.argc=1,
 	},
 	{
-		.action=converter_x1b,
+		.action=converter_xab,
 		.argc=1,
 	},
 	{
-		.action=converter_x1d,
+		.action=converter_xad,
 		.argc=1,
 	},
 	{
-		.action=converter_x1f,
+		.action=converter_xaf,
 		.argc=1,
 	},
 	{
@@ -3179,47 +3192,47 @@ const struct expr_writefmt expr_writefmts_default[]={
 		.argc=1,
 	},
 	{
-		.action=converter_x03,
+		.action=converter_x83,
 		.argc=1,
 	},
 	{
-		.action=converter_x04,
+		.action=converter_x84,
 		.argc=1,
 	},
 	{
-		.action=converter_x05,
+		.action=converter_x85,
 		.argc=1,
 	},
 	{
-		.action=converter_x06,
+		.action=converter_x86,
 		.argc=1,
 	},
 	{
-		.action=converter_x07,
+		.action=converter_x87,
 		.argc=1,
 	},
 	{
-		.action=converter_x09,
+		.action=converter_x89,
 		.argc=1,
 	},
 	{
-		.action=converter_x0b,
+		.action=converter_x8b,
 		.argc=1,
 	},
 	{
-		.action=converter_x0c,
+		.action=converter_x8c,
 		.argc=1,
 	},
 	{
-		.action=converter_x0d,
+		.action=converter_x8d,
 		.argc=1,
 	},
 	{
-		.action=converter_x0e,
+		.action=converter_x8e,
 		.argc=1,
 	},
 	{
-		.action=converter_x0f,
+		.action=converter_x8f,
 		.argc=1,
 	},
 	{
@@ -3230,9 +3243,49 @@ const struct expr_writefmt expr_writefmts_default[]={
 		.action=faction_H,
 		.argc=2,
 	},
+	{
+		.action=converter_x9b,
+		.argc=1,
+	},
+	{
+		.action=converter_x9c,
+		.argc=1,
+	},
+	{
+		.action=converter_x9d,
+		.argc=1,
+	},
+	{
+		.action=converter_x9e,
+		.argc=1,
+	},
+	{
+		.action=converter_x9f,
+		.argc=1,
+	},
+	{
+		.action=converter_xbb,
+		.argc=1,
+	},
+	{
+		.action=converter_xbc,
+		.argc=1,
+	},
+	{
+		.action=converter_xbd,
+		.argc=1,
+	},
+	{
+		.action=converter_xbe,
+		.argc=1,
+	},
+	{
+		.action=converter_xbf,
+		.argc=1,
+	},
 };
 const size_t expr_writefmts_default_size=arrsize(expr_writefmts_default);
-const uint8_t expr_writefmts_table_default[128]={
+const uint8_t expr_writefmts_table_default[256]={
 	['n']=255,
 	['N']=254,
 	['r']=253,
@@ -3241,61 +3294,92 @@ const uint8_t expr_writefmts_table_default[128]={
 	['T']=250,
 	['t']=249,
 	['k']=248,
+	['Q']=247,
 	['q']=0,
 	['%']=1,
 	['f']=2,
-	['\x1a']=2,
+	['\xaa']=2,
+	['\xba']=2,
 	['s']=3,
 	['d']=4,
 	['u']=5,
-	['\x0a']=5,
+	['\x8a']=5,
+	['\x9a']=5,
 	['x']=6,
-	['\x01']=10,
+	['\x81']=6,
 	['X']=7,
+	['\x91']=7,
 	['S']=8,
 	['o']=9,
-	['\x08']=9,
+	['\x88']=9,
+	['\x98']=9,
 	['b']=10,
-	['\x02']=10,
+	['\x82']=10,
+	['\x92']=10,
 	['c']=11,
 	['F']=12,
 	['a']=13,
-	['\x11']=13,
+	['\xa1']=13,
 	['A']=14,
+	['\xb1']=14,
 	['B']=15,
 	['O']=16,
-	['\x12']=17,
-	['\x14']=18,
-	['\x16']=19,
-	['\x18']=20,
-	['\x1c']=21,
-	['\x1e']=22,
-	['\x13']=23,
-	['\x15']=24,
-	['\x17']=25,
-	['\x19']=26,
-	['\x1b']=27,
-	['\x1d']=28,
-	['\x1f']=29,
+	['\xa2']=17,
+	['\xb2']=17,
+	['\xa4']=18,
+	['\xb4']=18,
+	['\xa6']=19,
+	['\xb6']=19,
+	['\xa8']=20,
+	['\xb8']=20,
+	['\xac']=21,
+	['\xae']=22,
+	['\xa3']=23,
+	['\xb3']=23,
+	['\xa5']=24,
+	['\xb5']=24,
+	['\xa7']=25,
+	['\xb7']=25,
+	['\xa9']=26,
+	['\xb9']=26,
+	['\xab']=27,
+	['\xad']=28,
+	['\xaf']=29,
 	['e']=30,
 	['E']=31,
 	['g']=32,
 	['G']=33,
 	['p']=34,
 	['P']=35,
-	['\x03']=36,
-	['\x04']=37,
-	['\x05']=38,
-	['\x06']=39,
-	['\x07']=40,
-	['\x09']=41,
-	['\x0b']=42,
-	['\x0c']=43,
-	['\x0d']=44,
-	['\x0e']=45,
-	['\x0f']=46,
+	['\x83']=36,
+	['\x93']=36,
+	['\x84']=37,
+	['\x94']=37,
+	['\x85']=38,
+	['\x95']=38,
+	['\x86']=39,
+	['\x96']=39,
+	['\x87']=40,
+	['\x97']=40,
+	['\x89']=41,
+	['\x99']=41,
+	['\x8b']=42,
+	['\x8c']=43,
+	['\x8d']=44,
+	['\x8e']=45,
+	['\x8f']=46,
 	['h']=47,
 	['H']=48,
+	['\x9b']=49,
+	['\x9c']=50,
+	['\x9d']=51,
+	['\x9e']=52,
+	['\x9f']=53,
+	['\xbb']=54,
+	['\xbc']=55,
+	['\xbd']=56,
+	['\xbe']=57,
+	['\xbf']=58,
 };
 #define wf_trywrite(buf,sz) {\
 	r=writer(fd,(buf),(sz));\
@@ -3402,7 +3486,7 @@ reflag:
 		}
 		if(unlikely(fmt>=endp))
 			break;
-		r=table[*(uint8_t *)fmt&(uint8_t)0x7f];
+		r=table[*(uint8_t *)fmt];
 		switch(r){
 			case 0:
 				goto end;
@@ -3457,6 +3541,13 @@ reflag:
 					goto argfail;
 				arrwid=(arrlen==DIGIT_DEFAULT?8:arrlen);
 				arrlen=flag_width(flag);
+				break;
+			case 247:
+				if(unlikely(!arglen))
+					goto argfail;
+				if(*args)
+					goto end;
+				argnext1;
 				break;
 #define fmt_repeat if(!loop)loop=1;for(;loop;--loop)
 #define fmt_once(_arg) \
@@ -3571,7 +3662,7 @@ reflag:
 end:
 	return ret;
 argfail:
-	return 0;
+	return PTRDIFF_MIN;
 }
 size_t expr_strscan(const char *s,size_t sz,char *restrict buf,size_t outsz){
 	const char *p,*s1,*endp=s+sz;
@@ -7292,6 +7383,8 @@ struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const cha
 	struct expr_symbol *ep,**next;
 	size_t depth,alen;
 	next=expr_symset_findtail(esp,sym,symlen,&depth);
+//	printf("adding %s\n",sym);
+//	if(symlen==1)trap;
 	if(unlikely(!next))
 		return NULL;
 	ep=expr_symbol_vcreatel(sym,symlen,type,flag,ap);
@@ -8533,19 +8626,7 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 			CALSUM(EXPR_XORN,sum=likely(inited)?xor2(sum,y):(inited=1,y),inited=0,sum,dest);\
 			CALSUM(EXPR_GCDN,sum=likely(inited)?gcd2(sum,y):(inited=1,y),inited=0,sum,dest);\
 			CALSUM(EXPR_LCMN,sum=likely(inited)?lcm2(sum,y):(inited=1,y),inited=0,sum,dest);\
-\
-			case EXPR_FOR:\
-				ip->un.es->index=\
-				eval(ip->un.es->fromep,input);\
-				to=eval(ip->un.es->toep,input);\
-				if(unlikely(to<0.0))\
-					to=-to;\
-				while(likely(to!=0.0)){\
-					eval(ip->un.es->stepep,input);\
-					to=eval(ip->un.es->toep,input);\
-				}\
-				*dest=eval(ip->un.es->ep,input);\
-				break;\
+			CALSUM(EXPR_FOR,,,sum,dest);\
 			case EXPR_LOOP:\
 				ip->un.es->index=\
 				eval(ip->un.es->fromep,input);\

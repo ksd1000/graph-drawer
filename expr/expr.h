@@ -918,6 +918,7 @@ double expr_calc4(const char *e,int *error,char errinfo[EXPR_SYMLEN],struct expr
 double expr_calc3(const char *e,int *error,char errinfo[EXPR_SYMLEN]);
 double expr_calc2(const char *e,int flag);
 double expr_calc(const char *e);
+int expr_optimize(struct expr *restrict ep);
 double expr_eval(const struct expr *restrict ep,double input);
 int expr_step(const struct expr *restrict ep,double input,double *restrict output,struct expr_inst **restrict saveip);
 double expr_callback(const struct expr *restrict ep,double input,const struct expr_callback *ec);

@@ -7858,7 +7858,6 @@ force_continue:
 }
 a bug cannot fix
 */
-static void expr_optimize(struct expr *restrict ep);
 static int expr_constexpr(const struct expr *restrict ep,double *except);
 int expr_isconst(const struct expr *restrict ep){
 	return expr_constexpr(ep,NULL);
@@ -7893,7 +7892,6 @@ static int init_expr8(struct expr *restrict ep,const char *e,size_t len,const ch
 		double v;
 	} un;
 	char *r,*p0;
-	struct expr_resource *rp;
 	double *v;
 	memset(ep,0,sizeof(struct expr));
 	ep->sset=esp;
@@ -7930,15 +7928,8 @@ err:
 		return -1;
 	}
 	if(!(flag&EXPR_IF_NOOPTIMIZE)){
-		expr_optimize(ep);
-		if(expr_isconst(ep)){
-			un.v=eval(ep,0.0);
-			expr_free_keepres(ep);
-			rp=ep->res;
-			if(unlikely(init_expr_const(ep,un.v)<0))
-				return -1;
-			ep->res=rp;
-		}
+		if(expr_optimize(ep)<0)
+			return -1;
 	}
 	if(flag&EXPR_IF_INSTANT_FREE){
 		expr_free(ep);
@@ -9482,7 +9473,7 @@ static int expr_optimize_once(struct expr *restrict ep){
 	expr_optimize_copyend(ep);
 	return r;
 }
-static void expr_optimize(struct expr *restrict ep){
+static void expr_optimize0(struct expr *restrict ep){
 	size_t s=ep->size;
 	int r;
 	expr_writeconsts(ep);
@@ -9494,7 +9485,25 @@ again:
 	}
 
 }
-
+int expr_optimize(struct expr *restrict ep){
+	struct expr_resource *rp;
+	double v;
+	int sf;
+	expr_optimize0(ep);
+	if(expr_isconst(ep)){
+		sf=ep->freeable;
+		v=eval(ep,0.0);
+		expr_free_keepres(ep);
+		rp=ep->res;
+		if(unlikely(init_expr_const(ep,v)<0)){
+			if(sf)
+				xfree(ep);
+			return -1;
+		}
+		ep->res=rp;
+	}
+	return 0;
+}
 #pragma GCC diagnostic push
 //#pragma GCC diagnostic ignored "-Wunknown-warning-option"
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"

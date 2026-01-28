@@ -105,7 +105,9 @@ EXPR_TO1,
 EXPR_HMD,
 EXPR_RET,
 EXPR_SVC,
+EXPR_SVC0,
 EXPR_SVCP,
+EXPR_SVCP0,
 EXPR_END
 };
 
@@ -178,7 +180,7 @@ EXPR_END
 //only for a unsafe function,it means it is able and only able to accept
 //a address of a VARIABLE as its argument in protected mode.
 
-#define EXPR_SF_PEP 12
+#define EXPR_SF_PFUNC 12
 #define EXPR_SF_PMASK (~12)
 //expr initial flag
 #define EXPR_IF_NOOPTIMIZE 1
@@ -343,17 +345,36 @@ struct expr_libinfo {
 	const char *time;
 	const char *license;
 };
+struct expr_writeflag {
+	size_t width;
+	ptrdiff_t digit;
+	uint64_t bit[0];
+#if (!defined(__BIG_ENDIAN__)||!__BIG_ENDIAN__)
+	uint64_t unused:56,
+		 width_set:1,
+		 digit_set:1,
+		 eq:1,
+		 zero:1,
+		 sharp:1,
+		 minus:1,
+		 space:1,
+		 plus:1;
+#else
+	uint64_t plus:1,
+		 space:1,
+		 minus:1,
+		 sharp:1,
+		 zero:1,
+		 eq:1,
+		 digit_set:1,
+		 width_set:1,
+		 unused:57;
+#endif
+};
 struct expr_writefmt {
-	ssize_t (*action)(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag);
+	ssize_t (*converter)(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,struct expr_writeflag *flag);
 	uint8_t argc,arg_signed;
 	uint8_t op[6];
-};
-struct expr_writeflag {
-#if (!defined(__BIG_ENDIAN__)||!__BIG_ENDIAN__)
-	uint64_t width:29,digit:29,eq:1,zero:1,sharp:1,minus:1,space:1,plus:1;
-#else
-	uint64_t plus:1,space:1,minus:1,sharp:1,zero:1,eq:1,digit:29,width:29;
-#endif
 };
 struct expr;
 struct expr_symset;
@@ -550,7 +571,11 @@ struct expr_callback {
 struct expr_internal_jmpbuf {
 	struct expr_inst **ipp;
 	struct expr_inst *ip;
-	double val;
+	union {
+		double val;
+		uint64_t u64;
+		uint64_t i64;
+	} un;
 	jmp_buf jb;
 };
 
@@ -782,7 +807,6 @@ struct expr {
 	struct expr_inst *data;
 	struct expr_inst **ipp;
 	size_t size;
-	struct expr_inst *ip;
 	struct expr *parent;
 	double **vars;
 	struct expr_symset *sset;

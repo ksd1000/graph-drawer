@@ -162,6 +162,10 @@
 		case EXPR_DO1:\
 		case EXPR_EP:\
 		case EXPR_WIF
+#define SVCCASES EXPR_SVC:\
+		case EXPR_SVCP:\
+		case EXPR_SVC0:\
+		case EXPR_SVCP0
 
 #define expr_equal(_a,_b) ({\
 	double a,b,absa,absb,absamb;\
@@ -445,7 +449,23 @@ static inline void xfree_stack(void **restrict p){
 		return;
 	expr_deallocator(*p);
 }
-
+/*static __attribute__((return_twice)) double internal_setjmp(struct expr_internal_jmpbuf *buf,struct expr_inst *ip,struct expr_inst **ipp){
+	buf->ip=ip;
+	buf->ipp=ipp;
+	if(setjmp(buf->jb)){
+		return buf->val;
+	}
+	return 0.0:
+}
+static __attribute__((noreturn)) double internal_setjmp(struct expr_internal_jmpbuf *buf){
+	buf->ip=ip;
+	buf->ipp=ipp;
+	if(setjmp(buf->jb)){
+		return buf->val;
+	}
+	return 0.0:
+}
+*/
 #define ltod(_l) expr_ltod48(_l)
 #define ltol(_l) expr_ltol48(_l)
 #define ltom(_l) expr_ltom48(_l)
@@ -1083,7 +1103,7 @@ static double bassert(const struct expr *args,size_t n,double input){
 	double x=eval(args,input);
 	if(x==0.0){
 		const char *p,*e;
-		e=args->ip->un.em->e;
+		e=(*args->parent->ipp)->un.em->e;
 		p=strchr(e,'(');
 		if(unlikely(!p))
 			p=e;
@@ -1936,7 +1956,7 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGCSYM_E(SF_WRITEIP),
 	REGCSYM_E(SF_PMD),
 	REGCSYM_E(SF_PME),
-	REGCSYM_E(SF_PEP),
+	REGCSYM_E(SF_PFUNC),
 	REGCSYM_E(SF_UNSAFE),
 	REGCSYM_E(SF_ALLOWADDR),
 
@@ -2297,25 +2317,25 @@ static ssize_t writeext(ssize_t (*writer)(intptr_t fd,const void *buf,size_t siz
 	}
 	return sum;
 }
-#define flag_width(_f) ((_f)&0x1ffffffful)
-#define flag_digit(_f) (((_f)>>29ul)&0x1ffffffful)
-#define DIGIT_DEFAULT 0x1ffffffful
+#define flag_plusorspace(_f) (*(_f)->bit&(3ul<<62))
+#define flag_width(_f,_dflt) ((_f)->width_set?(_f)->width:(_dflt))
+#define flag_digit(_f,_dflt) ((_f)->digit_set?(size_t)(_f)->digit:(_dflt))
 #define cwrite_common(_s,_sz) \
 	sz=(_sz);\
-	ext=(ssize_t)flag_width(flag)-sz;\
+	ext=(ssize_t)flag_width(flag,0)-sz;\
 	if(ext>0){\
 		sum=0;\
-		if(flag&(1ul<<61ul)){\
+		if(flag->minus){\
 			c_trywrite((_s),sz);\
-			c_trywriteext((flag&(1ul<<59ul))?'0':' ',ext);\
+			c_trywriteext((flag->zero)?'0':' ',ext);\
 		}else {\
-			c_trywriteext((flag&(1ul<<59ul))?'0':' ',ext);\
+			c_trywriteext((flag->zero)?'0':' ',ext);\
 			c_trywrite((_s),sz);\
 		}\
 		return sum;\
 	}\
 	return likely(sz>0)?writer(fd,(_s),sz):0;
-static ssize_t converter_d(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){
+static ssize_t converter_d(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,struct expr_writeflag *flag){
 	char nbuf[32];
 	intptr_t val=*(const intptr_t *)arg;
 	char *endp=nbuf+32;
@@ -2338,14 +2358,14 @@ static ssize_t converter_d(ssize_t (*writer)(intptr_t fd,const void *buf,size_t 
 		*(--p)='0';
 	switch(minus){
 		case 0:
-			if(flag&(3ul<<62ul))
+			if(flag_plusorspace(flag))
 				*(--p)='+';
 			break;
 		case 1:
 			*(--p)='-';
 			break;
 		case 2:
-			if(flag&(1ul<<63ul))
+			if(flag->plus)
 				*(--p)='+';
 			break;
 		default:
@@ -2354,7 +2374,7 @@ static ssize_t converter_d(ssize_t (*writer)(intptr_t fd,const void *buf,size_t 
 	cwrite_common(p,endp-p);
 }
 #define conv_x(name,base,conv_str,bufsz) \
-static ssize_t converter_##name(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){\
+static ssize_t converter_##name(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,struct expr_writeflag *flag){\
 	char nbuf[bufsz];\
 	uintptr_t val=*(const uintptr_t *)arg;\
 	char *endp=nbuf+bufsz;\
@@ -2372,18 +2392,18 @@ static ssize_t converter_##name(ssize_t (*writer)(intptr_t fd,const void *buf,si
 		*(--p)='0';\
 	}\
 	if(base==16){\
-		if(flag&(1ul<<60ul)){\
+		if(flag->sharp){\
 			*(--p)=conv_str[base];\
 			*(--p)='0';\
 		}\
 	}\
 	switch(positive){\
 		case 1:\
-			if(flag&(3ul<<62ul))\
+			if(flag_plusorspace(flag))\
 				*(--p)='+';\
 			break;\
 		case 0:\
-			if(flag&(1ul<<63ul))\
+			if(flag->plus)\
 				*(--p)='+';\
 			break;\
 		default:\
@@ -2600,7 +2620,7 @@ static size_t extint_ascii_rev(uint64_t *buf,size_t size,const char *chars,uint3
 	write_ascii(--out,outbuf-out);
 }
 #define conv_f0(_name,_base,_lnbase,_conv_str,_shift,_nsize,_how,_before_how) \
-static ssize_t converter_##_name(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){\
+static ssize_t converter_##_name(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,struct expr_writeflag *flag){\
 	_Static_assert(__builtin_constant_p((_nsize)),"_nsize should be constant");\
 	double val=*(const double *)arg;\
 	struct {\
@@ -2614,7 +2634,7 @@ static ssize_t converter_##_name(ssize_t (*writer)(intptr_t fd,const void *buf,s
 	char *p;\
 	int positive,f61,f58;\
 	ssize_t ext,sum,r,sz,fsz,ds;\
-	uint32_t digit,width;\
+	size_t digit,width;\
 	if(unlikely(!expr_isfinite(val))){\
 		p=nbuf;\
 		write_sign_to_p(EXPR_EDSIGN(&val));\
@@ -2636,7 +2656,7 @@ static ssize_t converter_##_name(ssize_t (*writer)(intptr_t fd,const void *buf,s
 	p=nbuf;\
 	write_sign_to_p(!positive);\
 	if(_base==16){\
-		if(flag&(1ul<<60ul)){\
+		if(flag->sharp){\
 			*(p++)='0';\
 			*(p++)=_conv_str[_base];\
 		}\
@@ -2665,12 +2685,12 @@ static ssize_t converter_##_name(ssize_t (*writer)(intptr_t fd,const void *buf,s
 		*(p++)='0';\
 	}\
 	ds=p-nbuf;\
-	f61=!!(flag&(1ul<<61ul));\
-	f58=!!(flag&(1ul<<58ul));\
-	digit=flag_digit(flag);\
-	if(digit==DIGIT_DEFAULT)\
-		digit=6;\
-	width=flag_width(flag);\
+	f61=!!(flag->minus);\
+	f58=!!(flag->eq);\
+	digit=flag_digit(flag,6);\
+	if(digit>SSIZE_MAX-1)\
+		digit=SSIZE_MAX-1;\
+	width=flag_width(flag,0);\
 	if(digit){\
 		fsz=(ssize_t)EXPR_EDEXP(&val);\
 		if(fsz)\
@@ -2713,9 +2733,11 @@ static ssize_t converter_##_name(ssize_t (*writer)(intptr_t fd,const void *buf,s
 		c_trywrite(p,fsz);\
 	}\
 	if(!f58&&fsz<digit){\
-		if(!fsz)\
+		if(!fsz){\
 			c_trywrite(".",1);\
-		c_trywriteext('0',digit-fsz);\
+			c_trywriteext('0',digit-fsz);\
+		}else\
+			c_trywriteext('0',digit-fsz+1);\
 	}\
 },\
 	ext=digit+1;\
@@ -2726,6 +2748,7 @@ static ssize_t converter_##_name(ssize_t (*writer)(intptr_t fd,const void *buf,s
 		--fsz;\
 		--endp;\
 	}\
+	printval(fsz);\
 	if(fsz==1)\
 		fsz=0;\
 	sz=ds+(f58?fsz:ext);\
@@ -2866,13 +2889,13 @@ onzero:\
 #define writeext_f \
 	ext=(ssize_t)width-sz;\
 	if(ext>0){\
-		c_trywriteext((flag&(1ul<<59ul))?'0':' ',ext);\
+		c_trywriteext((flag->zero)?'0':' ',ext);\
 	}
 #define write_sign_to_p(_neg) \
 		if(_neg){\
 			*(p++)='-';\
 		}else {\
-			if(flag&(3ul<<62ul))\
+			if(flag_plusorspace(flag))\
 				*(p++)='+';\
 		}
 #define vbuf (bufst.v)
@@ -2979,38 +3002,36 @@ conv_f(xbf,15,log(15),conv_btoX,ival_mul15p;r=extint_right(ival,r,ext),nbuf_size
 #undef ival
 #undef iival
 #undef workspace
-static ssize_t faction_s(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){
+static ssize_t faction_s(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,struct expr_writeflag *flag){
 	size_t len;
 	ssize_t r,sum,ext,sz;
-	uint64_t digit=flag_digit(flag);
 	if(unlikely(!*arg)){
 		cwrite_common("(null)",6);
 	}
-	len=(digit!=DIGIT_DEFAULT)?strnlen(*arg,digit):strlen(*arg);
+	len=flag->digit_set?strnlen(*arg,flag->digit):strlen(*arg);
 	cwrite_common(*arg,(ssize_t)len);
 }
-static ssize_t faction_S(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){
+static ssize_t faction_S(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,struct expr_writeflag *flag){
 	size_t len=*(const size_t *)(arg+1);
 	ssize_t r,sum,ext,sz;
-	uint64_t digit=flag_digit(flag);
-	if(digit!=DIGIT_DEFAULT&&digit<len)
-		len=digit;
+	if(flag->digit_set&&flag->digit<len)
+		len=flag->digit;
 	cwrite_common(*arg,(ssize_t)len);
 }
 #define faction_hexdump(name,conv_str) \
-static ssize_t faction_##name(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){\
+static ssize_t faction_##name(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,struct expr_writeflag *flag){\
 	size_t len=*(const size_t *)(arg+1);\
 	ssize_t r,sum,ext;\
 	uint8_t buf[960];\
 	uint8_t *p,*endp,*datap;\
 	uint8_t data;\
-	int f61=!!(flag&(1ul<<61ul)),f60=!!(flag&(1ul<<60ul)),f63=!!(flag&(1ul<<63ul));\
-	ext=(ssize_t)flag_width(flag)-(f60?4:2)*(ssize_t)len;\
+	int f61=!!(flag->minus),f60=!!(flag->sharp),f63=!!(flag->plus);\
+	ext=(ssize_t)flag_width(flag,0)-(f60?4:2)*(ssize_t)len;\
 	if(f63&&len>1)\
 		ext-=(ssize_t)(len-1);\
 	sum=0;\
 	if(!f61&&ext>0){\
-		c_trywriteext((flag&(1ul<<59ul))?'0':' ',ext);\
+		c_trywriteext((flag->zero)?'0':' ',ext);\
 	}\
 	if(len){\
 		p=buf;\
@@ -3038,52 +3059,48 @@ static ssize_t faction_##name(ssize_t (*writer)(intptr_t fd,const void *buf,size
 		}\
 	}\
 	if(f61&&ext>0){\
-		c_trywriteext((flag&(1ul<<59ul))?'0':' ',ext);\
+		c_trywriteext((flag->zero)?'0':' ',ext);\
 	}\
 	return sum;\
 }
 faction_hexdump(h,conv_btox);
 faction_hexdump(H,conv_btoX);
-static ssize_t faction_c(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){
+static ssize_t faction_c(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,struct expr_writeflag *flag){
 #if (!defined(__BIG_ENDIAN__)||!__BIG_ENDIAN__)
 	return writer(fd,arg,1);
 #else
 	return writer(fd,(const uint8_t *)arg+(sizeof(void *)-1),1);
 #endif
 }
-static inline uint64_t flag2digit(uint64_t flag){
-	flag=flag_digit(flag);
-	return flag==DIGIT_DEFAULT?6:flag;
-}
-static ssize_t faction_g(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){
+static ssize_t faction_g(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,struct expr_writeflag *flag){
 	double val=fabs(*(const double *)arg),vl;
-	return ((val==0.0||((vl=log(val)/log(10))>=-4&&vl<flag2digit(flag)))?
-	converter_xaa:converter_fe)(writer,fd,arg,flag|(1ul<<58ul));
+	return ((val==0.0||((vl=log(val)/log(10))>=-4&&vl<flag_digit(flag,6)))?
+	converter_xaa:converter_fe)(writer,fd,arg,(flag->eq=1,flag));
 }
-static ssize_t faction_G(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){
+static ssize_t faction_G(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,struct expr_writeflag *flag){
 	double val=fabs(*(const double *)arg),vl;
-	return ((val==0.0||((vl=log(val)/log(10))>=-4&&vl<flag2digit(flag)))?
-	converter_xba:converter_fE)(writer,fd,arg,flag|(1ul<<58ul));
+	return ((val==0.0||((vl=log(val)/log(10))>=-4&&vl<flag_digit(flag,6)))?
+	converter_xba:converter_fE)(writer,fd,arg,(flag->eq=1,flag));
 }
-static ssize_t faction_p(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){
+static ssize_t faction_p(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,struct expr_writeflag *flag){
 	if(!*arg){
 		ssize_t r,sum,ext,sz;
 		cwrite_common("null",4l);
 	}
-	return converter_x81(writer,fd,arg,flag|(1ul<<60ul));
+	return converter_x81(writer,fd,arg,(flag->sharp=1,flag));
 }
-static ssize_t faction_P(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){
+static ssize_t faction_P(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,struct expr_writeflag *flag){
 	if(!*arg){
 		ssize_t r,sum,ext,sz;
 		cwrite_common("NULL",4l);
 	}
-	return converter_x91(writer,fd,arg,flag|(1ul<<60ul));
+	return converter_x91(writer,fd,arg,(flag->sharp=1,flag));
 }
-static ssize_t faction_percent(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){
+static ssize_t faction_percent(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,struct expr_writeflag *flag){
 	return writer(fd,"%",1);
 }
 #define fmtc_register(_act,_argc,_sign,_op,...) {\
-	.action=(_act),\
+	.converter=(_act),\
 	.argc=(_argc),\
 	.arg_signed=(_sign),\
 	.op={_op,##__VA_ARGS__},\
@@ -3173,6 +3190,9 @@ const uint8_t expr_writefmts_table_default[256]={
 ['k']=248,
 ['Q']=247,
 ['@']=246,
+['J']=245,
+['j']=244,
+['&']=243,
 
 ['%']=1,
 ['\x81']=2,['x']=2,
@@ -3257,15 +3277,17 @@ ssize_t expr_writef(const char *fmt,size_t fmtlen,ssize_t (*writer)(intptr_t fd,
 	return expr_writef_r(fmt,fmtlen,writer,fd,args,arglen,expr_writefmts_default,expr_writefmts_table_default);
 }
 ssize_t expr_writef_r(const char *fmt,size_t fmtlen,ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *args,size_t arglen,const struct expr_writefmt *fmts,const uint8_t *table){
-	const char *endp=fmt+fmtlen,*fmt_old=fmt;
+	const char *endp=fmt+fmtlen,*fmt_old=fmt,*fmt0=fmt;
 	ssize_t r,ret=0,c;
 	const struct expr_writefmt *wfp;
-	uint64_t flag,v;
-	const char *delim=NULL,*tail=NULL;
+	struct expr_writeflag flag[1];
+	uint64_t v;
+	const char *delim=NULL,*tail=NULL,*d1;
 	size_t delimsz=0,tailsz=0,arrlen=0;
 	uint32_t loop=0;
 	uint8_t ac_prev[256];
 	uint8_t aci=0,i,forward=0,arrwid=0,current;
+	void *const *arg0=args;
 	if(unlikely(endp<=fmt||!check_no_number(endp[-1])))
 		return 0;
 	for(;;){
@@ -3285,31 +3307,31 @@ ssize_t expr_writef_r(const char *fmt,size_t fmtlen,ssize_t (*writer)(intptr_t f
 		if(unlikely(fmt>=endp))\
 			goto end
 		fmt_inc_check;
-		flag=0;
+		*flag->bit=0;
 reflag:
 		switch(*fmt){
 			case '+':
-				flag|=1ul<<63ul;
+				flag->plus=1;
 				fmt_inc_check;
 				goto reflag;
 			case ' ':
-				flag|=1ul<<62ul;
+				flag->space=1;
 				fmt_inc_check;
 				goto reflag;
 			case '-':
-				flag|=1ul<<61ul;
+				flag->minus=1;
 				fmt_inc_check;
 				goto reflag;
 			case '#':
-				flag|=1ul<<60ul;
+				flag->sharp=1;
 				fmt_inc_check;
 				goto reflag;
 			case '0':
-				flag|=1ul<<59ul;
+				flag->zero=1;
 				fmt_inc_check;
 				goto reflag;
 			case '=':
-				flag|=1ul<<58ul;
+				flag->eq=1;
 				fmt_inc_check;
 				goto reflag;
 			default:
@@ -3317,30 +3339,28 @@ reflag:
 		}
 #define argnext1 --arglen;++args;ac_prev[aci++]=1
 #define argnext(N) if(unlikely(arglen<(N)))goto argfail;arglen-=(N);args+=(N);ac_prev[aci++]=(N)
-#define argback(N) for(uint8_t n=(N);n;--n){i=ac_prev[--aci];arglen+=i;args-=i;}
+#define argback(N) for(uint8_t n=(N);n;--n){i=ac_prev[--aci];args-=i;if(unlikely(args<arg0))goto argfail;arglen+=i;}
 #define argunback(N) for(uint8_t n=(N);n;--n){i=ac_prev[++aci];if(unlikely(arglen<i))goto argfail;arglen-=i;args+=i;}
-#define get_next_arg64 \
+#define get_next_arg64(dest,set) \
 		fmt_old=fmt;\
 		if(*fmt=='*'){\
 			if(unlikely(!arglen))\
 				goto argfail;\
-			v=*(const uint64_t *)args;\
+			dest=*(const size_t *)args;\
+			set=1;\
 			fmt_inc_check;\
 			argnext1;\
-		}else\
-			v=strtol(fmt,(char **)&fmt,10)
-		get_next_arg64;
-		if(fmt>fmt_old){
-			flag|=v&0x1ffffffful;
+		}else {\
+			v=strtol(fmt,(char **)&fmt,10);\
+			if(fmt>fmt_old){\
+				dest=v;\
+				set=1;\
+			}\
 		}
+		get_next_arg64(flag->width,flag->width_set);
 		if(*fmt=='.'){
 			fmt_inc_check;
-			get_next_arg64;
-			if(fmt>fmt_old){
-				flag|=(v&0x1ffffffful)<<29ul;
-			}
-		}else {
-				flag|=DIGIT_DEFAULT<<29ul;
+			get_next_arg64(flag->digit,flag->digit_set);
 		}
 		if(unlikely(fmt>=endp))
 			break;
@@ -3363,27 +3383,26 @@ current_get:
 				argnext1;
 				break;
 			case 253:
-				v=flag_width(flag);
+				v=flag_width(flag,1);
 				if(!v)
 					v=1;
-				if(flag&1ul<<61ul){
+				if(flag->minus){
 					argunback(v);
 				}else {
 					argback(v);
 				}
 				break;
 			case 252:
-				loop=flag_width(flag);
+				loop=flag_width(flag,0);
 				break;
 			case 251:
-				loop=flag_width(flag);
+				loop=flag_width(flag,0);
 				forward=1;
 				break;
 			case 250:
 #define setdlm(dlm,dsz) \
-				dsz=flag_width(flag);\
+				dsz=flag_width(flag,0);\
 				if(dsz){\
-					const char *d1;\
 					dlm=fmt+1;\
 					d1=dlm+dsz;\
 					if(unlikely(d1>=endp||d1<dlm))\
@@ -3396,11 +3415,10 @@ current_get:
 				setdlm(tail,tailsz);
 				break;
 			case 248:
-				arrlen=flag_digit(flag);
-				if(unlikely(arrlen>8||!arglen))
+				arrwid=flag_digit(flag,8);
+				if(unlikely(arrwid>8||!arrwid))
 					goto argfail;
-				arrwid=(arrlen==DIGIT_DEFAULT?8:arrlen);
-				arrlen=flag_width(flag);
+				arrlen=flag_width(flag,0);
 				break;
 			case 247:
 				if(unlikely(!arglen))
@@ -3415,9 +3433,45 @@ current_get:
 				current=*(uint8_t *)args;
 				argnext1;
 				goto current_get;
+			case 245:
+				if(unlikely(!arglen))
+					goto argfail;
+				if(flag->eq){
+					size_t *ar;
+					ar=*args;
+					v=flag_digit(flag,1);
+					if(!(*ar-=v))
+						goto anb;
+				}else {
+					if(!*args){
+anb:
+						argnext1;
+						break;
+					}
+				}
+				argnext1;
+			case 244:
+				v=flag_width(flag,0);
+				if(flag->minus)
+					d1=fmt-v;
+				else
+					d1=fmt+v;
+				fmt=d1;
+				++d1;
+				if(unlikely(d1>=endp||d1<fmt0))
+					goto argfail;
+				argback(arrlen);
+				arrlen=0;
+				break;
+			case 243:
+				if(unlikely(!arglen))
+					goto argfail;
+				wfp=*(const struct expr_writefmt **)args;
+				argnext1;
+				goto wfp_get;
 #define fmt_repeat if(!loop)loop=1;for(;loop;--loop)
 #define fmt_once(_arg) \
-	r=wfp->action(writer,fd,(_arg),flag);\
+	r=wfp->converter(writer,fd,(_arg),flag);\
 	if(unlikely(r<0))\
 		return r;\
 	ret+=r
@@ -3444,6 +3498,7 @@ current_get:
 	}
 			default:
 				wfp=fmts+(r-1);
+wfp_get:
 				
 				if(!(c=wfp->argc)){
 					fmt_dorepeat(NULL);
@@ -4919,9 +4974,7 @@ static double *getvalue(struct expr *restrict ep,const char *e,const char *endp,
 	} sv;
 	int type,flag;
 	size_t dim;
-	while(e<endp&&*e=='+')
-		++e;
-	if(e>=endp)
+	if(unlikely(e>=endp))
 		goto eev;
 	switch(*e){
 		case 0:
@@ -6134,7 +6187,9 @@ treat_as_variable:
 						cknp(ep,expr_addop(ep,v0,un.em,(flag&EXPR_SF_WRITEIP)?EXPR_PMEP:EXPR_PME,0),return NULL);
 						e=p+1;
 						goto vend;*/
-					case EXPR_SF_PEP:
+					case EXPR_SF_PFUNC:
+						break;
+						/*
 						p=findpair(e,endp);
 						if(unlikely(!p))
 							goto pterr;
@@ -6145,8 +6200,9 @@ treat_as_variable:
 						e=p+1;
 						v0=v1;
 						goto vend;
+						*/
 					default:
-						break;
+						goto vend;
 				}
 				if(e+1<endp&&e[1]==')'){
 					v1=expr_newvar(ep);
@@ -6362,33 +6418,43 @@ static struct vnode *vnadd(struct vnode *vp,double *v,enum expr_op op,uint64_t u
 	p->next->next=NULL;
 	return vp;
 }
-
+static inline int do_unary_forone(struct expr *restrict ep,struct vnode *p){
+redo:
+	switch(p->unary&7ul){
+		case 1:
+			cknp(ep,expr_addneg(ep,p->v),return -1);
+			break;
+		case 2:
+			cknp(ep,expr_addnotl(ep,p->v),return -1);
+			break;
+		case 3:
+			cknp(ep,expr_addnot(ep,p->v),return -1);
+			break;
+		case 4:
+			cknp(ep,expr_addnex0(ep,p->v),return -1);
+			break;
+		case 5:
+			cknp(ep,expr_adddif0(ep,p->v),return -1);
+			break;
+		default:
+			return 0;
+	}
+	p->unary>>=3ul;
+	goto redo;
+}
+static inline int do_unary_forvar(struct expr *restrict ep,struct vnode *ev,double *v){
+	for(struct vnode *p=ev;p;p=p->next){
+		if(p->v==v)
+			return do_unary_forone(ep,p);
+	}
+	return -1;
+}
 static int do_unary(struct expr *restrict ep,struct vnode *ev){
 	int r=0;
 	for(struct vnode *p=ev;p;p=p->next){
-redo:
-		switch(p->unary&7ul){
-			case 1:
-				cknp(ep,expr_addneg(ep,p->v),return -1);
-				break;
-			case 2:
-				cknp(ep,expr_addnotl(ep,p->v),return -1);
-				break;
-			case 3:
-				cknp(ep,expr_addnot(ep,p->v),return -1);
-				break;
-			case 4:
-				cknp(ep,expr_addnex0(ep,p->v),return -1);
-				break;
-			case 5:
-				cknp(ep,expr_adddif0(ep,p->v),return -1);
-				break;
-			default:
-				continue;
-		}
+		if(unlikely(do_unary_forone(ep,p)<0))
+			return -1;
 		r=1;
-		p->unary>>=3ul;
-		goto redo;
 	}
 	return r;
 }
@@ -6481,7 +6547,8 @@ eev:
 		goto err;
 	p=vnadd(ev,v1,op,unary);
 	cknp(ep,p,goto err);
-	ev=p;
+	if(unlikely(!ev))
+		ev=p;
 	if(unlikely(e>=endp)){
 		if(v1==EXPR_VOID){
 evd:
@@ -6493,6 +6560,7 @@ evd:
 	op0=op;
 	op=EXPR_END;
 rescan:
+#define unary_for(V) if(unlikely(do_unary_forvar(ep,ev,(V))<0))goto err
 	switch(*e){
 		case '>':
 			++e;
@@ -6593,6 +6661,7 @@ envp:
 							v2=scan(ep,e+1,p1,asym,asymlen);
 							if(unlikely(!v2))
 								goto err;
+							unary_for(v1);
 							cknp(ep,expr_addwrite(ep,v1,v2),goto err);
 							e=p1+1;
 							goto bracket_end;
@@ -6663,6 +6732,7 @@ multi_dim:
 					if(unlikely(!v2))
 						goto err;
 					cknp(ep,expr_addoff(ep,v3,v2),goto err);
+					unary_for(v1);
 					cknp(ep,expr_addwrite(ep,v1,v3),goto err);
 					e=p1+1;
 					goto bracket_end;
@@ -6683,6 +6753,7 @@ tnv:
 							goto err;
 					}
 				}
+				unary_for(v1);
 				cknp(ep,expr_addcopy(ep,expr_symbol_un(esp)->addr,v1),goto err);
 bracket_end:
 				if(e>=endp)
@@ -6730,6 +6801,7 @@ bracket_end:
 					v2=expr_createvar(ep,e,p1-e);
 					cknp(ep,v2,goto err);
 				}
+				unary_for(v1);
 				cknp(ep,expr_addcopy(ep,v2,v1),goto err);
 				e=p1;
 				if(e>=endp)
@@ -7803,16 +7875,18 @@ struct expr_symset *expr_symset_clone_s(const struct expr_symset *restrict ep,vo
 	}
 	return es;
 }
-static char *stpcpy_nospace(char *restrict s1,const char *restrict s2,const char *endp){
-	const char *s20=(const char *)s2;
+static char *stpcpy_nospace(char *restrict s1,const char *restrict s2,const char *endp,int subexpr){
+	const char *s20=(const char *)s2,*p;
 	int instr=0;
 	for(;s2<endp;++s2){
 		if(unlikely(*s2=='\"'&&(s2==s20||s2[-1]!='\\')))
 			instr^=1;
-		else if(unlikely(!instr&&*s2=='#'&&(s2==s20||s2[-1]=='\n'))){
-			s2=strchr(s2+1,'\n');
-			if(unlikely(!s2))
-				break;
+		else if(unlikely(!subexpr&&!instr&&*s2=='#'&&(s2==s20||s2[-1]=='\n'))){
+			p=memchr(s2+1,'\n',endp-s2-1);
+			if(unlikely(!p))
+				s2=endp;
+			else
+				s2=p;
 			continue;
 		}
 		if(!instr&&expr_space(*s2))
@@ -7902,7 +7976,7 @@ static int init_expr8(struct expr *restrict ep,const char *e,size_t len,const ch
 	}
 	p0=xmalloc(len+1);
 	cknp(ep,p0,return -1);
-	r=stpcpy_nospace(p0,e,e+len);
+	r=stpcpy_nospace(p0,e,e+len,!!parent);
 	un.p=scan(ep,p0,r,asym,asym?asymlen:0);
 	xfree(p0);
 	if(ep->sset_shouldfree){
@@ -8444,8 +8518,8 @@ static int expr_usesrc(enum expr_op op){
 		case EXPR_PZA:
 		case EXPR_EVAL:
 		case EXPR_RET:
-//		case EXPR_SVC:
 		case EXPR_SVCP:
+		case EXPR_SVCP0:
 			return 1;
 		default:
 			return 0;
@@ -8501,8 +8575,7 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 			case EXPR_WIF:
 			case EXPR_EVAL:
 			case EXPR_RET:
-			case EXPR_SVC:
-			case EXPR_SVCP:
+			case SVCCASES:
 			case EXPR_READ:
 			case EXPR_WRITE:
 			case EXPR_ALO:
@@ -8585,7 +8658,7 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 				*dest=ip->un.em->un.func(ip->un.em->args,ip->un.em->dim);\
 				break;\
 			case EXPR_MEP:\
-				ip->un.em->eps->ip=ip;\
+				((volatile struct expr *)ep)->ipp=&ip;\
 			case EXPR_ME:\
 				*dest=ip->un.em->un.funcep(ip->un.em->eps,ip->un.em->dim,input);\
 				break
@@ -8660,12 +8733,6 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 			struct expr *_epp;\
 		} s1;\
 		struct {\
-			union {\
-				double d;\
-				struct expr_internal_jmpbuf *jp;\
-			} un;\
-		} s2;\
-		struct {\
 			double _step,_from,_to;\
 			double *_ap,*__args;\
 			size_t __max;\
@@ -8680,11 +8747,14 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 			const intptr_t *arg;\
 			int count;\
 		} svc;\
-		struct expr_internal_jmpbuf *jp;\
 		void *up;\
 		double d;\
 		size_t index;\
-	} un
+	} un;\
+	__attribute__((unused)) union {\
+		double d;\
+		struct expr_internal_jmpbuf *p;\
+	} j;\
 
 #define sum (un.s0._sum)
 #define from (un.s0._from)
@@ -8707,6 +8777,7 @@ static double vmdeval(struct expr_vmdinfo *restrict ev,double input){
 }
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#pragma GCC diagnostic ignored "-Wdangling-pointer"
 static int expr_optimize_constexpr(struct expr *restrict ep){
 	EXPR_EVALVARS;
 	double result;
@@ -9429,6 +9500,37 @@ from_tstl_to_neg:
 	}
 	expr_optimize_completed(ep);
 }
+static void expr_optimize_svc0(struct expr *restrict ep){
+	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
+		if(ip[1].dst.dst!=ip->dst.dst)
+			continue;
+		switch(ip->op){
+			case EXPR_SVC:
+				switch(ip[1].op){
+					case EXPR_DIF0:
+						ip->op=EXPR_SVC0;
+						(++ip)->dst.dst=NULL;
+						break;
+					default:
+						break;
+				}
+				break;
+			case EXPR_SVCP:
+				switch(ip[1].op){
+					case EXPR_DIF0:
+						ip->op=EXPR_SVCP0;
+						(++ip)->dst.dst=NULL;
+						break;
+					default:
+						break;
+				}
+				break;
+			default:
+				break;
+		}
+	}
+	expr_optimize_completed(ep);
+}
 static int expr_optimize_once(struct expr *restrict ep){
 	int r=0;
 	expr_optimize_const(ep);
@@ -9470,6 +9572,7 @@ static int expr_optimize_once(struct expr *restrict ep){
 	expr_optimize_copyadd(ep);
 	expr_optimize_unused(ep);
 	r|=expr_optimize_constexpr(ep);
+	expr_optimize_svc0(ep);
 	expr_optimize_copyend(ep);
 	return r;
 }
@@ -9505,7 +9608,6 @@ int expr_optimize(struct expr *restrict ep){
 	return 0;
 }
 #pragma GCC diagnostic push
-//#pragma GCC diagnostic ignored "-Wunknown-warning-option"
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #pragma GCC diagnostic ignored "-Wdangling-pointer"
 
@@ -9732,7 +9834,7 @@ int expr_optimize(struct expr *restrict ep){
 				*ip->dst.dst=(*ip->dst.md2)(ip->un.em->args,ip->un.em->dim);\
 				break;\
 			case EXPR_PMEP:\
-				ip->un.em->eps->ip=ip;\
+				((volatile struct expr *)ep)->ipp=&ip;\
 			case EXPR_PME:\
 				*ip->dst.dst=(*ip->dst.me2)(ip->un.em->eps,ip->un.em->dim,input);\
 				break;\
@@ -9747,17 +9849,17 @@ int expr_optimize(struct expr *restrict ep){
 				*ip->dst.dst=un.d;\
 				break;\
 			case EXPR_SJ:\
-				un.d=*ip->dst.dst;\
-				un.jp->ipp=&ip;\
-				un.jp->ip=ip;\
-				*ip->dst.dst=setjmp(un.jp->jb)?\
-				((volatile struct expr_internal_jmpbuf *)un.jp)->val:0.0;\
+				j.d=*ip->dst.dst;\
+				j.p->ipp=&ip;\
+				j.p->ip=ip;\
+				*ip->dst.dst=setjmp(j.p->jb)?\
+				((volatile struct expr_internal_jmpbuf *)j.p)->un.val:0.0;\
 				break;\
 			case EXPR_LJ:\
-				un.s2.un.d=*ip->dst.dst;\
-				un.s2.un.jp->val=*ip->un.src;\
-				*un.s2.un.jp->ipp=un.s2.un.jp->ip;\
-				longjmp(un.s2.un.jp->jb,1);\
+				j.d=*ip->dst.dst;\
+				j.p->un.val=*ip->un.src;\
+				*j.p->ipp=j.p->ip;\
+				longjmp(j.p->jb,1);\
 			case EXPR_IP:\
 				switch(ip->un.zu){\
 					case 0:\
@@ -9794,10 +9896,20 @@ int expr_optimize(struct expr *restrict ep){
 				un.svc.arg=(const intptr_t *)ep->args;\
 				expr_internal_syscall_eval(*ip->dst.pdst,ip->flag,un.svc.num,un.svc.arg[0],un.svc.arg[1],un.svc.arg[2],un.svc.arg[3],un.svc.arg[4],un.svc.arg[5],un.svc.arg[6]);\
 				break;\
+			case EXPR_SVC0:\
+				un.svc.num=(intptr_t)*ip->dst.dst;\
+				un.svc.arg=(const intptr_t *)ep->args;\
+				expr_internal_syscall_eval(*ip->dst.dst,ip->flag,un.svc.num,un.svc.arg[0],un.svc.arg[1],un.svc.arg[2],un.svc.arg[3],un.svc.arg[4],un.svc.arg[5],un.svc.arg[6]);\
+				break;\
 			case EXPR_SVCP:\
 				un.svc.num=(intptr_t)*ip->dst.dst;\
 				un.svc.arg=(const intptr_t *)*ip->un.uaddr2;\
 				expr_internal_syscall_eval(*ip->dst.pdst,ip->flag,un.svc.num,un.svc.arg[0],un.svc.arg[1],un.svc.arg[2],un.svc.arg[3],un.svc.arg[4],un.svc.arg[5],un.svc.arg[6]);\
+				break;\
+			case EXPR_SVCP0:\
+				un.svc.num=(intptr_t)*ip->dst.dst;\
+				un.svc.arg=(const intptr_t *)*ip->un.uaddr2;\
+				expr_internal_syscall_eval(*ip->dst.dst,ip->flag,un.svc.num,un.svc.arg[0],un.svc.arg[1],un.svc.arg[2],un.svc.arg[3],un.svc.arg[4],un.svc.arg[5],un.svc.arg[6]);\
 				break;\
 			case EXPR_END:\
 				_out;\

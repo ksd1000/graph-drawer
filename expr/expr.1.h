@@ -15,14 +15,15 @@
 #define _SSIZE_T_DEFINED_
 typedef ptrdiff_t ssize_t;
 #else
-_Static_assert(sizeof(ssize_t)==sizeof(ptrdiff_t),"ssize_t size error");
 #endif
 
 #ifndef SSIZE_MAX
-_Static_assert(sizeof(ssize_t)==sizeof(ptrdiff_t),"ssize_t size error");
 #define SSIZE_MAX PTRDIFF_MAX
 #endif
 
+_Static_assert(sizeof(ssize_t)==sizeof(ptrdiff_t),"sizeof(ssize_t)!=sizeof(ptrdiff_t)");
+_Static_assert(sizeof(size_t)==sizeof(ptrdiff_t),"sizeof(size_t)!=sizeof(ptrdiff_t)");
+_Static_assert(sizeof(void *)==sizeof(ptrdiff_t),"sizeof(void *)!=sizeof(ptrdiff_t)");
 
 enum expr_op :int {
 EXPR_COPY=0,
@@ -347,7 +348,7 @@ struct expr_libinfo {
 };
 struct expr_writeflag {
 	size_t width;
-	ptrdiff_t digit;
+	ssize_t digit;
 	uint64_t bit[0];
 #if (!defined(__BIG_ENDIAN__)||!__BIG_ENDIAN__)
 	uint64_t unused:56,
@@ -802,7 +803,6 @@ extern const size_t expr_symbols_size;
 		__builtin_unreachable();\
 	}\
 })
-
 struct expr {
 	struct expr_inst *data;
 	struct expr_inst **ipp;
@@ -812,10 +812,16 @@ struct expr {
 	struct expr_symset *sset;
 	struct expr_resource *res,*tail;
 	size_t length,vsize,vlength;
-	double args[EXPR_SYSAM];
+	union {
+		double args[EXPR_SYSAM];
+		struct {
+			struct expr_inst endinst[1];
+			double val;
+		} end[1];
+	} un;
 	int error;
 	short iflag;
-	unsigned char freeable,sset_shouldfree;
+	uint8_t freeable:2,sset_shouldfree:1,isconst:1,unused:4;
 	char errinfo[EXPR_SYMLEN];
 	char extra_data[];
 };

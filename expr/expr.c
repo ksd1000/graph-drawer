@@ -2748,7 +2748,6 @@ static ssize_t converter_##_name(ssize_t (*writer)(intptr_t fd,const void *buf,s
 		--fsz;\
 		--endp;\
 	}\
-	printval(fsz);\
 	if(fsz==1)\
 		fsz=0;\
 	sz=ds+(f58?fsz:ext);\
@@ -3193,6 +3192,8 @@ const uint8_t expr_writefmts_table_default[256]={
 ['J']=245,
 ['j']=244,
 ['&']=243,
+['I']=242,
+['D']=241,
 
 ['%']=1,
 ['\x81']=2,['x']=2,
@@ -3260,35 +3261,115 @@ const uint8_t expr_writefmts_table_default[256]={
 ['H']=64,
 };
 #define wf_trywrite(buf,sz) {\
-	r=writer(fd,(buf),(sz));\
-	if(unlikely(r<0))\
-		return r;\
-	ret+=r;\
+	v=writer(fd,(buf),(sz));\
+	if(unlikely(v<0))\
+		return v;\
+	ret+=v;\
 }
-static inline int check_no_number(int c){
+/*static inline int check_no_number(int c){
 	char buf[2];
 	char *p;
 	*buf=(char)c;
 	buf[1]=0;
 	strtol(buf,&p,10);
 	return p==buf;
+}*/
+static const uint8_t number_table[256]={
+[0 ... '0'-1]=127,
+['0']=0,
+['1']=1,
+['2']=2,
+['3']=3,
+['4']=4,
+['5']=5,
+['6']=6,
+['7']=7,
+['8']=8,
+['9']=9,
+['9'+1 ... 'A'-1]=127,
+['A']=10,
+['B']=11,
+['C']=12,
+['D']=13,
+['E']=14,
+['F']=15,
+['F'+1 ... 'a'-1]=127,
+['a']=10,
+['b']=11,
+['c']=12,
+['d']=13,
+['e']=14,
+['f']=15,
+['f'+1 ... 255]=127,
+};
+static inline ssize_t internal_strtoz_autobase(const char *restrict nptr,const char *endp,const char **restrict endptr){
+	size_t r=0;
+//	int base=0;
+	int neg=0;
+	unsigned int get;
+	//0,1,2 for 10,8,16
+	if(likely(nptr<endp)){
+		if(*nptr=='-'){
+			neg=1;
+			++nptr;
+		}
+	}
+/*		case 1:
+	if(likely(nptr<endp)&&*nptr=='0'){
+		++base;
+		++nptr;
+	}
+	if(likely(nptr<endp)&&base&&*nptr=='x'){
+		++base;
+		++nptr;
+	}
+*/
+#define scannum(base) \
+	while(nptr<endp){\
+		get=number_table[(uint8_t)*nptr];\
+		if(unlikely(get>=base))\
+			goto out;\
+		if(unlikely(__builtin_mul_overflow(r,base,&r)))\
+			goto out;\
+		if(unlikely(__builtin_add_overflow(r,get,&r)))\
+			goto out;\
+		++nptr;\
+	}\
+	goto out
+/*
+	switch(base){
+		case 0:
+*/
+			scannum(10);
+/*
+		case 1:
+			scannum(8);
+		case 2:
+			scannum(16);
+		default:
+			__builtin_unreachable();
+	}
+*/
+out:
+	*endptr=nptr;
+	return (ssize_t)(neg?-r:r);
 }
 ssize_t expr_writef(const char *fmt,size_t fmtlen,ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *args,size_t arglen){
 	return expr_writef_r(fmt,fmtlen,writer,fd,args,arglen,expr_writefmts_default,expr_writefmts_table_default);
 }
 ssize_t expr_writef_r(const char *fmt,size_t fmtlen,ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *args,size_t arglen,const struct expr_writefmt *fmts,const uint8_t *table){
 	const char *endp=fmt+fmtlen,*fmt_old=fmt,*fmt0=fmt;
-	ssize_t r,ret=0,c;
+	ssize_t ret=0;
+	ssize_t v;
 	const struct expr_writefmt *wfp;
 	struct expr_writeflag flag[1];
-	uint64_t v;
 	const char *delim=NULL,*tail=NULL,*d1;
 	size_t delimsz=0,tailsz=0,arrlen=0;
-	uint32_t loop=0;
+	size_t loop=0;
 	uint8_t ac_prev[256];
-	uint8_t aci=0,i,forward=0,arrwid=0,current;
+	uint8_t aci=0,i,forward=0,arrwid=0,current,c,r1;
 	void *const *arg0=args;
-	if(unlikely(endp<=fmt||!check_no_number(endp[-1])))
+	if(unlikely(endp<=fmt))
 		return 0;
 	for(;;){
 		if(unlikely(fmt>=endp)){
@@ -3342,16 +3423,16 @@ reflag:
 #define argback(N) for(uint8_t n=(N);n;--n){i=ac_prev[--aci];args-=i;if(unlikely(args<arg0))goto argfail;arglen+=i;}
 #define argunback(N) for(uint8_t n=(N);n;--n){i=ac_prev[++aci];if(unlikely(arglen<i))goto argfail;arglen-=i;args+=i;}
 #define get_next_arg64(dest,set) \
-		fmt_old=fmt;\
 		if(*fmt=='*'){\
 			if(unlikely(!arglen))\
 				goto argfail;\
-			dest=*(const size_t *)args;\
+			dest=*(const ssize_t *)args;\
 			set=1;\
 			fmt_inc_check;\
 			argnext1;\
 		}else {\
-			v=strtol(fmt,(char **)&fmt,10);\
+			fmt_old=fmt;\
+			v=internal_strtoz_autobase(fmt,endp,&fmt);\
 			if(fmt>fmt_old){\
 				dest=v;\
 				set=1;\
@@ -3366,8 +3447,7 @@ reflag:
 			break;
 		current=*(uint8_t *)fmt;
 current_get:
-		r=table[current];
-		switch(r){
+		switch((r1=table[current])){
 			case 0:
 				goto end;
 			case 255:
@@ -3437,7 +3517,7 @@ current_get:
 				if(unlikely(!arglen))
 					goto argfail;
 				if(flag->eq){
-					size_t *ar;
+					uintptr_t *ar;
 					ar=*args;
 					v=flag_digit(flag,1);
 					if(!(*ar-=v))
@@ -3469,12 +3549,34 @@ anb:
 				wfp=*(const struct expr_writefmt **)args;
 				argnext1;
 				goto wfp_get;
+			case 242:
+				if(unlikely(!arglen))
+					goto argfail;
+				if(flag->width_set)
+					*(uintptr_t *)*args*=flag->width;
+				if(flag->digit_set)
+					*(uintptr_t *)*args+=flag->digit;
+				else
+					++(*(uintptr_t *)*args);
+				argnext1;
+				break;
+			case 241:
+				if(unlikely(!arglen))
+					goto argfail;
+				if(flag->width_set)
+					*(uintptr_t *)*args/=flag->width;
+				if(flag->digit_set)
+					*(uintptr_t *)*args-=flag->digit;
+				else
+					--(*(uintptr_t *)*args);
+				argnext1;
+				break;
 #define fmt_repeat if(!loop)loop=1;for(;loop;--loop)
 #define fmt_once(_arg) \
-	r=wfp->converter(writer,fd,(_arg),flag);\
-	if(unlikely(r<0))\
-		return r;\
-	ret+=r
+	v=wfp->converter(writer,fd,(_arg),flag);\
+	if(unlikely(v<0))\
+		return v;\
+	ret+=v
 #define fmt_dorepeat(_arg) \
 	fmt_repeat {\
 		if(!__builtin_constant_p(_arg)){\
@@ -3497,7 +3599,7 @@ anb:
 		}\
 	}
 			default:
-				wfp=fmts+(r-1);
+				wfp=fmts+(r1-1);//r
 wfp_get:
 				
 				if(!(c=wfp->argc)){
@@ -3505,10 +3607,10 @@ wfp_get:
 					forward=0;
 				}else if(arrlen&&c==1){
 					uintptr_t aps;
-					uintmax_t val,mask;
+					uint64_t val,mask;
 					if(unlikely(!arglen))
 						goto argfail;
-					aps=(uintptr_t)*args;
+					aps=(uint64_t)*args;
 					mask=(1ul<<(arrwid*8))-1ul;
 					argnext1;
 #define t_copy(T) *(T *)&val=*(T *)aps
@@ -3778,27 +3880,19 @@ static inline void expr_freedata(struct expr_inst *restrict data,size_t size){
 	xfree(data);
 }
 static inline void expr_free_keepres(struct expr *restrict ep){
-	if(likely(ep->data))
-		expr_freedata(ep->data,ep->size);
-	if(likely(ep->vars)){
-		for(size_t i=0;i<ep->vsize;++i)
-			if(likely(ep->vars[i]))
-				xfree(ep->vars[i]);
-		xfree(ep->vars);
+	if(!ep->isconst){
+		if(likely(ep->data))
+			expr_freedata(ep->data,ep->size);
+		if(likely(ep->vars)){
+			for(size_t i=0;i<ep->vsize;++i)
+				if(likely(ep->vars[i]))
+					xfree(ep->vars[i]);
+			xfree(ep->vars);
+		}
 	}
 	if(ep->sset_shouldfree){
 		expr_symset_free(ep->sset);
 	}
-}
-static inline void setunsafe(struct expr *restrict ep){
-	struct expr *p;
-	if(ep->parent){
-		p=ep->parent;
-		do {
-			p->iflag|=EXPR_IF_UNSAFE;
-		}while((p=p->parent));
-	}
-	ep->iflag|=EXPR_IF_UNSAFE;
 }
 void expr_free(struct expr *restrict ep){
 	struct expr *ep0=(struct expr *)ep;
@@ -3828,6 +3922,16 @@ start:
 		default:
 			break;
 	}
+}
+static inline void setunsafe(struct expr *restrict ep){
+	struct expr *p;
+	if(ep->parent){
+		p=ep->parent;
+		do {
+			p->iflag|=EXPR_IF_UNSAFE;
+		}while((p=p->parent));
+	}
+	ep->iflag|=EXPR_IF_UNSAFE;
 }
 #define EXTEND_SIZE 16
 static inline struct expr_inst *expr_addop(struct expr *restrict ep,void *dst,void *src,enum expr_op op,int flag){
@@ -5796,7 +5900,7 @@ svc_enea:
 						v1=scan(ep,un.ccp,un.ccp+strlen(un.ccp),asym,asymlen);
 						if(unlikely(!v1))
 							goto c_fail;
-						cknp(ep,expr_addcopy(ep,ep->args+sv.i,v1),goto c_fail);
+						cknp(ep,expr_addcopy(ep,ep->un.args+sv.i,v1),goto c_fail);
 						++sv.i;
 					}while(sv.i<dim);
 				}
@@ -7936,7 +8040,15 @@ static int expr_constexpr(const struct expr *restrict ep,double *except);
 int expr_isconst(const struct expr *restrict ep){
 	return expr_constexpr(ep,NULL);
 }
-int init_expr_const(struct expr *restrict ep,double val){
+void init_expr_const(struct expr *restrict ep,double val){
+	memset(ep,0,sizeof(struct expr));
+	ep->un.end->val=val;
+	ep->un.end->endinst->op=EXPR_END;
+	ep->un.end->endinst->dst.dst=&ep->un.end->val;
+	ep->un.end->endinst->un.src=NULL;
+	ep->data=ep->un.end->endinst;
+	ep->isconst=1;
+/*
 	double *v;
 	memset(ep,0,sizeof(struct expr));
 	v=expr_newvar(ep);
@@ -7947,15 +8059,13 @@ int init_expr_const(struct expr *restrict ep,double val){
 err:
 	expr_free(ep);
 	return -1;
+*/
 }
 struct expr *new_expr_const(double val){
 	struct expr *r=xmalloc(sizeof(struct expr));
 	if(unlikely(!r))
 		return NULL;
-	if(unlikely(init_expr_const(r,val)<0)){
-		xfree(r);
-		return NULL;
-	}
+	init_expr_const(r,val);
 	r->freeable=1;
 	return r;
 }
@@ -8002,8 +8112,7 @@ err:
 		return -1;
 	}
 	if(!(flag&EXPR_IF_NOOPTIMIZE)){
-		if(expr_optimize(ep)<0)
-			return -1;
+		expr_optimize(ep);
 	}
 	if(flag&EXPR_IF_INSTANT_FREE){
 		expr_free(ep);
@@ -9588,24 +9697,20 @@ again:
 	}
 
 }
-int expr_optimize(struct expr *restrict ep){
+void expr_optimize(struct expr *restrict ep){
 	struct expr_resource *rp;
 	double v;
-	int sf;
+	uint8_t sf;
 	expr_optimize0(ep);
 	if(expr_isconst(ep)){
 		sf=ep->freeable;
+		rp=ep->res;
 		v=eval(ep,0.0);
 		expr_free_keepres(ep);
-		rp=ep->res;
-		if(unlikely(init_expr_const(ep,v)<0)){
-			if(sf)
-				xfree(ep);
-			return -1;
-		}
+		init_expr_const(ep,v);
 		ep->res=rp;
+		ep->freeable=sf;
 	}
-	return 0;
 }
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
@@ -9893,12 +9998,12 @@ int expr_optimize(struct expr *restrict ep){
 				break;\
 			case EXPR_SVC:\
 				un.svc.num=(intptr_t)*ip->dst.dst;\
-				un.svc.arg=(const intptr_t *)ep->args;\
+				un.svc.arg=(const intptr_t *)ep->un.args;\
 				expr_internal_syscall_eval(*ip->dst.pdst,ip->flag,un.svc.num,un.svc.arg[0],un.svc.arg[1],un.svc.arg[2],un.svc.arg[3],un.svc.arg[4],un.svc.arg[5],un.svc.arg[6]);\
 				break;\
 			case EXPR_SVC0:\
 				un.svc.num=(intptr_t)*ip->dst.dst;\
-				un.svc.arg=(const intptr_t *)ep->args;\
+				un.svc.arg=(const intptr_t *)ep->un.args;\
 				expr_internal_syscall_eval(*ip->dst.dst,ip->flag,un.svc.num,un.svc.arg[0],un.svc.arg[1],un.svc.arg[2],un.svc.arg[3],un.svc.arg[4],un.svc.arg[5],un.svc.arg[6]);\
 				break;\
 			case EXPR_SVCP:\

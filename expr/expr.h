@@ -15,14 +15,15 @@
 #define _SSIZE_T_DEFINED_
 typedef ptrdiff_t ssize_t;
 #else
-_Static_assert(sizeof(ssize_t)==sizeof(ptrdiff_t),"ssize_t size error");
 #endif
 
 #ifndef SSIZE_MAX
-_Static_assert(sizeof(ssize_t)==sizeof(ptrdiff_t),"ssize_t size error");
 #define SSIZE_MAX PTRDIFF_MAX
 #endif
 
+_Static_assert(sizeof(ssize_t)==sizeof(ptrdiff_t),"sizeof(ssize_t)!=sizeof(ptrdiff_t)");
+_Static_assert(sizeof(size_t)==sizeof(ptrdiff_t),"sizeof(size_t)!=sizeof(ptrdiff_t)");
+_Static_assert(sizeof(void *)==sizeof(ptrdiff_t),"sizeof(void *)!=sizeof(ptrdiff_t)");
 
 enum expr_op :int {
 EXPR_COPY=0,
@@ -802,7 +803,6 @@ extern const size_t expr_symbols_size;
 		__builtin_unreachable();\
 	}\
 })
-
 struct expr {
 	struct expr_inst *data;
 	struct expr_inst **ipp;
@@ -812,10 +812,16 @@ struct expr {
 	struct expr_symset *sset;
 	struct expr_resource *res,*tail;
 	size_t length,vsize,vlength;
-	double args[EXPR_SYSAM];
+	union {
+		double args[EXPR_SYSAM];
+		struct {
+			struct expr_inst endinst[1];
+			double val;
+		} end[1];
+	} un;
 	int error;
 	short iflag;
-	unsigned char freeable,sset_shouldfree;
+	uint8_t freeable:2,sset_shouldfree:1,isconst:1,unused:4;
 	char errinfo[EXPR_SYMLEN];
 	char extra_data[];
 };
@@ -927,7 +933,7 @@ size_t expr_symset_copy_s(struct expr_symset *restrict dst,const struct expr_sym
 struct expr_symset *expr_symset_clone(const struct expr_symset *restrict ep);
 struct expr_symset *expr_symset_clone_s(const struct expr_symset *restrict ep,void *stack);
 int expr_isconst(const struct expr *restrict ep);
-int init_expr_const(struct expr *restrict ep,double val);
+void init_expr_const(struct expr *restrict ep,double val);
 struct expr *new_expr_const(double val);
 int init_expr7(struct expr *restrict ep,const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag);
 int init_expr5(struct expr *restrict ep,const char *e,const char *asym,struct expr_symset *esp,int flag);
@@ -942,7 +948,7 @@ double expr_calc4(const char *e,int *error,char errinfo[EXPR_SYMLEN],struct expr
 double expr_calc3(const char *e,int *error,char errinfo[EXPR_SYMLEN]);
 double expr_calc2(const char *e,int flag);
 double expr_calc(const char *e);
-int expr_optimize(struct expr *restrict ep);
+void expr_optimize(struct expr *restrict ep);
 double expr_eval(const struct expr *restrict ep,double input);
 int expr_step(const struct expr *restrict ep,double input,double *restrict output,struct expr_inst **restrict saveip);
 double expr_callback(const struct expr *restrict ep,double input,const struct expr_callback *ec);

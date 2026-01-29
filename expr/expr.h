@@ -348,7 +348,7 @@ struct expr_libinfo {
 };
 struct expr_writeflag {
 	size_t width;
-	ptrdiff_t digit;
+	ssize_t digit;
 	uint64_t bit[0];
 #if (!defined(__BIG_ENDIAN__)||!__BIG_ENDIAN__)
 	uint64_t unused:56,
@@ -441,6 +441,7 @@ struct expr_inst {
 	union {
 		double *src;
 		int64_t *isrc;
+		intptr_t *psrc;
 		double **src2;
 		void *uaddr;
 		void **uaddr2;
@@ -575,7 +576,8 @@ struct expr_internal_jmpbuf {
 	union {
 		double val;
 		uint64_t u64;
-		uint64_t i64;
+		int64_t i64;
+		intptr_t iptr;
 	} un;
 	jmp_buf jb;
 };
@@ -769,37 +771,37 @@ extern const size_t expr_symbols_size;
 		RE;\
 })
 
-#define expr_internal_syscall_ncase_inswitch0(dest,num,a0,a1,a2,a3,a4,a5,a6) case 0:(dest)=expr_internal_syscall0(num);break
-#define expr_internal_syscall_ncase_inswitch1(dest,num,a0,a1,a2,a3,a4,a5,a6) case 1:(dest)=expr_internal_syscall1(num,a0);break
-#define expr_internal_syscall_ncase_inswitch2(dest,num,a0,a1,a2,a3,a4,a5,a6) case 2:(dest)=expr_internal_syscall2(num,a0,a1);break
-#define expr_internal_syscall_ncase_inswitch3(dest,num,a0,a1,a2,a3,a4,a5,a6) case 3:(dest)=expr_internal_syscall3(num,a0,a1,a2);break
-#define expr_internal_syscall_ncase_inswitch4(dest,num,a0,a1,a2,a3,a4,a5,a6) case 4:(dest)=expr_internal_syscall4(num,a0,a1,a2,a3);break
-#define expr_internal_syscall_ncase_inswitch5(dest,num,a0,a1,a2,a3,a4,a5,a6) case 5:(dest)=expr_internal_syscall5(num,a0,a1,a2,a3,a4);break
-#define expr_internal_syscall_ncase_inswitch6(dest,num,a0,a1,a2,a3,a4,a5,a6) case 6:(dest)=expr_internal_syscall6(num,a0,a1,a2,a3,a4,a5);break
-#define expr_internal_syscall_ncase_inswitch7(dest,num,a0,a1,a2,a3,a4,a5,a6) case 7:(dest)=expr_internal_syscall7(num,a0,a1,a2,a3,a4,a5,a6);break
+#define expr_internal_syscall_ncase_inswitch0(dest,cast,num,a0,a1,a2,a3,a4,a5,a6) case 0:(dest)=(cast)expr_internal_syscall0(num);break
+#define expr_internal_syscall_ncase_inswitch1(dest,cast,num,a0,a1,a2,a3,a4,a5,a6) case 1:(dest)=(cast)expr_internal_syscall1(num,a0);break
+#define expr_internal_syscall_ncase_inswitch2(dest,cast,num,a0,a1,a2,a3,a4,a5,a6) case 2:(dest)=(cast)expr_internal_syscall2(num,a0,a1);break
+#define expr_internal_syscall_ncase_inswitch3(dest,cast,num,a0,a1,a2,a3,a4,a5,a6) case 3:(dest)=(cast)expr_internal_syscall3(num,a0,a1,a2);break
+#define expr_internal_syscall_ncase_inswitch4(dest,cast,num,a0,a1,a2,a3,a4,a5,a6) case 4:(dest)=(cast)expr_internal_syscall4(num,a0,a1,a2,a3);break
+#define expr_internal_syscall_ncase_inswitch5(dest,cast,num,a0,a1,a2,a3,a4,a5,a6) case 5:(dest)=(cast)expr_internal_syscall5(num,a0,a1,a2,a3,a4);break
+#define expr_internal_syscall_ncase_inswitch6(dest,cast,num,a0,a1,a2,a3,a4,a5,a6) case 6:(dest)=(cast)expr_internal_syscall6(num,a0,a1,a2,a3,a4,a5);break
+#define expr_internal_syscall_ncase_inswitch7(dest,cast,num,a0,a1,a2,a3,a4,a5,a6) case 7:(dest)=(cast)expr_internal_syscall7(num,a0,a1,a2,a3,a4,a5,a6);break
 #if (EXPR_SYSAM==0)
-#define expr_internal_syscall_ncase_inswitch(dest,num,a0,a1,a2,a3,a4,a5,a6) expr_internal_syscall_ncase_inswitch0(dest,num,a0,a1,a2,a3,a4,a5,a6)
+#define expr_internal_syscall_ncase_inswitch(dest,cast,num,a0,a1,a2,a3,a4,a5,a6) expr_internal_syscall_ncase_inswitch0(dest,cast,num,a0,a1,a2,a3,a4,a5,a6)
 #elif (EXPR_SYSAM==1)
-#define expr_internal_syscall_ncase_inswitch(dest,num,a0,a1,a2,a3,a4,a5,a6) expr_internal_syscall_ncase_inswitch0(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch1(dest,num,a0,a1,a2,a3,a4,a5,a6)
+#define expr_internal_syscall_ncase_inswitch(dest,cast,num,a0,a1,a2,a3,a4,a5,a6) expr_internal_syscall_ncase_inswitch0(dest,cast,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch1(dest,cast,num,a0,a1,a2,a3,a4,a5,a6)
 #elif (EXPR_SYSAM==2)
-#define expr_internal_syscall_ncase_inswitch(dest,num,a0,a1,a2,a3,a4,a5,a6) expr_internal_syscall_ncase_inswitch0(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch1(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch2(dest,num,a0,a1,a2,a3,a4,a5,a6)
+#define expr_internal_syscall_ncase_inswitch(dest,cast,num,a0,a1,a2,a3,a4,a5,a6) expr_internal_syscall_ncase_inswitch0(dest,cast,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch1(dest,cast,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch2(dest,cast,num,a0,a1,a2,a3,a4,a5,a6)
 #elif (EXPR_SYSAM==3)
-#define expr_internal_syscall_ncase_inswitch(dest,num,a0,a1,a2,a3,a4,a5,a6) expr_internal_syscall_ncase_inswitch0(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch1(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch2(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch3(dest,num,a0,a1,a2,a3,a4,a5,a6)
+#define expr_internal_syscall_ncase_inswitch(dest,cast,num,a0,a1,a2,a3,a4,a5,a6) expr_internal_syscall_ncase_inswitch0(dest,cast,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch1(dest,cast,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch2(dest,cast,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch3(dest,cast,num,a0,a1,a2,a3,a4,a5,a6)
 #elif (EXPR_SYSAM==4)
-#define expr_internal_syscall_ncase_inswitch(dest,num,a0,a1,a2,a3,a4,a5,a6) expr_internal_syscall_ncase_inswitch0(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch1(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch2(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch3(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch4(dest,num,a0,a1,a2,a3,a4,a5,a6)
+#define expr_internal_syscall_ncase_inswitch(dest,cast,num,a0,a1,a2,a3,a4,a5,a6) expr_internal_syscall_ncase_inswitch0(dest,cast,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch1(dest,cast,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch2(dest,cast,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch3(dest,cast,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch4(dest,cast,num,a0,a1,a2,a3,a4,a5,a6)
 #elif (EXPR_SYSAM==5)
-#define expr_internal_syscall_ncase_inswitch(dest,num,a0,a1,a2,a3,a4,a5,a6) expr_internal_syscall_ncase_inswitch0(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch1(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch2(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch3(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch4(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch5(dest,num,a0,a1,a2,a3,a4,a5,a6)
+#define expr_internal_syscall_ncase_inswitch(dest,cast,num,a0,a1,a2,a3,a4,a5,a6) expr_internal_syscall_ncase_inswitch0(dest,cast,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch1(dest,cast,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch2(dest,cast,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch3(dest,cast,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch4(dest,cast,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch5(dest,cast,num,a0,a1,a2,a3,a4,a5,a6)
 #elif (EXPR_SYSAM==6)
-#define expr_internal_syscall_ncase_inswitch(dest,num,a0,a1,a2,a3,a4,a5,a6) expr_internal_syscall_ncase_inswitch0(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch1(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch2(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch3(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch4(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch5(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch6(dest,num,a0,a1,a2,a3,a4,a5,a6)
+#define expr_internal_syscall_ncase_inswitch(dest,cast,num,a0,a1,a2,a3,a4,a5,a6) expr_internal_syscall_ncase_inswitch0(dest,cast,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch1(dest,cast,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch2(dest,cast,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch3(dest,cast,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch4(dest,cast,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch5(dest,cast,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch6(dest,cast,num,a0,a1,a2,a3,a4,a5,a6)
 #elif (EXPR_SYSAM==7)
-#define expr_internal_syscall_ncase_inswitch(dest,num,a0,a1,a2,a3,a4,a5,a6) expr_internal_syscall_ncase_inswitch0(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch1(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch2(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch3(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch4(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch5(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch6(dest,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch7(dest,num,a0,a1,a2,a3,a4,a5,a6)
+#define expr_internal_syscall_ncase_inswitch(dest,cast,num,a0,a1,a2,a3,a4,a5,a6) expr_internal_syscall_ncase_inswitch0(dest,cast,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch1(dest,cast,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch2(dest,cast,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch3(dest,cast,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch4(dest,cast,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch5(dest,cast,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch6(dest,cast,num,a0,a1,a2,a3,a4,a5,a6);expr_internal_syscall_ncase_inswitch7(dest,cast,num,a0,a1,a2,a3,a4,a5,a6)
 #else
-#define expr_internal_syscall_ncase_inswitch(dest,num,a0,a1,a2,a3,a4,a5,a6) ((intptr_t)0)
+#define expr_internal_syscall_ncase_inswitch(dest,cast,num,a0,a1,a2,a3,a4,a5,a6) ((intptr_t)0)
 #pragma message("only 0-7 arguments syscall is supported")
 #endif
-#define expr_internal_syscall_eval(dest,N,num,a0,a1,a2,a3,a4,a5,a6) ({\
+#define expr_internal_syscall_eval(dest,cast,N,num,a0,a1,a2,a3,a4,a5,a6) ({\
 	switch(N){\
-		expr_internal_syscall_ncase_inswitch(dest,num,a0,a1,a2,a3,a4,a5,a6);\
+		expr_internal_syscall_ncase_inswitch(dest,cast,num,a0,a1,a2,a3,a4,a5,a6);\
 		__builtin_unreachable();\
 	}\
 })
@@ -948,7 +950,7 @@ double expr_calc4(const char *e,int *error,char errinfo[EXPR_SYMLEN],struct expr
 double expr_calc3(const char *e,int *error,char errinfo[EXPR_SYMLEN]);
 double expr_calc2(const char *e,int flag);
 double expr_calc(const char *e);
-void expr_optimize(struct expr *restrict ep);
+int expr_optimize(struct expr *restrict ep);
 double expr_eval(const struct expr *restrict ep,double input);
 int expr_step(const struct expr *restrict ep,double input,double *restrict output,struct expr_inst **restrict saveip);
 double expr_callback(const struct expr *restrict ep,double input,const struct expr_callback *ec);

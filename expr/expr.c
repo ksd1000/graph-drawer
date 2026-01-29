@@ -15,6 +15,7 @@
 #define UNABLE_GETADDR_IN_PROTECTED_MODE 1
 #define HIDE_WHERE_ERROR_OCCURS 1
 #define PHYSICAL_CONSTANT 0
+#define NDEBUG 1
 
 #define printval(x) warn(#x ":%lu",(unsigned long)(x))
 #define printvalx(x) warn(#x ":%lx",(unsigned long)(x))
@@ -24,7 +25,15 @@
 #define trap (warn("\nat file %s line %d",__FILE__,__LINE__),__builtin_trap())
 /*
 */
+#define addo(V,A) __builtin_add_overflow((V),(A),&(V))
+#define mulo(V,A) __builtin_mul_overflow((V),(A),&(V))
 #define warn(fmt,...) fprintf(stderr,fmt "\n",##__VA_ARGS__)
+
+#if NDEBUG
+#define debug(fmt,...) ((void)0)
+#else
+#define debug(fmt,...) ((void)fprintf(stderr,"[DEBUG]%s: " fmt "\n",__func__,##__VA_ARGS__))
+#endif
 
 #ifdef __clang__
 #pragma GCC diagnostic ignored "-Wunknown-warning-option"
@@ -153,6 +162,12 @@
 		case EXPR_NEXT:\
 		case EXPR_DIFF:\
 		case EXPR_OFF
+#define UNARYCASES EXPR_NEG:\
+		case EXPR_NOT:\
+		case EXPR_NOTL:\
+		case EXPR_TSTL:\
+		case EXPR_NEX0:\
+		case EXPR_DIF0
 #define BRANCHCASES EXPR_IF:\
 		case EXPR_DON:\
 		case EXPR_DOW:\
@@ -601,7 +616,7 @@ void expr_mirror(double *buf,size_t size){
 	}
 }
 void expr_memswap(void *restrict s1,void *restrict s2,size_t size){
-	union {
+	register union {
 		int64_t swapbuf;
 		int32_t swapbuf32;
 		int16_t swapbuf16;
@@ -635,9 +650,6 @@ void expr_memswap(void *restrict s1,void *restrict s2,size_t size){
 		un.swapbuf8=*(int8_t *)s1;
 		*(int8_t *)s1=*(int8_t *)s2;
 		*(int8_t *)s2=un.swapbuf8;
-		size-=1;
-		++(*(int8_t **)&s1);
-		++(*(int8_t **)&s2);
 	}
 }
 void expr_memfry48(void *restrict buf,size_t size,size_t n,long seed){
@@ -3329,9 +3341,9 @@ static inline ssize_t internal_strtoz_autobase(const char *restrict nptr,const c
 		get=number_table[(uint8_t)*nptr];\
 		if(unlikely(get>=base))\
 			goto out;\
-		if(unlikely(__builtin_mul_overflow(r,base,&r)))\
+		if(unlikely(mulo(r,base)))\
 			goto out;\
-		if(unlikely(__builtin_add_overflow(r,get,&r)))\
+		if(unlikely(addo(r,get)))\
 			goto out;\
 		++nptr;\
 	}\
@@ -8038,7 +8050,7 @@ a bug cannot fix
 */
 static int expr_constexpr(const struct expr *restrict ep,double *except);
 int expr_isconst(const struct expr *restrict ep){
-	return expr_constexpr(ep,NULL);
+	return ep->isconst||expr_constexpr(ep,NULL);
 }
 void init_expr_const(struct expr *restrict ep,double val){
 	memset(ep,0,sizeof(struct expr));
@@ -8047,6 +8059,7 @@ void init_expr_const(struct expr *restrict ep,double val){
 	ep->un.end->endinst->dst.dst=&ep->un.end->val;
 	ep->un.end->endinst->un.src=NULL;
 	ep->data=ep->un.end->endinst;
+	ep->size=1;
 	ep->isconst=1;
 /*
 	double *v;
@@ -8258,9 +8271,14 @@ static struct expr_inst *expr_findconst(const struct expr *restrict ep,struct ex
 	}
 	return NULL;
 }
-static void expr_optimize_contadd(struct expr *restrict ep){
+#define optimize_end if(r){\
+	expr_optimize_completed(ep);\
+	debug("optimization end");\
+}return r
+static int expr_optimize_contadd(struct expr *restrict ep){
 	double sum;
 	struct expr_inst *rip;
+	int r=0;
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
 		if(!expr_modified(ep,ip->dst.dst)
 			||(ip->op!=EXPR_ADD&&ip->op!=EXPR_SUB)
@@ -8280,12 +8298,14 @@ static void expr_optimize_contadd(struct expr *restrict ep){
 				else
 					sum-=*ip1->un.src;
 				ip1->dst.dst=NULL;
+				r=1;
 			}
 		}
 		rip=expr_findconst(ep,ip);
 		if(rip){
 			rip->un.value+=sum;
 			ip->dst.dst=NULL;
+			r=1;
 			expr_writeconsts(ep);
 		}else {
 			/*if(sum<0.0){
@@ -8299,11 +8319,12 @@ static void expr_optimize_contadd(struct expr *restrict ep){
 		}
 		continue;
 	}
-	expr_optimize_completed(ep);
+	optimize_end;
 }
-static void expr_optimize_contsh(struct expr *restrict ep){
+static int expr_optimize_contsh(struct expr *restrict ep){
 	double sum;
 	struct expr_inst *rip;
+	int r=0;
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
 		if(!expr_modified(ep,ip->dst.dst)
 			||(ip->op!=EXPR_SHL&&ip->op!=EXPR_SHR)
@@ -8324,12 +8345,14 @@ static void expr_optimize_contsh(struct expr *restrict ep){
 				else
 					sum-=*ip1->un.src;
 				ip1->dst.dst=NULL;
+				r=1;
 			}
 		}
 		rip=expr_findconst(ep,ip);
 		if(rip){
 			EXPR_EDEXP(&rip->un.value)+=(int64_t)sum;
 			ip->dst.dst=NULL;
+			r=1;
 			expr_writeconsts(ep);
 		}else {
 			/*if(sum<0.0){
@@ -8343,11 +8366,12 @@ static void expr_optimize_contsh(struct expr *restrict ep){
 		}
 		continue;
 	}
-	expr_optimize_completed(ep);
+	optimize_end;
 }
-static void expr_optimize_contmul(struct expr *restrict ep,enum expr_op op){
+static int expr_optimize_contmul(struct expr *restrict ep,enum expr_op op){
 	double sum;
 	struct expr_inst *rip;
+	int r=0;
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
 		if(!ip->dst.dst
 			||!expr_modified(ep,ip->dst.dst)
@@ -8500,18 +8524,20 @@ static void expr_optimize_contmul(struct expr *restrict ep,enum expr_op op){
 						__builtin_unreachable();
 				}
 				ip1->dst.dst=NULL;
+				r=1;
 			}
 		}
 		if(rip){
 			rip->un.value=sum;
 			ip->dst.dst=NULL;
+			r=1;
 			expr_writeconsts(ep);
 		}else {
 			*ip->un.src=sum;
 		}
 		continue;
 	}
-	expr_optimize_completed(ep);
+	optimize_end;
 }
 static double expr_zero_element(enum expr_op op){
 	switch(op){
@@ -8569,15 +8595,17 @@ static int expr_optimize_zero(struct expr *restrict ep){
 	return r;
 }
 //oconst
-static void expr_optimize_const(struct expr *restrict ep){
+static int expr_optimize_const(struct expr *restrict ep){
+	int r=0;
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
 		if(ip->op==EXPR_CONST&&!expr_modified(ep,ip->dst.dst)){
 			if(!(ip->flag&EXPR_SF_INJECTION)){
 				ip->dst.dst=NULL;
+				r=1;
 			}
 		}
 	}
-	expr_optimize_completed(ep);
+	optimize_end;
 }
 static int expr_side(enum expr_op op){
 	switch(op){
@@ -8641,10 +8669,6 @@ static int expr_vused(struct expr_inst *ip1,double *v){
 		if(ip1->op==EXPR_CONST&&(ip1->flag&EXPR_SF_INJECTION)&&cast(ip1->un.value,double *)==v)
 			return 1;
 		ov=expr_override(ip1->op);
-//		printval(ov);
-//		printval(v);
-//		printval(ip1->un.src);
-//		printval(ip1->op);
 		if((expr_usesrc(ip1->op)&&ip1->un.src==v)
 			||(ip1->dst.dst==v&&!ov)
 		){
@@ -8856,14 +8880,14 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 			const intptr_t *arg;\
 			int count;\
 		} svc;\
+		union {\
+			double d;\
+			struct expr_internal_jmpbuf *p;\
+		} j;\
 		void *up;\
 		double d;\
 		size_t index;\
 	} un;\
-	__attribute__((unused)) union {\
-		double d;\
-		struct expr_internal_jmpbuf *p;\
-	} j;\
 
 #define sum (un.s0._sum)
 #define from (un.s0._from)
@@ -9212,18 +9236,21 @@ break2:
 	return r;
 }*/
 //2 bugs
-static void expr_optimize_unused(struct expr *restrict ep){
+static int expr_optimize_unused(struct expr *restrict ep){
+	int r=0;
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
 
 		if(!expr_varofep(ep,ip->dst.dst)
 			||expr_side(ip->op))continue;
 		if(!expr_vcheck_ep(ep,ip+1,ip->dst.dst)){
 			ip->dst.dst=NULL;
+			r=1;
 		}
 	}
-	expr_optimize_completed(ep);
+	optimize_end;
 }
-static void expr_optimize_constneg(struct expr *restrict ep){
+static int expr_optimize_constneg(struct expr *restrict ep){
+	int r=0;
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
 		switch(ip->op){
 			case EXPR_NEG:
@@ -9267,10 +9294,11 @@ static void expr_optimize_constneg(struct expr *restrict ep){
 			}
 			expr_writeconsts(ep);
 			ip->dst.dst=NULL;
+			r=1;
 			break;
 		}
 	}
-	expr_optimize_completed(ep);
+	optimize_end;
 }
 
 static int expr_injection_optype(enum expr_op op){
@@ -9371,7 +9399,7 @@ static int expr_optimize_injective_hotfunction(struct expr *restrict ep){
 		}
 		continue;
 	}
-	return r;
+	optimize_end;
 }
 static int expr_optimize_injection(struct expr *restrict ep){
 	int r=0;
@@ -9417,10 +9445,10 @@ delete:
 			break;
 		}
 	}
-	expr_optimize_completed(ep);
-	return r;
+	optimize_end;
 }
-static void expr_optimize_copyadd(struct expr *restrict ep){
+static int expr_optimize_copyadd(struct expr *restrict ep){
+	int r=0;
 	struct expr_inst *ip2;
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
 		if(ip->op!=EXPR_COPY||
@@ -9442,9 +9470,10 @@ fail:
 		if(ip2){
 			ip2->un.src=ip->un.src;
 			ip->dst.dst=NULL;
+			r=1;
 		}
 	}
-	expr_optimize_completed(ep);
+	optimize_end;
 }
 /*static int expr_optimize_copy2const(struct expr *restrict ep){
 	int r=0;
@@ -9465,9 +9494,10 @@ fail:
 	return r;
 }*/
 //a bug cannot fix
-static void expr_optimize_copyend(struct expr *restrict ep){
+static int expr_optimize_copyend(struct expr *restrict ep){
 	struct expr_inst *lip=NULL;
 	struct expr_inst *ip=ep->data;
+	int r=0;
 	for(;ip->op!=EXPR_END;++ip){
 		lip=ip;
 	}
@@ -9476,10 +9506,12 @@ static void expr_optimize_copyend(struct expr *restrict ep){
 		){
 		ip->dst.dst=lip->un.src;
 		lip->dst.dst=NULL;
+		r=1;
 	}
-	expr_optimize_completed(ep);
+	optimize_end;
 }
-static void expr_optimize_strongorder_and_notl(struct expr *restrict ep){
+static int expr_optimize_strongorder_and_notl(struct expr *restrict ep){
+	int r=0;
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
 		if(ip[1].dst.dst!=ip->dst.dst)
 			continue;
@@ -9533,10 +9565,12 @@ static void expr_optimize_strongorder_and_notl(struct expr *restrict ep){
 				__builtin_unreachable();
 		}
 		(++ip)->dst.dst=NULL;
+		r=1;
 	}
-	expr_optimize_completed(ep);
+	optimize_end;
 }
-static void expr_optimize_contneg(struct expr *restrict ep){
+static int expr_optimize_contneg(struct expr *restrict ep){
+	int r=0;
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
 		if(ip[1].dst.dst!=ip->dst.dst)
 			continue;
@@ -9546,6 +9580,7 @@ static void expr_optimize_contneg(struct expr *restrict ep){
 				if(ip[1].op==ip->op){
 					ip->dst.dst=NULL;
 					(++ip)->dst.dst=NULL;
+					r=1;
 				}
 				break;
 			case EXPR_TSTL:
@@ -9557,6 +9592,7 @@ static void expr_optimize_contneg(struct expr *restrict ep){
 					case EXPR_NOTL:
 					case EXPR_TSTL:
 						(ip++)->dst.dst=NULL;
+						r=1;
 						break;
 					default:
 						break;
@@ -9577,6 +9613,7 @@ notl_tstl:
 								ip->op=EXPR_CONST;
 								(++ip)->dst.dst=NULL;
 								(++ip)->dst.dst=NULL;
+								r=1;
 								expr_writeconsts(ep);
 							default:
 								break;
@@ -9590,6 +9627,7 @@ from_tstl_to_neg:
 							case EXPR_NOTL:
 							case EXPR_TSTL:
 								(++ip)->dst.dst=NULL;
+								r=1;
 							default:
 								break;
 						}
@@ -9598,6 +9636,7 @@ from_tstl_to_neg:
 						ip->op=EXPR_TSTL;
 					case EXPR_TSTL:
 						(++ip)->dst.dst=NULL;
+						r=1;
 						break;
 					default:
 						break;
@@ -9607,9 +9646,101 @@ from_tstl_to_neg:
 				break;
 		}
 	}
-	expr_optimize_completed(ep);
+	optimize_end;
 }
-static void expr_optimize_svc0(struct expr *restrict ep){
+static int expr_optimize_contcopy(struct expr *restrict ep){
+	int r=0;
+	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
+		if(ip->op!=EXPR_COPY||ip[1].op!=EXPR_COPY)
+			continue;
+		if(ip[1].un.src!=ip->dst.dst)
+			continue;
+		if(expr_vcheck_ep(ep,ip+2,ip->dst.dst))
+			continue;
+		ip->dst.dst=ip[1].dst.dst;
+		(++ip)->dst.dst=NULL;
+		r=1;
+	}
+	optimize_end;
+}
+static int expr_optimize_copysrcunused(struct expr *restrict ep){
+	struct expr_inst *ip1;
+	int r=0;
+	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
+		if(ip->op!=EXPR_COPY)
+			continue;
+		if(expr_vcheck_ep(ep,ip+1,ip->un.src))
+			continue;
+		if(!expr_varofep(ep,ip->dst.dst)||!expr_varofep(ep,ip->un.src))
+			continue;
+		for(ip1=ip+1;;++ip1){
+			switch(ip1->op){
+				case UNARYCASES:
+				case SRCCASES:
+					continue;
+				case EXPR_END:
+					++ip1;
+					goto atend;
+				default:
+					goto break2;
+			}
+		}
+break2:
+		if(expr_vcheck_ep(ep,ip1,ip->dst.dst))
+			continue;
+atend:
+		debug("setting %zd ips",ip1-ip-1);
+		for(struct expr_inst *ip2=ip+1;ip2<ip1;++ip2){
+			if(ip2->dst.dst==ip->dst.dst)
+				ip2->dst.dst=ip->un.src;
+			switch(ip2->op){
+				case SRCCASES:
+					if(ip2->un.src==ip->dst.dst)
+						ip2->un.src=ip->un.src;
+				default:
+					break;
+			}
+		}
+		ip->dst.dst=NULL;
+		r=1;
+	}
+	optimize_end;
+}
+static int expr_optimize_coc(struct expr *restrict ep){
+	int r=0;
+	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
+		if(ip->op!=EXPR_COPY)
+			continue;
+		switch(ip[1].op){
+			case UNARYCASES:
+			case SRCCASES:
+				break;
+			default:
+				continue;
+		}
+		if(ip[2].op!=EXPR_COPY)
+			continue;
+		if(ip[1].dst.dst!=ip->dst.dst)
+			continue;
+		if(ip[2].dst.dst!=ip->un.src)
+			continue;
+		if(ip[2].un.src!=ip->dst.dst)
+			continue;
+		ip[1].dst.dst=ip->un.src;
+		if(expr_vcheck_ep(ep,ip+3,ip->dst.dst)){
+			ip[2].dst.dst=ip->dst.dst;
+			ip[2].un.src=ip->un.src;
+		}else {
+			ip[2].dst.dst=NULL;
+		}
+		ip->dst.dst=NULL;
+		ip+=2;
+		r=1;
+	}
+	optimize_end;
+}
+static int expr_optimize_svc0(struct expr *restrict ep){
+	int r=0;
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
 		if(ip[1].dst.dst!=ip->dst.dst)
 			continue;
@@ -9619,6 +9750,7 @@ static void expr_optimize_svc0(struct expr *restrict ep){
 					case EXPR_DIF0:
 						ip->op=EXPR_SVC0;
 						(++ip)->dst.dst=NULL;
+						r=1;
 						break;
 					default:
 						break;
@@ -9629,6 +9761,7 @@ static void expr_optimize_svc0(struct expr *restrict ep){
 					case EXPR_DIF0:
 						ip->op=EXPR_SVCP0;
 						(++ip)->dst.dst=NULL;
+						r=1;
 						break;
 					default:
 						break;
@@ -9638,70 +9771,72 @@ static void expr_optimize_svc0(struct expr *restrict ep){
 				break;
 		}
 	}
-	expr_optimize_completed(ep);
+	optimize_end;
 }
 static int expr_optimize_once(struct expr *restrict ep){
 	int r=0;
-	expr_optimize_const(ep);
-	expr_optimize_constneg(ep);
-	//expr_optimize_notl(ep);
-	expr_optimize_contneg(ep);
-	expr_optimize_strongorder_and_notl(ep);
-	r|=expr_optimize_injection(ep);
-	r|=expr_optimize_injective_hotfunction(ep);
-	expr_optimize_contmul(ep,EXPR_POW);
-	expr_optimize_contmul(ep,EXPR_MUL);
-	expr_optimize_contmul(ep,EXPR_DIV);
-	expr_optimize_contmul(ep,EXPR_MOD);
-	expr_optimize_contadd(ep);
-	expr_optimize_contsh(ep);
-	expr_optimize_contmul(ep,EXPR_NEXT);
-	expr_optimize_contmul(ep,EXPR_DIFF);
-	expr_optimize_contmul(ep,EXPR_LT);
-	expr_optimize_contmul(ep,EXPR_LE);
-	expr_optimize_contmul(ep,EXPR_GT);
-	expr_optimize_contmul(ep,EXPR_GE);
-	expr_optimize_contmul(ep,EXPR_SLE);
-	expr_optimize_contmul(ep,EXPR_SGE);
-	expr_optimize_contmul(ep,EXPR_SEQ);
-	expr_optimize_contmul(ep,EXPR_SNE);
-	expr_optimize_contmul(ep,EXPR_EQ);
-	expr_optimize_contmul(ep,EXPR_NE);
-	expr_optimize_contmul(ep,EXPR_AND);
-	expr_optimize_contmul(ep,EXPR_XOR);
-	expr_optimize_contmul(ep,EXPR_OR);
-	expr_optimize_contmul(ep,EXPR_ANDL);
-	expr_optimize_contmul(ep,EXPR_XORL);
-	expr_optimize_contmul(ep,EXPR_ORL);
-	//expr_optimize_contmul(ep,EXPR_COPY);
+	r+=expr_optimize_const(ep);
+	r+=expr_optimize_constneg(ep);
+	r+=expr_optimize_contneg(ep);
+	r+=expr_optimize_strongorder_and_notl(ep);
+	r+=expr_optimize_injection(ep);
+	r+=expr_optimize_injective_hotfunction(ep);
+	r+=expr_optimize_contmul(ep,EXPR_POW);
+	r+=expr_optimize_contmul(ep,EXPR_MUL);
+	r+=expr_optimize_contmul(ep,EXPR_DIV);
+	r+=expr_optimize_contmul(ep,EXPR_MOD);
+	r+=expr_optimize_contadd(ep);
+	r+=expr_optimize_contsh(ep);
+	r+=expr_optimize_contmul(ep,EXPR_NEXT);
+	r+=expr_optimize_contmul(ep,EXPR_DIFF);
+	r+=expr_optimize_contmul(ep,EXPR_LT);
+	r+=expr_optimize_contmul(ep,EXPR_LE);
+	r+=expr_optimize_contmul(ep,EXPR_GT);
+	r+=expr_optimize_contmul(ep,EXPR_GE);
+	r+=expr_optimize_contmul(ep,EXPR_SLE);
+	r+=expr_optimize_contmul(ep,EXPR_SGE);
+	r+=expr_optimize_contmul(ep,EXPR_SEQ);
+	r+=expr_optimize_contmul(ep,EXPR_SNE);
+	r+=expr_optimize_contmul(ep,EXPR_EQ);
+	r+=expr_optimize_contmul(ep,EXPR_NE);
+	r+=expr_optimize_contmul(ep,EXPR_AND);
+	r+=expr_optimize_contmul(ep,EXPR_XOR);
+	r+=expr_optimize_contmul(ep,EXPR_OR);
+	r+=expr_optimize_contmul(ep,EXPR_ANDL);
+	r+=expr_optimize_contmul(ep,EXPR_XORL);
+	r+=expr_optimize_contmul(ep,EXPR_ORL);
+	//r+=expr_optimize_contmul(ep,EXPR_COPY);
 
-	//r|=expr_optimize_mulpow2n(ep);
-	r|=expr_optimize_zero(ep);
-	//r|=expr_optimize_copy2const(ep);
-	expr_optimize_copyadd(ep);
-	expr_optimize_unused(ep);
-	r|=expr_optimize_constexpr(ep);
-	expr_optimize_svc0(ep);
-	expr_optimize_copyend(ep);
+	//r+=expr_optimize_mulpow2n(ep);
+	r+=expr_optimize_zero(ep);
+	//r+=expr_optimize_copy2const(ep);
+	r+=expr_optimize_copyadd(ep);
+	r+=expr_optimize_unused(ep);
+	r+=expr_optimize_constexpr(ep);
+	r+=expr_optimize_contcopy(ep);
+	r+=expr_optimize_svc0(ep);
+	r+=expr_optimize_copysrcunused(ep);
+	r+=expr_optimize_coc(ep);
+	r+=expr_optimize_copyend(ep);
 	return r;
 }
-static void expr_optimize0(struct expr *restrict ep){
-	size_t s=ep->size;
-	int r;
+static int expr_optimize0(struct expr *restrict ep){
+	int r,ret=0;
 	expr_writeconsts(ep);
 again:
 	r=expr_optimize_once(ep);
-	if(likely((ep->size<s||r)&&ep->size>1)){
-		s=ep->size;
+	debug("optimized %d times",r);
+	if(likely(r)){
+		addo(ret,r);
 		goto again;
 	}
-
+	return ret;
 }
-void expr_optimize(struct expr *restrict ep){
+int expr_optimize(struct expr *restrict ep){
 	struct expr_resource *rp;
 	double v;
 	uint8_t sf;
-	expr_optimize0(ep);
+	int r=expr_optimize0(ep);
 	if(expr_isconst(ep)){
 		sf=ep->freeable;
 		rp=ep->res;
@@ -9710,7 +9845,9 @@ void expr_optimize(struct expr *restrict ep){
 		init_expr_const(ep,v);
 		ep->res=rp;
 		ep->freeable=sf;
+		addo(r,1);
 	}
+	return r;
 }
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
@@ -9954,17 +10091,16 @@ void expr_optimize(struct expr *restrict ep){
 				*ip->dst.dst=un.d;\
 				break;\
 			case EXPR_SJ:\
-				j.d=*ip->dst.dst;\
-				j.p->ipp=&ip;\
-				j.p->ip=ip;\
-				*ip->dst.dst=setjmp(j.p->jb)?\
-				((volatile struct expr_internal_jmpbuf *)j.p)->un.val:0.0;\
+				un.j.d=*ip->dst.dst;\
+				un.j.p->ipp=&ip;\
+				un.j.p->ip=ip;\
+				*ip->dst.dst=(double)setjmp(un.j.p->jb);\
 				break;\
 			case EXPR_LJ:\
-				j.d=*ip->dst.dst;\
-				j.p->un.val=*ip->un.src;\
-				*j.p->ipp=j.p->ip;\
-				longjmp(j.p->jb,1);\
+				un.j.d=*ip->dst.dst;\
+				un.j.p->un.val=*ip->un.src;\
+				*un.j.p->ipp=un.j.p->ip;\
+				longjmp(un.j.p->jb,(int)un.j.p->un.val);\
 			case EXPR_IP:\
 				switch(ip->un.zu){\
 					case 0:\
@@ -9999,22 +10135,22 @@ void expr_optimize(struct expr *restrict ep){
 			case EXPR_SVC:\
 				un.svc.num=(intptr_t)*ip->dst.dst;\
 				un.svc.arg=(const intptr_t *)ep->un.args;\
-				expr_internal_syscall_eval(*ip->dst.pdst,ip->flag,un.svc.num,un.svc.arg[0],un.svc.arg[1],un.svc.arg[2],un.svc.arg[3],un.svc.arg[4],un.svc.arg[5],un.svc.arg[6]);\
+				expr_internal_syscall_eval(*ip->dst.pdst,intptr_t,ip->flag,un.svc.num,un.svc.arg[0],un.svc.arg[1],un.svc.arg[2],un.svc.arg[3],un.svc.arg[4],un.svc.arg[5],un.svc.arg[6]);\
 				break;\
 			case EXPR_SVC0:\
 				un.svc.num=(intptr_t)*ip->dst.dst;\
 				un.svc.arg=(const intptr_t *)ep->un.args;\
-				expr_internal_syscall_eval(*ip->dst.dst,ip->flag,un.svc.num,un.svc.arg[0],un.svc.arg[1],un.svc.arg[2],un.svc.arg[3],un.svc.arg[4],un.svc.arg[5],un.svc.arg[6]);\
+				expr_internal_syscall_eval(*ip->dst.dst,double,ip->flag,un.svc.num,un.svc.arg[0],un.svc.arg[1],un.svc.arg[2],un.svc.arg[3],un.svc.arg[4],un.svc.arg[5],un.svc.arg[6]);\
 				break;\
 			case EXPR_SVCP:\
 				un.svc.num=(intptr_t)*ip->dst.dst;\
 				un.svc.arg=(const intptr_t *)*ip->un.uaddr2;\
-				expr_internal_syscall_eval(*ip->dst.pdst,ip->flag,un.svc.num,un.svc.arg[0],un.svc.arg[1],un.svc.arg[2],un.svc.arg[3],un.svc.arg[4],un.svc.arg[5],un.svc.arg[6]);\
+				expr_internal_syscall_eval(*ip->dst.pdst,intptr_t,ip->flag,un.svc.num,un.svc.arg[0],un.svc.arg[1],un.svc.arg[2],un.svc.arg[3],un.svc.arg[4],un.svc.arg[5],un.svc.arg[6]);\
 				break;\
 			case EXPR_SVCP0:\
 				un.svc.num=(intptr_t)*ip->dst.dst;\
 				un.svc.arg=(const intptr_t *)*ip->un.uaddr2;\
-				expr_internal_syscall_eval(*ip->dst.dst,ip->flag,un.svc.num,un.svc.arg[0],un.svc.arg[1],un.svc.arg[2],un.svc.arg[3],un.svc.arg[4],un.svc.arg[5],un.svc.arg[6]);\
+				expr_internal_syscall_eval(*ip->dst.dst,double,ip->flag,un.svc.num,un.svc.arg[0],un.svc.arg[1],un.svc.arg[2],un.svc.arg[3],un.svc.arg[4],un.svc.arg[5],un.svc.arg[6]);\
 				break;\
 			case EXPR_END:\
 				_out;\
@@ -10025,7 +10161,6 @@ break1:\
 		asm("":::"memory");\
 		++ip;\
 break2:
-
 __attribute__((noinline))
 double expr_eval(const struct expr *restrict ep,double input){
 	EXPR_EVALVARS;

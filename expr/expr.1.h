@@ -187,12 +187,9 @@ EXPR_END
 #define EXPR_IF_NOOPTIMIZE 1
 #define EXPR_IF_INSTANT_FREE 2
 
-//#define EXPR_IF_NOBUILTIN 4
 #define EXPR_IF_INJECTION 4
 #define EXPR_IF_NOKEYWORD 8
 #define EXPR_IF_PROTECT 16
-//#define EXPR_IF_INJECTION_B 32
-//#define EXPR_IF_INJECTION_S 64
 #define EXPR_IF_KEEPSYMSET 128
 #define EXPR_IF_DETACHSYMSET 256
 #define EXPR_IF_UNSAFE 512
@@ -224,7 +221,7 @@ EXPR_END
 			__typeof(x) _x;\
 			__typeof(type) _o;\
 			intmax_t _im;\
-		} _cast_un;\
+		} register _cast_un;\
 		if(sizeof(type)>sizeof(__typeof(x)))\
 	 		_cast_un._im=0;\
 		_cast_un._x=(x);\
@@ -241,7 +238,7 @@ EXPR_END
 
 #define expr_next48v(_val) (((EXPR_MAGIC48_A)*(_val)+(EXPR_MAGIC48_B))&0xffffffffffffl)
 #define expr_next48(_seedp) ({\
-	long *restrict _next48_seed=(_seedp);\
+	long *_next48_seed=(_seedp);\
 	*_next48_seed=expr_next48v(*_next48_seed);\
 })
 #define expr_seed48(__val) (0x330e|(((__val)&0xffffffffl)<<16))

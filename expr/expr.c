@@ -15,7 +15,10 @@
 #define UNABLE_GETADDR_IN_PROTECTED_MODE 1
 #define HIDE_WHERE_ERROR_OCCURS 1
 #define PHYSICAL_CONSTANT 0
+
+#ifndef NDEBUG
 #define NDEBUG 1
+#endif
 
 #define printval(x) warn(#x ":%lu",(unsigned long)(x))
 #define printvalx(x) warn(#x ":%lx",(unsigned long)(x))
@@ -433,13 +436,17 @@ const size_t expr_page_size=PAGE_SIZE;
 #define vasprintf (use expr_vasprintf() instead!)
 
 static inline void *xmalloc(size_t size){
-	if(unlikely(size>expr_allocate_max))
+	if(unlikely(size>expr_allocate_max)){
+		debug("trying to allocate too much (%zu) memory",size);
 		return NULL;
+	}
 	return expr_allocator(size);
 }
 static inline void *xrealloc(void *old,size_t size){
-	if(unlikely(size>expr_allocate_max))
+	if(unlikely(size>expr_allocate_max)){
+		debug("trying to allocate too much (%zu) memory",size);
 		return NULL;
+	}
 	return old?expr_reallocator(old,size):expr_allocator(size);
 }
 static inline void xfree(void *p){
@@ -3211,11 +3218,12 @@ const uint8_t expr_writefmts_table_default[256]={
 ['k']=248,
 ['Q']=247,
 ['@']=246,
-['J']=245,
-['j']=244,
-['&']=243,
-['I']=242,
-['D']=241,
+['j']=245,
+['&']=244,
+['I']=243,
+['D']=242,
+['w']=241,
+['R']=240,
 
 ['%']=1,
 ['\x81']=2,['x']=2,
@@ -3324,17 +3332,17 @@ static const uint8_t number_table[256]={
 ['f']=15,
 ['f'+1 ... 255]=127,
 };
-static inline ssize_t internal_strtoz_autobase(const char *restrict nptr,const char *endp,const char **restrict endptr){
+static inline ssize_t internal_strtoz_autobase(const char *restrict nptr,const char *endp,const char *restrict *restrict endptr){
 	size_t r=0;
 //	int base=0;
 	int neg=0;
 	unsigned int get;
 	//0,1,2 for 10,8,16
-	debug("strtoz(\"%.*s\") start",(int)(endp-nptr),nptr);
+	//debug("strtoz(\"%.*s\") start",(int)(endp-nptr),nptr);
 	if(likely(nptr<endp)){
 		if(*nptr=='-'){
-			neg=1;
 			++nptr;
+			neg=1;
 		}
 	}
 /*		case 1:
@@ -3378,10 +3386,26 @@ out:
 	debug("result:%zd",(ssize_t)(neg?-r:r));
 	return (ssize_t)(neg?-r:r);
 }
-ssize_t expr_writef(const char *fmt,size_t fmtlen,expr_writer writer,intptr_t fd,void *const *restrict args,size_t arglen){
+ssize_t expr_writef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,void *const *restrict args,size_t arglen){
 	return expr_writef_r(fmt,fmtlen,writer,fd,args,arglen,expr_writefmts_default,expr_writefmts_table_default);
 }
-ssize_t expr_writef_r(const char *fmt,size_t fmtlen,expr_writer writer,intptr_t fd,void *const *restrict args,size_t arglen,const struct expr_writefmt *restrict fmts,const uint8_t *restrict table){
+#define range_check(val,closed_min,open_max,onfalse) ({\
+	uintptr_t register __val=(uintptr_t)(val);\
+	if(unlikely(__val<(uintptr_t)(closed_min)||__val>=(uintptr_t)(open_max))){\
+		onfalse;\
+	}\
+})
+#define range_checkn(val,closed_min,open_n,onfalse) ({\
+	if(unlikely((uintptr_t)((val)-(closed_min))>=(uintptr_t)(open_n))){\
+		onfalse;\
+	}\
+})
+#define range_checkcn(val,closed_min,closed_n,onfalse) ({\
+	if(unlikely((uintptr_t)((val)-(closed_min))>(uintptr_t)(closed_n))){\
+		onfalse;\
+	}\
+})
+ssize_t expr_writef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,void *const *restrict args,size_t arglen,const struct expr_writefmt *restrict fmts,const uint8_t *restrict table){
 	const char *endp=fmt+fmtlen,*fmt_old=fmt,*fmt0=fmt;
 	ssize_t ret=0;
 	ssize_t v;
@@ -3390,11 +3414,14 @@ ssize_t expr_writef_r(const char *fmt,size_t fmtlen,expr_writer writer,intptr_t 
 	const char *delim=NULL,*tail=NULL,*d1;
 	size_t delimsz=0,tailsz=0,arrlen=0;
 	size_t loop=0;
-	uint8_t ac_prev[256];
-	uint8_t aci=0,i,forward=0,arrwid=0,current,c,r1;
+	uint8_t forward=0,arrwid=0,current,c,r1;
 	void *const *arg0=args;
+	void *const *argend=args+arglen;
+	const char *fmt_save[8];
+	const char **fmt_save_current;
 	if(unlikely(endp<=fmt))
 		return 0;
+	fmt_save_current=fmt_save;
 	for(;;){
 		if(unlikely(fmt>=endp)){
 			wf_trywrite(fmt_old,fmt-fmt_old);
@@ -3442,13 +3469,12 @@ reflag:
 			default:
 				break;
 		}
-#define argnext1 --arglen;++args;ac_prev[aci++]=1
-#define argnext(N) if(unlikely(arglen<(N)))goto argfail;arglen-=(N);args+=(N);ac_prev[aci++]=(N)
-#define argback(N) for(uint8_t n=(N);n;--n){i=ac_prev[--aci];args-=i;if(unlikely(args<arg0))goto argfail;arglen+=i;}
-#define argunback(N) for(uint8_t n=(N);n;--n){i=ac_prev[++aci];if(unlikely(arglen<i))goto argfail;arglen-=i;args+=i;}
+#define argnext1 ++args
+#define argnext(N) args+=(N);range_checkcn(args,arg0,arglen,goto argfail)
+#define argback(N) args-=(N);range_checkcn(args,arg0,arglen,goto argfail)
 #define get_next_arg64(dest,set) \
 		if(*fmt=='*'){\
-			if(unlikely(!arglen))\
+			if(unlikely(args>=argend))\
 				goto argfail;\
 			dest=*(const ssize_t *)args;\
 			set=1;\
@@ -3475,26 +3501,48 @@ current_get:
 			case 0:
 				goto end;
 			case 255:
-				if(unlikely(!arglen))
+				if(unlikely(args>=argend))
 					goto argfail;
 				*(size_t *)*args=(size_t)ret;
 				argnext1;
 				break;
 			case 254:
-				if(unlikely(!arglen))
+				if(unlikely(args>=argend))
 					goto argfail;
 				*(double *)*args=(double)ret;
 				argnext1;
 				break;
 			case 253:
-				v=flag_width(flag,1);
-				if(!v)
-					v=1;
-				if(flag->minus){
-					argunback(v);
-				}else {
-					argback(v);
+#define fmt_op_cond(onexit) \
+				if(flag->sharp){\
+					if(unlikely(args>=argend))\
+						goto argfail;\
+					if(flag->eq){\
+						register uintptr_t *ar;\
+						ar=*args;\
+						argnext1;\
+						v=flag_digit(flag,1);\
+						if(!(*ar-=v)){\
+							onexit;\
+							break;\
+						}\
+					}else {\
+						argnext1;\
+						if(!(*args)){\
+							onexit;\
+							break;\
+						}\
+					}\
 				}
+				fmt_op_cond();
+				v=flag_width(flag,1);
+				if(flag->minus){
+					args-=v;
+				}else {
+					args+=v;
+				}
+				debug("jumpto args[%zd]",args-arg0);
+				range_checkcn(args,arg0,arglen,goto argfail);
 				break;
 			case 252:
 				loop=flag_width(flag,0);
@@ -3525,56 +3573,47 @@ current_get:
 				arrlen=flag_width(flag,0);
 				break;
 			case 247:
-				if(unlikely(!arglen))
+				if(unlikely(args>=argend))
 					goto argfail;
 				if(*args)
 					goto end;
 				argnext1;
 				break;
 			case 246:
-				if(unlikely(!arglen))
+				if(unlikely(args>=argend))
 					goto argfail;
 				current=*(uint8_t *)args;
 				argnext1;
 				goto current_get;
+#define fmt_jumpto(target) range_checkn(fmt=(target),fmt0,fmtlen,goto argfail)
 			case 245:
-				if(unlikely(!arglen))
-					goto argfail;
-				if(flag->eq){
-					uintptr_t *ar;
-					ar=*args;
-					v=flag_digit(flag,1);
-					if(!(*ar-=v))
-						goto anb;
-				}else {
-					if(!*args){
-anb:
-						argnext1;
-						break;
+				fmt_op_cond(
+					if(flag->plus){
+						range_checkn(--fmt_save_current,fmt_save,8,goto argfail);
 					}
-				}
-				argnext1;
-			case 244:
+					arrlen=0);
 				v=flag_width(flag,0);
-				if(flag->minus)
+				if(flag->plus){
+					range_checkn(fmt_save_current-1,fmt_save,8,goto argfail);
+					d1=fmt_save_current[-1];
+				}else if(flag->minus)
 					d1=fmt-v;
 				else
 					d1=fmt+v;
-				fmt=d1;
 				++d1;
-				if(unlikely(d1>=endp||d1<fmt0))
-					goto argfail;
+				debug("jumpto fmt[%zd]",d1-fmt0);
+				fmt_jumpto(d1);
 				argback(arrlen);
 				arrlen=0;
-				break;
-			case 243:
-				if(unlikely(!arglen))
+				goto continue_keepfmt;
+			case 244:
+				if(unlikely(args>=argend))
 					goto argfail;
 				wfp=*(const struct expr_writefmt **)args;
 				argnext1;
 				goto wfp_get;
-			case 242:
-				if(unlikely(!arglen))
+			case 243:
+				if(unlikely(args>=argend))
 					goto argfail;
 				if(flag->width_set)
 					*(uintptr_t *)*args*=flag->width;
@@ -3584,8 +3623,8 @@ anb:
 					++(*(uintptr_t *)*args);
 				argnext1;
 				break;
-			case 241:
-				if(unlikely(!arglen))
+			case 242:
+				if(unlikely(args>=argend))
 					goto argfail;
 				if(flag->width_set)
 					*(uintptr_t *)*args/=flag->width;
@@ -3594,6 +3633,11 @@ anb:
 				else
 					--(*(uintptr_t *)*args);
 				argnext1;
+				break;
+			case 241:
+				debug("push fmt[%zd]",fmt-fmt0);
+				EXPR_RPUSH(fmt_save_current)=fmt;
+				range_checkn(fmt_save_current,fmt_save,8,goto argfail);
 				break;
 #define fmt_repeat if(!loop)loop=1;for(;loop;--loop)
 #define fmt_once(_arg) \
@@ -3605,7 +3649,7 @@ anb:
 	fmt_repeat {\
 		if(!__builtin_constant_p(_arg)){\
 			if(forward){\
-				if(unlikely(arglen<c))\
+				if(unlikely(argend-args<c))\
 					goto argfail;\
 			}\
 		}\
@@ -3632,7 +3676,7 @@ wfp_get:
 				}else if(arrlen&&c==1){
 					uintptr_t aps;
 					uint64_t val,mask;
-					if(unlikely(!arglen))
+					if(unlikely(args>=argend))
 						goto argfail;
 					aps=(uint64_t)*args;
 					mask=(1ul<<(arrwid*8))-1ul;
@@ -3692,7 +3736,7 @@ wfp_get:
 						aps+=arrwid;
 					}
 				}else {
-					if(!forward&&unlikely(arglen<c))
+					if(!forward&&unlikely(argend-args<c))
 						goto argfail;
 					fmt_dorepeat(args);
 					if(!forward){
@@ -3703,6 +3747,7 @@ wfp_get:
 				break;
 		}
 		++fmt;
+continue_keepfmt:
 		fmt_old=fmt;
 		continue;
 	}

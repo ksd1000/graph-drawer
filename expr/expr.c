@@ -134,8 +134,19 @@
 		case EXPR_PMD:\
 		case EXPR_PME:\
 		case EXPR_PMEP
-#define SRCCASES EXPR_COPY:\
-		case EXPR_ADD:\
+#define SRCCASES_NOCOPY_SWAPABLE EXPR_ADD:\
+		case EXPR_MUL:\
+		case EXPR_AND:\
+		case EXPR_OR:\
+		case EXPR_XOR:\
+		case EXPR_SEQ:\
+		case EXPR_SNE:\
+		case EXPR_EQ:\
+		case EXPR_NE:\
+		case EXPR_ANDL:\
+		case EXPR_ORL:\
+		case EXPR_XORL
+#define SRCCASES_NOCOPY EXPR_ADD:\
 		case EXPR_SUB:\
 		case EXPR_MUL:\
 		case EXPR_DIV:\
@@ -162,6 +173,8 @@
 		case EXPR_NEXT:\
 		case EXPR_DIFF:\
 		case EXPR_OFF
+#define SRCCASES EXPR_COPY:\
+		case SRCCASES_NOCOPY
 #define UNARYCASES EXPR_NEG:\
 		case EXPR_NOT:\
 		case EXPR_NOTL:\
@@ -408,7 +421,7 @@ void *(*expr_allocator)(size_t)=malloc;
 void *(*expr_reallocator)(void *,size_t)=realloc;
 void (*expr_deallocator)(void *)=free;
 void (*expr_contractor)(void *,size_t)=expr_contract;
-size_t expr_allocate_max=0x400000000UL;
+size_t expr_allocate_max=SSIZE_MAX;
 int expr_symset_allow_heap_stack=0;
 long expr_seed_default=0;
 const size_t expr_page_size=PAGE_SIZE;
@@ -464,23 +477,6 @@ static inline void xfree_stack(void **restrict p){
 		return;
 	expr_deallocator(*p);
 }
-/*static __attribute__((return_twice)) double internal_setjmp(struct expr_internal_jmpbuf *buf,struct expr_inst *ip,struct expr_inst **ipp){
-	buf->ip=ip;
-	buf->ipp=ipp;
-	if(setjmp(buf->jb)){
-		return buf->val;
-	}
-	return 0.0:
-}
-static __attribute__((noreturn)) double internal_setjmp(struct expr_internal_jmpbuf *buf){
-	buf->ip=ip;
-	buf->ipp=ipp;
-	if(setjmp(buf->jb)){
-		return buf->val;
-	}
-	return 0.0:
-}
-*/
 #define ltod(_l) expr_ltod48(_l)
 #define ltol(_l) expr_ltol48(_l)
 #define ltom(_l) expr_ltom48(_l)
@@ -1255,6 +1251,7 @@ static double expr_xfree(double x){
 #endif
 
 #if (SYSCALL_DEFINED)&&(__linux__)
+
 #ifndef _MUTEX_H_
 #define _MUTEX_H_
 #include <stdatomic.h>
@@ -1299,22 +1296,35 @@ typedef _Atomic(uint32_t) mutex_t;
 #define mutex_wake(lock,val) expr_internal_syscall6(SYS_futex,(long)(lock),FUTEX_WAKE,(val),0,0,0)
 #endif
 
+#endif
+
 void expr_mutex_lock(uint32_t *lock){
+#ifdef _MUTEX_H_
 	mutex_lock((mutex_t *)lock);
+#endif
 }
 int expr_mutex_trylock(uint32_t *lock){
+#ifdef _MUTEX_H_
 	return mutex_trylock((mutex_t *)lock);
+#else
+	return 0;
+#endif
 }
 void expr_mutex_unlock(uint32_t *lock){
+#ifdef _MUTEX_H_
 	mutex_unlock((mutex_t *)lock);
+#endif
 }
 void expr_mutex_spinlock(uint32_t *lock){
+#ifdef _MUTEX_H_
 	mutex_spinlock((mutex_t *)lock);
+#endif
 }
 void expr_mutex_spinunlock(uint32_t *lock){
+#ifdef _MUTEX_H_
 	mutex_spinunlock((mutex_t *)lock);
-}
 #endif
+}
 
 intptr_t expr_warped_syscall0(int num){
 	return expr_internal_syscall0(num);
@@ -2309,7 +2319,7 @@ struct expr_symset *expr_builtin_symbol_convert(const struct expr_builtin_symbol
 		return r;\
 	sum+=r;\
 }
-static ssize_t writeext(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,size_t count,int c){
+static ssize_t writeext(expr_writer writer,intptr_t fd,size_t count,int c){
 	char buf[128];
 	ssize_t r,sum;
 	if(unlikely((ssize_t)count)<=0)
@@ -2347,7 +2357,7 @@ static ssize_t writeext(ssize_t (*writer)(intptr_t fd,const void *buf,size_t siz
 		return sum;\
 	}\
 	return likely(sz>0)?writer(fd,(_s),sz):0;
-static ssize_t converter_d(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,struct expr_writeflag *flag){
+static ssize_t converter_d(expr_writer writer,intptr_t fd,void *const *arg,struct expr_writeflag *flag){
 	char nbuf[32];
 	intptr_t val=*(const intptr_t *)arg;
 	char *endp=nbuf+32;
@@ -2386,7 +2396,7 @@ static ssize_t converter_d(ssize_t (*writer)(intptr_t fd,const void *buf,size_t 
 	cwrite_common(p,endp-p);
 }
 #define conv_x(name,base,conv_str,bufsz) \
-static ssize_t converter_##name(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,struct expr_writeflag *flag){\
+static ssize_t converter_##name(expr_writer writer,intptr_t fd,void *const *arg,struct expr_writeflag *flag){\
 	char nbuf[bufsz];\
 	uintptr_t val=*(const uintptr_t *)arg;\
 	char *endp=nbuf+bufsz;\
@@ -2632,7 +2642,7 @@ static size_t extint_ascii_rev(uint64_t *buf,size_t size,const char *chars,uint3
 	write_ascii(--out,outbuf-out);
 }
 #define conv_f0(_name,_base,_lnbase,_conv_str,_shift,_nsize,_how,_before_how) \
-static ssize_t converter_##_name(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,struct expr_writeflag *flag){\
+static ssize_t converter_##_name(expr_writer writer,intptr_t fd,void *const *arg,struct expr_writeflag *flag){\
 	_Static_assert(__builtin_constant_p((_nsize)),"_nsize should be constant");\
 	double val=*(const double *)arg;\
 	struct {\
@@ -3013,7 +3023,7 @@ conv_f(xbf,15,log(15),conv_btoX,ival_mul15p;r=extint_right(ival,r,ext),nbuf_size
 #undef ival
 #undef iival
 #undef workspace
-static ssize_t faction_s(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,struct expr_writeflag *flag){
+static ssize_t faction_s(expr_writer writer,intptr_t fd,void *const *arg,struct expr_writeflag *flag){
 	size_t len;
 	ssize_t r,sum,ext,sz;
 	if(unlikely(!*arg)){
@@ -3022,7 +3032,7 @@ static ssize_t faction_s(ssize_t (*writer)(intptr_t fd,const void *buf,size_t si
 	len=flag->digit_set?strnlen(*arg,flag->digit):strlen(*arg);
 	cwrite_common(*arg,(ssize_t)len);
 }
-static ssize_t faction_S(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,struct expr_writeflag *flag){
+static ssize_t faction_S(expr_writer writer,intptr_t fd,void *const *arg,struct expr_writeflag *flag){
 	size_t len=*(const size_t *)(arg+1);
 	ssize_t r,sum,ext,sz;
 	if(flag->digit_set&&flag->digit<len)
@@ -3030,7 +3040,7 @@ static ssize_t faction_S(ssize_t (*writer)(intptr_t fd,const void *buf,size_t si
 	cwrite_common(*arg,(ssize_t)len);
 }
 #define faction_hexdump(name,conv_str) \
-static ssize_t faction_##name(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,struct expr_writeflag *flag){\
+static ssize_t faction_##name(expr_writer writer,intptr_t fd,void *const *arg,struct expr_writeflag *flag){\
 	size_t len=*(const size_t *)(arg+1);\
 	ssize_t r,sum,ext;\
 	uint8_t buf[960];\
@@ -3076,38 +3086,38 @@ static ssize_t faction_##name(ssize_t (*writer)(intptr_t fd,const void *buf,size
 }
 faction_hexdump(h,conv_btox);
 faction_hexdump(H,conv_btoX);
-static ssize_t faction_c(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,struct expr_writeflag *flag){
+static ssize_t faction_c(expr_writer writer,intptr_t fd,void *const *arg,struct expr_writeflag *flag){
 #if (!defined(__BIG_ENDIAN__)||!__BIG_ENDIAN__)
 	return writer(fd,arg,1);
 #else
 	return writer(fd,(const uint8_t *)arg+(sizeof(void *)-1),1);
 #endif
 }
-static ssize_t faction_g(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,struct expr_writeflag *flag){
+static ssize_t faction_g(expr_writer writer,intptr_t fd,void *const *arg,struct expr_writeflag *flag){
 	double val=fabs(*(const double *)arg),vl;
 	return ((val==0.0||((vl=log(val)/log(10))>=-4&&vl<flag_digit(flag,6)))?
 	converter_xaa:converter_fe)(writer,fd,arg,(flag->eq=1,flag));
 }
-static ssize_t faction_G(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,struct expr_writeflag *flag){
+static ssize_t faction_G(expr_writer writer,intptr_t fd,void *const *arg,struct expr_writeflag *flag){
 	double val=fabs(*(const double *)arg),vl;
 	return ((val==0.0||((vl=log(val)/log(10))>=-4&&vl<flag_digit(flag,6)))?
 	converter_xba:converter_fE)(writer,fd,arg,(flag->eq=1,flag));
 }
-static ssize_t faction_p(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,struct expr_writeflag *flag){
+static ssize_t faction_p(expr_writer writer,intptr_t fd,void *const *arg,struct expr_writeflag *flag){
 	if(!*arg){
 		ssize_t r,sum,ext,sz;
 		cwrite_common("null",4l);
 	}
 	return converter_x81(writer,fd,arg,(flag->sharp=1,flag));
 }
-static ssize_t faction_P(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,struct expr_writeflag *flag){
+static ssize_t faction_P(expr_writer writer,intptr_t fd,void *const *arg,struct expr_writeflag *flag){
 	if(!*arg){
 		ssize_t r,sum,ext,sz;
 		cwrite_common("NULL",4l);
 	}
 	return converter_x91(writer,fd,arg,(flag->sharp=1,flag));
 }
-static ssize_t faction_percent(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,struct expr_writeflag *flag){
+static ssize_t faction_percent(expr_writer writer,intptr_t fd,void *const *arg,struct expr_writeflag *flag){
 	return writer(fd,"%",1);
 }
 #define fmtc_register(_act,_argc,_sign,_op,...) {\
@@ -3320,6 +3330,7 @@ static inline ssize_t internal_strtoz_autobase(const char *restrict nptr,const c
 	int neg=0;
 	unsigned int get;
 	//0,1,2 for 10,8,16
+	debug("strtoz(\"%.*s\") start",(int)(endp-nptr),nptr);
 	if(likely(nptr<endp)){
 		if(*nptr=='-'){
 			neg=1;
@@ -3364,12 +3375,13 @@ static inline ssize_t internal_strtoz_autobase(const char *restrict nptr,const c
 */
 out:
 	*endptr=nptr;
+	debug("result:%zd",(ssize_t)(neg?-r:r));
 	return (ssize_t)(neg?-r:r);
 }
-ssize_t expr_writef(const char *fmt,size_t fmtlen,ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *args,size_t arglen){
+ssize_t expr_writef(const char *fmt,size_t fmtlen,expr_writer writer,intptr_t fd,void *const *restrict args,size_t arglen){
 	return expr_writef_r(fmt,fmtlen,writer,fd,args,arglen,expr_writefmts_default,expr_writefmts_table_default);
 }
-ssize_t expr_writef_r(const char *fmt,size_t fmtlen,ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *args,size_t arglen,const struct expr_writefmt *fmts,const uint8_t *table){
+ssize_t expr_writef_r(const char *fmt,size_t fmtlen,expr_writer writer,intptr_t fd,void *const *restrict args,size_t arglen,const struct expr_writefmt *restrict fmts,const uint8_t *restrict table){
 	const char *endp=fmt+fmtlen,*fmt_old=fmt,*fmt0=fmt;
 	ssize_t ret=0;
 	ssize_t v;
@@ -3699,9 +3711,102 @@ end:
 argfail:
 	return PTRDIFF_MIN;
 }
-size_t expr_strscan(const char *s,size_t sz,char *restrict buf,size_t outsz){
-	const char *p,*s1,*endp=s+sz;
-	char *buf0=(char *)buf,v;
+#define fbuf ((char *)fp->buf)
+#define reterr(V) {r=(V);goto err;}
+ssize_t expr_buffered_write(struct expr_buffered_file *restrict fp,const void *buf,size_t size){
+	size_t i,c;
+	ssize_t r,ret=0;
+	if(unlikely(size>SSIZE_MAX))
+		reterr(PTRDIFF_MIN);
+	if(unlikely(!size))
+		return 0;
+	do {
+		i=fp->index+size;
+		if(fp->dynamic){
+			void *p;
+			c=(i<=fp->dynamic?i:fp->dynamic);
+			if(fp->length<c){
+				p=xrealloc(fp->buf,c);
+				if(likely(p)){
+					fp->buf=p;
+					fp->length=c;
+				}
+			}
+			if(unlikely(!fp->length))
+				reterr(PTRDIFF_MIN);
+		}else {
+			if(unlikely(!fp->length)){
+				r=fp->writer(fp->fd,buf,size);
+				if(unlikely(r<0))
+					goto err;
+				return ret;
+			}
+		}
+		if(i<=fp->length){
+			memcpy(fbuf+fp->index,buf,size);
+			fp->index=i;
+			return ret;
+		}
+		if(fp->index<fp->length){
+			c=fp->length-fp->index;
+			memcpy(fbuf+fp->index,buf,c);
+			buf=(const char *)buf+c;
+			size-=c;
+		}
+		r=fp->writer(fp->fd,fp->buf,fp->length);
+		fp->index=0;
+		if(unlikely(r<0))
+			goto err;
+		ret+=r;
+	}while(size);
+	return ret;
+err:
+	fp->written=ret;
+	return r;
+}
+#undef fbuf
+#undef reterr
+ssize_t expr_buffered_flush(struct expr_buffered_file *restrict fp){
+	ssize_t r;
+	r=fp->writer(fp->fd,fp->buf,fp->index);
+	fp->index=0;
+	return r;
+}
+ssize_t expr_buffered_close(struct expr_buffered_file *restrict fp){
+	ssize_t r;
+	r=fp->writer?fp->writer(fp->fd,fp->buf,fp->index):0;
+	if(fp->dynamic&&fp->buf)
+		xfree(fp->buf);
+	return r;
+}
+ssize_t expr_asprintf(char **restrict strp,const char *restrict fmt,size_t fmtlen,void *const *restrict args,size_t arglen){
+	struct expr_buffered_file vf[1];
+	ssize_t r;
+	vf->fd=0;
+	vf->writer=NULL;
+	vf->buf=NULL;
+	vf->index=0;
+	vf->length=0;
+	vf->dynamic=SIZE_MAX;
+//	vf->written=0;
+	r=expr_writef(fmt,fmtlen,(expr_writer)expr_buffered_write,(intptr_t)vf,args,arglen);
+	if(unlikely(r<0)){
+		expr_buffered_close(vf);
+		return r;
+	}
+	expr_buffered_write(vf,"\0",1);
+	if(unlikely(r<0)){
+		expr_buffered_close(vf);
+		return r;
+	}
+	*strp=vf->buf;
+	return (ssize_t)vf->index;
+	
+}
+size_t expr_strscan(const char *restrict s,size_t sz,char *restrict buf,size_t outsz){
+	const char *p,*endp=s+sz;
+	char *buf0=(char *)buf;
+	uint8_t v,v1;
 	char *oend;
 	oend=buf0+outsz;
 	while(s<endp&&buf<oend)switch(*s){
@@ -3749,53 +3854,51 @@ size_t expr_strscan(const char *s,size_t sz,char *restrict buf,size_t outsz){
 					*(buf++)='\v';
 					s+=2;
 					break;
+#define scanoux(base,maxlen) \
+					v=0;\
+					while(p<endp){\
+						v1=number_table[(uint8_t)*p];\
+						if(unlikely(v1>=base))\
+							break;\
+						v=v*base+v1;\
+						++p;\
+						if(p-s>=maxlen){\
+							if(base==16){\
+								*(buf++)=v;\
+								if(unlikely(buf>=oend))\
+									goto no_enough_size;\
+								s=p;\
+								goto x_start;\
+							}else\
+								break;\
+						}\
+					}\
+					if(unlikely(p==s))\
+						goto fail;\
+					*(buf++)=v;\
+					s=p
+				case 'B':
+					s+=2;
+					p=s;
+					scanoux(2,8);
+					break;
+				case 'u':
+					s+=2;
+					p=s;
+					scanoux(10,3);
+					break;
 				case 'x':
-					s1=s;
-					p=s+=2;
-					while(p<endp&&((*p>='0'&&*p<='9')
-						||(*p>='a'&&*p<='f')
-						||(*p>='A'&&*p<='F')
-						)&&p-s<2)++p;
-					if(p==s)
-						goto fail;
-					v=0;
-					while(s<p){
-						v<<=4;
-						switch(*s){
-							case '0' ... '9':
-								v+=*s-'0';
-								break;
-							case 'a' ... 'f':
-								v+=*s-'a'+10;
-								break;
-							case 'A' ... 'F':
-								v+=*s-'A'+10;
-								break;
-							default:
-								goto fail;
-						}
-						++s;
-					}
-					*(buf++)=v;
+					s+=2;
+					p=s;
+x_start:
+					scanoux(16,2);
 					break;
 				default:
-					s1=s;
-					p=s+=1;
-					while(p<endp&&*p>='0'&&*p<='7'&&p-s<3)
-						++p;;
-					if(p==s)
-						goto fail;
-					v=0;
-					while(s<p){
-						v<<=3;
-						v+=*s-'0';
-						++s;
-					}
-					*(buf++)=v;
+					++s;
+					p=s;
+					scanoux(8,3);
 					break;
 fail:
-					*(buf++)=s1[1];
-					s=s1+2;
 					break;
 			}
 			break;
@@ -3804,6 +3907,7 @@ dflt:
 			*(buf++)=*(s++);
 			break;
 	}
+no_enough_size:
 	return buf-buf0;
 }
 static inline const char *findpair_dmark(const char *c,const char *endp){
@@ -7144,7 +7248,7 @@ void expr_symset_move_s(struct expr_symset *restrict esp,ptrdiff_t off,void *sta
 }
 #define off_sin offsetof(struct expr_symbol_infile,str)
 #define off_str offsetof(struct expr_symbol,str)
-ssize_t expr_symset_write(const struct expr_symset *restrict esp,ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd){
+ssize_t expr_symset_write(const struct expr_symset *restrict esp,expr_writer writer,intptr_t fd){
 	STACK_DEFAULT(stack,esp);
 	return expr_symset_write_s(esp,writer,fd,stack);
 }
@@ -7155,7 +7259,7 @@ ssize_t expr_symset_write(const struct expr_symset *restrict esp,ssize_t (*write
 	else if(r<(size))\
 		goto err3;\
 	((void)0)
-ssize_t expr_symset_write_s(const struct expr_symset *restrict esp,ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *stack){
+ssize_t expr_symset_write_s(const struct expr_symset *restrict esp,expr_writer writer,intptr_t fd,void *stack){
 //	uintptr_t minsp=UINTPTR_MAX;
 	size_t maxlen=0,count;
 	ssize_t r;
@@ -7239,7 +7343,7 @@ ssize_t expr_symset_read(struct expr_symset *restrict esp,const void *buf,size_t
 	}
 	return unlikely(added<esi->size)?-(added<<2):added;
 }
-ssize_t expr_symset_readfd(struct expr_symset *restrict esp,ssize_t (*reader)(intptr_t fd,void *buf,size_t size),intptr_t fd){
+ssize_t expr_symset_readfd(struct expr_symset *restrict esp,expr_reader reader,intptr_t fd){
 	struct expr_symset_infile esi[1];
 	struct expr_symbol_infile *ebi;
 	struct expr_symbol *sp;
@@ -7306,7 +7410,7 @@ err3:
 //WARNING: the symbol value of variables or functions
 //cannot be reused after a PIE-program restarted.
 }
-ssize_t expr_file_readfd(ssize_t (*reader)(intptr_t fd,void *buf,size_t size),intptr_t fd,size_t tail,void *savep){
+ssize_t expr_file_readfd(expr_reader reader,intptr_t fd,size_t tail,void *savep){
 	char *buf=NULL;
 	static const size_t bufsize_initial=512;
 	size_t bufsize=0,index=0;
@@ -8216,12 +8320,16 @@ double expr_calc(const char *e){
 	return expr_calc5(e,NULL,NULL,NULL,0);
 }
 static size_t expr_varofep(const struct expr *restrict ep,double *v){
+	size_t i;
 	if(unlikely(expr_void(v)))
 		return SIZE_MAX;
-	for(size_t i=0;i<ep->vsize;++i){
+	for(i=0;i<ep->vsize;++i){
 		if(ep->vars[i]==v){
 			return i+1;
 		}
+	}
+	if(v==&ep->un.end->val){
+		return SIZE_MAX;
 	}
 	return 0;
 }
@@ -8273,8 +8381,9 @@ static struct expr_inst *expr_findconst(const struct expr *restrict ep,struct ex
 }
 #define optimize_end if(r){\
 	expr_optimize_completed(ep);\
-	debug("optimization end");\
-}return r
+	debug("optimization end (%d)",r);\
+}\
+return r
 static int expr_optimize_contadd(struct expr *restrict ep){
 	double sum;
 	struct expr_inst *rip;
@@ -8592,7 +8701,7 @@ static int expr_optimize_zero(struct expr *restrict ep){
 				break;
 		}
 	}
-	return r;
+	optimize_end;
 }
 //oconst
 static int expr_optimize_const(struct expr *restrict ep){
@@ -9131,10 +9240,10 @@ force_continue:
 #undef inited
 }
 #pragma GCC diagnostic pop
-static int expr_vcheck_ep(struct expr *restrict ep,struct expr_inst *ip0,double *v){
-	if(expr_vused(ip0,v))
+static int expr_vcheck_ep(struct expr *restrict ep,struct expr_inst *ip,double *v){
+	if(expr_vused(ip,v))
 		return 1;
-	for(struct expr_inst *ip=ip0;;++ip){
+	for(;;++ip){
 		switch(ip->op){
 			case EXPR_LJ:
 			case EXPR_TO:
@@ -9263,7 +9372,7 @@ static int expr_optimize_constneg(struct expr *restrict ep){
 			default:
 				continue;
 		}
-		for(struct expr_inst *ip1=ip-1;ip>=ep->data;--ip1){
+		for(struct expr_inst *ip1=ip-1;ip1>=ep->data;--ip1){
 			if(ip1->dst.dst!=ip->dst.dst)
 				continue;
 			if(ip1->op!=EXPR_CONST)
@@ -9449,29 +9558,25 @@ delete:
 }
 static int expr_optimize_copyadd(struct expr *restrict ep){
 	int r=0;
-	struct expr_inst *ip2;
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
-		if(ip->op!=EXPR_COPY||
-			!expr_varofep(ep,ip->dst.dst)
-			||expr_vcheck_ep(ep,ip+1,ip->dst.dst))continue;
-		ip2=NULL;
-		for(struct expr_inst *ip1=ip+1;ip1->op!=EXPR_END;++ip1){
-			if(ip1->dst.dst==ip->dst.dst)
-				goto fail;
-			if(!expr_usesrc(ip1->op)||ip1->un.src!=ip->dst.dst)
-				continue;
-			if(ip2){
-fail:
-				ip2=NULL;
+		if(ip->op!=EXPR_COPY)
+			continue;
+		switch(ip[1].op){
+			case SRCCASES_NOCOPY:
 				break;
-			}else
-				ip2=ip1;
+			default:
+				continue;
 		}
-		if(ip2){
-			ip2->un.src=ip->un.src;
-			ip->dst.dst=NULL;
-			r=1;
-		}
+		if(!expr_varofep(ep,ip->dst.dst))
+			continue;
+		if(ip[1].un.src!=ip->dst.dst)
+			continue;
+		if(expr_vcheck_ep(ep,ip+2,ip->dst.dst))
+			continue;
+		ip->dst.dst=NULL;
+		ip[1].un.src=ip->un.src;
+		++ip;
+		r=1;
 	}
 	optimize_end;
 }
@@ -9495,19 +9600,21 @@ fail:
 }*/
 //a bug cannot fix
 static int expr_optimize_copyend(struct expr *restrict ep){
-	struct expr_inst *lip=NULL;
-	struct expr_inst *ip=ep->data;
 	int r=0;
-	for(;ip->op!=EXPR_END;++ip){
-		lip=ip;
+	struct expr_inst *ip=ep->data+ep->size-1;
+	if(ip<=ep->data||ip[-1].op!=EXPR_COPY/*||!varofep(ep,ip->dst.dst)*/)
+		goto end;
+	if(ip->dst.dst==ip[-1].dst.dst){
+		if(expr_varofep(ep,ip->dst.dst)){
+			ip->dst.dst=ip[-1].un.src;
+			ip[-1].dst.dst=NULL;
+			r=1;
+		}
+	}else if(ip->dst.dst==ip[-1].un.src){
+			ip->dst.dst=ip[-1].dst.dst;
+			r=1;
 	}
-	if(lip&&lip->op==EXPR_COPY&&lip->dst.dst==ip->dst.dst&&
-		expr_varofep(ep,lip->dst.dst)
-		){
-		ip->dst.dst=lip->un.src;
-		lip->dst.dst=NULL;
-		r=1;
-	}
+end:
 	optimize_end;
 }
 static int expr_optimize_strongorder_and_notl(struct expr *restrict ep){
@@ -9708,34 +9815,105 @@ atend:
 }
 static int expr_optimize_coc(struct expr *restrict ep){
 	int r=0;
+	size_t k;
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
 		if(ip->op!=EXPR_COPY)
 			continue;
-		switch(ip[1].op){
-			case UNARYCASES:
-			case SRCCASES:
-				break;
-			default:
-				continue;
+		for(k=1;;++k){
+			switch(ip[k].op){
+				case SRCCASES_NOCOPY:
+					if(ip[k].un.src==ip->dst.dst)
+						goto continue2;
+				case UNARYCASES:
+					if(ip[k].dst.dst!=ip->dst.dst)
+						goto continue2;
+					break;
+				case EXPR_COPY:
+					if(ip->dst.dst!=ip[k].un.src)
+						goto continue2;
+					if(ip[k].dst.dst!=ip->un.src)
+						goto continue2;
+					goto break2;
+				default:
+					goto continue2;
+			}
 		}
-		if(ip[2].op!=EXPR_COPY)
-			continue;
-		if(ip[1].dst.dst!=ip->dst.dst)
-			continue;
-		if(ip[2].dst.dst!=ip->un.src)
-			continue;
-		if(ip[2].un.src!=ip->dst.dst)
-			continue;
-		ip[1].dst.dst=ip->un.src;
-		if(expr_vcheck_ep(ep,ip+3,ip->dst.dst)){
-			ip[2].dst.dst=ip->dst.dst;
-			ip[2].un.src=ip->un.src;
+break2:
+		if(k>1){
+			for(size_t j=1;;){
+				ip[j].dst.dst=ip->un.src;
+				++j;
+				if(j==k)
+					break;
+			}
 		}else {
-			ip[2].dst.dst=NULL;
+			ip[1].dst.dst=NULL;
+			++ip;
+			r=1;
+			continue;
+		}
+		if(expr_vcheck_ep(ep,ip+k+1,ip->dst.dst)){
+			ip[k].dst.dst=ip->dst.dst;
+			ip[k].un.src=ip->un.src;
+		}else {
+			ip[k].dst.dst=NULL;
 		}
 		ip->dst.dst=NULL;
-		ip+=2;
+		ip+=k;
 		r=1;
+continue2:
+		continue;
+	}
+	optimize_end;
+}
+static int expr_optimize_cac(struct expr *restrict ep){
+	int r=0;
+	size_t k;
+	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
+		if(ip->op!=EXPR_CONST)
+			continue;
+		switch(ip[1].op){
+			case SRCCASES_NOCOPY_SWAPABLE:
+				if(ip[1].dst.dst!=ip->dst.dst)
+					goto continue2;
+				break;
+			default:
+				goto continue2;
+		}
+		for(k=2;;++k){
+			switch(ip[k].op){
+				case SRCCASES_NOCOPY_SWAPABLE:
+					if(!expr_varofep(ep,ip[k].un.src))
+						goto continue2;
+				case UNARYCASES:
+					if(ip[k].dst.dst!=ip->dst.dst)
+						goto continue2;
+					break;
+				case EXPR_COPY:
+					if(ip[k].dst.dst!=ip[1].un.src)
+						goto continue2;
+					if(ip[k].un.src!=ip->dst.dst)
+						goto continue2;
+					goto break2;
+				default:
+					goto continue2;
+			}
+		}
+break2:
+		if(expr_vcheck_ep(ep,ip+k+1,ip->dst.dst))
+			continue;
+		*ip->dst.dst=ip->un.value;
+		for(size_t j=2;j<k;++j){
+			ip[j].dst.dst=ip[1].un.src;
+		}
+		ip[1].dst.dst=ip[1].un.src;
+		ip[1].un.src=ip->dst.dst;
+		ip->dst.dst=NULL;
+		ip[k].dst.dst=NULL;
+		ip+=k;
+		r=1;
+continue2:
+		continue;
 	}
 	optimize_end;
 }
@@ -9813,11 +9991,13 @@ static int expr_optimize_once(struct expr *restrict ep){
 	r+=expr_optimize_copyadd(ep);
 	r+=expr_optimize_unused(ep);
 	r+=expr_optimize_constexpr(ep);
-	r+=expr_optimize_contcopy(ep);
-	r+=expr_optimize_svc0(ep);
 	r+=expr_optimize_copysrcunused(ep);
 	r+=expr_optimize_coc(ep);
+	r+=expr_optimize_contcopy(ep);//after coc
+	r+=expr_optimize_cac(ep);
+	r+=expr_optimize_svc0(ep);
 	r+=expr_optimize_copyend(ep);
+	debug("optimized %d times",r);
 	return r;
 }
 static int expr_optimize0(struct expr *restrict ep){
@@ -9825,7 +10005,6 @@ static int expr_optimize0(struct expr *restrict ep){
 	expr_writeconsts(ep);
 again:
 	r=expr_optimize_once(ep);
-	debug("optimized %d times",r);
 	if(likely(r)){
 		addo(ret,r);
 		goto again;

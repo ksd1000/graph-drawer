@@ -313,7 +313,7 @@ EXPR_END
 		expr_static_castable((_stack),void *);\
 		expr_static_castable((_esp),const struct expr_symbol *);\
 	expr_combine(expr_symset_foreach_label_,_label):break;}else\
-	for(struct expr_symbol *_sp=(struct expr_symbol *)(_esp);likely(_sp);({goto expr_combine(expr_symset_foreach_label_,_label);}))\
+	for(struct expr_symbol *_sp=(struct expr_symbol *)(_esp);expr_likely(_sp);({goto expr_combine(expr_symset_foreach_label_,_label);}))\
 	for(struct expr_symbol **__inloop_stack=(struct expr_symbol **)(_stack),**__inloop_sp=__inloop_stack;;({\
 		if(expr_unlikely(__inloop_index>=EXPR_SYMNEXT)){\
 			if(expr_unlikely(__inloop_sp==__inloop_stack)){\
@@ -372,10 +372,18 @@ struct expr_writeflag {
 		 unused:57;
 #endif
 };
+typedef ssize_t (*expr_writer)(intptr_t fd,const void *buf,size_t size);
+typedef ssize_t (*expr_reader)(intptr_t fd,void *buf,size_t size);
 struct expr_writefmt {
-	ssize_t (*converter)(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,struct expr_writeflag *flag);
+	ssize_t (*converter)(expr_writer writer,intptr_t fd,void *const *arg,struct expr_writeflag *flag);
 	uint8_t argc,arg_signed;
 	uint8_t op[6];
+};
+struct expr_buffered_file {
+	intptr_t fd;
+	expr_writer writer;
+	void *buf;
+	size_t index,length,dynamic,written;
 };
 struct expr;
 struct expr_symset;
@@ -596,8 +604,8 @@ extern void (*expr_deallocator)(void *);
 extern void (*expr_contractor)(void *,size_t);
 extern size_t expr_allocate_max;
 extern int expr_symset_allow_heap_stack;
+
 extern long expr_seed_default;
-//default=malloc,realloc,free,expr_contract,0x400000000UL,NULL
 extern const size_t expr_page_size;
 extern const size_t expr_symbols_size;
 

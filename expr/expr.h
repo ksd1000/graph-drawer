@@ -313,7 +313,7 @@ EXPR_END
 		expr_static_castable((_stack),void *);\
 		expr_static_castable((_esp),const struct expr_symbol *);\
 	expr_combine(expr_symset_foreach_label_,_label):break;}else\
-	for(struct expr_symbol *_sp=(struct expr_symbol *)(_esp);likely(_sp);({goto expr_combine(expr_symset_foreach_label_,_label);}))\
+	for(struct expr_symbol *_sp=(struct expr_symbol *)(_esp);expr_likely(_sp);({goto expr_combine(expr_symset_foreach_label_,_label);}))\
 	for(struct expr_symbol **__inloop_stack=(struct expr_symbol **)(_stack),**__inloop_sp=__inloop_stack;;({\
 		if(expr_unlikely(__inloop_index>=EXPR_SYMNEXT)){\
 			if(expr_unlikely(__inloop_sp==__inloop_stack)){\
@@ -372,10 +372,18 @@ struct expr_writeflag {
 		 unused:57;
 #endif
 };
+typedef ssize_t (*expr_writer)(intptr_t fd,const void *buf,size_t size);
+typedef ssize_t (*expr_reader)(intptr_t fd,void *buf,size_t size);
 struct expr_writefmt {
-	ssize_t (*converter)(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,struct expr_writeflag *flag);
+	ssize_t (*converter)(expr_writer writer,intptr_t fd,void *const *arg,struct expr_writeflag *flag);
 	uint8_t argc,arg_signed;
 	uint8_t op[6];
+};
+struct expr_buffered_file {
+	intptr_t fd;
+	expr_writer writer;
+	void *buf;
+	size_t index,length,dynamic,written;
 };
 struct expr;
 struct expr_symset;
@@ -596,8 +604,8 @@ extern void (*expr_deallocator)(void *);
 extern void (*expr_contractor)(void *,size_t);
 extern size_t expr_allocate_max;
 extern int expr_symset_allow_heap_stack;
+
 extern long expr_seed_default;
-//default=malloc,realloc,free,expr_contract,0x400000000UL,NULL
 extern const size_t expr_page_size;
 extern const size_t expr_symbols_size;
 
@@ -870,9 +878,13 @@ struct expr_symbol *expr_builtin_symbol_add(struct expr_symset *restrict esp,con
 size_t expr_builtin_symbol_addall(struct expr_symset *restrict esp,const struct expr_builtin_symbol *syms);
 struct expr_symset *expr_builtin_symbol_convert(const struct expr_builtin_symbol *syms);
 size_t extint_right(uint64_t *buf,size_t size,uint64_t bits);
-ssize_t expr_writef(const char *fmt,size_t fmtlen,ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *args,size_t arglen);
-ssize_t expr_writef_r(const char *fmt,size_t fmtlen,ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *args,size_t arglen,const struct expr_writefmt *fmts,const uint8_t *table);
-size_t expr_strscan(const char *s,size_t sz,char *restrict buf,size_t outsz);
+ssize_t expr_writef(const char *fmt,size_t fmtlen,expr_writer writer,intptr_t fd,void *const *restrict args,size_t arglen);
+ssize_t expr_writef_r(const char *fmt,size_t fmtlen,expr_writer writer,intptr_t fd,void *const *restrict args,size_t arglen,const struct expr_writefmt *restrict fmts,const uint8_t *restrict table);
+ssize_t expr_buffered_write(struct expr_buffered_file *restrict fp,const void *buf,size_t size);
+ssize_t expr_buffered_flush(struct expr_buffered_file *restrict fp);
+ssize_t expr_buffered_close(struct expr_buffered_file *restrict fp);
+ssize_t expr_asprintf(char **restrict strp,const char *restrict fmt,size_t fmtlen,void *const *restrict args,size_t arglen);
+size_t expr_strscan(const char *restrict s,size_t sz,char *restrict buf,size_t outsz);
 char *expr_astrscan(const char *s,size_t sz,size_t *restrict outsz);
 void expr_free(struct expr *restrict ep);
 void init_expr_symset(struct expr_symset *restrict esp);
@@ -885,11 +897,11 @@ void expr_symset_save(struct expr_symset *restrict esp,void *buf);
 void expr_symset_save_s(struct expr_symset *restrict esp,void *buf,void *stack);
 void expr_symset_move(struct expr_symset *restrict esp,ptrdiff_t off);
 void expr_symset_move_s(struct expr_symset *restrict esp,ptrdiff_t off,void *stack);
-ssize_t expr_symset_write(const struct expr_symset *restrict esp,ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd);
-ssize_t expr_symset_write_s(const struct expr_symset *restrict esp,ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *stack);
+ssize_t expr_symset_write(const struct expr_symset *restrict esp,expr_writer writer,intptr_t fd);
+ssize_t expr_symset_write_s(const struct expr_symset *restrict esp,expr_writer writer,intptr_t fd,void *stack);
 ssize_t expr_symset_read(struct expr_symset *restrict esp,const void *buf,size_t size);
-ssize_t expr_symset_readfd(struct expr_symset *restrict esp,ssize_t (*reader)(intptr_t fd,void *buf,size_t size),intptr_t fd);
-ssize_t expr_file_readfd(ssize_t (*reader)(intptr_t fd,void *buf,size_t size),intptr_t fd,size_t tail,void *savep);
+ssize_t expr_symset_readfd(struct expr_symset *restrict esp,expr_reader reader,intptr_t fd);
+ssize_t expr_file_readfd(expr_reader reader,intptr_t fd,size_t tail,void *savep);
 struct expr_symbol **expr_symset_findtail(struct expr_symset *restrict esp,const char *sym,size_t symlen,size_t *depth);
 struct expr_symbol *expr_symbol_create(const char *sym,int type,int flag,...);
 struct expr_symbol *expr_symbol_createl(const char *sym,size_t symlen,int type,int flag,...);

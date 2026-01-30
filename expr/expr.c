@@ -3800,7 +3800,7 @@ ssize_t expr_asprintf(char **restrict strp,const char *restrict fmt,size_t fmtle
 		return r;
 	}
 	*strp=vf->buf;
-	return (ssize_t)vf->index;
+	return (ssize_t)(vf->index-1);
 	
 }
 size_t expr_strscan(const char *restrict s,size_t sz,char *restrict buf,size_t outsz){

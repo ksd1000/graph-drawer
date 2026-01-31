@@ -32,6 +32,7 @@ static void *lmalloc(size_t size){
 	}
 	return r;
 }
+#pragma GCC diagnostic ignored "-Wuse-after-free"
 static void *lrealloc(void *old,size_t size){
 	void *r;
 	r=realloc(old,size);

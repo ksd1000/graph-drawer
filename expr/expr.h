@@ -371,6 +371,7 @@ struct expr_writeflag {
 		 unused:55;
 #endif
 };
+_Static_assert(offsetof(struct expr_writeflag,bit)+sizeof(uint64_t)==sizeof(struct expr_writeflag),"offsetof(struct expr_writeflag,bit)+sizeof(uint64_t)!=sizeof(struct expr_writeflag)");
 typedef ssize_t (*expr_writer)(intptr_t fd,const void *buf,size_t size);
 typedef ssize_t (*expr_reader)(intptr_t fd,void *buf,size_t size);
 struct expr_writefmt {

@@ -355,6 +355,7 @@
 })
 #define not(_x) xor2(9007199254740991.0/* 2^53-1*/,(_x))
 #pragma GCC diagnostic pop
+static const size_t bufsize_initial=512;
 static const char *eerror[]={
 	[0]="Unknown error",
 	[EXPR_ESYMBOL]="Unknown symbol",
@@ -444,6 +445,7 @@ static inline void xfree(void *p){
 		abort();
 	expr_deallocator(p);
 }
+/*
 static inline void *xrealloc_ff(void *old,size_t size){
 	void *r=xrealloc(old,size);
 	if(unlikely(!r)){
@@ -452,6 +454,7 @@ static inline void *xrealloc_ff(void *old,size_t size){
 	}
 	return r;
 }
+*/
 static inline void *xautoadd(void **restrict old,size_t *restrict size,size_t *restrict length,size_t n,size_t extend){
 	void *r;
 	size_t old_size=*size,new_length;
@@ -3824,6 +3827,22 @@ end:
 argfail:
 	return PTRDIFF_MIN;
 }
+#undef fmt_setflag
+#undef fmt_inc_check
+#undef get_next_arg64
+#undef argback
+#undef argnext
+#undef argnext1
+#undef t_copy
+#undef t_ocopy
+#undef bit_copy
+#undef fmt_jumpto
+#undef fmt_setdlm
+#undef fmt_once
+#undef fmt_repeat
+#undef fmt_dorepeat
+#undef fmt_op_cond
+
 #define fbuf ((char *)fp->buf)
 #define reterr(V) {r=(V);goto err;}
 #define rcheckadd(V) r=(V);\
@@ -3841,7 +3860,7 @@ ssize_t expr_buffered_write(struct expr_buffered_file *restrict fp,const void *b
 		i=fp->index+size;
 		if(fp->dynamic){
 			void *p;
-			c=align(i);
+			c=i+bufsize_initial;
 			if(c>fp->dynamic)
 				c=fp->dynamic;
 			if(fp->length<c){
@@ -3886,6 +3905,72 @@ err:
 	debug("%zu bytes written,error code:%zd",ret,r);
 	return r;
 }
+ssize_t expr_buffered_read(struct expr_buffered_file *restrict fp,void *buf,size_t size){
+	size_t i;
+	ssize_t r;
+	if(unlikely(size>SSIZE_MAX))
+		reterr(PTRDIFF_MIN);
+	while(fp->length<fp->dynamic){
+		void *p;
+		i=fp->length+bufsize_initial;
+		if(i>fp->dynamic)
+			i=fp->dynamic;
+		p=xrealloc(fp->buf,i);
+		if(unlikely(!p))
+			reterr(PTRDIFF_MIN);
+		fp->buf=p;
+		fp->length=i;
+try_read_again:
+		r=fp->un.reader(fp->fd,fbuf+fp->index,fp->length-fp->index);
+		if(unlikely(r<0))
+			goto err;
+		if(!r){
+			if(!size)
+				return 0;
+			break;
+		}
+		fp->index+=r;
+		if(fp->index<fp->length)
+			goto try_read_again;
+	}
+	if(unlikely(!size))
+		return 0;
+	i=fp->index-fp->written;
+	if(i){
+		if(i>size){
+			memcpy(buf,fbuf+fp->written,size);
+			fp->written+=size;
+			return size;
+		}
+		fp->written=0;
+		fp->index=0;
+		memcpy((char *)buf,fbuf+fp->written,i);
+		if(i==size)
+			return size;
+		buf=(char *)buf+i;
+		size-=i;
+	}
+	if(unlikely(fp->length<=size)){
+		return fp->un.reader(fp->fd,buf,size);
+	}
+	r=fp->un.reader(fp->fd,fp->buf,fp->length);
+	if(unlikely(r<0))
+		goto err;
+	if(!r){
+		return 0;
+	}
+	if(r<=size){
+		memcpy(buf,fp->buf,r);
+		return r;
+	}
+	memcpy(buf,fp->buf,size);
+	fp->index=r;
+	fp->written=size;
+	return size;
+err:
+	debug("%zu bytes written,error code:%zd",ret,r);
+	return r;
+}
 #undef fbuf
 #undef reterr
 ssize_t expr_buffered_write_flushat(struct expr_buffered_file *restrict fp,const void *buf,size_t size,int c){
@@ -3899,20 +3984,65 @@ ssize_t expr_buffered_write_flushat(struct expr_buffered_file *restrict fp,const
 	rcheckadd(expr_buffered_write(fp,(const void *)rc,(uintptr_t)buf+size-rc));
 	return ret;
 }
+#undef rcheckadd
 ssize_t expr_buffered_flush(struct expr_buffered_file *restrict fp){
 	ssize_t r;
-	r=fp->un.writer(fp->fd,fp->buf,fp->index);
+	if(fp->index){
+		r=fp->un.writer(fp->fd,fp->buf,fp->index);
+		fp->index=0;
+	}else
+		r=0;
 	debug("%zd bytes written",r);
+	return r;
+}
+ssize_t expr_buffered_drop(struct expr_buffered_file *restrict fp){
+	ssize_t r;
+	r=fp->index;
+	debug("%zd - %zd bytes dropped",r,fp->written);
 	fp->index=0;
+	fp->written=0;
+	return r;
+}
+ssize_t expr_buffered_dropall(struct expr_buffered_file *restrict fp){
+	ssize_t r,ret=fp->index-fp->written;
+	char *trash;
+	size_t trashlen;
+	if(fp->buf){
+		trash=fp->buf;
+		trashlen=fp->length;
+	}else
+		trash=alloca(trashlen=bufsize_initial);
+	for(;;){
+		r=fp->un.reader(fp->fd,trash,trashlen);
+		if(unlikely(r<0))
+			goto err;
+		if(!r)
+			break;
+		ret+=r;
+	}
+	debug("%zd bytes dropped",ret);
+	fp->index=0;
+	fp->written=0;
+	return ret;
+err:
+	debug("%zu bytes dropped,error code:%zd",ret,r);
 	return r;
 }
 ssize_t expr_buffered_close(struct expr_buffered_file *restrict fp){
 	ssize_t r;
-	r=fp->un.writer?fp->un.writer(fp->fd,fp->buf,fp->index):0;
+	if(fp->index&&fp->un.writer)
+		r=fp->un.writer(fp->fd,fp->buf,fp->index);
+	else
+		r=0;
 	debug("%zd bytes written",r);
 	if(fp->dynamic&&fp->buf)
 		xfree(fp->buf);
 	return r;
+}
+void expr_buffered_rclose(struct expr_buffered_file *restrict fp){
+	debug("%zd bytes written",r);
+	if(fp->dynamic&&fp->buf)
+		xfree(fp->buf);
 }
 ssize_t expr_asprintf(char **restrict strp,const char *restrict fmt,size_t fmtlen,void *const *restrict args,size_t arglen){
 	struct expr_buffered_file vf[1];
@@ -7547,38 +7677,35 @@ err3:
 //WARNING: the symbol value of variables or functions
 //cannot be reused after a PIE-program restarted.
 }
+static ssize_t zero_reader(intptr_t fd,void *buf,size_t size){
+	memset(buf,0,size);
+	return size;
+}
 ssize_t expr_file_readfd(expr_reader reader,intptr_t fd,size_t tail,void *savep){
-	char *buf=NULL;
-	static const size_t bufsize_initial=512;
-	size_t bufsize=0,index=0;
+	struct expr_buffered_file vf[1];
 	ssize_t r;
-	for(;;){
-		if(index>=bufsize){
-			buf=xrealloc_ff(buf,bufsize=index+bufsize_initial);
-			if(unlikely(!buf))
-				return PTRDIFF_MIN;
-		}
-		r=reader(fd,buf+index,bufsize-index);
-		if(unlikely(r<0)){
-			xfree(buf);
-			return r;
-		}
-		if(!r)
-			break;
-		index+=r;
+	vf->fd=fd;
+	vf->un.reader=reader;
+	vf->buf=NULL;
+	vf->index=0;
+	vf->length=0;
+	vf->dynamic=SIZE_MAX;
+	vf->written=0;
+	r=expr_buffered_read(vf,NULL,0);
+	if(unlikely(r<0)){
+		expr_buffered_rclose(vf);
+		return -r;
 	}
-	tail+=index;
-	if(unlikely(bufsize<tail)){
-		buf=xrealloc_ff(buf,tail);
-		if(unlikely(!buf))
-			return PTRDIFF_MIN;
+	vf->un.reader=zero_reader;
+	vf->dynamic=vf->index+tail;
+	r=expr_buffered_read(vf,NULL,0);
+	if(unlikely(r<0)){
+		expr_buffered_rclose(vf);
+		return -r;
 	}
-	if(unlikely(index>SSIZE_MAX)){
-		xfree(buf);
-		return PTRDIFF_MIN;
-	}
-	*(void **)savep=buf;
-	return (ssize_t)index;
+	debug("savep=%p,r=%zu",vf->buf,vf->index);
+	*(void **)savep=vf->buf;
+	return vf->index;
 }
 static long firstdiff(const char *restrict s1,const char *restrict s2,size_t len1,size_t len2){
 	long r,r0;

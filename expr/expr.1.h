@@ -24,6 +24,7 @@ typedef ptrdiff_t ssize_t;
 _Static_assert(sizeof(ssize_t)==sizeof(ptrdiff_t),"sizeof(ssize_t)!=sizeof(ptrdiff_t)");
 _Static_assert(sizeof(size_t)==sizeof(ptrdiff_t),"sizeof(size_t)!=sizeof(ptrdiff_t)");
 _Static_assert(sizeof(void *)==sizeof(ptrdiff_t),"sizeof(void *)!=sizeof(ptrdiff_t)");
+_Static_assert(sizeof(void *)>=sizeof(double),"sizeof(void *)<sizeof(double)");
 
 enum expr_op :int {
 EXPR_COPY=0,
@@ -348,7 +349,8 @@ struct expr_writeflag {
 	ssize_t digit;
 	uint64_t bit[0];
 #if (!defined(__BIG_ENDIAN__)||!__BIG_ENDIAN__)
-	uint64_t unused:55,
+	uint64_t unused:47,
+		 argc:8,
 		 width_set:1,
 		 digit_set:1,
 		 saved:1,
@@ -368,7 +370,8 @@ struct expr_writeflag {
 		 saved:1,
 		 digit_set:1,
 		 width_set:1,
-		 unused:55;
+		 argc:8,
+		 unused:47;
 #endif
 };
 _Static_assert(offsetof(struct expr_writeflag,bit)+sizeof(uint64_t)==sizeof(struct expr_writeflag),"offsetof(struct expr_writeflag,bit)+sizeof(uint64_t)!=sizeof(struct expr_writeflag)");

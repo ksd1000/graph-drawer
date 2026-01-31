@@ -3383,9 +3383,6 @@ out:
 	*outval=(ssize_t)(neg?-r:r);
 	return nptr;
 }
-ssize_t expr_writef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,void *const *restrict args,size_t arglen){
-	return expr_writef_r(fmt,fmtlen,writer,fd,args,arglen,expr_writefmts_default,expr_writefmts_table_default);
-}
 #define range_check(val,closed_min,open_max,onfalse) ({\
 	uintptr_t register __val=(uintptr_t)(val);\
 	if(unlikely(__val<(uintptr_t)(closed_min)||__val>=(uintptr_t)(open_max))){\
@@ -3402,7 +3399,37 @@ ssize_t expr_writef(const char *restrict fmt,size_t fmtlen,expr_writer writer,in
 		onfalse;\
 	}\
 })
+struct writef_args {
+	void *const *base;
+	size_t arglen;
+};
+static void *const *ewr_arg(ptrdiff_t index,const struct expr_writeflag *flag,void *addr){
+	struct writef_args *wa=addr;
+	void *const *r=wa->base+index;
+	range_checkn(r,wa->base,wa->arglen,goto err);
+	range_checkcn(r+flag->argc,wa->base,wa->arglen,goto err);
+	debug("getting arg[%zd] (base=%p,len=%zu)=%p",index,wa->base,wa->arglen,r);
+	return r;
+err:
+	debug("getting arg[%zd] (base=%p,len=%zu)=NULL",index,wa->base,wa->arglen);
+	return NULL;
+}
+ssize_t expr_writef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,void *const *restrict args,size_t arglen){
+	struct writef_args wa[1];
+	wa->base=args;
+	wa->arglen=arglen;
+	return expr_vwritef_r(fmt,fmtlen,writer,fd,ewr_arg,wa,expr_writefmts_default,expr_writefmts_table_default);
+}
 ssize_t expr_writef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,void *const *restrict args,size_t arglen,const struct expr_writefmt *restrict fmts,const uint8_t *restrict table){
+	struct writef_args wa[1];
+	wa->base=args;
+	wa->arglen=arglen;
+	return expr_vwritef_r(fmt,fmtlen,writer,fd,ewr_arg,wa,fmts,table);
+}
+ssize_t expr_vwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,void *const *(*arg)(ptrdiff_t index,const struct expr_writeflag *flag,void *addr),void *addr){
+	return expr_vwritef_r(fmt,fmtlen,writer,fd,arg,addr,expr_writefmts_default,expr_writefmts_table_default);
+}
+ssize_t expr_vwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,void *const *(*arg)(ptrdiff_t index,const struct expr_writeflag *flag,void *addr),void *addr,const struct expr_writefmt *restrict fmts,const uint8_t *restrict table){
 	const char *endp=fmt+fmtlen,*fmt_old=fmt,*fmt0=fmt;
 	ssize_t ret=0;
 	ssize_t v;
@@ -3411,9 +3438,8 @@ ssize_t expr_writef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,
 	const char *delim=NULL,*tail=NULL,*d1;
 	size_t delimsz=0,tailsz=0,arrlen=0;
 	size_t loop=0;
+	ptrdiff_t index=0;
 	uint8_t forward=0,arrwid=0,current,c,r1;
-	void *const *arg0=args;
-	void *const *argend=args+arglen;
 	const char *fmt_save[8];
 	const char **fmt_save_current;
 	uintptr_t save;
@@ -3461,14 +3487,15 @@ reflag:
 			default:
 				break;
 		}
-#define argnext1 ++args
-#define argnext(N) args+=(N);range_checkcn(args,arg0,arglen,goto argfail)
-#define argback(N) args-=(N);range_checkcn(args,arg0,arglen,goto argfail)
+#define argnext1 ++index
+#define argnext(N) index+=(N);
+#define argback(N) index-=(N);
+#define goto_argfail {debug("arg failed");return PTRDIFF_MIN;}
+#define arg1 ({register void *const *__arg;flag->argc=1;__arg=arg(index,flag,addr);if(unlikely(!__arg))goto_argfail;__arg;})
+#define argn(N) ({register void *const *__arg;flag->argc=(N);__arg=arg(index,flag,addr);if(unlikely(!__arg))goto_argfail;__arg;})
 #define get_next_arg64(dest,set) \
 		if(*fmt=='*'){\
-			if(unlikely(args>=argend))\
-				goto argfail;\
-			dest=*(const ssize_t *)args;\
+			dest=*(const ssize_t *)arg1;\
 			set=1;\
 			fmt_inc_check;\
 			argnext1;\
@@ -3493,25 +3520,19 @@ current_get:
 			case 0:
 				goto end;
 			case 255:
-				if(unlikely(args>=argend))
-					goto argfail;
-				*(size_t *)*args=(size_t)ret;
+				*(size_t *)*arg1=(size_t)ret;
 				argnext1;
 				break;
 			case 254:
-				if(unlikely(args>=argend))
-					goto argfail;
-				*(double *)*args=(double)ret;
+				*(double *)*arg1=(double)ret;
 				argnext1;
 				break;
 			case 253:
 #define fmt_op_cond(onexit) \
 				if(flag->sharp){\
-					if(unlikely(args>=argend))\
-						goto argfail;\
 					if(flag->eq){\
 						register uintptr_t *ar;\
-						ar=*args;\
+						ar=*arg1;\
 						argnext1;\
 						v=flag_digit(flag,1);\
 						if(!(*ar-=v)){\
@@ -3520,7 +3541,7 @@ current_get:
 						}\
 					}else {\
 						argnext1;\
-						if(!(*args)){\
+						if(!(*arg1)){\
 							onexit;\
 							break;\
 						}\
@@ -3529,12 +3550,11 @@ current_get:
 				fmt_op_cond();
 				v=flag_width(flag,1);
 				if(flag->minus){
-					args-=v;
+					index-=v;
 				}else {
-					args+=v;
+					index+=v;
 				}
-				debug("jumpto args[%zd]",args-arg0);
-				range_checkcn(args,arg0,arglen,goto argfail);
+				debug("jumpto args[%zd]",index);
 				break;
 			case 252:
 				loop=flag_width(flag,0);
@@ -3550,7 +3570,7 @@ current_get:
 					dlm=fmt+1;\
 					d1=dlm+dsz;\
 					if(unlikely(d1>=endp||d1<dlm))\
-						goto argfail;\
+						goto_argfail;\
 					fmt+=dsz;\
 				}
 				setdlm(delim,delimsz);
@@ -3561,32 +3581,28 @@ current_get:
 			case 248:
 				arrwid=flag_digit(flag,8);
 				if(unlikely(arrwid>8||!arrwid))
-					goto argfail;
+					goto_argfail;
 				arrlen=flag_width(flag,0);
 				break;
 			case 247:
-				if(unlikely(args>=argend))
-					goto argfail;
-				if(*args)
+				if(*arg1)
 					goto end;
 				argnext1;
 				break;
 			case 246:
-				if(unlikely(args>=argend))
-					goto argfail;
-				current=*(uint8_t *)args;
+				current=*(uint8_t *)arg1;
 				argnext1;
 				goto current_get;
-#define fmt_jumpto(target) range_checkn(fmt=(target),fmt0,fmtlen,goto argfail)
+#define fmt_jumpto(target) range_checkn(fmt=(target),fmt0,fmtlen,goto_argfail)
 			case 245:
 				fmt_op_cond(
 					if(flag->plus){
-						range_checkn(--fmt_save_current,fmt_save,8,goto argfail);
+						range_checkn(--fmt_save_current,fmt_save,8,goto_argfail);
 					}
 					arrlen=0);
 				v=flag_width(flag,0);
 				if(flag->plus){
-					range_checkn(fmt_save_current-1,fmt_save,8,goto argfail);
+					range_checkn(fmt_save_current-1,fmt_save,8,goto_argfail);
 					d1=fmt_save_current[-1];
 				}else if(flag->minus)
 					d1=fmt-v;
@@ -3599,37 +3615,31 @@ current_get:
 				arrlen=0;
 				goto continue_keepfmt;
 			case 244:
-				if(unlikely(args>=argend))
-					goto argfail;
-				wfp=*(const struct expr_writefmt **)args;
+				wfp=*(const struct expr_writefmt **)arg1;
 				argnext1;
 				goto wfp_get;
 			case 243:
-				if(unlikely(args>=argend))
-					goto argfail;
 				if(flag->width_set)
-					*(uintptr_t *)*args*=flag->width;
+					*(uintptr_t *)*arg1*=flag->width;
 				if(flag->digit_set)
-					*(uintptr_t *)*args+=flag->digit;
+					*(uintptr_t *)*arg1+=flag->digit;
 				else
-					++(*(uintptr_t *)*args);
+					++(*(uintptr_t *)*arg1);
 				argnext1;
 				break;
 			case 242:
-				if(unlikely(args>=argend))
-					goto argfail;
 				if(flag->width_set)
-					*(uintptr_t *)*args/=flag->width;
+					*(uintptr_t *)*arg1/=flag->width;
 				if(flag->digit_set)
-					*(uintptr_t *)*args-=flag->digit;
+					*(uintptr_t *)*arg1-=flag->digit;
 				else
-					--(*(uintptr_t *)*args);
+					--(*(uintptr_t *)*arg1);
 				argnext1;
 				break;
 			case 241:
 				debug("push fmt[%zd]",fmt-fmt0);
 				EXPR_RPUSH(fmt_save_current)=fmt;
-				range_checkn(fmt_save_current,fmt_save,8,goto argfail);
+				range_checkn(fmt_save_current,fmt_save,8,goto_argfail);
 				break;
 			case 240:
 				fmt_save_current=fmt_save;
@@ -3637,17 +3647,13 @@ current_get:
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 			case 239:
-				if(unlikely(args>=argend))
-					goto argfail;
-				save=*(uintptr_t *)*args;
+				save=*(uintptr_t *)*arg1;
 				argnext1;
 				break;
 			case 238:
-				if(unlikely(args>=argend))
-					goto argfail;
 				{
 					uintptr_t old;
-					old=*(uintptr_t *)*args;
+					old=*(uintptr_t *)*arg1;
 					switch(flag_width(flag,0)){
 						case 0:
 							old=save;
@@ -3698,9 +3704,9 @@ current_get:
 							save=-save;
 							break;
 						default:
-							goto argfail;
+							goto_argfail;
 					}
-					*(uintptr_t *)*args=old;
+					*(uintptr_t *)*arg1=old;
 					if(flag->eq)
 						save=old;
 				}
@@ -3716,12 +3722,6 @@ current_get:
 	ret+=v
 #define fmt_dorepeat(_arg) \
 	fmt_repeat {\
-		if(!__builtin_constant_p(_arg)){\
-			if(forward){\
-				if(unlikely(argend-args<c))\
-					goto argfail;\
-			}\
-		}\
 		fmt_once(_arg);\
 		if(tailsz){\
 			wf_trywrite(tail,tailsz);\
@@ -3782,9 +3782,7 @@ wfp_get:
 				}else if(arrlen&&c==1){
 					uintptr_t aps;
 					uint64_t val,mask;
-					if(unlikely(args>=argend))
-						goto argfail;
-					aps=(uint64_t)*args;
+					aps=(uint64_t)*arg1;
 					mask=(1ul<<(arrwid*8))-1ul;
 					argnext1;
 					for(;;){
@@ -3809,9 +3807,10 @@ wfp_get:
 						aps+=arrwid;
 					}
 				}else {
-					if(!forward&&unlikely(argend-args<c))
-						goto argfail;
-					fmt_dorepeat(args);
+					void *const *arg_cur;
+					if(!forward&&unlikely(!(arg_cur=argn(c))))
+						goto_argfail;
+					fmt_dorepeat(arg_cur);
 					if(!forward){
 						argnext(c);
 					}else
@@ -3826,9 +3825,9 @@ continue_keepfmt:
 	}
 end:
 	return ret;
-argfail:
-	return PTRDIFF_MIN;
 }
+#undef arg1
+#undef argn
 #undef fmt_setflag
 #undef fmt_inc_check
 #undef get_next_arg64
@@ -3862,7 +3861,7 @@ ssize_t expr_buffered_write(struct expr_buffered_file *restrict fp,const void *b
 		i=fp->index+size;
 		if(fp->dynamic){
 			void *p;
-			c=i+bufsize_initial;
+			c=align(i+bufsize_initial);
 			if(c>fp->dynamic)
 				c=fp->dynamic;
 			if(fp->length<c){
@@ -3970,7 +3969,7 @@ try_read_again:
 	fp->written=size;
 	return size;
 err:
-	debug("%zu bytes written,error code:%zd",ret,r);
+	debug("error code:%zd",r);
 	return r;
 }
 #undef fbuf
@@ -4042,7 +4041,7 @@ ssize_t expr_buffered_close(struct expr_buffered_file *restrict fp){
 	return r;
 }
 void expr_buffered_rclose(struct expr_buffered_file *restrict fp){
-	debug("%zd bytes written",r);
+	debug("close");
 	if(fp->dynamic&&fp->buf)
 		xfree(fp->buf);
 }

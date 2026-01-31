@@ -40,6 +40,8 @@
 #ifdef __clang__
 #pragma GCC diagnostic ignored "-Wunknown-warning-option"
 #endif
+#pragma GCC diagnostic ignored "-Wzero-length-bounds"
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
 
 #define STACK_SIZEOFSSET(esp) ({size_t depth=(esp)->depth;depth<2?0:(depth-1)*EXPR_SYMSET_DEPTHUNIT;})
 #define STACK_DEFAULT(_stack,esp) \
@@ -2660,7 +2662,7 @@ static ssize_t converter_##_name(expr_writer writer,intptr_t fd,void *const *arg
 	if(unlikely(!expr_isfinite(val))){\
 		p=nbuf;\
 		write_sign_to_p(EXPR_EDSIGN(&val));\
-		if(_conv_str==conv_btoX)\
+		if((uintptr_t)_conv_str==(uintptr_t)conv_btoX)\
 			*(uint32_t *)p=*(const uint32_t *)(expr_isinf(val)?"INF":"NAN");\
 		else\
 			*(uint32_t *)p=*(const uint32_t *)(expr_isinf(val)?"inf":"nan");\
@@ -3221,57 +3223,57 @@ const uint8_t expr_writefmts_table_default[256]={
 ['v']=238,
 
 ['%']=1,
-['\x81']=2,['x']=2,
-['\x82']=3,['\x92']=3,['b']=3,
-['\x83']=4,['\x93']=4,
-['\x84']=5,['\x94']=5,
-['\x85']=6,['\x95']=6,
-['\x86']=7,['\x96']=7,
-['\x87']=8,['\x97']=8,
-['\x88']=9,['\x98']=9,['o']=9,
-['\x89']=10,['\x99']=10,
-['\x8a']=11,['\x9a']=11,['u']=11,
-['\x8b']=12,
-['\x8c']=13,
-['\x8d']=14,
-['\x8e']=15,
-['\x8f']=16,
-['\x91']=17,['X']=17,
-['\x9b']=18,
-['\x9c']=19,
-['\x9d']=20,
-['\x9e']=21,
-['\x9f']=22,
-['\xa1']=23,['a']=23,
-['\xa2']=24,
-['\xa3']=25,
-['\xa4']=26,
-['\xa5']=27,
-['\xa6']=28,
-['\xa7']=29,
-['\xa8']=30,
-['\xa9']=31,
-['\xaa']=32,['f']=32,
-['\xab']=33,
-['\xac']=34,
-['\xad']=35,
-['\xae']=36,
-['\xaf']=37,
-['\xb1']=38,['A']=38,
-['\xb2']=39,['B']=39,
-['\xb3']=40,
-['\xb4']=41,
-['\xb5']=42,
-['\xb6']=43,
-['\xb7']=44,
-['\xb8']=45,['O']=45,
-['\xb9']=46,
-['\xba']=47,['F']=47,
-['\xbb']=48,
-['\xbc']=49,
-['\xbd']=50,
-['\xbe']=51,
-['\xbf']=52,
+[(uint8_t)'\x81']=2,['x']=2,
+[(uint8_t)'\x82']=3,[(uint8_t)'\x92']=3,['b']=3,
+[(uint8_t)'\x83']=4,[(uint8_t)'\x93']=4,
+[(uint8_t)'\x84']=5,[(uint8_t)'\x94']=5,
+[(uint8_t)'\x85']=6,[(uint8_t)'\x95']=6,
+[(uint8_t)'\x86']=7,[(uint8_t)'\x96']=7,
+[(uint8_t)'\x87']=8,[(uint8_t)'\x97']=8,
+[(uint8_t)'\x88']=9,[(uint8_t)'\x98']=9,['o']=9,
+[(uint8_t)'\x89']=10,[(uint8_t)'\x99']=10,
+[(uint8_t)'\x8a']=11,[(uint8_t)'\x9a']=11,['u']=11,
+[(uint8_t)'\x8b']=12,
+[(uint8_t)'\x8c']=13,
+[(uint8_t)'\x8d']=14,
+[(uint8_t)'\x8e']=15,
+[(uint8_t)'\x8f']=16,
+[(uint8_t)'\x91']=17,['X']=17,
+[(uint8_t)'\x9b']=18,
+[(uint8_t)'\x9c']=19,
+[(uint8_t)'\x9d']=20,
+[(uint8_t)'\x9e']=21,
+[(uint8_t)'\x9f']=22,
+[(uint8_t)'\xa1']=23,['a']=23,
+[(uint8_t)'\xa2']=24,
+[(uint8_t)'\xa3']=25,
+[(uint8_t)'\xa4']=26,
+[(uint8_t)'\xa5']=27,
+[(uint8_t)'\xa6']=28,
+[(uint8_t)'\xa7']=29,
+[(uint8_t)'\xa8']=30,
+[(uint8_t)'\xa9']=31,
+[(uint8_t)'\xaa']=32,['f']=32,
+[(uint8_t)'\xab']=33,
+[(uint8_t)'\xac']=34,
+[(uint8_t)'\xad']=35,
+[(uint8_t)'\xae']=36,
+[(uint8_t)'\xaf']=37,
+[(uint8_t)'\xb1']=38,['A']=38,
+[(uint8_t)'\xb2']=39,['B']=39,
+[(uint8_t)'\xb3']=40,
+[(uint8_t)'\xb4']=41,
+[(uint8_t)'\xb5']=42,
+[(uint8_t)'\xb6']=43,
+[(uint8_t)'\xb7']=44,
+[(uint8_t)'\xb8']=45,['O']=45,
+[(uint8_t)'\xb9']=46,
+[(uint8_t)'\xba']=47,['F']=47,
+[(uint8_t)'\xbb']=48,
+[(uint8_t)'\xbc']=49,
+[(uint8_t)'\xbd']=50,
+[(uint8_t)'\xbe']=51,
+[(uint8_t)'\xbf']=52,
 ['s']=53,
 ['S']=54,
 ['c']=55,
@@ -3435,7 +3437,7 @@ ssize_t expr_writef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,
 		if(unlikely(fmt>=endp))\
 			goto end
 		fmt_inc_check;
-		*flag->bit=0;
+		*(uint64_t *)&flag->bit=0;
 reflag:
 #define fmt_setflag(_field) \
 	flag->_field=1;\
@@ -3734,7 +3736,7 @@ current_get:
 		}\
 	}
 
-#define t_copy(T) *(T *)&val=*(T *)aps
+#define t_copy(T) *(T *)(void *)&val=*(T *)aps
 #define t_ocopy(T,_off) *(T *)((uintptr_t)&val+(_off))=*(T *)(aps+(_off))
 #define bit_copy(_bit) \
 	switch(_bit){\

@@ -108,7 +108,7 @@ void table_write(void){
 			nextline=1;
 			switch(isprint(c)){
 				case 0:
-					fprintf(stdout,"[\'\\x%x\']=%d,",(int)c,(int)i);
+					fprintf(stdout,"[(uint8_t)\'\\x%x\']=%d,",(int)c,(int)i);
 					break;
 				default:
 					fprintf(stdout,"[\'%c\']=%d,",(int)c,(int)i);

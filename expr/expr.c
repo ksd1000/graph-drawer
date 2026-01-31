@@ -3437,7 +3437,7 @@ ssize_t expr_writef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,
 		if(unlikely(fmt>=endp))\
 			goto end
 		fmt_inc_check;
-		*(uint64_t *)&flag->bit=0;
+		*flag->bit=0;
 reflag:
 #define fmt_setflag(_field) \
 	flag->_field=1;\
@@ -3736,7 +3736,7 @@ current_get:
 		}\
 	}
 
-#define t_copy(T) *(T *)(void *)&val=*(T *)aps
+#define t_copy(T) *(T *)&val=*(T *)aps
 #define t_ocopy(T,_off) *(T *)((uintptr_t)&val+(_off))=*(T *)(aps+(_off))
 #define bit_copy(_bit) \
 	switch(_bit){\

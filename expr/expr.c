@@ -13,7 +13,6 @@
 #include "expr.h"
 
 #define UNABLE_GETADDR_IN_PROTECTED_MODE 1
-#define HIDE_WHERE_ERROR_OCCURS 1
 #define PHYSICAL_CONSTANT 0
 
 #ifndef NDEBUG
@@ -35,7 +34,7 @@
 #if NDEBUG
 #define debug(fmt,...) ((void)0)
 #else
-#define debug(fmt,...) ((void)fprintf(stderr,"[DEBUG]%s: " fmt "\n",__func__,##__VA_ARGS__))
+#define debug(fmt,...) ((void)fprintf(stderr,"[DEBUG]%s:%d: " fmt "\n",__func__,__LINE__,##__VA_ARGS__))
 #endif
 
 #ifdef __clang__
@@ -75,17 +74,8 @@
 #endif
 
 
-#if HIDE_WHERE_ERROR_OCCURS
-#define seterr(_ep,_eperror) ((_ep)->error=(_eperror))
-#else
-#define seterr(_ep,_eperror) (\
-{\
-	int error=(_eperror);\
-	(_ep)->error=error;\
-	warn("error \"%s\" \"%s\" occurs at "__FILE__ " line:%d",expr_error(error),(_ep)->errinfo,__LINE__);\
-}\
-)
-#endif
+#define seterr(_ep,_eperror) ({(_ep)->error=(_eperror);\
+		debug("error %s occur",expr_error(_eperror));})
 
 
 #define cknp(ep,v,act) \
@@ -3223,7 +3213,9 @@ const uint8_t expr_writefmts_table_default[256]={
 ['I']=243,
 ['D']=242,
 ['w']=241,
-['R']=240,
+['W']=240,
+['V']=239,
+['v']=238,
 
 ['%']=1,
 ['\x81']=2,['x']=2,
@@ -3332,7 +3324,7 @@ static const uint8_t number_table[256]={
 ['f']=15,
 ['f'+1 ... 255]=127,
 };
-static inline ssize_t internal_strtoz_autobase(const char *restrict nptr,const char *endp,const char *restrict *restrict endptr){
+static inline const char *internal_strtoz_autobase(const char *restrict nptr,const char *endp,ssize_t *restrict outval){
 	size_t r=0;
 //	int base=0;
 	int neg=0;
@@ -3382,9 +3374,9 @@ static inline ssize_t internal_strtoz_autobase(const char *restrict nptr,const c
 	}
 */
 out:
-	*endptr=nptr;
 	debug("result:%zd",(ssize_t)(neg?-r:r));
-	return (ssize_t)(neg?-r:r);
+	*outval=(ssize_t)(neg?-r:r);
+	return nptr;
 }
 ssize_t expr_writef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,void *const *restrict args,size_t arglen){
 	return expr_writef_r(fmt,fmtlen,writer,fd,args,arglen,expr_writefmts_default,expr_writefmts_table_default);
@@ -3419,6 +3411,7 @@ ssize_t expr_writef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,
 	void *const *argend=args+arglen;
 	const char *fmt_save[8];
 	const char **fmt_save_current;
+	uintptr_t save;
 	if(unlikely(endp<=fmt))
 		return 0;
 	fmt_save_current=fmt_save;
@@ -3441,31 +3434,25 @@ ssize_t expr_writef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,
 		fmt_inc_check;
 		*flag->bit=0;
 reflag:
+#define fmt_setflag(_field) \
+	flag->_field=1;\
+	fmt_inc_check;\
+	goto reflag
 		switch(*fmt){
 			case '+':
-				flag->plus=1;
-				fmt_inc_check;
-				goto reflag;
+				fmt_setflag(plus);
 			case ' ':
-				flag->space=1;
-				fmt_inc_check;
-				goto reflag;
+				fmt_setflag(space);
 			case '-':
-				flag->minus=1;
-				fmt_inc_check;
-				goto reflag;
+				fmt_setflag(minus);
 			case '#':
-				flag->sharp=1;
-				fmt_inc_check;
-				goto reflag;
+				fmt_setflag(sharp);
 			case '0':
-				flag->zero=1;
-				fmt_inc_check;
-				goto reflag;
+				fmt_setflag(zero);
 			case '=':
-				flag->eq=1;
-				fmt_inc_check;
-				goto reflag;
+				fmt_setflag(eq);
+			case '?':
+				fmt_setflag(saved);
 			default:
 				break;
 		}
@@ -3482,7 +3469,7 @@ reflag:
 			argnext1;\
 		}else {\
 			fmt_old=fmt;\
-			v=internal_strtoz_autobase(fmt,endp,&fmt);\
+			fmt=internal_strtoz_autobase(fmt,endp,&v);\
 			if(fmt>fmt_old){\
 				dest=v;\
 				set=1;\
@@ -3639,6 +3626,83 @@ current_get:
 				EXPR_RPUSH(fmt_save_current)=fmt;
 				range_checkn(fmt_save_current,fmt_save,8,goto argfail);
 				break;
+			case 240:
+				fmt_save_current=fmt_save;
+				break;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+			case 239:
+				if(unlikely(args>=argend))
+					goto argfail;
+				save=*(uintptr_t *)*args;
+				argnext1;
+				break;
+			case 238:
+				if(unlikely(args>=argend))
+					goto argfail;
+				{
+					uintptr_t old;
+					old=*(uintptr_t *)*args;
+					switch(flag_width(flag,0)){
+						case 0:
+							old=save;
+							break;
+						case 1:
+							old+=save;
+							break;
+						case 2:
+							old-=save;
+							break;
+						case 3:
+							old*=save;
+							break;
+						case 4:
+							old/=save;
+							break;
+						case 5:
+							old%=save;
+							break;
+						case 6:
+							old&=save;
+							break;
+						case 7:
+							old^=save;
+							break;
+						case 8:
+							old|=save;
+							break;
+						case 9:
+							old<<=save;
+							break;
+						case 10:
+							old>>=save;
+							break;
+						case 11:
+							old=((uintptr_t (*)(uintptr_t save,uintptr_t fd))save)(old,fd);
+							break;
+						case 12:
+							old=~old;
+							break;
+						case 13:
+							old=-old;
+							break;
+						case 14:
+							save=~save;
+							break;
+						case 15:
+							save=-save;
+							break;
+						default:
+							goto argfail;
+					}
+					*(uintptr_t *)*args=old;
+					if(flag->eq)
+						save=old;
+				}
+				argnext1;
+				break;
+#pragma GCC diagnostic pop
+
 #define fmt_repeat if(!loop)loop=1;for(;loop;--loop)
 #define fmt_once(_arg) \
 	v=wfp->converter(writer,fd,(_arg),flag);\
@@ -3666,21 +3730,7 @@ current_get:
 			}\
 		}\
 	}
-			default:
-				wfp=fmts+(r1-1);//r
-wfp_get:
-				
-				if(!(c=wfp->argc)){
-					fmt_dorepeat(NULL);
-					forward=0;
-				}else if(arrlen&&c==1){
-					uintptr_t aps;
-					uint64_t val,mask;
-					if(unlikely(args>=argend))
-						goto argfail;
-					aps=(uint64_t)*args;
-					mask=(1ul<<(arrwid*8))-1ul;
-					argnext1;
+
 #define t_copy(T) *(T *)&val=*(T *)aps
 #define t_ocopy(T,_off) *(T *)((uintptr_t)&val+(_off))=*(T *)(aps+(_off))
 #define bit_copy(_bit) \
@@ -3714,6 +3764,24 @@ wfp_get:
 		default:\
 			__builtin_unreachable();\
 	}
+			default:
+				wfp=fmts+(r1-1);//r
+wfp_get:
+				
+				if(!(c=wfp->argc)){
+					fmt_dorepeat(NULL);
+					forward=0;
+				}else if(flag->saved&&c==1){
+					fmt_dorepeat((void *const *)&save);
+					forward=0;
+				}else if(arrlen&&c==1){
+					uintptr_t aps;
+					uint64_t val,mask;
+					if(unlikely(args>=argend))
+						goto argfail;
+					aps=(uint64_t)*args;
+					mask=(1ul<<(arrwid*8))-1ul;
+					argnext1;
 					for(;;){
 						if(arrwid<8){
 							bit_copy(arrwid);
@@ -3758,6 +3826,10 @@ argfail:
 }
 #define fbuf ((char *)fp->buf)
 #define reterr(V) {r=(V);goto err;}
+#define rcheckadd(V) r=(V);\
+	if(unlikely(r<0))\
+		return r;\
+	ret+=r
 ssize_t expr_buffered_write(struct expr_buffered_file *restrict fp,const void *buf,size_t size){
 	size_t i,c;
 	ssize_t r,ret=0;
@@ -3769,10 +3841,13 @@ ssize_t expr_buffered_write(struct expr_buffered_file *restrict fp,const void *b
 		i=fp->index+size;
 		if(fp->dynamic){
 			void *p;
-			c=(i<=fp->dynamic?i:fp->dynamic);
+			c=align(i);
+			if(c>fp->dynamic)
+				c=fp->dynamic;
 			if(fp->length<c){
 				p=xrealloc(fp->buf,c);
 				if(likely(p)){
+					debug("buffer_size %zu -> %zu",fp->length,c);
 					fp->buf=p;
 					fp->length=c;
 				}
@@ -3781,15 +3856,15 @@ ssize_t expr_buffered_write(struct expr_buffered_file *restrict fp,const void *b
 				reterr(PTRDIFF_MIN);
 		}else {
 			if(unlikely(!fp->length)){
-				r=fp->writer(fp->fd,buf,size);
-				if(unlikely(r<0))
-					goto err;
+				rcheckadd(fp->un.writer(fp->fd,buf,size));
+				debug("%zd bytes written",ret);
 				return ret;
 			}
 		}
 		if(i<=fp->length){
 			memcpy(fbuf+fp->index,buf,size);
 			fp->index=i;
+			debug("%zd bytes stored",size);
 			return ret;
 		}
 		if(fp->index<fp->length){
@@ -3798,28 +3873,43 @@ ssize_t expr_buffered_write(struct expr_buffered_file *restrict fp,const void *b
 			buf=(const char *)buf+c;
 			size-=c;
 		}
-		r=fp->writer(fp->fd,fp->buf,fp->length);
+		r=fp->un.writer(fp->fd,fp->buf,fp->length);
 		fp->index=0;
 		if(unlikely(r<0))
 			goto err;
 		ret+=r;
 	}while(size);
+	debug("%zd bytes written",ret);
 	return ret;
 err:
 	fp->written=ret;
+	debug("%zu bytes written,error code:%zd",ret,r);
 	return r;
 }
 #undef fbuf
 #undef reterr
+ssize_t expr_buffered_write_flushat(struct expr_buffered_file *restrict fp,const void *buf,size_t size,int c){
+	uintptr_t rc=(uintptr_t)memrchr(buf,c,size);
+	ssize_t r,ret=0;
+	if(!rc)
+		return expr_buffered_write(fp,buf,size);
+	++rc;
+	rcheckadd(expr_buffered_write(fp,buf,rc-(uintptr_t)buf));
+	rcheckadd(expr_buffered_flush(fp));
+	rcheckadd(expr_buffered_write(fp,(const void *)rc,(uintptr_t)buf+size-rc));
+	return ret;
+}
 ssize_t expr_buffered_flush(struct expr_buffered_file *restrict fp){
 	ssize_t r;
-	r=fp->writer(fp->fd,fp->buf,fp->index);
+	r=fp->un.writer(fp->fd,fp->buf,fp->index);
+	debug("%zd bytes written",r);
 	fp->index=0;
 	return r;
 }
 ssize_t expr_buffered_close(struct expr_buffered_file *restrict fp){
 	ssize_t r;
-	r=fp->writer?fp->writer(fp->fd,fp->buf,fp->index):0;
+	r=fp->un.writer?fp->un.writer(fp->fd,fp->buf,fp->index):0;
+	debug("%zd bytes written",r);
 	if(fp->dynamic&&fp->buf)
 		xfree(fp->buf);
 	return r;
@@ -3828,7 +3918,7 @@ ssize_t expr_asprintf(char **restrict strp,const char *restrict fmt,size_t fmtle
 	struct expr_buffered_file vf[1];
 	ssize_t r;
 	vf->fd=0;
-	vf->writer=NULL;
+	vf->un.writer=NULL;
 	vf->buf=NULL;
 	vf->index=0;
 	vf->length=0;
@@ -5714,6 +5804,12 @@ use_byte:
 				cknp(ep,expr_addconst(ep,v0,un.v),return NULL);
 				e=p+1;
 				goto vend;
+#define goto_symerr {\
+	serrinfo(ep->errinfo,e,p-e);\
+	seterr(ep,EXPR_ESYMBOL);\
+	return NULL;\
+}
+
 #define symfield(_field,_dest) \
 				if(likely(ep->sset&&(sym.es=expr_symset_search(ep->sset,e+1,p-e-1)))){\
 					sv.ces=alias_target(ep,sym.es,1);\
@@ -5724,7 +5820,7 @@ use_byte:
 					}\
 				}else {\
 					++e;\
-					goto symerr;\
+					goto_symerr;\
 				}
 			case EXPR_AND:
 				symfield(type,flag);
@@ -5754,7 +5850,7 @@ use_byte:
 				}
 				if(unlikely(!ep->sset||!(sym.es=expr_symset_search(ep->sset,e+1,p-e-1)))){
 					++e;
-					goto symerr;
+					goto_symerr;
 				}
 found1:
 #define do_undef(_se) \
@@ -5769,7 +5865,7 @@ found1:
 							++e;\
 							ep->sset=sym.esp;\
 							expr_symset_free(un.esp);\
-							goto symerr;\
+							goto_symerr;\
 						}\
 					}else {\
 						expr_rmsym(ep,e+1,p-e-1);\
@@ -5784,7 +5880,7 @@ found1:
 					if(_se){\
 						if(unlikely(expr_rmsym(ep,e+1,p-e-1))){\
 							++e;\
-							goto symerr;\
+							goto_symerr;\
 						}\
 					}else {\
 						expr_rmsym(ep,e+1,p-e-1);\
@@ -6531,7 +6627,7 @@ treat_as_variable:
 			e=p;
 			goto vend;
 		default:
-			goto symerr;
+			goto_symerr;
 	}
 number:
 	p=getsym_expo(e,endp);
@@ -6544,10 +6640,6 @@ number:
 		goto vend;
 	}
 	goto sym_notfound;
-symerr:
-	serrinfo(ep->errinfo,e,p-e);
-	seterr(ep,EXPR_ESYMBOL);
-	return NULL;
 /*
 ein:
 	serrinfo(ep->errinfo,e,p-e);
@@ -6556,7 +6648,7 @@ ein:
 */
 sym_notfound:
 	if(unlikely(p+1>=endp||*p!='='))
-		goto symerr;
+		goto_symerr;
 	p2=e;
 	++p;
 	if(*p==':'){

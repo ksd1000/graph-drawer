@@ -348,9 +348,10 @@ struct expr_writeflag {
 	ssize_t digit;
 	uint64_t bit[0];
 #if (!defined(__BIG_ENDIAN__)||!__BIG_ENDIAN__)
-	uint64_t unused:56,
+	uint64_t unused:55,
 		 width_set:1,
 		 digit_set:1,
+		 saved:1,
 		 eq:1,
 		 zero:1,
 		 sharp:1,
@@ -364,9 +365,10 @@ struct expr_writeflag {
 		 sharp:1,
 		 zero:1,
 		 eq:1,
+		 saved:1,
 		 digit_set:1,
 		 width_set:1,
-		 unused:57;
+		 unused:55;
 #endif
 };
 typedef ssize_t (*expr_writer)(intptr_t fd,const void *buf,size_t size);
@@ -378,7 +380,10 @@ struct expr_writefmt {
 };
 struct expr_buffered_file {
 	intptr_t fd;
-	expr_writer writer;
+	union {
+		expr_reader reader;
+		expr_writer writer;
+	} un;
 	void *buf;
 	size_t index,length,dynamic,written;
 };

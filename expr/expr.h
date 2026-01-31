@@ -348,9 +348,10 @@ struct expr_writeflag {
 	ssize_t digit;
 	uint64_t bit[0];
 #if (!defined(__BIG_ENDIAN__)||!__BIG_ENDIAN__)
-	uint64_t unused:56,
+	uint64_t unused:55,
 		 width_set:1,
 		 digit_set:1,
+		 saved:1,
 		 eq:1,
 		 zero:1,
 		 sharp:1,
@@ -364,9 +365,10 @@ struct expr_writeflag {
 		 sharp:1,
 		 zero:1,
 		 eq:1,
+		 saved:1,
 		 digit_set:1,
 		 width_set:1,
-		 unused:57;
+		 unused:55;
 #endif
 };
 typedef ssize_t (*expr_writer)(intptr_t fd,const void *buf,size_t size);
@@ -378,7 +380,10 @@ struct expr_writefmt {
 };
 struct expr_buffered_file {
 	intptr_t fd;
-	expr_writer writer;
+	union {
+		expr_reader reader;
+		expr_writer writer;
+	} un;
 	void *buf;
 	size_t index,length,dynamic,written;
 };
@@ -878,6 +883,7 @@ size_t extint_right(uint64_t *buf,size_t size,uint64_t bits);
 ssize_t expr_writef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,void *const *restrict args,size_t arglen);
 ssize_t expr_writef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,void *const *restrict args,size_t arglen,const struct expr_writefmt *restrict fmts,const uint8_t *restrict table);
 ssize_t expr_buffered_write(struct expr_buffered_file *restrict fp,const void *buf,size_t size);
+ssize_t expr_buffered_write_flushat(struct expr_buffered_file *restrict fp,const void *buf,size_t size,int c);
 ssize_t expr_buffered_flush(struct expr_buffered_file *restrict fp);
 ssize_t expr_buffered_close(struct expr_buffered_file *restrict fp);
 ssize_t expr_asprintf(char **restrict strp,const char *restrict fmt,size_t fmtlen,void *const *restrict args,size_t arglen);

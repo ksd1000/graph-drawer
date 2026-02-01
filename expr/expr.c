@@ -676,7 +676,7 @@ void expr_fry(double *restrict v,size_t n){
 			expr_fry(v+r,r);
 			break;
 	}
-	r=((size_t)v+(size_t)__builtin_frame_address(0))&511;
+	r=((uintptr_t)v+(uintptr_t)__builtin_frame_address(0))&511;
 	for(endp=v+n-1;likely(v<endp);++v,--endp){
 		r=(r*121+37)&1023;
 		if(__builtin_parity(r)){
@@ -1129,7 +1129,7 @@ static double expr_ldr(const struct expr *args,size_t n,double input){
 		double dr;
 	} un;
 	un.dr=eval(args,input);
-	return un.r[(size_t)eval(++args,input)];
+	return un.r[(ptrdiff_t)eval(++args,input)];
 }
 static double expr_str(const struct expr *args,size_t n,double input){
 	union {
@@ -1137,7 +1137,7 @@ static double expr_str(const struct expr *args,size_t n,double input){
 		double dr;
 	} un;
 	un.dr=eval(args,input);
-	un.r+=(size_t)eval(++args,input);
+	un.r+=(ptrdiff_t)eval(++args,input);
 	return *un.r=eval(++args,input);
 }
 static double expr_memset(const struct expr *args,size_t n,double input){
@@ -1149,7 +1149,7 @@ static double expr_memset(const struct expr *args,size_t n,double input){
 	double val;
 	un.dr=eval(args,input);
 	val=eval(++args,input);
-	endp=un.r+(size_t)eval(++args,input);
+	endp=un.r+(ptrdiff_t)eval(++args,input);
 	while(un.r<endp){
 		*un.r=val;
 		++un.r;
@@ -2016,7 +2016,7 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGCSYM(HUGE_VALF),
 	REGCSYM(INFINITY),
 	REGCSYM(NAN),
-	REGCSYM2("NULL",(double)(size_t)NULL),
+	REGCSYM2("NULL",(double)(uintptr_t)NULL),
 	REGCSYM2("1_pi",M_1_PI),
 	REGCSYM2("2_pi",M_2_PI),
 	REGCSYM2("2_sqrtpi",M_2_SQRTPI),
@@ -8293,11 +8293,11 @@ size_t expr_symset_depth(const struct expr_symset *restrict esp){
 	return expr_symset_depth_s(esp,stack);
 }
 size_t expr_symset_depth_s(const struct expr_symset *restrict esp,void *stack){
-	size_t depth=0;
+	uintptr_t depth=0;
 	expr_symset_foreach(sp,esp,stack)
-		if(unlikely((size_t)__inloop_sp>depth))
-			depth=(size_t)__inloop_sp;
-	return depth?(depth-(size_t)stack)/EXPR_SYMSET_DEPTHUNIT+1:0;
+		if(unlikely((uintptr_t)__inloop_sp>depth))
+			depth=(uintptr_t)__inloop_sp;
+	return depth?(depth-(uintptr_t)stack)/EXPR_SYMSET_DEPTHUNIT+1:0;
 }
 void expr_symset_correct(struct expr_symset *restrict esp){
 	STACK_DEFAULT(stack,esp);
@@ -8306,7 +8306,7 @@ void expr_symset_correct(struct expr_symset *restrict esp){
 void expr_symset_correct_s(struct expr_symset *restrict esp,void *stack){
 	size_t depth=0,cdepth,n=0;
 	expr_symset_foreach(sp,esp,stack){
-		cdepth=((size_t)__inloop_sp-(size_t)stack)/EXPR_SYMSET_DEPTHUNIT+1;
+		cdepth=((uintptr_t)__inloop_sp-(uintptr_t)stack)/EXPR_SYMSET_DEPTHUNIT+1;
 		if(likely(cdepth<depth)){
 			continue;
 		}else if(cdepth==depth){

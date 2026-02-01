@@ -318,11 +318,11 @@ EXPR_END
 				goto expr_combine(expr_symset_foreach_label_,_label);\
 			}\
 			_sp=EXPR_RPOP(__inloop_sp);\
-			__inloop_index=(unsigned int)(size_t)EXPR_RPOP(__inloop_sp);\
+			__inloop_index=(unsigned int)(uintptr_t)EXPR_RPOP(__inloop_sp);\
 		}else if(!_sp->next[__inloop_index]){\
 			++__inloop_index;\
 		}else {\
-			EXPR_RPUSH(__inloop_sp)=(void *)(size_t)(__inloop_index+1);\
+			EXPR_RPUSH(__inloop_sp)=(void *)(uintptr_t)(__inloop_index+1);\
 			EXPR_RPUSH(__inloop_sp)=_sp;\
 			_sp=_sp->next[__inloop_index];\
 			__inloop_index=0;\

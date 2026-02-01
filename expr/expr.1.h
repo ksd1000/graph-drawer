@@ -353,7 +353,8 @@ struct expr_writeflag {
 	ssize_t digit;
 	uint64_t bit[0];
 #if (!defined(__BIG_ENDIAN__)||!__BIG_ENDIAN__)
-	uint64_t unused:44,
+	uint64_t unused:36,
+		 op:8,
 		 argsize:8,
 		 type:2,
 		 addr:1,
@@ -379,7 +380,8 @@ struct expr_writeflag {
 		 addr:1,
 		 type:2,
 		 argsize:8,
-		 unused:44;
+		 op:8,
+		 unused:36;
 #endif
 };
 _Static_assert(offsetof(struct expr_writeflag,bit)+sizeof(uint64_t)==sizeof(struct expr_writeflag),"offsetof(struct expr_writeflag,bit)+sizeof(uint64_t)!=sizeof(struct expr_writeflag)");

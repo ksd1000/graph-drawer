@@ -3214,7 +3214,7 @@ const uint8_t expr_writefmts_table_default[256]={
 ['Q']=247,
 ['@']=246,
 ['j']=245,
-['&']=244,
+['C']=244,
 ['I']=243,
 ['D']=242,
 ['w']=241,
@@ -3463,9 +3463,10 @@ ssize_t expr_vwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer
 	fmt_inc_check;\
 	goto reflag
 #define fmt_setsize(_sz) \
-	if(flag->argsize==(_sz))\
+	if(flag->argsize)\
 		break;\
 	flag->argsize=(_sz);\
+	debug("argsize:%zu",(size_t)flag->argsize);\
 	fmt_inc_check;\
 	goto reflag
 reflag:
@@ -3484,6 +3485,8 @@ reflag:
 				fmt_setflag(eq);
 			case '?':
 				fmt_setflag(saved);
+			case '&':
+				fmt_setflag(addr);
 			default:
 				break;
 		}
@@ -3491,8 +3494,8 @@ reflag:
 #define argnext(N) index+=(N);
 #define argback(N) index-=(N);
 #define goto_argfail {debug("arg failed");return PTRDIFF_MIN;}
-#define arg1 ({register void *const *__arg;flag->argc=1;__arg=arg(index,flag,addr);if(unlikely(!__arg))goto_argfail;__arg;})
-#define argn(N) ({register void *const *__arg;flag->argc=(N);__arg=arg(index,flag,addr);if(unlikely(!__arg))goto_argfail;__arg;})
+#define arg1 argn(1)
+#define argn(N) ({register void *const *__arg;flag->argc=(N);__arg=arg(index,flag,addr);if(unlikely(!__arg))goto_argfail;if(flag->addr)__arg=*__arg;__arg;})
 #define get_next_arg64(dest,set) \
 		if(*fmt=='*'){\
 			dest=*(const ssize_t *)arg1;\

@@ -361,17 +361,17 @@ struct expr_writeflag {
 		 digit_set:1,
 		 saved:1,
 		 eq:1,
-		 zero:1,
 		 sharp:1,
 		 minus:1,
+		 zero:1,
 		 space:1,
 		 plus:1;
 #else
 	uint64_t plus:1,
 		 space:1,
+		 zero:1,
 		 minus:1,
 		 sharp:1,
-		 zero:1,
 		 eq:1,
 		 saved:1,
 		 digit_set:1,
@@ -385,8 +385,34 @@ struct expr_writeflag {
 _Static_assert(offsetof(struct expr_writeflag,bit)+sizeof(uint64_t)==sizeof(struct expr_writeflag),"offsetof(struct expr_writeflag,bit)+sizeof(uint64_t)!=sizeof(struct expr_writeflag)");
 typedef ssize_t (*expr_writer)(intptr_t fd,const void *buf,size_t size);
 typedef ssize_t (*expr_reader)(intptr_t fd,void *buf,size_t size);
+union expr_argf {
+	void *addr;
+	intptr_t sint;
+	uintptr_t uint;
+	double dbl;
+	size_t z;
+	ssize_t t;
+	intptr_t *siaddr;
+	uintptr_t *uiaddr;
+	double *daddr;
+	size_t *zaddr;
+	ssize_t *taddr;
+	const char *str;
+	union expr_argf *aaddr;
+#if ___POINTER_WIDTH__<64
+#define expr_umaxf_t uint64_t
+#define expr_imaxf_t int64_t
+#else
+#define expr_umaxf_t uintptr_t
+#define expr_imaxf_t intptr_t
+#endif
+	expr_umaxf_t umax;
+	expr_umaxf_t *umaddr;
+	expr_imaxf_t imax;
+	expr_imaxf_t *imaddr;
+};
 struct expr_writefmt {
-	ssize_t (*converter)(expr_writer writer,intptr_t fd,void *const *arg,struct expr_writeflag *flag);
+	ssize_t (*converter)(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
 	uint8_t op[7];
 	uint8_t type:2,no_arg:1,digit_check:1,unused:4;
 };

@@ -361,17 +361,17 @@ struct expr_writeflag {
 		 digit_set:1,
 		 saved:1,
 		 eq:1,
-		 zero:1,
 		 sharp:1,
 		 minus:1,
+		 zero:1,
 		 space:1,
 		 plus:1;
 #else
 	uint64_t plus:1,
 		 space:1,
+		 zero:1,
 		 minus:1,
 		 sharp:1,
-		 zero:1,
 		 eq:1,
 		 saved:1,
 		 digit_set:1,
@@ -385,8 +385,34 @@ struct expr_writeflag {
 _Static_assert(offsetof(struct expr_writeflag,bit)+sizeof(uint64_t)==sizeof(struct expr_writeflag),"offsetof(struct expr_writeflag,bit)+sizeof(uint64_t)!=sizeof(struct expr_writeflag)");
 typedef ssize_t (*expr_writer)(intptr_t fd,const void *buf,size_t size);
 typedef ssize_t (*expr_reader)(intptr_t fd,void *buf,size_t size);
+union expr_argf {
+	void *addr;
+	intptr_t sint;
+	uintptr_t uint;
+	double dbl;
+	size_t z;
+	ssize_t t;
+	intptr_t *siaddr;
+	uintptr_t *uiaddr;
+	double *daddr;
+	size_t *zaddr;
+	ssize_t *taddr;
+	const char *str;
+	union expr_argf *aaddr;
+#if ___POINTER_WIDTH__<64
+#define expr_umaxf_t uint64_t
+#define expr_imaxf_t int64_t
+#else
+#define expr_umaxf_t uintptr_t
+#define expr_imaxf_t intptr_t
+#endif
+	expr_umaxf_t umax;
+	expr_umaxf_t *umaddr;
+	expr_imaxf_t imax;
+	expr_imaxf_t *imaddr;
+};
 struct expr_writefmt {
-	ssize_t (*converter)(expr_writer writer,intptr_t fd,void *const *arg,struct expr_writeflag *flag);
+	ssize_t (*converter)(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
 	uint8_t op[7];
 	uint8_t type:2,no_arg:1,digit_check:1,unused:4;
 };
@@ -892,10 +918,10 @@ struct expr_symbol *expr_builtin_symbol_add(struct expr_symset *restrict esp,con
 size_t expr_builtin_symbol_addall(struct expr_symset *restrict esp,const struct expr_builtin_symbol *syms);
 struct expr_symset *expr_builtin_symbol_convert(const struct expr_builtin_symbol *syms);
 size_t extint_right(uint64_t *buf,size_t size,uint64_t bits);
-ssize_t expr_writef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,void *const *restrict args,size_t arglen);
-ssize_t expr_writef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,void *const *restrict args,size_t arglen,const struct expr_writefmt *restrict fmts,const uint8_t *restrict table);
-ssize_t expr_vwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,void *const *(*arg)(ptrdiff_t index,const struct expr_writeflag *flag,void *addr),void *addr);
-ssize_t expr_vwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,void *const *(*arg)(ptrdiff_t index,const struct expr_writeflag *flag,void *addr),void *addr,const struct expr_writefmt *restrict fmts,const uint8_t *restrict table);
+ssize_t expr_writef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const union expr_argf *restrict args,size_t arglen);
+ssize_t expr_writef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const union expr_argf *restrict args,size_t arglen,const struct expr_writefmt *restrict fmts,const uint8_t *restrict table);
+ssize_t expr_vwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const union expr_argf *(*arg)(ptrdiff_t index,const struct expr_writeflag *flag,void *addr),void *addr);
+ssize_t expr_vwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const union expr_argf *(*arg)(ptrdiff_t index,const struct expr_writeflag *flag,void *addr),void *addr,const struct expr_writefmt *restrict fmts,const uint8_t *restrict table);
 ssize_t expr_buffered_write(struct expr_buffered_file *restrict fp,const void *buf,size_t size);
 ssize_t expr_buffered_read(struct expr_buffered_file *restrict fp,void *buf,size_t size);
 ssize_t expr_buffered_write_flushat(struct expr_buffered_file *restrict fp,const void *buf,size_t size,int c);
@@ -904,7 +930,7 @@ ssize_t expr_buffered_drop(struct expr_buffered_file *restrict fp);
 ssize_t expr_buffered_dropall(struct expr_buffered_file *restrict fp);
 ssize_t expr_buffered_close(struct expr_buffered_file *restrict fp);
 void expr_buffered_rclose(struct expr_buffered_file *restrict fp);
-ssize_t expr_asprintf(char **restrict strp,const char *restrict fmt,size_t fmtlen,void *const *restrict args,size_t arglen);
+ssize_t expr_asprintf(char **restrict strp,const char *restrict fmt,size_t fmtlen,const union expr_argf *restrict args,size_t arglen);
 size_t expr_strscan(const char *restrict s,size_t sz,char *restrict buf,size_t outsz);
 char *expr_astrscan(const char *s,size_t sz,size_t *restrict outsz);
 void expr_free(struct expr *restrict ep);

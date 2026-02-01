@@ -344,13 +344,18 @@ struct expr_libinfo {
 	const char *time;
 	const char *license;
 };
+#define EXPR_FLAGTYPE_ADDR 0
+#define EXPR_FLAGTYPE_SIGNED_INTEGER 1
+#define EXPR_FLAGTYPE_UNSIGNED_INTEGER 2
+#define EXPR_FLAGTYPE_DOUBLE 3
 struct expr_writeflag {
 	size_t width;
 	ssize_t digit;
 	uint64_t bit[0];
 #if (!defined(__BIG_ENDIAN__)||!__BIG_ENDIAN__)
-	uint64_t unused:46,
+	uint64_t unused:44,
 		 argsize:8,
+		 type:2,
 		 addr:1,
 		 width_set:1,
 		 digit_set:1,
@@ -372,8 +377,9 @@ struct expr_writeflag {
 		 digit_set:1,
 		 width_set:1,
 		 addr:1,
+		 type:2,
 		 argsize:8,
-		 unused:46;
+		 unused:44;
 #endif
 };
 _Static_assert(offsetof(struct expr_writeflag,bit)+sizeof(uint64_t)==sizeof(struct expr_writeflag),"offsetof(struct expr_writeflag,bit)+sizeof(uint64_t)!=sizeof(struct expr_writeflag)");
@@ -382,7 +388,7 @@ typedef ssize_t (*expr_reader)(intptr_t fd,void *buf,size_t size);
 struct expr_writefmt {
 	ssize_t (*converter)(expr_writer writer,intptr_t fd,void *const *arg,struct expr_writeflag *flag);
 	uint8_t op[7];
-	uint8_t arg_signed:1,no_arg:1,digit_check:1,unused:5;
+	uint8_t type:2,no_arg:1,digit_check:1,unused:4;
 };
 struct expr_buffered_file {
 	intptr_t fd;

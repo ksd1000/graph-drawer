@@ -2896,7 +2896,7 @@ onzero:\
 	if(endp>ebuf+2)\
 		extint_mirror(ebuf+2,endp-(ebuf+1));\
 	esz=sz;\
-	sz+=ds+(f58?fsz+!!digit:digit);\
+	sz+=ds+(f58?fsz+!!digit:digit+!!digit);\
 	if(!fsz)\
 		++sz;\
 	for(iz=0,endp=nbuf+ds;--endp>nbuf;){\
@@ -3488,11 +3488,11 @@ reflag:
 			default:
 				break;
 		}
-#define argnext1 ++index
-#define argnext(N) index+=(N);
-#define argback(N) index-=(N);
+#define argnext1 ++index;debug("arg index to %zd",index)
+#define argnext(N) index+=(N);debug("arg index to %zd",index)
+#define argback(N) index-=(N);debug("arg index back to %zd",index)
 #define goto_argfail {debug("arg failed");return PTRDIFF_MIN;}
-#define argt(_type) ({register void *const *__arg;flag->type=(_type);__arg=arg(index,flag,addr);if(unlikely(!__arg))goto_argfail;if(flag->addr)__arg=*__arg;__arg;})
+#define argt(_type) ({register void *const *__arg;flag->type=(_type);__arg=arg(index,flag,addr);if(unlikely(!__arg)){debug("cannot get arg[%zd]",index);goto_argfail;}if(flag->addr)__arg=*__arg;__arg;})
 #define arg1 argt(EXPR_FLAGTYPE_ADDR)
 #define get_next_arg64(dest,set) \
 		if(*fmt=='*'){\
@@ -3537,8 +3537,8 @@ current_get:
 			case 253:
 #define fmt_op_cond(onexit) \
 				if(flag->sharp){\
+					register uintptr_t *ar;\
 					if(flag->eq){\
-						register uintptr_t *ar;\
 						ar=*arg1;\
 						argnext1;\
 						v=flag_digit(flag,1);\
@@ -3547,8 +3547,9 @@ current_get:
 							break;\
 						}\
 					}else {\
+						ar=*arg1;\
 						argnext1;\
-						if(!(*arg1)){\
+						if(!ar){\
 							onexit;\
 							break;\
 						}\

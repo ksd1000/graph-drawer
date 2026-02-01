@@ -3120,9 +3120,9 @@ static ssize_t faction_P(expr_writer writer,intptr_t fd,void *const *arg,struct 
 static ssize_t faction_percent(expr_writer writer,intptr_t fd,void *const *arg,struct expr_writeflag *flag){
 	return writer(fd,"%",1);
 }
-#define fmtc_register(_act,_argc,_sign,_op,...) {\
+#define fmtc_register(_act,_argc,_type,_op,...) {\
 	.converter=(_act),\
-	.arg_signed=(_sign),\
+	.type=(_type),\
 	.no_arg=(_argc?0:1),\
 	.digit_check=(_argc==2?1:0),\
 	.op={_op,##__VA_ARGS__},\
@@ -3130,73 +3130,73 @@ static ssize_t faction_percent(expr_writer writer,intptr_t fd,void *const *arg,s
 const struct expr_writefmt expr_writefmts_default[]={
 	fmtc_register(faction_percent,0,0,'%'),
 
-	fmtc_register(converter_x81,1,0,'\x81','x'),
-	fmtc_register(converter_x82,1,0,'\x82','\x92','b'),
-	fmtc_register(converter_x83,1,0,'\x83','\x93'),
-	fmtc_register(converter_x84,1,0,'\x84','\x94'),
-	fmtc_register(converter_x85,1,0,'\x85','\x95'),
-	fmtc_register(converter_x86,1,0,'\x86','\x96'),
-	fmtc_register(converter_x87,1,0,'\x87','\x97'),
-	fmtc_register(converter_x88,1,0,'\x88','\x98','o'),
-	fmtc_register(converter_x89,1,0,'\x89','\x99'),
-	fmtc_register(converter_x8a,1,0,'\x8a','\x9a','u'),
-	fmtc_register(converter_x8b,1,0,'\x8b'),
-	fmtc_register(converter_x8c,1,0,'\x8c'),
-	fmtc_register(converter_x8d,1,0,'\x8d'),
-	fmtc_register(converter_x8e,1,0,'\x8e'),
-	fmtc_register(converter_x8f,1,0,'\x8f'),
+	fmtc_register(converter_x81,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'\x81','x'),
+	fmtc_register(converter_x82,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'\x82','\x92','b'),
+	fmtc_register(converter_x83,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'\x83','\x93'),
+	fmtc_register(converter_x84,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'\x84','\x94'),
+	fmtc_register(converter_x85,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'\x85','\x95'),
+	fmtc_register(converter_x86,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'\x86','\x96'),
+	fmtc_register(converter_x87,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'\x87','\x97'),
+	fmtc_register(converter_x88,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'\x88','\x98','o'),
+	fmtc_register(converter_x89,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'\x89','\x99'),
+	fmtc_register(converter_x8a,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'\x8a','\x9a','u'),
+	fmtc_register(converter_x8b,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'\x8b'),
+	fmtc_register(converter_x8c,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'\x8c'),
+	fmtc_register(converter_x8d,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'\x8d'),
+	fmtc_register(converter_x8e,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'\x8e'),
+	fmtc_register(converter_x8f,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'\x8f'),
 
-	fmtc_register(converter_x91,1,0,'\x91','X'),
-	fmtc_register(converter_x9b,1,0,'\x9b'),
-	fmtc_register(converter_x9c,1,0,'\x9c'),
-	fmtc_register(converter_x9d,1,0,'\x9d'),
-	fmtc_register(converter_x9e,1,0,'\x9e'),
-	fmtc_register(converter_x9f,1,0,'\x9f'),
+	fmtc_register(converter_x91,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'\x91','X'),
+	fmtc_register(converter_x9b,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'\x9b'),
+	fmtc_register(converter_x9c,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'\x9c'),
+	fmtc_register(converter_x9d,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'\x9d'),
+	fmtc_register(converter_x9e,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'\x9e'),
+	fmtc_register(converter_x9f,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'\x9f'),
 
-	fmtc_register(converter_xa1,1,0,'\xa1','a'),
-	fmtc_register(converter_xa2,1,0,'\xa2'),
-	fmtc_register(converter_xa3,1,0,'\xa3'),
-	fmtc_register(converter_xa4,1,0,'\xa4'),
-	fmtc_register(converter_xa5,1,0,'\xa5'),
-	fmtc_register(converter_xa6,1,0,'\xa6'),
-	fmtc_register(converter_xa7,1,0,'\xa7'),
-	fmtc_register(converter_xa8,1,0,'\xa8'),
-	fmtc_register(converter_xa9,1,0,'\xa9'),
-	fmtc_register(converter_xaa,1,0,'\xaa','f'),
-	fmtc_register(converter_xab,1,0,'\xab'),
-	fmtc_register(converter_xac,1,0,'\xac'),
-	fmtc_register(converter_xad,1,0,'\xad'),
-	fmtc_register(converter_xae,1,0,'\xae'),
-	fmtc_register(converter_xaf,1,0,'\xaf'),
+	fmtc_register(converter_xa1,1,EXPR_FLAGTYPE_DOUBLE,'\xa1','a'),
+	fmtc_register(converter_xa2,1,EXPR_FLAGTYPE_DOUBLE,'\xa2'),
+	fmtc_register(converter_xa3,1,EXPR_FLAGTYPE_DOUBLE,'\xa3'),
+	fmtc_register(converter_xa4,1,EXPR_FLAGTYPE_DOUBLE,'\xa4'),
+	fmtc_register(converter_xa5,1,EXPR_FLAGTYPE_DOUBLE,'\xa5'),
+	fmtc_register(converter_xa6,1,EXPR_FLAGTYPE_DOUBLE,'\xa6'),
+	fmtc_register(converter_xa7,1,EXPR_FLAGTYPE_DOUBLE,'\xa7'),
+	fmtc_register(converter_xa8,1,EXPR_FLAGTYPE_DOUBLE,'\xa8'),
+	fmtc_register(converter_xa9,1,EXPR_FLAGTYPE_DOUBLE,'\xa9'),
+	fmtc_register(converter_xaa,1,EXPR_FLAGTYPE_DOUBLE,'\xaa','f'),
+	fmtc_register(converter_xab,1,EXPR_FLAGTYPE_DOUBLE,'\xab'),
+	fmtc_register(converter_xac,1,EXPR_FLAGTYPE_DOUBLE,'\xac'),
+	fmtc_register(converter_xad,1,EXPR_FLAGTYPE_DOUBLE,'\xad'),
+	fmtc_register(converter_xae,1,EXPR_FLAGTYPE_DOUBLE,'\xae'),
+	fmtc_register(converter_xaf,1,EXPR_FLAGTYPE_DOUBLE,'\xaf'),
 
-	fmtc_register(converter_xb1,1,0,'\xb1','A'),
-	fmtc_register(converter_xb2,1,0,'\xb2','B'),
-	fmtc_register(converter_xb3,1,0,'\xb3'),
-	fmtc_register(converter_xb4,1,0,'\xb4'),
-	fmtc_register(converter_xb5,1,0,'\xb5'),
-	fmtc_register(converter_xb6,1,0,'\xb6'),
-	fmtc_register(converter_xb7,1,0,'\xb7'),
-	fmtc_register(converter_xb8,1,0,'\xb8','O'),
-	fmtc_register(converter_xb9,1,0,'\xb9'),
-	fmtc_register(converter_xba,1,0,'\xba','F'),
-	fmtc_register(converter_xbb,1,0,'\xbb'),
-	fmtc_register(converter_xbc,1,0,'\xbc'),
-	fmtc_register(converter_xbd,1,0,'\xbd'),
-	fmtc_register(converter_xbe,1,0,'\xbe'),
-	fmtc_register(converter_xbf,1,0,'\xbf'),
+	fmtc_register(converter_xb1,1,EXPR_FLAGTYPE_DOUBLE,'\xb1','A'),
+	fmtc_register(converter_xb2,1,EXPR_FLAGTYPE_DOUBLE,'\xb2','B'),
+	fmtc_register(converter_xb3,1,EXPR_FLAGTYPE_DOUBLE,'\xb3'),
+	fmtc_register(converter_xb4,1,EXPR_FLAGTYPE_DOUBLE,'\xb4'),
+	fmtc_register(converter_xb5,1,EXPR_FLAGTYPE_DOUBLE,'\xb5'),
+	fmtc_register(converter_xb6,1,EXPR_FLAGTYPE_DOUBLE,'\xb6'),
+	fmtc_register(converter_xb7,1,EXPR_FLAGTYPE_DOUBLE,'\xb7'),
+	fmtc_register(converter_xb8,1,EXPR_FLAGTYPE_DOUBLE,'\xb8','O'),
+	fmtc_register(converter_xb9,1,EXPR_FLAGTYPE_DOUBLE,'\xb9'),
+	fmtc_register(converter_xba,1,EXPR_FLAGTYPE_DOUBLE,'\xba','F'),
+	fmtc_register(converter_xbb,1,EXPR_FLAGTYPE_DOUBLE,'\xbb'),
+	fmtc_register(converter_xbc,1,EXPR_FLAGTYPE_DOUBLE,'\xbc'),
+	fmtc_register(converter_xbd,1,EXPR_FLAGTYPE_DOUBLE,'\xbd'),
+	fmtc_register(converter_xbe,1,EXPR_FLAGTYPE_DOUBLE,'\xbe'),
+	fmtc_register(converter_xbf,1,EXPR_FLAGTYPE_DOUBLE,'\xbf'),
 
-	fmtc_register(faction_s,1,0,'s'),
-	fmtc_register(faction_S,2,0,'S'),
-	fmtc_register(faction_c,1,0,'c'),
-	fmtc_register(converter_d,1,1,'d'),
-	fmtc_register(converter_fe,1,0,'e'),
-	fmtc_register(converter_fE,1,0,'E'),
-	fmtc_register(faction_g,1,0,'g'),
-	fmtc_register(faction_G,1,0,'G'),
-	fmtc_register(faction_p,1,0,'p'),
-	fmtc_register(faction_P,1,0,'P'),
-	fmtc_register(faction_h,2,0,'h'),
-	fmtc_register(faction_H,2,0,'H'),
+	fmtc_register(faction_s,1,EXPR_FLAGTYPE_ADDR,'s'),
+	fmtc_register(faction_S,2,EXPR_FLAGTYPE_ADDR,'S'),
+	fmtc_register(faction_c,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'c'),
+	fmtc_register(converter_d,1,EXPR_FLAGTYPE_SIGNED_INTEGER,'d'),
+	fmtc_register(converter_fe,1,EXPR_FLAGTYPE_DOUBLE,'e'),
+	fmtc_register(converter_fE,1,EXPR_FLAGTYPE_DOUBLE,'E'),
+	fmtc_register(faction_g,1,EXPR_FLAGTYPE_DOUBLE,'g'),
+	fmtc_register(faction_G,1,EXPR_FLAGTYPE_DOUBLE,'G'),
+	fmtc_register(faction_p,1,EXPR_FLAGTYPE_ADDR,'p'),
+	fmtc_register(faction_P,1,EXPR_FLAGTYPE_ADDR,'P'),
+	fmtc_register(faction_h,2,EXPR_FLAGTYPE_ADDR,'h'),
+	fmtc_register(faction_H,2,EXPR_FLAGTYPE_ADDR,'H'),
 
 };
 const uint8_t expr_writefmts_default_size=arrsize(expr_writefmts_default);
@@ -3492,10 +3492,11 @@ reflag:
 #define argnext(N) index+=(N);
 #define argback(N) index-=(N);
 #define goto_argfail {debug("arg failed");return PTRDIFF_MIN;}
-#define arg1 ({register void *const *__arg;__arg=arg(index,flag,addr);if(unlikely(!__arg))goto_argfail;if(flag->addr)__arg=*__arg;__arg;})
+#define argt(_type) ({register void *const *__arg;flag->type=(_type);__arg=arg(index,flag,addr);if(unlikely(!__arg))goto_argfail;if(flag->addr)__arg=*__arg;__arg;})
+#define arg1 argt(EXPR_FLAGTYPE_ADDR)
 #define get_next_arg64(dest,set) \
 		if(*fmt=='*'){\
-			dest=*(const ssize_t *)arg1;\
+			dest=*(const ssize_t *)argt(EXPR_FLAGTYPE_SIGNED_INTEGER);\
 			set=1;\
 			fmt_inc_check;\
 			argnext1;\
@@ -3796,7 +3797,7 @@ wfp_get:
 					for(;;){
 						if(arrwid<8){
 							bit_copy(arrwid);
-							if(wfp->arg_signed&&
+							if(wfp->type==EXPR_FLAGTYPE_SIGNED_INTEGER&&
 							(val&(0x80ul<<((arrwid-1)*8))))
 								val=(~0ul&~mask)|(val&mask);
 							else
@@ -3816,7 +3817,7 @@ wfp_get:
 					}
 				}else {
 					void *const *arg_cur;
-					if(!forward&&unlikely(!(arg_cur=arg1)))
+					if(!forward&&unlikely(!(arg_cur=argt(wfp->type))))
 						goto_argfail;
 					fmt_dorepeat(arg_cur);
 					if(!forward){

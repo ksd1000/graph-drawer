@@ -3293,14 +3293,6 @@ const uint8_t expr_writefmts_table_default[256]={
 		return v;\
 	ret+=v;\
 }
-/*static inline int check_no_number(int c){
-	char buf[2];
-	char *p;
-	*buf=(char)c;
-	buf[1]=0;
-	strtol(buf,&p,10);
-	return p==buf;
-}*/
 static const uint8_t number_table[256]={
 [0 ... '0'-1]=127,
 ['0']=0,
@@ -3464,11 +3456,19 @@ ssize_t expr_vwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer
 			goto end
 		fmt_inc_check;
 		*flag->bit=0;
-reflag:
 #define fmt_setflag(_field) \
+	if(flag->_field)\
+		break;\
 	flag->_field=1;\
 	fmt_inc_check;\
 	goto reflag
+#define fmt_setsize(_sz) \
+	if(flag->argsize==(_sz))\
+		break;\
+	flag->argsize=(_sz);\
+	fmt_inc_check;\
+	goto reflag
+reflag:
 		switch(*fmt){
 			case '+':
 				fmt_setflag(plus);
@@ -3505,6 +3505,8 @@ reflag:
 			if(fmt>fmt_old){\
 				dest=v;\
 				set=1;\
+				if(unlikely(fmt>=endp))\
+					break;\
 			}\
 		}
 		get_next_arg64(flag->width,flag->width_set);
@@ -3512,8 +3514,12 @@ reflag:
 			fmt_inc_check;
 			get_next_arg64(flag->digit,flag->digit_set);
 		}
-		if(unlikely(fmt>=endp))
-			break;
+		switch(*fmt){
+			case 'i':
+				fmt_setsize(sizeof(int));
+			default:
+				break;
+		}
 		current=*(uint8_t *)fmt;
 current_get:
 		switch((r1=table[current])){
@@ -3828,6 +3834,7 @@ end:
 }
 #undef arg1
 #undef argn
+#undef fmt_setsize
 #undef fmt_setflag
 #undef fmt_inc_check
 #undef get_next_arg64

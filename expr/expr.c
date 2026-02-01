@@ -3485,6 +3485,8 @@ reflag:
 				fmt_setflag(saved);
 			case '&':
 				fmt_setflag(addr);
+			case 'i':
+				fmt_setsize(sizeof(int));
 			default:
 				break;
 		}
@@ -3494,7 +3496,7 @@ reflag:
 #define goto_argfail {debug("arg failed");return PTRDIFF_MIN;}
 #define argt(_type) ({register const union expr_argf *__arg;flag->type=(_type);__arg=arg(index,flag,addr);if(unlikely(!__arg)){debug("cannot get arg[%zd]",index);goto_argfail;}if(flag->addr)__arg=__arg->aaddr;__arg;})
 #define arg1 argt(EXPR_FLAGTYPE_ADDR)
-#define get_next_arg64(dest,set) \
+#define get_next_arg64(dest,_after) \
 		if(*fmt=='*'){\
 			fmt_inc_check;\
 			if(*fmt=='*'){\
@@ -3502,31 +3504,30 @@ reflag:
 				fmt_inc_check;\
 			}else\
 				dest=argt(EXPR_FLAGTYPE_SIGNED_INTEGER)->sint;\
-			set=1;\
+			_after;\
 			argnext1;\
 		}else {\
 			fmt_old=fmt;\
 			fmt=internal_strtoz_autobase(fmt,endp,&v);\
 			if(fmt>fmt_old){\
 				dest=v;\
-				set=1;\
+				_after;\
 				if(unlikely(fmt>=endp))\
 					break;\
 			}\
 		}
-		get_next_arg64(flag->width,flag->width_set);
+		get_next_arg64(flag->width,flag->width_set=1);
 		if(*fmt=='.'){
 			fmt_inc_check;
-			get_next_arg64(flag->digit,flag->digit_set);
+			get_next_arg64(flag->digit,flag->digit_set=1);
 		}
-		switch(*fmt){
-			case 'i':
-				fmt_setsize(sizeof(int));
-			default:
-				break;
+		if(*fmt==':'){
+			fmt_inc_check;
+			get_next_arg64(flag->argsize,);
 		}
 		current=*(uint8_t *)fmt;
 current_get:
+		flag->op=current;
 		switch((r1=table[current])){
 			case 0:
 				goto end;
@@ -7716,6 +7717,7 @@ static ssize_t zero_reader(intptr_t fd,void *buf,size_t size){
 ssize_t expr_file_readfd(expr_reader reader,intptr_t fd,size_t tail,void *savep){
 	struct expr_buffered_file vf[1];
 	ssize_t r;
+	ssize_t ret;
 	vf->fd=fd;
 	vf->un.reader=reader;
 	vf->buf=NULL;
@@ -7731,13 +7733,14 @@ ssize_t expr_file_readfd(expr_reader reader,intptr_t fd,size_t tail,void *savep)
 	vf->un.reader=zero_reader;
 	vf->dynamic=vf->index+tail;
 	r=expr_buffered_read(vf,NULL,0);
+	ret=(ssize_t)vf->index;
 	if(unlikely(r<0)){
 		expr_buffered_rclose(vf);
 		return -r;
 	}
 	debug("savep=%p,r=%zu",vf->buf,vf->index);
 	*(void **)savep=vf->buf;
-	return vf->index;
+	return ret;
 }
 static long firstdiff(const char *restrict s1,const char *restrict s2,size_t len1,size_t len2){
 	long r,r0;

@@ -4018,11 +4018,13 @@ ssize_t expr_buffered_dropall(struct expr_buffered_file *restrict fp){
 	ssize_t r,ret=fp->index-fp->written;
 	char *trash;
 	size_t trashlen;
-	if(fp->buf){
+	if(fp->length){
 		trash=fp->buf;
 		trashlen=fp->length;
-	}else
-		trash=alloca(trashlen=bufsize_initial);
+	}else {
+		trash=alloca(1024);
+		trashlen=1024;
+	}
 	for(;;){
 		r=fp->un.reader(fp->fd,trash,trashlen);
 		if(unlikely(r<0))

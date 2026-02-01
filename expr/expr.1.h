@@ -349,9 +349,8 @@ struct expr_writeflag {
 	ssize_t digit;
 	uint64_t bit[0];
 #if (!defined(__BIG_ENDIAN__)||!__BIG_ENDIAN__)
-	uint64_t unused:38,
+	uint64_t unused:46,
 		 argsize:8,
-		 argc:8,
 		 addr:1,
 		 width_set:1,
 		 digit_set:1,
@@ -373,9 +372,8 @@ struct expr_writeflag {
 		 digit_set:1,
 		 width_set:1,
 		 addr:1,
-		 argc:8,
 		 argsize:8,
-		 unused:38;
+		 unused:46;
 #endif
 };
 _Static_assert(offsetof(struct expr_writeflag,bit)+sizeof(uint64_t)==sizeof(struct expr_writeflag),"offsetof(struct expr_writeflag,bit)+sizeof(uint64_t)!=sizeof(struct expr_writeflag)");
@@ -383,8 +381,8 @@ typedef ssize_t (*expr_writer)(intptr_t fd,const void *buf,size_t size);
 typedef ssize_t (*expr_reader)(intptr_t fd,void *buf,size_t size);
 struct expr_writefmt {
 	ssize_t (*converter)(expr_writer writer,intptr_t fd,void *const *arg,struct expr_writeflag *flag);
-	uint8_t argc,arg_signed;
-	uint8_t op[6];
+	uint8_t op[7];
+	uint8_t arg_signed:1,no_arg:1,digit_check:1,unused:5;
 };
 struct expr_buffered_file {
 	intptr_t fd;

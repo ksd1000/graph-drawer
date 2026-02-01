@@ -3035,15 +3035,13 @@ static ssize_t faction_s(expr_writer writer,intptr_t fd,void *const *arg,struct 
 	cwrite_common(*arg,(ssize_t)len);
 }
 static ssize_t faction_S(expr_writer writer,intptr_t fd,void *const *arg,struct expr_writeflag *flag){
-	size_t len=*(const size_t *)(arg+1);
+	size_t len=(size_t)flag->digit;
 	ssize_t r,sum,ext,sz;
-	if(flag->digit_set&&flag->digit<len)
-		len=flag->digit;
 	cwrite_common(*arg,(ssize_t)len);
 }
 #define faction_hexdump(name,conv_str) \
 static ssize_t faction_##name(expr_writer writer,intptr_t fd,void *const *arg,struct expr_writeflag *flag){\
-	size_t len=*(const size_t *)(arg+1);\
+	size_t len=(size_t)flag->digit;\
 	ssize_t r,sum,ext;\
 	uint8_t buf[960];\
 	uint8_t *p,*endp,*datap;\
@@ -3124,8 +3122,9 @@ static ssize_t faction_percent(expr_writer writer,intptr_t fd,void *const *arg,s
 }
 #define fmtc_register(_act,_argc,_sign,_op,...) {\
 	.converter=(_act),\
-	.argc=(_argc),\
 	.arg_signed=(_sign),\
+	.no_arg=(_argc?0:1),\
+	.digit_check=(_argc==2?1:0),\
 	.op={_op,##__VA_ARGS__},\
 }
 const struct expr_writefmt expr_writefmts_default[]={
@@ -3399,7 +3398,6 @@ static void *const *ewr_arg(ptrdiff_t index,const struct expr_writeflag *flag,vo
 	struct writef_args *wa=addr;
 	void *const *r=wa->base+index;
 	range_checkn(r,wa->base,wa->arglen,goto err);
-	range_checkcn(r+flag->argc,wa->base,wa->arglen,goto err);
 	debug("getting arg[%zd] (base=%p,len=%zu)=%p",index,wa->base,wa->arglen,r);
 	return r;
 err:
@@ -3431,7 +3429,7 @@ ssize_t expr_vwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer
 	size_t delimsz=0,tailsz=0,arrlen=0;
 	size_t loop=0;
 	ptrdiff_t index=0;
-	uint8_t forward=0,arrwid=0,current,c,r1;
+	uint8_t forward=0,arrwid=0,current,r1;
 	const char *fmt_save[8];
 	const char **fmt_save_current;
 	uintptr_t save;
@@ -3494,8 +3492,7 @@ reflag:
 #define argnext(N) index+=(N);
 #define argback(N) index-=(N);
 #define goto_argfail {debug("arg failed");return PTRDIFF_MIN;}
-#define arg1 argn(1)
-#define argn(N) ({register void *const *__arg;flag->argc=(N);__arg=arg(index,flag,addr);if(unlikely(!__arg))goto_argfail;if(flag->addr)__arg=*__arg;__arg;})
+#define arg1 ({register void *const *__arg;__arg=arg(index,flag,addr);if(unlikely(!__arg))goto_argfail;if(flag->addr)__arg=*__arg;__arg;})
 #define get_next_arg64(dest,set) \
 		if(*fmt=='*'){\
 			dest=*(const ssize_t *)arg1;\
@@ -3740,7 +3737,7 @@ current_get:
 		}\
 		if(!__builtin_constant_p(_arg)){\
 			if(forward){\
-				argnext(c);\
+				argnext1;\
 			}\
 		}\
 	}
@@ -3781,14 +3778,16 @@ current_get:
 			default:
 				wfp=fmts+(r1-1);//r
 wfp_get:
+				if(unlikely(wfp->digit_check&&!flag->digit_set))
+					goto_argfail;
 				
-				if(!(c=wfp->argc)){
+				if(wfp->no_arg){
 					fmt_dorepeat(NULL);
 					forward=0;
-				}else if(flag->saved&&c==1){
+				}else if(flag->saved){
 					fmt_dorepeat((void *const *)&save);
 					forward=0;
-				}else if(arrlen&&c==1){
+				}else if(arrlen){
 					uintptr_t aps;
 					uint64_t val,mask;
 					aps=(uint64_t)*arg1;
@@ -3817,11 +3816,11 @@ wfp_get:
 					}
 				}else {
 					void *const *arg_cur;
-					if(!forward&&unlikely(!(arg_cur=argn(c))))
+					if(!forward&&unlikely(!(arg_cur=arg1)))
 						goto_argfail;
 					fmt_dorepeat(arg_cur);
 					if(!forward){
-						argnext(c);
+						argnext1;
 					}else
 						forward=0;
 				}
@@ -3836,7 +3835,8 @@ end:
 	return ret;
 }
 #undef arg1
-#undef argn
+#undef goto_argfail
+//#undef argn
 #undef fmt_setsize
 #undef fmt_setflag
 #undef fmt_inc_check

@@ -7,6 +7,9 @@
 #include "expr.h"
 #include <stdlib.h>
 #include <err.h>
+#ifdef __clang__
+#pragma GCC diagnostic ignored "-Wunknown-warning-option"
+#endif
 ssize_t allocated=0;
 ssize_t freed=0;
 int allow_allocator_return_null=0;

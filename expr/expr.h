@@ -929,7 +929,8 @@ ssize_t expr_buffered_read(struct expr_buffered_file *restrict fp,void *buf,size
 ssize_t expr_buffered_write_flushat(struct expr_buffered_file *restrict fp,const void *buf,size_t size,int c);
 ssize_t expr_buffered_flush(struct expr_buffered_file *restrict fp);
 ssize_t expr_buffered_drop(struct expr_buffered_file *restrict fp);
-ssize_t expr_buffered_dropall(struct expr_buffered_file *restrict fp);
+ssize_t expr_buffered_rdrop(struct expr_buffered_file *restrict fp);
+ssize_t expr_buffered_rdropall(struct expr_buffered_file *restrict fp);
 ssize_t expr_buffered_close(struct expr_buffered_file *restrict fp);
 void expr_buffered_rclose(struct expr_buffered_file *restrict fp);
 ssize_t expr_asprintf(char **restrict strp,const char *restrict fmt,size_t fmtlen,const union expr_argf *restrict args,size_t arglen);

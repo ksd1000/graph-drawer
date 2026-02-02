@@ -2655,7 +2655,7 @@ static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr
 		char n[_nsize];\
 	} bufst;\
 	char *endp;\
-	char *p;\
+	char *p,*np;\
 	int positive,f61,f58;\
 	ssize_t ext,sum,r,sz,fsz,ds;\
 	size_t digit,width;\
@@ -2669,7 +2669,7 @@ static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr
 		cwrite_common(nbuf,p==nbuf?3l:4l);\
 	}\
 	endp=nbuf+_nsize;\
-	p=endp;\
+	np=endp;\
 	if(EXPR_EDSIGN(&val)){\
 		EXPR_EDSIGN(&val)=0;\
 		positive=0;\
@@ -2677,22 +2677,14 @@ static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr
 		positive=1;\
 	}\
 	sum=0;\
-	p=nbuf;\
-	write_sign_to_p(!positive);\
-	if(_base==16){\
-		if(flag->sharp){\
-			*(p++)='0';\
-			*(p++)=_conv_str[_base];\
-		}\
-	}\
 	sz=(ssize_t)EXPR_EDEXP(&val)-1023;\
 	if(sz>=0){\
 		double fval;\
 		fval=floor(val);\
 		val-=fval;\
-		ds=(ssize_t)(log(fval)/(_lnbase))+1;\
+		/*ds=(ssize_t)ceil(log(fval)/(_lnbase))+1;\
 		assume(ds>0&&ds<=_nsize);\
-		p+=ds;\
+		np+=ds;*/\
 		*iival=EXPR_EDBASE(&fval)|(1ul<<52ul);\
 		sz-=52;\
 		if(sz){\
@@ -2704,17 +2696,25 @@ static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr
 			}\
 		}else\
 			r=1;\
-		extint_ascii_rev(iival,r,conv_btox,_base,p);\
+		np-=extint_ascii_rev(iival,r,conv_btox,_base,np);\
 	}else {\
-		*(p++)='0';\
+		*(--np)='0';\
 	}\
-	ds=p-nbuf;\
+	if(_base==16){\
+		if(flag->sharp){\
+			*(--np)=_conv_str[_base];\
+			*(--np)='0';\
+		}\
+	}\
+	write_sign_to_np(!positive);\
+	ds=endp-np;\
 	f61=!!(flag->minus);\
 	f58=!!(flag->eq);\
 	digit=flag_digit(flag,6);\
 	if(digit>SSIZE_MAX-1)\
 		digit=SSIZE_MAX-1;\
 	width=flag_width(flag,0);\
+	p=vbuf+1096;\
 	if(digit){\
 		fsz=(ssize_t)EXPR_EDEXP(&val);\
 		if(fsz)\
@@ -2724,7 +2724,6 @@ static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr
 		ext=1075-fsz;\
 		r=1;\
 		_shift;\
-		p=vbuf+1096;\
 		fsz=extint_ascii_rev(ival,r,_conv_str,_base,p);\
 		p-=fsz;\
 		ext-=fsz;\
@@ -2752,7 +2751,7 @@ static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr
 	return sum;\
 }
 #define conv_f(_name,_base,_lnbase,_conv_str,_shift,_nsize) conv_f0(_name,_base,_lnbase,_conv_str,_shift,_nsize,{\
-	c_trywrite(nbuf,ds);\
+	c_trywrite(np,ds);\
 	if(fsz){\
 		c_trywrite(p,fsz);\
 	}\
@@ -2789,10 +2788,10 @@ static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr
 		}\
 	}else {\
 		++firp;\
-		c_trywrite(nbuf,firp-nbuf);\
+		c_trywrite(np,firp-np);\
 		if(digit)\
 			c_trywrite(".",1);\
-		r1=(nbuf+ds)-firp-iz;\
+		r1=(np+ds)-firp-iz;\
 		if(r1>=digit){\
 			ext=0;\
 			r1=digit;\
@@ -2830,33 +2829,33 @@ static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr
 	--fsz;\
 	switch(ds){\
 		case 1:\
-			firp=nbuf;\
-			if(*nbuf=='0')\
+			firp=np;\
+			if(*np=='0')\
 				goto onzero;\
 			break;\
 		case 2:\
-			switch(*nbuf){\
+			switch(*np){\
 				case '+':\
 				case '-':\
 					--r1;\
-					firp=nbuf+1;\
-					if(nbuf[1]=='0')\
+					firp=np+1;\
+					if(np[1]=='0')\
 						goto onzero;\
 					break;\
 				default:\
-					firp=nbuf;\
+					firp=np;\
 					break;\
 			}\
 			break;\
 		default:\
 nofsz:\
-			switch(*nbuf){\
+			switch(*np){\
 				case '+':\
 				case '-':\
-					firp=nbuf+1;\
+					firp=np+1;\
 					break;\
 				default:\
-					firp=nbuf;\
+					firp=np;\
 					break;\
 			}\
 			break;\
@@ -2899,7 +2898,7 @@ onzero:\
 	sz+=ds+(f58?fsz+!!digit:digit+!!digit);\
 	if(!fsz)\
 		++sz;\
-	for(iz=0,endp=nbuf+ds;--endp>nbuf;){\
+	for(iz=0,endp=np+ds;--endp>np;){\
 		if(*endp=='0')\
 			++iz;\
 		else\
@@ -2920,6 +2919,13 @@ onzero:\
 		}else {\
 			if(flag_plusorspace(flag))\
 				*(p++)='+';\
+		}
+#define write_sign_to_np(_neg) \
+		if(_neg){\
+			*(--np)='-';\
+		}else {\
+			if(flag_plusorspace(flag))\
+				*(--np)='+';\
 		}
 #define vbuf (bufst.v)
 #define nbuf (bufst.n)
@@ -3441,6 +3447,13 @@ ssize_t expr_vwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer
 			wf_trywrite(fmt_old,fmt-fmt_old);
 			break;
 		}
+		/*
+		fmt=memchr(fmt,'%',endp-fmt);
+		if(unlikely(!fmt)){
+			wf_trywrite(fmt_old,endp-fmt_old);
+			break;
+		}
+		*/
 		if(*fmt!='%'){
 			++fmt;
 			continue;

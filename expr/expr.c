@@ -4044,10 +4044,17 @@ ssize_t expr_buffered_drop(struct expr_buffered_file *restrict fp){
 	r=fp->index;
 	debug("%zd - %zd bytes dropped",r,fp->written);
 	fp->index=0;
+	return r;
+}
+ssize_t expr_buffered_rdrop(struct expr_buffered_file *restrict fp){
+	ssize_t r;
+	r=fp->index;
+	debug("%zd - %zd bytes dropped",r,fp->written);
+	fp->index=0;
 	fp->written=0;
 	return r;
 }
-ssize_t expr_buffered_dropall(struct expr_buffered_file *restrict fp){
+ssize_t expr_buffered_rdropall(struct expr_buffered_file *restrict fp){
 	ssize_t r,ret=fp->index-fp->written;
 	char *trash;
 	size_t trashlen;

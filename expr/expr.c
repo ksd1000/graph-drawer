@@ -3541,15 +3541,16 @@ current_get:
 				break;
 			case 253:
 #define fmt_op_cond(onexit) \
-				if(flag->sharp){\
+				if(flag->eq){\
 					intptr_t *restrict ar;\
 					int c;\
-					if(flag->eq){\
+					if(flag->digit_set){\
 						ar=arg1->addr;\
 						argnext1;\
-						v=flag_digit(flag,1);\
-						*ar-=v;\
+						*ar+=flag->digit;\
 						c=flag->zero?*ar<0:(flag->space?*ar>0:!*ar);\
+						if(flag->sharp)\
+							c=!c;\
 						if(c){\
 							onexit;\
 							break;\

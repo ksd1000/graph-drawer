@@ -3485,8 +3485,6 @@ reflag:
 				fmt_setflag(saved);
 			case '&':
 				fmt_setflag(addr);
-			case 'i':
-				fmt_setsize(sizeof(int));
 			default:
 				break;
 		}
@@ -3811,6 +3809,7 @@ wfp_get:
 				}else if(arrlen){
 					uintptr_t aps;
 					expr_umaxf_t val,mask;
+					flag->argsize=sizeof(void *);
 					aps=arg1->uint;
 					mask=(1ul<<(arrwid*8))-1ul;
 					argnext1;

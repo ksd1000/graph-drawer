@@ -268,6 +268,7 @@
 	size_t _n=minc((n),EXPR_SYMLEN-1);\
 	memcpy(_ei,(s),_n);_ei[_n]=0;\
 })
+#define serrinfoc(ei,s) memcpy(ei,s,mincc(sizeof(s)-1,EXPR_SYMLEN))
 #define expr_void(addr) ({\
 	int _r;\
 	switch((ssize_t)addr){\
@@ -1758,7 +1759,7 @@ static struct expr_vmdinfo *getvmdinfo(struct expr *restrict ep,const char *e0,s
 		}
 		if(!max){
 			seterr(ep,EXPR_EVZP);
-			serrinfo(ep->errinfo,"vmd",mincc(3,EXPR_SYMLEN));
+			serrinfoc(ep->errinfo,"vmd");
 			goto err0;
 		}
 		ev=xmalloc(sizeof(struct expr_vmdinfo));
@@ -2552,7 +2553,7 @@ keyword:
 						break;
 					default:
 						seterr(ep,EXPR_ENEA);
-						memcpy(ep->errinfo,"const",mincc(5,EXPR_SYMLEN));
+						serrinfoc(ep->errinfo,"const");
 c_fail:
 						expr_free2(sym.vv);
 						return NULL;
@@ -2585,7 +2586,7 @@ c_fail:
 						break;
 					default:
 						seterr(ep,EXPR_ENEA);
-						memcpy(ep->errinfo,"var",mincc(3,EXPR_SYMLEN));
+						serrinfoc(ep->errinfo,"var");
 						goto c_fail;
 				}
 				if(ep->sset&&expr_symset_search(ep->sset,sym.vv[0],dim=strlen(sym.vv[0]))){
@@ -2616,7 +2617,7 @@ c_fail:
 						break;
 					default:
 						seterr(ep,EXPR_ENEA);
-						memcpy(ep->errinfo,"decl",mincc(4,EXPR_SYMLEN));
+						serrinfoc(ep->errinfo,"decl");
 						goto c_fail;
 				}
 				cknp(ep,expr_detach(ep)>=0,goto c_fail);
@@ -2658,7 +2659,7 @@ alias_found_decl:
 						break;
 					default:
 						seterr(ep,EXPR_ENEA);
-						memcpy(ep->errinfo,"hot",mincc(3,EXPR_SYMLEN));
+						serrinfoc(ep->errinfo,"hot");
 						goto c_fail;
 				}
 				dim=strlen(sym.vv[0]);
@@ -2882,7 +2883,7 @@ found2:
 						if(unlikely(type&EXPR_IF_SETABLE&~flag)){
 flpm:
 							seterr(ep,EXPR_EPM);
-							serrinfo(ep->errinfo,"flag",mincc(4,EXPR_SYMLEN));
+							serrinfoc(ep->errinfo,"flag");
 							return NULL;
 						}
 					}
@@ -2903,7 +2904,7 @@ flpm:
 			case EXPR_XORL:
 				if(unlikely(p!=e+1)){
 					seterr(ep,EXPR_EZAFP);
-					memcpy(ep->errinfo,"scope",mincc(5,EXPR_SYMLEN));
+					serrinfoc(ep->errinfo,"scope");
 					return NULL;
 				}
 				++p;
@@ -2987,7 +2988,7 @@ flpm:
 						break;
 					default:
 						seterr(ep,EXPR_ENEA);
-						memcpy(ep->errinfo,"alias",mincc(5,EXPR_SYMLEN));
+						serrinfoc(ep->errinfo,"alias");
 						goto c_fail;
 				}
 				dim=strlen(sym.vv[0]);
@@ -3038,7 +3039,7 @@ flpm:
 						break;
 					default:
 						seterr(ep,EXPR_ENEA);
-						memcpy(ep->errinfo,"alloca",mincc(6,EXPR_SYMLEN));
+						serrinfoc(ep->errinfo,"alloca");
 						goto c_fail;
 				}
 				v0=scan(ep,sym.vv[0],sym.vv[0]+strlen(sym.vv[0]),asym,asymlen);
@@ -3069,7 +3070,7 @@ flpm:
 					default:
 svc_enea:
 						seterr(ep,EXPR_ENEA);
-						memcpy(ep->errinfo,"svcp",mincc(4,EXPR_SYMLEN));
+						serrinfoc(ep->errinfo,"svcp");
 						goto c_fail;
 				}
 				v0=scan(ep,sym.vv[0],sym.vv[0]+strlen(sym.vv[0]),asym,asymlen);
@@ -3093,7 +3094,7 @@ svc_enea:
 						break;
 					default:
 						seterr(ep,EXPR_ENEA);
-						memcpy(ep->errinfo,"svc",mincc(3,EXPR_SYMLEN));
+						serrinfoc(ep->errinfo,"svc");
 						goto c_fail;
 				}
 				v0=scan(ep,sym.vv[0],sym.vv[0]+strlen(sym.vv[0]),asym,asymlen);
@@ -3129,7 +3130,7 @@ svc_enea:
 				for(un.vv1=sym.vv;*un.vv1;++un.vv1);
 				if(unlikely(un.vv1-sym.vv!=2)){
 					seterr(ep,EXPR_ENEA);
-					memcpy(ep->errinfo,"longjmp",mincc(7,EXPR_SYMLEN));
+					serrinfoc(ep->errinfo,"longjmp");
 					goto c_fail;
 				}
 				v0=scan(ep,sym.vv[0],sym.vv[0]+strlen(sym.vv[0]),asym,asymlen);
@@ -3153,7 +3154,7 @@ svc_enea:
 							break;
 						default:
 							seterr(ep,EXPR_EZAFP);
-							memcpy(ep->errinfo,"ip",mincc(2,EXPR_SYMLEN));
+							serrinfoc(ep->errinfo,"ip");
 							return NULL;
 					}
 				}else
@@ -3190,7 +3191,7 @@ svc_enea:
 						break;\
 					default:\
 						seterr(ep,EXPR_ENEA);\
-						memcpy(ep->errinfo,_err,mincc(sizeof(_err)-1,EXPR_SYMLEN));\
+						serrinfoc(ep->errinfo,_err);\
 						goto c_fail;\
 				}\
 \
@@ -5276,6 +5277,7 @@ double expr_calc2(const char *e,int flag){
 double expr_calc(const char *e){
 	return expr_calc5(e,NULL,NULL,NULL,0);
 }
+
 static size_t expr_varofep(const struct expr *restrict ep,double *v){
 	size_t i;
 	if(unlikely(expr_void(v)))
@@ -5953,7 +5955,7 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 		void *up;\
 		double d;\
 		size_t index;\
-	} un;\
+	} un
 
 #define sum (un.s0._sum)
 #define from (un.s0._from)

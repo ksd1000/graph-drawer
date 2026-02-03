@@ -16,7 +16,7 @@ expr_buffered.o: expr_format.c expr.h
 expr_builtin.o: expr_builtin.c expr.h
 	$(CC) $(CFLAG) expr_builtin.c -c -o expr_builtin.o
 expr-version: expr.a expr-version.c
-	$(CC) $(CFLAG) expr.a expr-version.c -o expr-version $(LFLAG)
+	$(CC) $(CFLAG) expr-version.c expr.a -o expr-version $(LFLAG)
 .PHONY:
 cleanall:
 	make clean

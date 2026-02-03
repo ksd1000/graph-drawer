@@ -24,10 +24,6 @@
 #define printvall(x) warn(#x ":%ld",(long)(x))
 #define printvald(x) warn(#x ":%lf",(double)(x))
 #define trap (warn("\nat file %s line %d",__FILE__,__LINE__),__builtin_trap())
-/*
-*/
-#define addo(V,A) __builtin_add_overflow((V),(A),&(V))
-#define mulo(V,A) __builtin_mul_overflow((V),(A),&(V))
 #define warn(fmt,...) fprintf(stderr,fmt "\n",##__VA_ARGS__)
 
 #if NDEBUG

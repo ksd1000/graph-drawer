@@ -21,10 +21,11 @@ typedef ptrdiff_t ssize_t;
 #define SSIZE_MAX PTRDIFF_MAX
 #endif
 
-_Static_assert(sizeof(ssize_t)==sizeof(ptrdiff_t),"sizeof(ssize_t)!=sizeof(ptrdiff_t)");
-_Static_assert(sizeof(size_t)==sizeof(ptrdiff_t),"sizeof(size_t)!=sizeof(ptrdiff_t)");
-_Static_assert(sizeof(void *)==sizeof(ptrdiff_t),"sizeof(void *)!=sizeof(ptrdiff_t)");
-_Static_assert(sizeof(void *)>=sizeof(double),"sizeof(void *)<sizeof(double)");
+#define expr_static_assert(cond) _Static_assert((cond),"static assertion " #cond " failed")
+expr_static_assert(sizeof(ssize_t)==sizeof(ptrdiff_t));
+expr_static_assert(sizeof(size_t)==sizeof(ptrdiff_t));
+expr_static_assert(sizeof(void *)==sizeof(ptrdiff_t));
+expr_static_assert(sizeof(void *)>=sizeof(double));
 
 enum expr_op :int {
 EXPR_COPY=0,
@@ -305,9 +306,9 @@ EXPR_END
 
 #define expr_symbol_foreach5(_sp,_esp,_stack,_atindex,_label) \
 	for(unsigned int __inloop_index=0;;)if(0){\
-		_Static_assert(__builtin_constant_p((_atindex)),"_atindex should be constant");\
-		_Static_assert(__builtin_constant_p((_atindex)<EXPR_SYMNEXT),"_atindex should be constant");\
-		_Static_assert(__builtin_constant_p((_atindex)>=EXPR_SYMNEXT),"_atindex should be constant");\
+		expr_static_assert(__builtin_constant_p((_atindex)));\
+		expr_static_assert(__builtin_constant_p((_atindex)<EXPR_SYMNEXT));\
+		expr_static_assert(__builtin_constant_p((_atindex)>=EXPR_SYMNEXT));\
 		expr_static_castable((_stack),void *);\
 		expr_static_castable((_esp),const struct expr_symbol *);\
 	expr_combine(expr_symset_foreach_label_,_label):break;}else\
@@ -384,7 +385,7 @@ struct expr_writeflag {
 		 unused:36;
 #endif
 };
-_Static_assert(offsetof(struct expr_writeflag,bit)+sizeof(uint64_t)==sizeof(struct expr_writeflag),"offsetof(struct expr_writeflag,bit)+sizeof(uint64_t)!=sizeof(struct expr_writeflag)");
+expr_static_assert(offsetof(struct expr_writeflag,bit)+sizeof(uint64_t)==sizeof(struct expr_writeflag));
 typedef ssize_t (*expr_writer)(intptr_t fd,const void *buf,size_t size);
 typedef ssize_t (*expr_reader)(intptr_t fd,void *buf,size_t size);
 union expr_argf {
@@ -413,6 +414,8 @@ union expr_argf {
 	expr_imaxf_t imax;
 	expr_imaxf_t *imaddr;
 };
+expr_static_assert(sizeof(union expr_argf)==sizeof(double));
+expr_static_assert(sizeof(union expr_argf)==sizeof(expr_umaxf_t));
 struct expr_writefmt {
 	ssize_t (*converter)(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
 	uint8_t op[7];

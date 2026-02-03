@@ -94,7 +94,7 @@
 	_a>_b?_a:_b;\
 })
 #define maxc(a,const_expr) ({\
-	_Static_assert(__builtin_constant_p(const_expr),"not a constant");\
+	expr_static_assert(__builtin_constant_p(const_expr));\
 	__auto_type _a=(a);\
 	_a>(const_expr)?_a:(const_expr);\
 })
@@ -105,7 +105,7 @@
 })
 */
 #define minc(a,const_expr) ({\
-	_Static_assert(__builtin_constant_p(const_expr),"not a constant");\
+	expr_static_assert(__builtin_constant_p(const_expr));\
 	__auto_type _a=(a);\
 	_a<(const_expr)?_a:(const_expr);\
 })
@@ -2645,7 +2645,7 @@ static size_t extint_ascii_rev(uint64_t *buf,size_t size,const char *chars,uint3
 }
 #define conv_f0(_name,_base,_lnbase,_conv_str,_shift,_nsize,_how,_before_how) \
 static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){\
-	_Static_assert(__builtin_constant_p((_nsize)),"_nsize should be constant");\
+	expr_static_assert(__builtin_constant_p((_nsize)));\
 	double val=arg->dbl;\
 	struct {\
 		uint64_t w[69];\
@@ -3442,31 +3442,27 @@ ssize_t expr_vwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer
 	if(unlikely(endp<=fmt))
 		return 0;
 	fmt_save_current=fmt_save;
-	for(;;){
-		if(unlikely(fmt>=endp)){
-			wf_trywrite(fmt_old,fmt-fmt_old);
-			break;
-		}
-		/*
-		fmt=memchr(fmt,'%',endp-fmt);
-		if(unlikely(!fmt)){
-			wf_trywrite(fmt_old,endp-fmt_old);
-			break;
-		}
-		*/
-		if(*fmt!='%'){
-			++fmt;
-			continue;
-		}
-		if(fmt>fmt_old){
-			wf_trywrite(fmt_old,fmt-fmt_old);
-			fmt_old=fmt;
-		}
+next:
+	fmt=memchr(fmt,'%',endp-fmt);
+	if(unlikely(!fmt)){
+		wf_trywrite(fmt_old,endp-fmt_old);
+		goto end;
+	}
+	/*
+	if(*fmt!='%'){
+		++fmt;
+		continue;
+	}
+	*/
+	if(fmt>fmt_old){
+		wf_trywrite(fmt_old,fmt-fmt_old);
+		fmt_old=fmt;
+	}
 #define fmt_inc_check ++fmt;\
-		if(unlikely(fmt>=endp))\
-			goto end
-		fmt_inc_check;
-		*flag->bit=0;
+	if(unlikely(fmt>=endp))\
+		goto end
+	fmt_inc_check;
+	*flag->bit=0;
 #define fmt_setflag(_field) \
 	if(flag->_field)\
 		break;\
@@ -3481,26 +3477,63 @@ ssize_t expr_vwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer
 	fmt_inc_check;\
 	goto reflag
 reflag:
-		switch(*fmt){
-			case '+':
-				fmt_setflag(plus);
-			case ' ':
-				fmt_setflag(space);
-			case '-':
-				fmt_setflag(minus);
-			case '#':
-				fmt_setflag(sharp);
-			case '0':
-				fmt_setflag(zero);
-			case '=':
-				fmt_setflag(eq);
-			case '?':
-				fmt_setflag(saved);
-			case '&':
-				fmt_setflag(addr);
-			default:
-				break;
-		}
+	switch(*fmt){
+		case '+':
+			fmt_setflag(plus);
+		case ' ':
+			fmt_setflag(space);
+		case '-':
+			fmt_setflag(minus);
+		case '#':
+			fmt_setflag(sharp);
+		case '0':
+			fmt_setflag(zero);
+		case '=':
+			fmt_setflag(eq);
+		case '?':
+			fmt_setflag(saved);
+		case '&':
+			fmt_setflag(addr);
+		default:
+			break;
+	}
+#define t_copy(_d,_s,T) *(T *)(_d)=*(T *)(_s)
+#define t_ocopy(_d,_s,T,_off) *(T *)((uintptr_t)(_d)+(_off))=*(T *)((uintptr_t)(_s)+(_off))
+#define bit_copy(_d,_s,_bit) ({\
+	switch(_bit){\
+		case 1:\
+			t_copy((_d),(_s),uint8_t);\
+			break;\
+		case 2:\
+			t_copy((_d),(_s),uint16_t);\
+			break;\
+		case 3:\
+			t_copy((_d),(_s),uint16_t);\
+			t_ocopy((_d),(_s),uint8_t,2);\
+			break;\
+		case 4:\
+			t_copy((_d),(_s),uint32_t);\
+			break;\
+		case 5:\
+			t_copy((_d),(_s),uint32_t);\
+			t_ocopy((_d),(_s),uint8_t,4);\
+			break;\
+		case 6:\
+			t_copy((_d),(_s),uint32_t);\
+			t_ocopy((_d),(_s),uint16_t,4);\
+			break;\
+		case 7:\
+			t_copy((_d),(_s),uint32_t);\
+			t_ocopy((_d),(_s),uint16_t,4);\
+			t_ocopy((_d),(_s),uint8_t,6);\
+			break;\
+		case 8:\
+			t_copy((_d),(_s),uint64_t);\
+			break;\
+		default:\
+			__builtin_unreachable();\
+	}\
+})
 #define argnext1 ++index;debug("arg index to %zd",index)
 #define argnext(N) index+=(N);debug("arg index to %zd",index)
 #define argback(N) index-=(N);debug("arg index back to %zd",index)
@@ -3508,248 +3541,248 @@ reflag:
 #define argt(_type) ({register const union expr_argf *__arg;flag->type=(_type);__arg=arg(index,flag,addr);if(unlikely(!__arg)){debug("cannot get arg[%zd]",index);goto_argfail;}if(flag->addr)__arg=__arg->aaddr;__arg;})
 #define arg1 argt(EXPR_FLAGTYPE_ADDR)
 #define get_next_arg64(dest,_after) \
+	if(*fmt=='*'){\
+		fmt_inc_check;\
 		if(*fmt=='*'){\
+			dest=*argt(EXPR_FLAGTYPE_SIGNED_INTEGER)->siaddr;\
 			fmt_inc_check;\
-			if(*fmt=='*'){\
-				dest=*argt(EXPR_FLAGTYPE_SIGNED_INTEGER)->siaddr;\
-				fmt_inc_check;\
-			}else\
-				dest=argt(EXPR_FLAGTYPE_SIGNED_INTEGER)->sint;\
+		}else\
+			dest=argt(EXPR_FLAGTYPE_SIGNED_INTEGER)->sint;\
+		_after;\
+		argnext1;\
+	}else {\
+		fmt_old=fmt;\
+		fmt=internal_strtoz_autobase(fmt,endp,&v);\
+		if(fmt>fmt_old){\
+			dest=v;\
 			_after;\
-			argnext1;\
-		}else {\
-			fmt_old=fmt;\
-			fmt=internal_strtoz_autobase(fmt,endp,&v);\
-			if(fmt>fmt_old){\
-				dest=v;\
-				_after;\
-				if(unlikely(fmt>=endp))\
-					break;\
-			}\
-		}
-		get_next_arg64(flag->width,flag->width_set=1);
-		if(*fmt=='.'){
-			fmt_inc_check;
-			get_next_arg64(flag->digit,flag->digit_set=1);
-		}
-		if(*fmt==':'){
-			fmt_inc_check;
-			get_next_arg64(flag->argsize,);
-		}
-		current=*(uint8_t *)fmt;
+			if(unlikely(fmt>=endp))\
+				goto end;\
+		}\
+	}
+	get_next_arg64(flag->width,flag->width_set=1);
+	if(*fmt=='.'){
+		fmt_inc_check;
+		get_next_arg64(flag->digit,flag->digit_set=1);
+	}
+	if(*fmt==':'){
+		fmt_inc_check;
+		get_next_arg64(flag->argsize,);
+	}
+	current=*(uint8_t *)fmt;
 current_get:
-		flag->op=current;
-		switch((r1=table[current])){
-			case 0:
-				goto end;
-			case 255:
-				*arg1->zaddr=(size_t)ret;
-				argnext1;
-				break;
-			case 254:
-				*arg1->daddr=(double)ret;
-				argnext1;
-				break;
-			case 253:
+	flag->op=current;
+	switch((r1=table[current])){
+		case 0:
+			goto end;
+		case 255:
+			*arg1->zaddr=(size_t)ret;
+			argnext1;
+			break;
+		case 254:
+			*arg1->daddr=(double)ret;
+			argnext1;
+			break;
+		case 253:
 #define fmt_op_cond(onexit) \
-				if(flag->eq){\
-					intptr_t *restrict ar;\
-					int c;\
-					if(flag->digit_set){\
-						ar=arg1->addr;\
-						argnext1;\
-						*ar+=flag->digit;\
-						c=flag->zero?*ar<0:(flag->space?*ar>0:!*ar);\
-						if(flag->sharp)\
-							c=!c;\
-						if(c){\
-							onexit;\
-							break;\
-						}\
-					}else {\
-						ar=arg1->addr;\
-						argnext1;\
-						if(!ar){\
-							onexit;\
-							break;\
-						}\
+			if(flag->eq){\
+				intptr_t *restrict ar;\
+				int c;\
+				if(flag->digit_set){\
+					ar=arg1->addr;\
+					argnext1;\
+					*ar+=flag->digit;\
+					c=flag->zero?*ar<0:(flag->space?*ar>0:!*ar);\
+					if(flag->sharp)\
+						c=!c;\
+					if(c){\
+						onexit;\
+						break;\
 					}\
-				}
-				fmt_op_cond();
-				v=flag_width(flag,1);
-				if(flag->minus){
-					index-=v;
-				}else {
-					index+=v;
-				}
-				debug("jumpto args[%zd]",index);
-				break;
-			case 252:
-				loop=flag_width(flag,0);
-				break;
-			case 251:
-				loop=flag_width(flag,0);
-				forward=1;
-				break;
-			case 250:
+				}else {\
+					ar=arg1->addr;\
+					argnext1;\
+					if(!ar){\
+						onexit;\
+						break;\
+					}\
+				}\
+			}
+			fmt_op_cond();
+			v=flag_width(flag,1);
+			if(flag->minus){
+				index-=v;
+			}else {
+				index+=v;
+			}
+			debug("jumpto args[%zd]",index);
+			break;
+		case 252:
+			loop=flag_width(flag,0);
+			break;
+		case 251:
+			loop=flag_width(flag,0);
+			forward=1;
+			break;
+		case 250:
 #define setdlm(dlm,dsz) \
-				dsz=flag_width(flag,0);\
-				if(dsz){\
-					dlm=fmt+1;\
-					d1=dlm+dsz;\
-					if(unlikely(d1>=endp||d1<dlm))\
-						goto_argfail;\
-					fmt+=dsz;\
-				}
-				setdlm(delim,delimsz);
-				break;
-			case 249:
-				setdlm(tail,tailsz);
-				break;
-			case 248:
-				arrwid=flag_digit(flag,8);
-				if(unlikely(arrwid>8||!arrwid))
-					goto_argfail;
-				arrlen=flag_width(flag,0);
-				break;
-			case 247:
-				if(arg1->uint)
-					goto end;
-				argnext1;
-				break;
-			case 246:
-				current=(uint8_t)arg1->uint;
-				argnext1;
-				goto current_get;
+			dsz=flag_width(flag,0);\
+			if(dsz){\
+				dlm=fmt+1;\
+				d1=dlm+dsz;\
+				if(unlikely(d1>=endp||d1<dlm))\
+					goto_argfail;\
+				fmt+=dsz;\
+			}
+			setdlm(delim,delimsz);
+			break;
+		case 249:
+			setdlm(tail,tailsz);
+			break;
+		case 248:
+			arrwid=flag_digit(flag,8);
+			if(unlikely(arrwid>8||!arrwid))
+				goto_argfail;
+			arrlen=flag_width(flag,0);
+			break;
+		case 247:
+			if(arg1->uint)
+				goto end;
+			argnext1;
+			break;
+		case 246:
+			current=(uint8_t)arg1->uint;
+			argnext1;
+			goto current_get;
 #define fmt_jumpto(target) range_checkn(fmt=(target),fmt0,fmtlen,goto_argfail)
-			case 245:
-				fmt_op_cond(
-					if(flag->plus){
-						range_checkn(--fmt_save_current,fmt_save,8,goto_argfail);
-					}
-					arrlen=0);
-				v=flag_width(flag,0);
+		case 245:
+			fmt_op_cond(
 				if(flag->plus){
-					range_checkn(fmt_save_current-1,fmt_save,8,goto_argfail);
-					d1=fmt_save_current[-1];
-				}else if(flag->minus)
-					d1=fmt-v;
-				else
-					d1=fmt+v;
-				++d1;
-				debug("jumpto fmt[%zd]",d1-fmt0);
-				fmt_jumpto(d1);
-				argback(arrlen);
-				arrlen=0;
-				goto continue_keepfmt;
-			case 244:
-				wfp=(const struct expr_writefmt *)arg1->addr;
-				argnext1;
-				goto wfp_get;
-			case 243:
-				if(flag->width_set)
-					*arg1->uiaddr*=flag->width;
-				if(flag->digit_set)
-					*arg1->uiaddr+=flag->digit;
-				else
-					++(*arg1->uiaddr);
-				argnext1;
-				break;
-			case 242:
-				if(flag->width_set)
-					*arg1->uiaddr/=flag->width;
-				if(flag->digit_set)
-					*arg1->uiaddr-=flag->digit;
-				else
-					--(*arg1->uiaddr);
-				argnext1;
-				break;
-			case 241:
-				debug("push fmt[%zd]",fmt-fmt0);
-				EXPR_RPUSH(fmt_save_current)=fmt;
-				range_checkn(fmt_save_current,fmt_save,8,goto_argfail);
-				break;
-			case 240:
-				fmt_save_current=fmt_save;
-				break;
+					range_checkn(--fmt_save_current,fmt_save,8,goto_argfail);
+				}
+				arrlen=0);
+			v=flag_width(flag,0);
+			if(flag->plus){
+				range_checkn(fmt_save_current-1,fmt_save,8,goto_argfail);
+				d1=fmt_save_current[-1];
+			}else if(flag->minus)
+				d1=fmt-v;
+			else
+				d1=fmt+v;
+			++d1;
+			debug("jumpto fmt[%zd]",d1-fmt0);
+			fmt_jumpto(d1);
+			argback(arrlen);
+			arrlen=0;
+			goto continue_keepfmt;
+		case 244:
+			wfp=(const struct expr_writefmt *)arg1->addr;
+			argnext1;
+			goto wfp_get;
+		case 243:
+			if(flag->width_set)
+				*arg1->uiaddr*=flag->width;
+			if(flag->digit_set)
+				*arg1->uiaddr+=flag->digit;
+			else
+				++(*arg1->uiaddr);
+			argnext1;
+			break;
+		case 242:
+			if(flag->width_set)
+				*arg1->uiaddr/=flag->width;
+			if(flag->digit_set)
+				*arg1->uiaddr-=flag->digit;
+			else
+				--(*arg1->uiaddr);
+			argnext1;
+			break;
+		case 241:
+			debug("push fmt[%zd]",fmt-fmt0);
+			EXPR_RPUSH(fmt_save_current)=fmt;
+			range_checkn(fmt_save_current,fmt_save,8,goto_argfail);
+			break;
+		case 240:
+			fmt_save_current=fmt_save;
+			break;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
-			case 239:
-				if(flag->zero){
-					if(flag->digit_set){
-						if(flag->plus)
-							save.imax+=flag->digit;
-						else
-							save.imax=flag->digit;
-					}else
-						save.umax=0;
-				}else {
-					save.umax=*arg1->umaddr;
-					argnext1;
-				}
-				break;
-			case 238:
-				{
-					union expr_argf old;
-					old.umax=*arg1->umaddr;
-					switch(flag_width(flag,0)){
-						case 0:
-							old.umax=save.umax;
-							break;
-						case 1:
-							old.umax+=save.umax;
-							break;
-						case 2:
-							old.umax-=save.umax;
-							break;
-						case 3:
-							old.umax*=save.umax;
-							break;
-						case 4:
-							old.umax/=save.umax;
-							break;
-						case 5:
-							old.umax%=save.umax;
-							break;
-						case 6:
-							old.umax&=save.umax;
-							break;
-						case 7:
-							old.umax^=save.umax;
-							break;
-						case 8:
-							old.umax|=save.umax;
-							break;
-						case 9:
-							old.umax<<=save.umax;
-							break;
-						case 10:
-							old.umax>>=save.umax;
-							break;
-						case 11:
-							old.umax=((uintmax_t (*)(const union expr_argf *,intptr_t))save.addr)(&old,fd);
-							break;
-						case 12:
-							old.umax=~old.umax;
-							break;
-						case 13:
-							old.umax=-old.umax;
-							break;
-						case 14:
-							save.umax=~save.umax;
-							break;
-						case 15:
-							save.umax=-save.umax;
-							break;
-						default:
-							goto_argfail;
-					}
-					*arg1->uiaddr=old.umax;
-					if(flag->eq)
-						save.umax=old.umax;
-				}
+		case 239:
+			if(flag->zero){
+				if(flag->digit_set){
+					if(flag->plus)
+						save.imax+=flag->digit;
+					else
+						save.imax=flag->digit;
+				}else
+					save.umax=0;
+			}else {
+				save.umax=*arg1->umaddr;
 				argnext1;
-				break;
+			}
+			break;
+		case 238:
+			{
+				union expr_argf old;
+				old.umax=*arg1->umaddr;
+				switch(flag_width(flag,0)){
+					case 0:
+						old.umax=save.umax;
+						break;
+					case 1:
+						old.umax+=save.umax;
+						break;
+					case 2:
+						old.umax-=save.umax;
+						break;
+					case 3:
+						old.umax*=save.umax;
+						break;
+					case 4:
+						old.umax/=save.umax;
+						break;
+					case 5:
+						old.umax%=save.umax;
+						break;
+					case 6:
+						old.umax&=save.umax;
+						break;
+					case 7:
+						old.umax^=save.umax;
+						break;
+					case 8:
+						old.umax|=save.umax;
+						break;
+					case 9:
+						old.umax<<=save.umax;
+						break;
+					case 10:
+						old.umax>>=save.umax;
+						break;
+					case 11:
+						old.umax=((uintmax_t (*)(const union expr_argf *,intptr_t))save.addr)(&old,fd);
+						break;
+					case 12:
+						old.umax=~old.umax;
+						break;
+					case 13:
+						old.umax=-old.umax;
+						break;
+					case 14:
+						save.umax=~save.umax;
+						break;
+					case 15:
+						save.umax=-save.umax;
+						break;
+					default:
+						goto_argfail;
+				}
+				*arg1->uiaddr=old.umax;
+				if(flag->eq)
+					save.umax=old.umax;
+			}
+			argnext1;
+			break;
 #pragma GCC diagnostic pop
 
 #define fmt_repeat if(!loop)loop=1;for(;loop;--loop)
@@ -3774,96 +3807,62 @@ current_get:
 		}\
 	}
 
-#define t_copy(T) *(T *)&val=*(T *)aps
-#define t_ocopy(T,_off) *(T *)((uintptr_t)&val+(_off))=*(T *)(aps+(_off))
-#define bit_copy(_bit) \
-	switch(_bit){\
-		case 1:\
-			t_copy(uint8_t);\
-			break;\
-		case 2:\
-			t_copy(uint16_t);\
-			break;\
-		case 3:\
-			t_copy(uint16_t);\
-			t_ocopy(uint8_t,2);\
-			break;\
-		case 4:\
-			t_copy(uint32_t);\
-			break;\
-		case 5:\
-			t_copy(uint32_t);\
-			t_ocopy(uint8_t,4);\
-			break;\
-		case 6:\
-			t_copy(uint32_t);\
-			t_ocopy(uint16_t,4);\
-			break;\
-		case 7:\
-			t_copy(uint32_t);\
-			t_ocopy(uint16_t,4);\
-			t_ocopy(uint8_t,6);\
-			break;\
-		default:\
-			__builtin_unreachable();\
-	}
-			default:
-				wfp=fmts+(r1-1);//r
+		default:
+			wfp=fmts+(r1-1);//r
 wfp_get:
-				if(unlikely(wfp->digit_check&&!flag->digit_set))
-					goto_argfail;
-				
-				if(wfp->no_arg){
-					fmt_dorepeat(NULL);
-					forward=0;
-				}else if(flag->saved){
-					fmt_dorepeat((const union expr_argf *)&save);
-					forward=0;
-				}else if(arrlen){
-					uintptr_t aps;
-					expr_umaxf_t val,mask;
-					flag->argsize=sizeof(void *);
-					aps=arg1->uint;
-					mask=(1ul<<(arrwid*8))-1ul;
-					argnext1;
-					for(;;){
-						if(arrwid<8){
-							bit_copy(arrwid);
-							if(wfp->type==EXPR_FLAGTYPE_SIGNED_INTEGER&&
-							(val&(0x80ul<<((arrwid-1)*8))))
-								val=(~0ul&~mask)|(val&mask);
-							else
-								val&=mask;
-						}else
-							val=*(uint64_t *)aps;
-						fmt_once((const union expr_argf *)&val);
-						if(tailsz){
-							wf_trywrite(tail,tailsz);
-						}
-						if(delimsz&&arrlen>1){
-							wf_trywrite(delim,delimsz);
-						}
-						if(unlikely(!--arrlen))
-							break;
-						aps+=arrwid;
-					}
-				}else {
-					const union expr_argf *arg_cur;
-					if(!forward&&unlikely(!(arg_cur=argt(wfp->type))))
-						goto_argfail;
-					fmt_dorepeat(arg_cur);
-					if(!forward){
-						argnext1;
+			if(unlikely(wfp->digit_check&&!flag->digit_set))
+				goto_argfail;
+			
+			if(wfp->no_arg){
+				fmt_dorepeat(NULL);
+				forward=0;
+			}else if(flag->saved){
+				fmt_dorepeat((const union expr_argf *)&save);
+				forward=0;
+			}else if(arrlen){
+				uintptr_t aps;
+				expr_umaxf_t val,mask;
+				flag->argsize=sizeof(void *);
+				aps=arg1->uint;
+				mask=(1ul<<(arrwid*8))-1ul;
+				argnext1;
+				for(;;){
+					if(arrwid<8){
+						bit_copy(&val,aps,arrwid);
+						if(wfp->type==EXPR_FLAGTYPE_SIGNED_INTEGER&&
+						(val&(0x80ul<<((arrwid-1)*8))))
+							val=(~0ul&~mask)|(val&mask);
+						else
+							val&=mask;
 					}else
-						forward=0;
+						val=*(uint64_t *)aps;
+					fmt_once((const union expr_argf *)&val);
+					if(tailsz){
+						wf_trywrite(tail,tailsz);
+					}
+					if(delimsz&&arrlen>1){
+						wf_trywrite(delim,delimsz);
+					}
+					if(unlikely(!--arrlen))
+						break;
+					aps+=arrwid;
 				}
-				break;
-		}
-		++fmt;
-continue_keepfmt:
-		fmt_old=fmt;
-		continue;
+			}else {
+				const union expr_argf *arg_cur;
+				if(!forward&&unlikely(!(arg_cur=argt(wfp->type))))
+					goto_argfail;
+				fmt_dorepeat(arg_cur);
+				if(!forward){
+					argnext1;
+				}else
+					forward=0;
+			}
+			break;
 	}
+	fmt_inc_check;
+continue_keepfmt:
+	fmt_old=fmt;
+	goto next;
 end:
 	return ret;
 }

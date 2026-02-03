@@ -652,6 +652,7 @@ extern size_t expr_allocate_max;
 extern int expr_symset_allow_heap_stack;
 
 extern long expr_seed_default;
+extern size_t expr_bufsize_initial;
 extern const size_t expr_page_size;
 extern const size_t expr_symbols_size;
 

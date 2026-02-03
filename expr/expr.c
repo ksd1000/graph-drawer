@@ -420,6 +420,7 @@ size_t expr_allocate_max=SSIZE_MAX;
 int expr_symset_allow_heap_stack=0;
 long expr_seed_default=0;
 const size_t expr_page_size=PAGE_SIZE;
+size_t expr_bufsize_initial=512;
 
 #define free (use xfree() instead!)
 #define malloc (use xmalloc() instead!)

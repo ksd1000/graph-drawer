@@ -28,7 +28,7 @@
 #define unlikely(cond) expr_unlikely(cond)
 #define align(x) (((x)+(EXPR_ALIGN-1))&~(EXPR_ALIGN-1))
 
-static const size_t bufsize_initial=512;
+#define bufsize_initial expr_bufsize_initial
 
 #define xrealloc expr_xrealloc
 #define xfree expr_xfree

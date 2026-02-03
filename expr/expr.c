@@ -18,6 +18,9 @@
 #define NDEBUG 1
 #endif
 
+#define addo(V,A) __builtin_add_overflow((V),(A),&(V))
+#define mulo(V,A) __builtin_mul_overflow((V),(A),&(V))
+
 #define printval(x) warn(#x ":%lu",(unsigned long)(x))
 #define printvalx(x) warn(#x ":%lx",(unsigned long)(x))
 #define printvali(x) warn(#x ":%d",(int)(x))
@@ -1168,12 +1171,6 @@ static inline void setunsafe(struct expr *restrict ep){
 static inline struct expr_inst *expr_addop(struct expr *restrict ep,void *dst,void *src,enum expr_op op,int flag){
 	struct expr_inst *ip;
 	ip=xautoadd((void **)&ep->data,&ep->size,&ep->length,sizeof(struct expr_inst),EXTEND_SIZE*sizeof(struct expr_inst));
-/*	if(ep->size>=ep->length){
-		ep->data=xrealloc_ff(ep->data,
-		(ep->length+=EXTEND_SIZE)*sizeof(struct expr_inst));
-		if(!ep->data)
-			return NULL;
-	}*/
 	if(unlikely(!ip))
 		return NULL;
 	ip->op=op;
@@ -1281,15 +1278,6 @@ static double *expr_newvar(struct expr *restrict ep){
 	double *r=xmalloc(sizeof(double)),**p;
 	if(unlikely(!r))
 		return NULL;
-/*	if(ep->vsize>=ep->vlength){
-		p=xrealloc(ep->vars,
-			(ep->vlength+=EXTEND_SIZE)*sizeof(double *));
-		if(unlikely(!p)){
-			xfree(r);
-			return NULL;
-		}
-		ep->vars=p;
-	}*/
 	p=xautoadd((void **)&ep->vars,&ep->vsize,&ep->vlength,sizeof(double *),EXTEND_SIZE*sizeof(double *));
 	if(unlikely(!p))
 		return NULL;
@@ -1484,17 +1472,6 @@ static inline const char *getsym_expo(const char *c,const char *endp){
 	}
 	return c;
 }
-/*
-static int atod2(const char *str,double *dst){
-	char *c;
-	*dst=strtod(str,&c);
-	if(unlikely(c==str))
-		return 0;
-	else if(unlikely(*c))
-		return 2;
-	else return 1;
-}
-*/
 static inline int atod(const char *str,size_t sz,double *dst){
 	char *c;
 	*dst=strtod(str,&c);
@@ -1675,14 +1652,6 @@ err1:
 }
 static void expr_seizeres(struct expr *restrict dst,struct expr *restrict src){
 	struct expr_resource **drp;
-	/*for(struct expr_resource *srp=src->res;srp;srp=srp->next){
-		drp=expr_newres(dst);
-		cknp(dst,drp,return -1);
-		drp->type=srp->type;
-		drp->un.uaddr=srp->un.uaddr;
-		srp->un.uaddr=NULL;
-	}
-	return 0;*/
 	drp=&dst->res;
 	while(*drp)
 		drp=&(*drp)->next;
@@ -2225,7 +2194,7 @@ static void *readsymbol(struct expr *restrict ep,const char *symbol,size_t symle
 	if(!ep->sset||!(sym.es=expr_symset_search(ep->sset,symbol,symlen))){
 		goto esymbol;
 	}
-//	printf("reading:%s -- ",symbol);
+//	debug("reading:%s -- ",symbol);
 alias_found:
 	type=sym.es->type;
 	flag=sym.es->flag;
@@ -2253,7 +2222,7 @@ alias_found:
 		}
 		return NULL;
 	}
-//	printf("at:%p\n",expr_symbol_un(sym.es)->uaddr);
+//	debug("at:%p\n",expr_symbol_un(sym.es)->uaddr);
 	return sym.uaddr;
 pm:
 	serrinfo(ep->errinfo,symbol,symlen);
@@ -4960,55 +4929,6 @@ void expr_symset_detacha_s(struct expr_symset *restrict esp,struct expr_symbol *
 		++spa;
 	}while(spa<spa_end);
 }
-/*
-struct srpair {
-	struct expr_symbol *sp;
-	size_t sum;
-};
-static void srsum(const struct srpair *srp,const struct srpair *srp_end,struct srpair *excl){
-	size_t next[EXPR_SYMLEN];
-	long r;
-	const char *str;
-	size_t strl,sum;
-	str=excl->sp->str;
-	strl=excl->sp->strlen;
-	memset(next,0,EXPR_SYMLEN*sizeof(size_t));
-	do {
-		if(unlikely(srp==excl)){
-			++srp;
-			continue;
-		}
-		++next[modi(firstdiff(str,srp->sp->str,strl,srp->sp->strlen))];
-		++srp;
-	}while(srp<srp_end);
-	strl=0;
-	for(size_t i=0;i<EXPR_SYMNEXT;++i){
-		strl+=next[i];
-	}
-	sum=0;
-	for(size_t i=0;i<EXPR_SYMNEXT;++i){
-		r=next[i]*EXPR_SYMNEXT-strl;
-		if(r<0)
-			r=-r;
-		sum+=r;
-	}
-	excl->sum=sum;
-}
-static int srcmp(const struct srpair *s1,const struct srpair *s2){
-	size_t r1=s1->sum,r2=s2->sum;
-	return r1==r2?0:-(r1>r2?1:-1);
-}
-*/
-/*	srp_end=srp_cur;
-	srp_cur=srp;
-	do {
-		srsum(srp,srp_end,srp_cur);
-		++srp_cur;
-	}while(srp_cur<srp_end);
-	qsort(srp,esp->size,sizeof(struct srpair),(int (*)(const void *,const void *))srcmp);
-*/
-//	struct srpair *srp,*srp_cur,*srp_end;
-//not work
 int expr_symset_recombine(struct expr_symset *restrict esp,long seed){
 	//the function tries to recombine the symset randomly,which sometimes
 	//can reduce the depth of it. but it is not ensured,even probably make
@@ -5202,40 +5122,6 @@ static char *stpcpy_nospace(char *restrict s1,const char *restrict s2,const char
 }
 
 static int expr_usesrc(enum expr_op op);
-/*
-static void expr_remove_unused_vars(struct expr *restrict ep){
-	size_t i,ci;
-	double *v;
-	for(i=0;i<ep->vsize;++i){
-		v=ep->vars[i];
-		for(struct expr_inst *ip=ep->data;;++ip){
-			if(!v||ip->dst.uaddr==v||
-			(expr_usesrc(ip->op)&&ip->un.uaddr==v))
-				goto force_continue;
-			if(ip->op==EXPR_END)
-				break;
-		}
-		printval(ep->vsize);
-		printval(i);
-		xfree(v);
-		ep->vars[i]=NULL;
-force_continue:
-		continue;
-	}
-	for(i=0,ci=0;i<ep->vsize;++i){
-		if(!ep->vars[i]){
-			continue;
-		}
-		if(ci==i){
-			++ci;
-			continue;
-		}
-		ep->vars[ci++]=ep->vars[i];
-	}
-	ep->vsize=ci;
-}
-a bug cannot fix
-*/
 static int expr_constexpr(const struct expr *restrict ep,double *except);
 int expr_isconst(const struct expr *restrict ep){
 	return ep->isconst||expr_constexpr(ep,NULL);
@@ -5249,18 +5135,6 @@ void init_expr_const(struct expr *restrict ep,double val){
 	ep->data=ep->un.end->endinst;
 	ep->size=1;
 	ep->isconst=1;
-/*
-	double *v;
-	memset(ep,0,sizeof(struct expr));
-	v=expr_newvar(ep);
-	cknp(ep,v,goto err);
-	*v=val;
-	cknp(ep,expr_addend(ep,v),goto err);
-	return 0;
-err:
-	expr_free(ep);
-	return -1;
-*/
 }
 struct expr *new_expr_const(double val){
 	struct expr *r=xmalloc(sizeof(struct expr));
@@ -5270,7 +5144,6 @@ struct expr *new_expr_const(double val){
 	r->freeable=1;
 	return r;
 }
-//R8
 static int init_expr8(struct expr *restrict ep,const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,struct expr *restrict parent){
 	union {
 		double *p;
@@ -5318,7 +5191,6 @@ err:
 	if(flag&EXPR_IF_INSTANT_FREE){
 		expr_free(ep);
 	}
-	//expr_remove_unused_vars(ep);
 	return 0;
 }
 int init_expr7(struct expr *restrict ep,const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag){
@@ -7067,11 +6939,8 @@ static int expr_optimize_once(struct expr *restrict ep){
 	r+=expr_optimize_contmul(ep,EXPR_ANDL);
 	r+=expr_optimize_contmul(ep,EXPR_XORL);
 	r+=expr_optimize_contmul(ep,EXPR_ORL);
-	//r+=expr_optimize_contmul(ep,EXPR_COPY);
 
-	//r+=expr_optimize_mulpow2n(ep);
 	r+=expr_optimize_zero(ep);
-	//r+=expr_optimize_copy2const(ep);
 	r+=expr_optimize_copyadd(ep);
 	r+=expr_optimize_unused(ep);
 	r+=expr_optimize_constexpr(ep);

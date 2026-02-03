@@ -1551,28 +1551,3 @@ end:
 #undef fmt_repeat
 #undef fmt_dorepeat
 #undef fmt_op_cond
-
-ssize_t expr_asprintf(char **restrict strp,const char *restrict fmt,size_t fmtlen,const union expr_argf *restrict args,size_t arglen){
-	struct expr_buffered_file vf[1];
-	ssize_t r;
-	vf->fd=0;
-	vf->un.writer=NULL;
-	vf->buf=NULL;
-	vf->index=0;
-	vf->length=0;
-	vf->dynamic=SIZE_MAX;
-//	vf->written=0;
-	r=expr_writef(fmt,fmtlen,(expr_writer)expr_buffered_write,(intptr_t)vf,args,arglen);
-	if(unlikely(r<0)){
-		expr_buffered_close(vf);
-		return r;
-	}
-	expr_buffered_write(vf,"\0",1);
-	if(unlikely(r<0)){
-		expr_buffered_close(vf);
-		return r;
-	}
-	*strp=vf->buf;
-	return (ssize_t)(vf->index-1);
-	
-}

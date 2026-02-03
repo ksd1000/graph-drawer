@@ -734,17 +734,6 @@ fconvs(conv_btox,xa);
 fconvs(conv_btoX,xb);
 conv_fe(fe,10,conv_btox,ival_mul5p,nbuf_size(308),'e');
 conv_fe(fE,10,conv_btox,ival_mul5p,nbuf_size(308),'E');
-/*
-conv_f(B,2,M_LN2,conv_btoX,,nbuf_size(1024));
-conv_f(O,8,3*M_LN2,conv_btoX,r=extint_left(ival,r,2*ext),nbuf_size(342));
-conv_f(F,10,M_LN10,conv_btoX,ival_mul5p,nbuf_size(308));
-conv_f(A,16,4*M_LN2,conv_btoX,r=extint_left(ival,r,3*ext),nbuf_size(256));
-conv_f(xbb,11,log(11),conv_btoX,ival_mul11p;r=extint_right(ival,r,ext),nbuf_size(296));
-conv_f(xbc,12,log(12),conv_btoX,ival_mul3p;r=extint_left(ival,r,2*ext),nbuf_size(285));
-conv_f(xbd,13,log(13),conv_btoX,ival_mul13p;r=extint_right(ival,r,ext),nbuf_size(276));
-conv_f(xbe,14,log(14),conv_btoX,ival_mul7p;r=extint_left(ival,r,ext),nbuf_size(268));
-conv_f(xbf,15,log(15),conv_btoX,ival_mul15p;r=extint_right(ival,r,ext),nbuf_size(262));
-*/
 //5-441,396,364,8,323,10,296,285,276,268,262;
 #undef nbuf
 #undef vbuf

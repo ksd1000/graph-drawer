@@ -1,4 +1,7 @@
 #! /bin/bash
 cat expr.1.h > expr.h
+. ./decdump < expr_format.c >>expr.h
+. ./decdump < expr_buffered.c >>expr.h
+. ./decdump < expr_builtin.c >>expr.h
 . ./decdump < expr.c >>expr.h
 cat expr.2.h >> expr.h

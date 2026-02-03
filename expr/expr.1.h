@@ -638,6 +638,7 @@ struct expr_internal_jmpbuf {
 extern const struct expr_writefmt expr_writefmts_default[];
 extern const uint8_t expr_writefmts_default_size;
 extern const uint8_t expr_writefmts_table_default[256];
+extern const uint8_t expr_number_table[256];
 
 extern const struct expr_builtin_symbol expr_symbols[];
 extern const struct expr_builtin_keyword expr_keywords[];

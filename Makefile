@@ -3,12 +3,12 @@ CFLAG := -Wall -O3 -fPIC
 LFLAG := -lc -lm
 #kernel := $(shell uname -r)
 all: xgraph.a xgraph.so expr/expr-version
-xgraph.a: graph/graph.a expr/expr.o
+xgraph.a: graph/graph.a expr/expr.a
 	cp graph/graph.a xgraph.a
-	ar -rcs xgraph.a expr/expr.o
+	ar -rcs xgraph.a expr/expr.o expr/expr_format.o expr/expr_buffered.o expr/expr_builtin.o
 xgraph.so: xgraph.a
 	$(CC) $(CFLAG) -shared -o xgraph.so xgraph.a
-expr/expr.o: expr
+expr/expr.a: expr
 	make -C expr
 expr/expr-version: expr
 	make -C expr

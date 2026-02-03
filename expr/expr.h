@@ -652,6 +652,7 @@ extern size_t expr_allocate_max;
 extern int expr_symset_allow_heap_stack;
 
 extern long expr_seed_default;
+extern size_t expr_bufsize_initial;
 extern const size_t expr_page_size;
 extern const size_t expr_symbols_size;
 
@@ -885,7 +886,6 @@ ssize_t expr_writef(const char *restrict fmt,size_t fmtlen,expr_writer writer,in
 ssize_t expr_writef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const union expr_argf *restrict args,size_t arglen,const struct expr_writefmt *restrict fmts,const uint8_t *restrict table);
 ssize_t expr_vwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const union expr_argf *(*arg)(ptrdiff_t index,const struct expr_writeflag *flag,void *addr),void *addr);
 ssize_t expr_vwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const union expr_argf *(*arg)(ptrdiff_t index,const struct expr_writeflag *flag,void *addr),void *addr,const struct expr_writefmt *restrict fmts,const uint8_t *restrict table);
-ssize_t expr_asprintf(char **restrict strp,const char *restrict fmt,size_t fmtlen,const union expr_argf *restrict args,size_t arglen);
 ssize_t expr_buffered_write(struct expr_buffered_file *restrict fp,const void *buf,size_t size);
 ssize_t expr_buffered_read(struct expr_buffered_file *restrict fp,void *buf,size_t size);
 ssize_t expr_buffered_write_flushat(struct expr_buffered_file *restrict fp,const void *buf,size_t size,int c);
@@ -896,6 +896,10 @@ ssize_t expr_buffered_rdropall(struct expr_buffered_file *restrict fp);
 ssize_t expr_buffered_close(struct expr_buffered_file *restrict fp);
 void expr_buffered_rclose(struct expr_buffered_file *restrict fp);
 ssize_t expr_file_readfd(expr_reader reader,intptr_t fd,size_t tail,void *savep);
+int expr_sort4(double *restrict v,size_t n,void *(*allocator)(size_t),void (*deallocator)(void *));
+void expr_sortq(double *restrict v,size_t n);
+void expr_sort_old(double *restrict v,size_t n);
+void expr_sort(double *v,size_t n);
 double expr_exp_old(double x);
 double expr_multilevel_derivate(const struct expr *ep,double input,long level,double epsilon);
 const char *expr_error(int error);
@@ -909,10 +913,6 @@ void expr_mirror(double *buf,size_t size);
 void expr_memswap(void *restrict s1,void *restrict s2,size_t size);
 void expr_memfry48(void *restrict buf,size_t size,size_t n,long seed);
 void expr_fry(double *restrict v,size_t n);
-int expr_sort4(double *restrict v,size_t n,void *(*allocator)(size_t),void (*deallocator)(void *));
-void expr_sortq(double *restrict v,size_t n);
-void expr_sort_old(double *restrict v,size_t n);
-void expr_sort(double *v,size_t n);
 void expr_contract(void *buf,size_t size);
 __attribute__((noreturn)) void expr_explode(void);
 __attribute__((noreturn)) void expr_trap(void);

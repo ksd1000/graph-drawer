@@ -3405,7 +3405,7 @@ static const union expr_argf *ewr_arg(ptrdiff_t index,const struct expr_writefla
 	const union expr_argf *r=wa->base+index;
 	range_checkn(r,wa->base,wa->arglen,goto err);
 	debug("getting arg[%zd] (base=%p,len=%zu)=%p",index,wa->base,wa->arglen,r);
-	return r;
+	return flag->addr?r->aaddr:r;
 err:
 	debug("getting arg[%zd] (base=%p,len=%zu)=NULL",index,wa->base,wa->arglen);
 	return NULL;
@@ -3538,7 +3538,7 @@ reflag:
 #define argnext(N) index+=(N);debug("arg index to %zd",index)
 #define argback(N) index-=(N);debug("arg index back to %zd",index)
 #define goto_argfail {debug("arg failed");return PTRDIFF_MIN;}
-#define argt(_type) ({register const union expr_argf *__arg;flag->type=(_type);__arg=arg(index,flag,addr);if(unlikely(!__arg)){debug("cannot get arg[%zd]",index);goto_argfail;}if(flag->addr)__arg=__arg->aaddr;__arg;})
+#define argt(_type) ({register const union expr_argf *__arg;flag->type=(_type);__arg=arg(index,flag,addr);if(unlikely(!__arg)){debug("cannot get arg[%zd]",index);goto_argfail;}__arg;})
 #define arg1 argt(EXPR_FLAGTYPE_ADDR)
 #define get_next_arg64(dest,_after) \
 	if(*fmt=='*'){\

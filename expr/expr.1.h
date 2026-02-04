@@ -230,6 +230,51 @@ EXPR_END
 		_cast_un._o;\
 	})
 
+#define expr_isfinite(x) ({\
+	union expr_double __r;\
+	__r.val=(x);\
+	__r.rd.exp!=2047;\
+})
+#define expr_isinf(x) ({\
+	union expr_double __r;\
+	__r.val=(x);\
+	!__r.rd.base&&__r.rd.exp==2047;\
+})
+#define expr_isnan(x) ({\
+	union expr_double __r;\
+	__r.val=(x);\
+	__r.rd.base&&__r.rd.exp==2047;\
+})
+
+#define expr_weaks \
+__attribute__((weak)) void *(*expr_allocator)(size_t)=malloc;\
+__attribute__((weak)) void *(*expr_reallocator)(void *,size_t)=realloc;\
+__attribute__((weak)) void (*expr_deallocator)(void *)=free;\
+__attribute__((weak)) size_t expr_allocate_max=SSIZE_MAX;\
+__attribute__((weak)) size_t expr_bufsize_initial=512
+
+#define expr_xmalloc(size) ({\
+	size_t __sz=(size);\
+	unlikely(__sz>expr_allocate_max)?\
+		NULL:\
+		expr_allocator(__sz);\
+})
+#define expr_xrealloc(old,size) ({\
+	void *__old=(old);\
+	size_t __sz=(size);\
+	unlikely(__sz>expr_allocate_max)?\
+		NULL:\
+		(__old?\
+			 expr_reallocator(__old,__sz):\
+			 expr_allocator(__sz));\
+})
+#define expr_xfree(old) ({\
+	void *__old=(old);\
+	if(unlikely(!__old))\
+		__builtin_trap();\
+	expr_deallocator(__old);\
+})
+
 #define EXPR_ALIGN (sizeof(void *))
 #define EXPR_MAGIC48_A 0x5deece66dul
 #define EXPR_MAGIC48_B 0xb

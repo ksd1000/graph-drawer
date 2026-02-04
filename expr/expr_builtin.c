@@ -40,6 +40,18 @@
 #define warn(fmt,...) fprintf(stderr,fmt "\n",##__VA_ARGS__)
 
 #define eval(_ep,_input) expr_eval(_ep,_input)
+expr_weaks;
+static void *warped_xmalloc(size_t size){
+	return xmalloc(size);
+}
+/*
+static void *warped_xrealloc(void *old,size_t size){
+	return xrealloc(old,size);
+}
+*/
+static void warped_xfree(void *old){
+	return xfree(old);
+}
 __attribute__((noinline))
 int expr_sort4(double *restrict v,size_t n,void *(*allocator)(size_t),void (*deallocator)(void *)){
 	struct dnode {
@@ -363,7 +375,7 @@ static double expr_med(double *args,size_t n){
 	return n&1ul?args[n>>1ul]:(n>>=1ul,(args[n]+args[n-1])/2);
 }
 static double expr_hmed(double *args,size_t n){
-	expr_sort4(args,n,xmalloc,xfree);
+	expr_sort4(args,n,warped_xmalloc,warped_xfree);
 	return n&1ul?args[n>>1ul]:(n>>=1ul,(args[n]+args[n-1])/2);
 }
 static double expr_med_old(double *args,size_t n){
@@ -379,7 +391,7 @@ static double expr_gmed(double *args,size_t n){
 	return n&1ul?args[n>>1ul]:(n>>=1ul,sqrt(args[n]*args[n-1]));
 }
 static double expr_hgmed(double *args,size_t n){
-	expr_sort4(args,n,xmalloc,xfree);
+	expr_sort4(args,n,warped_xmalloc,warped_xfree);
 	return n&1ul?args[n>>1ul]:(n>>=1ul,sqrt(args[n]*args[n-1]));
 }
 static double expr_gmed_old(double *args,size_t n){
@@ -398,7 +410,7 @@ static double expr_mode0(size_t n,double *args,int heap){
 			expr_sortq(args,n);
 			break;
 		default:
-			expr_sort4(args,n,xmalloc,xfree);
+			expr_sort4(args,n,warped_xmalloc,warped_xfree);
 			break;
 	}
 	cnt=max=*(args++);
@@ -453,7 +465,7 @@ static double bsort(const struct expr *args,size_t n,double input){
 }
 static double bhsort(const struct expr *args,size_t n,double input){
 	int r;
-	r=expr_sort4(cast(eval(args,input),double *),(size_t)fabs(eval(args+1,input)),xmalloc,xfree);
+	r=expr_sort4(cast(eval(args,input),double *),(size_t)fabs(eval(args+1,input)),warped_xmalloc,warped_xfree);
 	if(!r){
 		return 0.0;
 	}else {
@@ -461,7 +473,7 @@ static double bhsort(const struct expr *args,size_t n,double input){
 	}
 }
 static double bxsort(const struct expr *args,size_t n,double input){
-	expr_sort4(cast(eval(args,input),double *),(size_t)fabs(eval(args+1,input)),xmalloc,xfree);
+	expr_sort4(cast(eval(args,input),double *),(size_t)fabs(eval(args+1,input)),warped_xmalloc,warped_xfree);
 	return 0.0;
 }
 static double bsort_old(const struct expr *args,size_t n,double input){

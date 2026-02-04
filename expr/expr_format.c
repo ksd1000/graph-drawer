@@ -1018,7 +1018,7 @@ static inline const char *internal_strtoz_10(const char *restrict nptr,const cha
 	}
 #define scannum(base) \
 	while(nptr<endp){\
-		get=expr_number_table[(uint8_t)*nptr];\
+		get=(uint8_t)*nptr-(uint8_t)'0';\
 		if(unlikely(get>=base))\
 			goto out;\
 		if(unlikely(mulo(r,base)))\

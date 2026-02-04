@@ -4,6 +4,7 @@
  *******************************************************************************/
 #define _GNU_SOURCE
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <alloca.h>
 #include "expr.h"
@@ -32,6 +33,8 @@
 
 #define xrealloc expr_xrealloc
 #define xfree expr_xfree
+
+expr_weaks;
 
 #define fbuf ((char *)fp->buf)
 #define reterr(V) {r=(V);goto err;}

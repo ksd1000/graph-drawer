@@ -413,41 +413,43 @@ const char *expr_error(int error){
 	}
 }
 
-void *(*expr_allocator)(size_t)=malloc;
-void *(*expr_reallocator)(void *,size_t)=realloc;
-void (*expr_deallocator)(void *)=free;
+expr_weaks;
+
 void (*expr_contractor)(void *,size_t)=expr_contract;
-size_t expr_allocate_max=SSIZE_MAX;
 int expr_symset_allow_heap_stack=0;
 long expr_seed_default=0;
 const size_t expr_page_size=PAGE_SIZE;
-size_t expr_bufsize_initial=512;
 
 #define free (use xfree() instead!)
 #define malloc (use xmalloc() instead!)
 #define realloc (use xrealloc() instead!)
 #define asprintf (use xasprintf_nullable() instead!)
 #define vasprintf (use expr_vasprintf() instead!)
-
-void *expr_xmalloc(size_t size){
-	if(unlikely(size>expr_allocate_max)){
-		debug("trying to allocate too much (%zu) memory",size);
-		return NULL;
-	}
-	return expr_allocator(size);
-}
-void *expr_xrealloc(void *old,size_t size){
-	if(unlikely(size>expr_allocate_max)){
-		debug("trying to allocate too much (%zu) memory",size);
-		return NULL;
-	}
-	return old?expr_reallocator(old,size):expr_allocator(size);
-}
-void expr_xfree(void *p){
-	if(unlikely(!p))
-		abort();
-	expr_deallocator(p);
-}
+#define expr_allocator_weak \
+__attribute__((weak)) void *(*expr_allocator)(size_t)=malloc;\
+__attribute__((weak)) void *(*expr_reallocator)(void *,size_t)=realloc;\
+__attribute__((weak)) void (*expr_deallocator)(void *)=free
+#define expr_xmalloc(size) ({\
+	size_t __sz=(size);\
+	unlikely(__sz>expr_allocate_max)?\
+		NULL:\
+		expr_allocator(__sz);\
+})
+#define expr_xrealloc(old,size) ({\
+	void *__old=(old);\
+	size_t __sz=(size);\
+	unlikely(__sz>expr_allocate_max)?\
+		NULL:\
+		(__old?\
+			 expr_reallocator(__old,__sz):\
+			 expr_allocator(__sz));\
+})
+#define expr_xfree(old) ({\
+	void *__old=(old);\
+	if(unlikely(!__old))\
+		__builtin_trap();\
+	expr_deallocator(__old);\
+})
 #define xmalloc expr_xmalloc
 #define xrealloc expr_xrealloc
 #define xfree expr_xfree
@@ -645,15 +647,6 @@ double expr_xor2(double x,double y){
 }
 double expr_not(double x){
 	return not(x);
-}
-int expr_isfinite(double x){
-	return EXPR_EDEXP(&x)!=2047;
-}
-int expr_isinf(double x){
-	return !EXPR_EDBASE(&x)&&EXPR_EDEXP(&x)==2047;
-}
-int expr_isnan(double x){
-	return EXPR_EDBASE(&x)&&EXPR_EDEXP(&x)==2047;
 }
 #ifdef EXPR_SYSIN
 #define SYSCALL_DEFINED 1

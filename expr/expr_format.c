@@ -934,6 +934,7 @@ const uint8_t expr_writefmts_table_default[256]={
 ['W']=240,
 ['V']=239,
 ['v']=238,
+['z']=237,
 
 ['%']=1,
 [(uint8_t)'\x81']=2,['x']=2,
@@ -1181,6 +1182,7 @@ reflag:
 			t_ocopy((_d),(_s),uint16_t,4);\
 			t_ocopy((_d),(_s),uint8_t,6);\
 			break;\
+		case 0:\
 		case 8:\
 			t_copy((_d),(_s),uint64_t);\
 			break;\
@@ -1230,7 +1232,8 @@ current_get:
 		case 0:
 			goto end;
 		case 255:
-			*arg1->zaddr=(size_t)ret;
+			debug("n=%zu",ret);
+			bit_copy(arg1->zaddr,&ret,flag->argsize);
 			argnext1;
 			break;
 		case 254:
@@ -1436,6 +1439,12 @@ current_get:
 					save.umax=old.umax;
 			}
 			argnext1;
+			break;
+		case 237:
+			v=writer(fd,"",0);
+			if(unlikely(v<0))
+				return v;
+			ret+=v;
 			break;
 #pragma GCC diagnostic pop
 

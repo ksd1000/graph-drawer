@@ -47,8 +47,9 @@ ssize_t expr_buffered_write(struct expr_buffered_file *restrict fp,const void *b
 	ssize_t r,ret=0;
 	if(unlikely(size>SSIZE_MAX))
 		reterr(PTRDIFF_MIN);
-	if(unlikely(!size))
-		return 0;
+	if(unlikely(!size)){
+		return expr_buffered_flush(fp);
+	}
 	do {
 		i=fp->index+size;
 		if(fp->dynamic){

@@ -375,7 +375,8 @@ __attribute__((weak)) size_t expr_bufsize_initial=512
 		}\
 	}))if(expr_likely(__inloop_index!=(_atindex)))continue;else
 
-#define expr_combine(A,B) A##B
+#define expr_combine0(A,B) A##B
+#define expr_combine(A,B) expr_combine0(A,B)
 #define expr_mstring(X) #X
 #define expr_symbol_foreach4(_sp,_esp,_stack,_atindex) expr_symbol_foreach5(_sp,_esp,_stack,_atindex,__LINE__)
 #define expr_symset_foreach4(_sp,_esp,_stack,_atindex) expr_symbol_foreach4(_sp,(_esp)->syms,_stack,_atindex)
@@ -703,6 +704,7 @@ extern size_t expr_bufsize_initial;
 extern const size_t expr_page_size;
 extern const size_t expr_symbols_size;
 
+#define expr_internal_regvarr(_name) register intptr_t expr_combine(__r_,_name) asm(#_name)
 #define expr_internal_regvar(_name) register intptr_t _name asm(#_name)
 
 #ifndef EXPR_SYSIN
@@ -717,7 +719,7 @@ extern const size_t expr_symbols_size;
 #define EXPR_SYSA4 x4
 #define EXPR_SYSA5 x5
 #define EXPR_SYSAM 6
-#define EXPR_SYSE0 expr_internal_regvar(x0)
+#define EXPR_SYSE0 expr_internal_regvarr(x0)
 #define EXPR_SYSE1
 #define EXPR_SYSE2
 #define EXPR_SYSE3
@@ -765,112 +767,112 @@ extern const size_t expr_symbols_size;
 #define expr_internal_syscall7(num,a0,a1,a2,a3,a4,a5,a6) expr_internal_syscall(7,num,a0,a1,a2,a3,a4,a5,a6,)
 
 #define expr_internal_syscall_reg7(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ({\
-		expr_internal_regvar(ID)=(num);\
-		expr_internal_regvar(A0)=(a0);\
-		expr_internal_regvar(A1)=(a1);\
-		expr_internal_regvar(A2)=(a2);\
-		expr_internal_regvar(A3)=(a3);\
-		expr_internal_regvar(A4)=(a4);\
-		expr_internal_regvar(A5)=(a5);\
-		expr_internal_regvar(A6)=(a6);\
+		expr_internal_regvarr(ID)=(num);\
+		expr_internal_regvarr(A0)=(a0);\
+		expr_internal_regvarr(A1)=(a1);\
+		expr_internal_regvarr(A2)=(a2);\
+		expr_internal_regvarr(A3)=(a3);\
+		expr_internal_regvarr(A4)=(a4);\
+		expr_internal_regvarr(A5)=(a5);\
+		expr_internal_regvarr(A6)=(a6);\
 		E7;\
 		asm volatile(\
 		EXPR_SYSIN \
-		:"=r"(RE)\
-		:"r"(A0),"r"(A1),"r"(A2),"r"(A3),"r"(A4),"r"(A5),"r"(A6),"r"(ID)\
+		:"=r"(expr_combine(__r_,RE))\
+		:"r"(expr_combine(__r_,A0)),"r"(expr_combine(__r_,A1)),"r"(expr_combine(__r_,A2)),"r"(expr_combine(__r_,A3)),"r"(expr_combine(__r_,A4)),"r"(expr_combine(__r_,A5)),"r"(expr_combine(__r_,A6)),"r"(expr_combine(__r_,ID))\
 		:"memory");\
-		RE;\
+		expr_combine(__r_,RE);\
 })
 #define expr_internal_syscall_reg6(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ({\
-		expr_internal_regvar(ID)=(num);\
-		expr_internal_regvar(A0)=(a0);\
-		expr_internal_regvar(A1)=(a1);\
-		expr_internal_regvar(A2)=(a2);\
-		expr_internal_regvar(A3)=(a3);\
-		expr_internal_regvar(A4)=(a4);\
-		expr_internal_regvar(A5)=(a5);\
+		expr_internal_regvarr(ID)=(num);\
+		expr_internal_regvarr(A0)=(a0);\
+		expr_internal_regvarr(A1)=(a1);\
+		expr_internal_regvarr(A2)=(a2);\
+		expr_internal_regvarr(A3)=(a3);\
+		expr_internal_regvarr(A4)=(a4);\
+		expr_internal_regvarr(A5)=(a5);\
 		E6;\
 		asm volatile(\
 		EXPR_SYSIN \
-		:"=r"(RE)\
-		:"r"(A0),"r"(A1),"r"(A2),"r"(A3),"r"(A4),"r"(A5),"r"(ID)\
+		:"=r"(expr_combine(__r_,RE))\
+		:"r"(expr_combine(__r_,A0)),"r"(expr_combine(__r_,A1)),"r"(expr_combine(__r_,A2)),"r"(expr_combine(__r_,A3)),"r"(expr_combine(__r_,A4)),"r"(expr_combine(__r_,A5)),"r"(expr_combine(__r_,ID))\
 		:"memory");\
-		RE;\
+		expr_combine(__r_,RE);\
 })
 #define expr_internal_syscall_reg5(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ({\
-		expr_internal_regvar(ID)=(num);\
-		expr_internal_regvar(A0)=(a0);\
-		expr_internal_regvar(A1)=(a1);\
-		expr_internal_regvar(A2)=(a2);\
-		expr_internal_regvar(A3)=(a3);\
-		expr_internal_regvar(A4)=(a4);\
+		expr_internal_regvarr(ID)=(num);\
+		expr_internal_regvarr(A0)=(a0);\
+		expr_internal_regvarr(A1)=(a1);\
+		expr_internal_regvarr(A2)=(a2);\
+		expr_internal_regvarr(A3)=(a3);\
+		expr_internal_regvarr(A4)=(a4);\
 		E5;\
 		asm volatile(\
 		EXPR_SYSIN \
-		:"=r"(RE)\
-		:"r"(A0),"r"(A1),"r"(A2),"r"(A3),"r"(A4),"r"(ID)\
+		:"=r"(expr_combine(__r_,RE))\
+		:"r"(expr_combine(__r_,A0)),"r"(expr_combine(__r_,A1)),"r"(expr_combine(__r_,A2)),"r"(expr_combine(__r_,A3)),"r"(expr_combine(__r_,A4)),"r"(expr_combine(__r_,ID))\
 		:"memory");\
-		RE;\
+		expr_combine(__r_,RE);\
 })
 #define expr_internal_syscall_reg4(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ({\
-		expr_internal_regvar(ID)=(num);\
-		expr_internal_regvar(A0)=(a0);\
-		expr_internal_regvar(A1)=(a1);\
-		expr_internal_regvar(A2)=(a2);\
-		expr_internal_regvar(A3)=(a3);\
+		expr_internal_regvarr(ID)=(num);\
+		expr_internal_regvarr(A0)=(a0);\
+		expr_internal_regvarr(A1)=(a1);\
+		expr_internal_regvarr(A2)=(a2);\
+		expr_internal_regvarr(A3)=(a3);\
 		E4;\
 		asm volatile(\
 		EXPR_SYSIN \
-		:"=r"(RE)\
-		:"r"(A0),"r"(A1),"r"(A2),"r"(A3),"r"(ID)\
+		:"=r"(expr_combine(__r_,RE))\
+		:"r"(expr_combine(__r_,A0)),"r"(expr_combine(__r_,A1)),"r"(expr_combine(__r_,A2)),"r"(expr_combine(__r_,A3)),"r"(expr_combine(__r_,ID))\
 		:"memory");\
-		RE;\
+		expr_combine(__r_,RE);\
 })
 #define expr_internal_syscall_reg3(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ({\
-		expr_internal_regvar(ID)=(num);\
-		expr_internal_regvar(A0)=(a0);\
-		expr_internal_regvar(A1)=(a1);\
-		expr_internal_regvar(A2)=(a2);\
+		expr_internal_regvarr(ID)=(num);\
+		expr_internal_regvarr(A0)=(a0);\
+		expr_internal_regvarr(A1)=(a1);\
+		expr_internal_regvarr(A2)=(a2);\
 		E3;\
 		asm volatile(\
 		EXPR_SYSIN \
-		:"=r"(RE)\
-		:"r"(A0),"r"(A1),"r"(A2),"r"(ID)\
+		:"=r"(expr_combine(__r_,RE))\
+		:"r"(expr_combine(__r_,A0)),"r"(expr_combine(__r_,A1)),"r"(expr_combine(__r_,A2)),"r"(expr_combine(__r_,ID))\
 		:"memory");\
-		RE;\
+		expr_combine(__r_,RE);\
 })
 #define expr_internal_syscall_reg2(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ({\
-		expr_internal_regvar(ID)=(num);\
-		expr_internal_regvar(A0)=(a0);\
-		expr_internal_regvar(A1)=(a1);\
+		expr_internal_regvarr(ID)=(num);\
+		expr_internal_regvarr(A0)=(a0);\
+		expr_internal_regvarr(A1)=(a1);\
 		E2;\
 		asm volatile(\
 		EXPR_SYSIN \
-		:"=r"(RE)\
-		:"r"(A0),"r"(A1),"r"(ID)\
+		:"=r"(expr_combine(__r_,RE))\
+		:"r"(expr_combine(__r_,A0)),"r"(expr_combine(__r_,A1)),"r"(expr_combine(__r_,ID))\
 		:"memory");\
-		RE;\
+		expr_combine(__r_,RE);\
 })
 #define expr_internal_syscall_reg1(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ({\
-		expr_internal_regvar(ID)=(num);\
-		expr_internal_regvar(A0)=(a0);\
+		expr_internal_regvarr(ID)=(num);\
+		expr_internal_regvarr(A0)=(a0);\
 		E1;\
 		asm volatile(\
 		EXPR_SYSIN \
-		:"=r"(RE)\
-		:"r"(A0),"r"(ID)\
+		:"=r"(expr_combine(__r_,RE))\
+		:"r"(expr_combine(__r_,A0)),"r"(expr_combine(__r_,ID))\
 		:"memory");\
-		RE;\
+		expr_combine(__r_,RE);\
 })
 #define expr_internal_syscall_reg0(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ({\
-		expr_internal_regvar(ID)=(num);\
+		expr_internal_regvarr(ID)=(num);\
 		E0;\
 		asm volatile(\
 		EXPR_SYSIN \
-		:"=r"(RE)\
-		:"r"(ID)\
+		:"=r"(expr_combine(__r_,RE))\
+		:"r"(expr_combine(__r_,ID))\
 		:"memory");\
-		RE;\
+		expr_combine(__r_,RE);\
 })
 
 #define expr_internal_syscall_ncase_inswitch0(dest,cast,num,a0,a1,a2,a3,a4,a5,a6) case 0:(dest)=(cast)expr_internal_syscall0(num);break

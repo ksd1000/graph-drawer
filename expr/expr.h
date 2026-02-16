@@ -20,7 +20,6 @@ typedef ptrdiff_t ssize_t;
 #ifndef SSIZE_MAX
 #define SSIZE_MAX PTRDIFF_MAX
 #endif
-
 #define expr_static_assert(cond) _Static_assert((cond),"static assertion " #cond " failed")
 expr_static_assert(sizeof(ssize_t)==sizeof(ptrdiff_t));
 expr_static_assert(sizeof(size_t)==sizeof(ptrdiff_t));
@@ -704,8 +703,8 @@ extern size_t expr_bufsize_initial;
 extern const size_t expr_page_size;
 extern const size_t expr_symbols_size;
 
-#define expr_internal_regvarr(_name) register intptr_t expr_combine0(__r_,_name) asm(#_name)
-#define expr_internal_regvar(_name) register intptr_t _name asm(#_name)
+#define expr_internal_regvarr(_name) register intptr_t expr_combine(__r_,_name) __asm__(#_name)
+#define expr_internal_regvar(_name) register intptr_t _name __asm__(#_name)
 
 #ifndef EXPR_SYSIN
 #if defined(__aarch64__)
@@ -776,7 +775,7 @@ extern const size_t expr_symbols_size;
 		expr_internal_regvarr(A5)=(a5);\
 		expr_internal_regvarr(A6)=(a6);\
 		E7;\
-		asm volatile(\
+		__asm__ volatile(\
 		EXPR_SYSIN \
 		:"=r"(expr_combine(__r_,RE))\
 		:"r"(expr_combine(__r_,A0)),"r"(expr_combine(__r_,A1)),"r"(expr_combine(__r_,A2)),"r"(expr_combine(__r_,A3)),"r"(expr_combine(__r_,A4)),"r"(expr_combine(__r_,A5)),"r"(expr_combine(__r_,A6)),"r"(expr_combine(__r_,ID))\
@@ -792,7 +791,7 @@ extern const size_t expr_symbols_size;
 		expr_internal_regvarr(A4)=(a4);\
 		expr_internal_regvarr(A5)=(a5);\
 		E6;\
-		asm volatile(\
+		__asm__ volatile(\
 		EXPR_SYSIN \
 		:"=r"(expr_combine(__r_,RE))\
 		:"r"(expr_combine(__r_,A0)),"r"(expr_combine(__r_,A1)),"r"(expr_combine(__r_,A2)),"r"(expr_combine(__r_,A3)),"r"(expr_combine(__r_,A4)),"r"(expr_combine(__r_,A5)),"r"(expr_combine(__r_,ID))\
@@ -807,7 +806,7 @@ extern const size_t expr_symbols_size;
 		expr_internal_regvarr(A3)=(a3);\
 		expr_internal_regvarr(A4)=(a4);\
 		E5;\
-		asm volatile(\
+		__asm__ volatile(\
 		EXPR_SYSIN \
 		:"=r"(expr_combine(__r_,RE))\
 		:"r"(expr_combine(__r_,A0)),"r"(expr_combine(__r_,A1)),"r"(expr_combine(__r_,A2)),"r"(expr_combine(__r_,A3)),"r"(expr_combine(__r_,A4)),"r"(expr_combine(__r_,ID))\
@@ -821,7 +820,7 @@ extern const size_t expr_symbols_size;
 		expr_internal_regvarr(A2)=(a2);\
 		expr_internal_regvarr(A3)=(a3);\
 		E4;\
-		asm volatile(\
+		__asm__ volatile(\
 		EXPR_SYSIN \
 		:"=r"(expr_combine(__r_,RE))\
 		:"r"(expr_combine(__r_,A0)),"r"(expr_combine(__r_,A1)),"r"(expr_combine(__r_,A2)),"r"(expr_combine(__r_,A3)),"r"(expr_combine(__r_,ID))\
@@ -834,7 +833,7 @@ extern const size_t expr_symbols_size;
 		expr_internal_regvarr(A1)=(a1);\
 		expr_internal_regvarr(A2)=(a2);\
 		E3;\
-		asm volatile(\
+		__asm__ volatile(\
 		EXPR_SYSIN \
 		:"=r"(expr_combine(__r_,RE))\
 		:"r"(expr_combine(__r_,A0)),"r"(expr_combine(__r_,A1)),"r"(expr_combine(__r_,A2)),"r"(expr_combine(__r_,ID))\
@@ -846,7 +845,7 @@ extern const size_t expr_symbols_size;
 		expr_internal_regvarr(A0)=(a0);\
 		expr_internal_regvarr(A1)=(a1);\
 		E2;\
-		asm volatile(\
+		__asm__ volatile(\
 		EXPR_SYSIN \
 		:"=r"(expr_combine(__r_,RE))\
 		:"r"(expr_combine(__r_,A0)),"r"(expr_combine(__r_,A1)),"r"(expr_combine(__r_,ID))\
@@ -857,7 +856,7 @@ extern const size_t expr_symbols_size;
 		expr_internal_regvarr(ID)=(num);\
 		expr_internal_regvarr(A0)=(a0);\
 		E1;\
-		asm volatile(\
+		__asm__ volatile(\
 		EXPR_SYSIN \
 		:"=r"(expr_combine(__r_,RE))\
 		:"r"(expr_combine(__r_,A0)),"r"(expr_combine(__r_,ID))\
@@ -867,7 +866,7 @@ extern const size_t expr_symbols_size;
 #define expr_internal_syscall_reg0(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ({\
 		expr_internal_regvarr(ID)=(num);\
 		E0;\
-		asm volatile(\
+		__asm__ volatile(\
 		EXPR_SYSIN \
 		:"=r"(expr_combine(__r_,RE))\
 		:"r"(expr_combine(__r_,ID))\

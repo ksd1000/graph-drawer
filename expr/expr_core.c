@@ -7286,7 +7286,7 @@ int expr_optimize(struct expr *restrict ep){
 				__builtin_unreachable();\
 		}\
 break1:\
-		asm("":::"memory");\
+		__asm__("":::"memory");\
 		++ip;\
 break2:
 __attribute__((noinline))

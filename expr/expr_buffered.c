@@ -83,7 +83,7 @@ ssize_t expr_buffered_write(struct expr_buffered_file *restrict fp,const void *b
 		if(fp->index<fp->length){
 			c=fp->length-fp->index;
 			memcpy(fbuf+fp->index,buf,c);
-			buf=(const char *)buf+c;
+			buf+=c;
 			size-=c;
 		}
 		r=fp->un.writer(fp->fd,fp->buf,fp->length);
@@ -138,10 +138,10 @@ try_read_again:
 		}
 		fp->written=0;
 		fp->index=0;
-		memcpy((char *)buf,fbuf+fp->written,i);
+		memcpy(buf,fbuf+fp->written,i);
 		if(i==size)
 			return size;
-		buf=(char *)buf+i;
+		buf+=i;
 		size-=i;
 	}
 	if(unlikely(fp->length<=size)){

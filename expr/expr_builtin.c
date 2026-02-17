@@ -10,34 +10,11 @@
 #include <float.h>
 #include <setjmp.h>
 #include <alloca.h>
+
+#define _EXPR_LIB 1
 #include "expr.h"
 
 #define PHYSICAL_CONSTANT 0
-
-#ifndef NDEBUG
-#define NDEBUG 1
-#endif
-
-#if NDEBUG
-#define debug(fmt,...) ((void)0)
-#else
-#define debug(fmt,...) ((void)fprintf(stderr,"[DEBUG]%s:%d: " fmt "\n",__func__,__LINE__,##__VA_ARGS__))
-#endif
-
-#ifdef __clang__
-#pragma GCC diagnostic ignored "-Wunknown-warning-option"
-#endif
-#pragma GCC diagnostic ignored "-Wzero-length-bounds"
-#pragma GCC diagnostic ignored "-Wstrict-aliasing"
-
-#define likely(cond) expr_likely(cond)
-#define unlikely(cond) expr_unlikely(cond)
-
-#define xmalloc expr_xmalloc
-#define xrealloc expr_xrealloc
-#define xfree expr_xfree
-
-#define warn(fmt,...) fprintf(stderr,fmt "\n",##__VA_ARGS__)
 
 #define eval(_ep,_input) expr_eval(_ep,_input)
 expr_weaks;

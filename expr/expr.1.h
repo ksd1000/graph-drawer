@@ -11,15 +11,57 @@
 #include <limits.h>
 #include <setjmp.h>
 
+#if defined(_EXPR_LIB)&&(_EXPR_LIB)
+#define expr_weaks \
+__attribute__((weak)) void *(*expr_allocator)(size_t)=malloc;\
+__attribute__((weak)) void *(*expr_reallocator)(void *,size_t)=realloc;\
+__attribute__((weak)) void (*expr_deallocator)(void *)=free;\
+__attribute__((weak)) size_t expr_allocate_max=SSIZE_MAX;\
+__attribute__((weak)) size_t expr_bufsize_initial=512
+
+#ifndef NDEBUG
+#define NDEBUG 1
+#endif
+
+#define addo(V,A) __builtin_add_overflow((V),(A),&(V))
+#define mulo(V,A) __builtin_mul_overflow((V),(A),&(V))
+
+#if NDEBUG
+#define debug(fmt,...) ((void)0)
+#else
+#define debug(fmt,...) ((void)fprintf(stderr,"[DEBUG]%s:%d: " fmt "\n",__func__,__LINE__,##__VA_ARGS__))
+#endif
+#define warn(fmt,...) fprintf(stderr,fmt "\n",##__VA_ARGS__)
+
+#ifdef __clang__
+#pragma GCC diagnostic ignored "-Wunknown-warning-option"
+#endif
+#pragma GCC diagnostic ignored "-Wzero-length-bounds"
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+
+#define likely(cond) expr_likely(cond)
+#define unlikely(cond) expr_unlikely(cond)
+#define arrsize(arr) (sizeof(arr)/sizeof(*arr))
+
+#define align(x) (((x)+(EXPR_ALIGN-1))&~(EXPR_ALIGN-1))
+
+#define bufsize_initial expr_bufsize_initial
+
+#define xmalloc expr_xmalloc
+#define xrealloc expr_xrealloc
+#define xfree expr_xfree
+
+#endif
+
 #ifndef _SSIZE_T_DEFINED_
 #define _SSIZE_T_DEFINED_
 typedef ptrdiff_t ssize_t;
-#else
 #endif
 
 #ifndef SSIZE_MAX
 #define SSIZE_MAX PTRDIFF_MAX
 #endif
+
 #define expr_static_assert(cond) _Static_assert((cond),"static assertion " #cond " failed")
 expr_static_assert(sizeof(ssize_t)==sizeof(ptrdiff_t));
 expr_static_assert(sizeof(size_t)==sizeof(ptrdiff_t));
@@ -244,13 +286,6 @@ EXPR_END
 	__r.val=(x);\
 	__r.rd.base&&__r.rd.exp==2047;\
 })
-
-#define expr_weaks \
-__attribute__((weak)) void *(*expr_allocator)(size_t)=malloc;\
-__attribute__((weak)) void *(*expr_reallocator)(void *,size_t)=realloc;\
-__attribute__((weak)) void (*expr_deallocator)(void *)=free;\
-__attribute__((weak)) size_t expr_allocate_max=SSIZE_MAX;\
-__attribute__((weak)) size_t expr_bufsize_initial=512
 
 #define expr_xmalloc(size) ({\
 	size_t __sz=(size);\

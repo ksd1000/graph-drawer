@@ -43,7 +43,7 @@ static ssize_t writeext(expr_writer writer,intptr_t fd,size_t count,int c){
 	}
 	return sum;
 }
-#define flag_plusorspace(_f) (*(_f)->bit&(3ul<<62))
+#define flag_plusorspace(_f) (*(_f)->bit&(UINTPTR_C(3)<<62))
 #define flag_width(_f,_dflt) ((_f)->width_set?(_f)->width:(_dflt))
 #define flag_digit(_f,_dflt) ((_f)->digit_set?(size_t)(_f)->digit:(_dflt))
 #define cwrite_common(_s,_sz) \
@@ -245,7 +245,7 @@ static size_t extint_mul(uint64_t *buf,size_t size,uint32_t factor,uint64_t *wor
 			++p,++wp){
 		un.v=((uint64_t)*p)*factor;
 		*p=un.v&0xfffffffful;
-		*wp=(un.v>>32ul);
+		*wp=(un.v>>32);
 	}
 	csize32=size32;
 	for(p=(uint32_t *)buf,wp=(uint32_t *)workspace;
@@ -364,7 +364,7 @@ static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr
 			*(uint32_t *)p=*(const uint32_t *)(expr_isinf(val)?"INF":"NAN");\
 		else\
 			*(uint32_t *)p=*(const uint32_t *)(expr_isinf(val)?"inf":"nan");\
-		cwrite_common(nbuf,p==nbuf?3l:4l);\
+		cwrite_common(nbuf,p==nbuf?INTPTR_C(3):INTPTR_C(4));\
 	}\
 	endp=nbuf+_nsize;\
 	np=endp;\
@@ -380,7 +380,7 @@ static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr
 		double fval;\
 		fval=floor(val);\
 		val-=fval;\
-		*iival=EXPR_EDBASE(&fval)|(1ul<<52ul);\
+		*iival=EXPR_EDBASE(&fval)|(UINT64_C(1)<<52);\
 		sz-=52;\
 		if(sz){\
 			if(sz>0){\
@@ -413,9 +413,9 @@ static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr
 	if(digit){\
 		fsz=(ssize_t)EXPR_EDEXP(&val);\
 		if(fsz)\
-			*ival=EXPR_EDBASE(&val)|(1ul<<52ul);\
+			*ival=EXPR_EDBASE(&val)|(UINT64_C(1)<<52);\
 		else\
-			*ival=EXPR_EDBASE(&val)<<1ul;\
+			*ival=EXPR_EDBASE(&val)<<1;\
 		ext=1075-fsz;\
 		r=1;\
 		_shift;\
@@ -794,14 +794,14 @@ static ssize_t faction_G(expr_writer writer,intptr_t fd,const union expr_argf *a
 static ssize_t faction_p(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	if(!arg->addr){
 		ssize_t r,sum,ext,sz;
-		cwrite_common("null",4l);
+		cwrite_common("null",INTPTR_C(4));
 	}
 	return converter_x81(writer,fd,arg,(flag->sharp=1,flag));
 }
 static ssize_t faction_P(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	if(!arg->addr){
 		ssize_t r,sum,ext,sz;
-		cwrite_common("NULL",4l);
+		cwrite_common("NULL",INTPTR_C(4));
 	}
 	return converter_x81(writer,fd,arg,(flag->sharp=1,flag));
 }
@@ -1467,14 +1467,14 @@ wfp_get:
 				expr_umaxf_t val,mask;
 				flag->argsize=sizeof(void *);
 				aps=arg1->uint;
-				mask=(1ul<<(arrwid*8))-1ul;
+				mask=(UINT64_C(1)<<(arrwid*8))-1;
 				argnext1;
 				for(;;){
 					if(arrwid<8){
 						bit_copy(&val,aps,arrwid);
 						if(wfp->type==EXPR_FLAGTYPE_SIGNED_INTEGER&&
-						(val&(0x80ul<<((arrwid-1)*8))))
-							val=(~0ul&~mask)|(val&mask);
+						(val&(UINT64_C(0x80)<<((arrwid-1)*8))))
+							val=(~UINT64_C(0)&~mask)|(val&mask);
 						else
 							val&=mask;
 					}else

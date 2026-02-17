@@ -5,8 +5,8 @@
 #ifndef _EXPR_H_
 #define _EXPR_H_
 
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdarg.h>
 #include <limits.h>
 #include <setjmp.h>
@@ -50,6 +50,10 @@ __attribute__((weak)) size_t expr_bufsize_initial=512
 #define xmalloc expr_xmalloc
 #define xrealloc expr_xrealloc
 #define xfree expr_xfree
+
+#ifndef alloca
+#define alloca(size) __builtin_alloca(size)
+#endif
 
 #endif
 
@@ -724,7 +728,6 @@ extern const uint8_t expr_number_table[256];
 
 extern const struct expr_builtin_symbol expr_symbols[];
 extern const struct expr_builtin_keyword expr_keywords[];
-extern const struct expr_libinfo expr_libinfo[1];
 
 extern void *(*expr_allocator)(size_t);
 extern void *(*expr_reallocator)(void *,size_t);
@@ -742,6 +745,7 @@ extern const size_t expr_symbols_size;
 #define expr_internal_regvar(_name) register intptr_t _name __asm__(#_name)
 
 #ifndef EXPR_SYSIN
+
 #if defined(__aarch64__)
 #define EXPR_SYSIN "svc #0"
 #define EXPR_SYSID x8
@@ -761,6 +765,7 @@ extern const size_t expr_symbols_size;
 #define EXPR_SYSE5
 #define EXPR_SYSE6
 #define EXPR_SYSE7
+#define EXPR_ARCHN "aarch64"
 #elif defined(__x86_64__)
 #define EXPR_SYSIN "syscall"
 #define EXPR_SYSID rax
@@ -780,15 +785,19 @@ extern const size_t expr_symbols_size;
 #define EXPR_SYSE5
 #define EXPR_SYSE6
 #define EXPR_SYSE7
+#define EXPR_ARCHN "x86_64"
+#else
+#define EXPR_SYSAM 0
+#define EXPR_ARCHN "unknown_arch"
+#pragma message("internal syscall is not implemented")
 #endif
+
 #endif
 
 #ifdef EXPR_SYSIN
 #define expr_internal_syscall(N,num,a0,a1,a2,a3,a4,a5,a6) expr_internal_syscall_reg##N(num,a0,a1,a2,a3,a4,a5,a6,EXPR_SYSID,EXPR_SYSA0,EXPR_SYSA1,EXPR_SYSA2,EXPR_SYSA3,EXPR_SYSA4,EXPR_SYSA5,EXPR_SYSA6,EXPR_SYSRE,EXPR_SYSE0,EXPR_SYSE1,EXPR_SYSE2,EXPR_SYSE3,EXPR_SYSE4,EXPR_SYSE5,EXPR_SYSE6,EXPR_SYSE7)
 #else
 #define expr_internal_syscall(N,num,a0,a1,a2,a3,a4,a5,a6) ((intptr_t)0)
-#define EXPR_SYSAM 0
-#pragma message("internal syscall is not implemented")
 #endif
 
 #define expr_internal_syscall0(num) expr_internal_syscall(0,num,,,,,,,)

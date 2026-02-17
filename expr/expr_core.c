@@ -9,7 +9,6 @@
 #include <string.h>
 #include <float.h>
 #include <setjmp.h>
-#include <alloca.h>
 
 #define _EXPR_LIB 1
 #include "expr.h"
@@ -269,16 +268,16 @@
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #define LOGIC(a,b,_s) (((a)!=0.0) _s ((b)!=0.0))
 #define LOGIC_BIT(_a,_b,_op_cal,_op_zero,_zero_val) \
-	if(_expdiff>52L){\
+	if(_expdiff>52){\
 		_r=EXPR_EDSIGN(&_a) _op_zero EXPR_EDSIGN(&_b)?-( _zero_val):(_zero_val);\
 	}else {\
-		_x2=(EXPR_EDBASE(&_b)|(1UL<<52UL))>>_expdiff;\
-		_x1=EXPR_EDBASE(&_a)|(1UL<<52UL);\
+		_x2=(EXPR_EDBASE(&_b)|(UINT64_C(1)<<52))>>_expdiff;\
+		_x1=EXPR_EDBASE(&_a)|(UINT64_C(1)<<52);\
 		_x1 _op_cal _x2;\
 		if(_x1){\
-			_x2=63UL-__builtin_clzl(_x1);\
-			_x1&=~(1UL<<_x2);\
-			_x2=52UL-_x2;\
+			_x2=63-__builtin_clzl(_x1);\
+			_x1&=~(UINT64_C(1)<<_x2);\
+			_x2=52-_x2;\
 			if(EXPR_EDEXP(&_a)<_x2){\
 				_r=EXPR_EDSIGN(&_a) _op_zero EXPR_EDSIGN(&_b)?-( _zero_val):(_zero_val);\
 			}else {\
@@ -299,7 +298,7 @@
 	_a=(__a);\
 	_b=(__b);\
 	_expdiff=EXPR_EDEXP(&_a)-EXPR_EDEXP(&_b);\
-	if(_expdiff<0L){\
+	if(_expdiff<0){\
 		_expdiff=-_expdiff;\
 		LOGIC_BIT(_b,_a,&=,&&,0.0)\
 	}else {\
@@ -314,7 +313,7 @@
 	_a=(__a);\
 	_b=(__b);\
 	_expdiff=EXPR_EDEXP(&_a)-EXPR_EDEXP(&_b);\
-	if(_expdiff<0L){\
+	if(_expdiff<0){\
 		_expdiff=-_expdiff;\
 		LOGIC_BIT(_b,_a,|=,||,_b>=0.0?_b:-_b)\
 	}else {\
@@ -329,7 +328,7 @@
 	_a=(__a);\
 	_b=(__b);\
 	_expdiff=EXPR_EDEXP(&_a)-EXPR_EDEXP(&_b);\
-	if(_expdiff<0L){\
+	if(_expdiff<0){\
 		_expdiff=-_expdiff;\
 		LOGIC_BIT(_b,_a,^=,^,_b>=0.0?_b:-_b)\
 	}else {\
@@ -368,24 +367,6 @@ static const char *eerror[]={
 	[EXPR_EANT]="Alias is not terminated",
 	[EXPR_EUDE]="User-defined error",
 };
-const struct expr_libinfo expr_libinfo[1]={{
-	.version="pre-release",
-	.compiler_version=
-#ifdef __VERSION__
-		__VERSION__,
-#else
-		"Unknown",
-#endif
-	.platform=
-#ifdef PLATFORM
-		PLATFORM,
-#else
-		"Unknown",
-#endif
-	.date=__DATE__,
-	.time=__TIME__,
-	.license="GPL v3+",
-}};
 //const static char ntoc[]={"0123456789abcdefg"};
 const char *expr_error(int error){
 	switch(error){
@@ -542,7 +523,7 @@ void expr_fry(double *restrict v,size_t n){
 		case 1:
 			return;
 		default:
-			r=n>>1ul;
+			r=n>>1;
 			expr_fry(v,r);
 			expr_fry(v+r,r);
 			break;
@@ -579,7 +560,7 @@ __attribute__((noreturn)) void expr_explode(void){
 			//memory and the OOM
 			//will not be called.
 		}
-		sz>>=1ul;
+		sz>>=1;
 	}while(sz);
 	abort();
 //the abort() is usually unreachable,should
@@ -3676,7 +3657,7 @@ static struct vnode *vnadd(struct vnode *vp,double *v,enum expr_op op,uint64_t u
 }
 static inline int do_unary_forone(struct expr *restrict ep,struct vnode *p){
 redo:
-	switch(p->unary&7ul){
+	switch(p->unary&7){
 		case 1:
 			cknp(ep,expr_addneg(ep,p->v),return -1);
 			break;
@@ -3695,7 +3676,7 @@ redo:
 		default:
 			return 0;
 	}
-	p->unary>>=3ul;
+	p->unary>>=3;
 	goto redo;
 }
 static inline int do_unary_forvar(struct expr *restrict ep,struct vnode *ev,double *v){
@@ -3747,7 +3728,7 @@ redo:
 		case '~':
 		case '#':
 		case '=':
-			if(unlikely(unary&(0xf000000000000000ul))){
+			if(unlikely(unary&UINT64_C(0xf000000000000000))){
 				if(e<endp&&expr_operator(*e)){
 euo:
 					*ep->errinfo=*e;
@@ -3768,31 +3749,31 @@ eev:
 				goto eev;
 			goto redo;
 		case '-':
-			unary=(unary<<3ul)|1ul;
+			unary=(unary<<3)|1;
 			++e;
 			if(unlikely(e>=endp))
 				goto eev;
 			goto redo;
 		case '!':
-			unary=(unary<<3ul)|2ul;
+			unary=(unary<<3)|2;
 			++e;
 			if(unlikely(e>=endp))
 				goto eev;
 			goto redo;
 		case '~':
-			unary=(unary<<3ul)|3ul;
+			unary=(unary<<3)|3;
 			++e;
 			if(unlikely(e>=endp))
 				goto eev;
 			goto redo;
 		case '#':
-			unary=(unary<<3ul)|4ul;
+			unary=(unary<<3)|4;
 			++e;
 			if(unlikely(e>=endp))
 				goto eev;
 			goto redo;
 		case '=':
-			unary=(unary<<3ul)|5ul;
+			unary=(unary<<3)|5;
 			++e;
 			if(unlikely(e>=endp))
 				goto eev;
@@ -4462,7 +4443,7 @@ static long firstdiff(const char *restrict s1,const char *restrict s2,size_t len
 	}else if(!len1&&len2){
 		r=-(int32_t)(unsigned char)*s2;
 	}
-	//r0=(r*ampl)>>48l;
+	//r0=(r*ampl)>>48;
 	r0=r*expr_ltod48(ampl);
 	//return r==0?0:(r>0?r0+1:r0-1);
 	return r0?r0:r;

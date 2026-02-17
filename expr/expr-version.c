@@ -100,6 +100,8 @@ const struct option ops[]={
 	{"unreachable",0,NULL,'u'},
 	{"help",0,NULL,'h'},
 	{"table",0,NULL,'T'},
+	{"calc",1,NULL,'c'},
+	{"calc-safe",1,NULL,'C'},
 	{NULL},
 };
 void show_help(void){
@@ -140,10 +142,26 @@ void table_write(void){
 	}
 	exit(EXIT_SUCCESS);
 }
+void do_calc(const char *e,int flag){
+	double result;
+	int error=0;
+	char errinfo[EXPR_SYMLEN];
+	result=expr_calc5(e,&error,errinfo,NULL,flag);
+	if(error){
+		fprintf(stderr,"expression_error:%s. %s\n",expr_error(error),errinfo);
+		exit(EXIT_FAILURE);
+	}
+	fprintf(stdout,"%lg\n",result);
+	exit(EXIT_SUCCESS);
+}
 int main(int argc,char **argv){
 	opterr=1;
 	for(;;){
-		switch(getopt_long(argc,argv,"ae::sthuT",ops,NULL)){
+		switch(getopt_long(argc,argv,"ae::sthuTc:C:",ops,NULL)){
+			case 'c':
+				do_calc(optarg,0);
+			case 'C':
+				do_calc(optarg,EXPR_IF_PROTECT);
 			case 'h':
 				show_help();
 			case 'T':

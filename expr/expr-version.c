@@ -9,6 +9,24 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <ctype.h>
+const struct expr_libinfo expr_libinfo[1]={{
+	.version="pre-release",
+	.compiler_version=
+#ifdef __VERSION__
+		__VERSION__,
+#else
+		"Unknown",
+#endif
+	.platform=EXPR_ARCHN " "
+#ifdef __linux__
+		"Linux",
+#else
+		"Unknown",
+#endif
+	.date=__DATE__,
+	.time=__TIME__,
+	.license="GPL v3+",
+}};
 void show(const struct expr_libinfo *el){
 	fprintf(stdout,"expr version:%s\n",el->version);
 	fprintf(stdout,"compiler:%s\n",el->compiler_version);

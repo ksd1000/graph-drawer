@@ -6,7 +6,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <alloca.h>
 
 #define _EXPR_LIB 1
 #include "expr.h"

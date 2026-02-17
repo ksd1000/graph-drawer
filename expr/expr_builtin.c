@@ -9,7 +9,6 @@
 #include <string.h>
 #include <float.h>
 #include <setjmp.h>
-#include <alloca.h>
 
 #define _EXPR_LIB 1
 #include "expr.h"
@@ -182,7 +181,7 @@ static double expr_rand48_next(double x){
 	return (double)expr_next48v((long)x);
 }
 static double expr_drand48_next(double x){
-	return ltod(expr_next48v((cast(x+1.0,long)&0xffffffffffff0l)>>4));
+	return ltod(expr_next48v((cast(x+1.0,long)&INT64_C(0xffffffffffff0))>>4));
 }
 static double expr_drand48(double x){
 	return ltod(expr_next48(cast(x,long *)));
@@ -626,7 +625,7 @@ static double systype(double x){
 				break;
 		}
 	}
-	return (double)((long)r<<32l);
+	return (double)((long)r<<32);
 }
 
 #define RMEM(sym,type)\
@@ -881,7 +880,7 @@ static double expr_derivate(const struct expr *args,size_t n,double input){
 		eval(args,input-epsilon))/epsilon/2;
 }
 double expr_multilevel_derivate(const struct expr *ep,double input,long level,double epsilon){
-	if(level<1l)
+	if(level<1)
 		return eval(ep,input);
 	else return (expr_multilevel_derivate(
 		ep,input+epsilon,level-1,epsilon
@@ -1354,13 +1353,13 @@ const struct expr_builtin_symbol expr_symbols[]={
 
 	REGMDSYM2_NIU("syscall",bsyscall,0),
 	REGFSYM_U(systype),
-	REGCSYM2("sysp0",1l<<32l),
-	REGCSYM2("sysp1",1l<<33l),
-	REGCSYM2("sysp2",1l<<34l),
-	REGCSYM2("sysp3",1l<<35l),
-	REGCSYM2("sysp4",1l<<36l),
-	REGCSYM2("sysp5",1l<<37l),
-	REGCSYM2("sysp6",1l<<38l),
+	REGCSYM2("sysp0",INT64_C(1)<<32),
+	REGCSYM2("sysp1",INT64_C(1)<<33),
+	REGCSYM2("sysp2",INT64_C(1)<<34),
+	REGCSYM2("sysp3",INT64_C(1)<<35),
+	REGCSYM2("sysp4",INT64_C(1)<<36),
+	REGCSYM2("sysp5",INT64_C(1)<<37),
+	REGCSYM2("sysp6",INT64_C(1)<<38),
 
 	REGMDEPSYM2_NIW("assert",bassert,1ul),
 	REGMDEPSYM2_NI("ldr",expr_ldr,2ul),

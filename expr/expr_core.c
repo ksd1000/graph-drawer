@@ -367,7 +367,6 @@ static const char *eerror[]={
 	[EXPR_EANT]="Alias is not terminated",
 	[EXPR_EUDE]="User-defined error",
 };
-//const static char ntoc[]={"0123456789abcdefg"};
 const char *expr_error(int error){
 	switch(error){
 		default:

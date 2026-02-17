@@ -146,7 +146,10 @@ void do_calc(const char *e,int flag){
 	double result;
 	int error=0;
 	char errinfo[EXPR_SYMLEN];
-	result=expr_calc5(e,&error,errinfo,NULL,flag);
+	struct expr_symset *esp=expr_builtin_symbol_convert(expr_symbols);
+	result=expr_calc5(e,&error,errinfo,esp,flag);
+	if(esp)
+		expr_symset_free(esp);
 	if(error){
 		fprintf(stderr,"expression_error:%s. %s\n",expr_error(error),errinfo);
 		exit(EXIT_FAILURE);

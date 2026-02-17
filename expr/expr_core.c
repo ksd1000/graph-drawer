@@ -10,16 +10,12 @@
 #include <float.h>
 #include <setjmp.h>
 #include <alloca.h>
+
+#define _EXPR_LIB 1
 #include "expr.h"
 
 #define UNABLE_GETADDR_IN_PROTECTED_MODE 1
 
-#ifndef NDEBUG
-#define NDEBUG 1
-#endif
-
-#define addo(V,A) __builtin_add_overflow((V),(A),&(V))
-#define mulo(V,A) __builtin_mul_overflow((V),(A),&(V))
 
 #define printval(x) warn(#x ":%lu",(unsigned long)(x))
 #define printvalx(x) warn(#x ":%lx",(unsigned long)(x))
@@ -27,19 +23,6 @@
 #define printvall(x) warn(#x ":%ld",(long)(x))
 #define printvald(x) warn(#x ":%lf",(double)(x))
 #define trap (warn("\nat file %s line %d",__FILE__,__LINE__),__builtin_trap())
-#define warn(fmt,...) fprintf(stderr,fmt "\n",##__VA_ARGS__)
-
-#if NDEBUG
-#define debug(fmt,...) ((void)0)
-#else
-#define debug(fmt,...) ((void)fprintf(stderr,"[DEBUG]%s:%d: " fmt "\n",__func__,__LINE__,##__VA_ARGS__))
-#endif
-
-#ifdef __clang__
-#pragma GCC diagnostic ignored "-Wunknown-warning-option"
-#endif
-#pragma GCC diagnostic ignored "-Wzero-length-bounds"
-#pragma GCC diagnostic ignored "-Wstrict-aliasing"
 
 #define STACK_SIZEOFSSET(esp) ({size_t depth=(esp)->depth;depth<2?0:(depth-1)*EXPR_SYMSET_DEPTHUNIT;})
 #define STACK_DEFAULT(_stack,esp) \
@@ -425,34 +408,6 @@ const size_t expr_page_size=PAGE_SIZE;
 #define realloc (use xrealloc() instead!)
 #define asprintf (use xasprintf_nullable() instead!)
 #define vasprintf (use expr_vasprintf() instead!)
-#define expr_allocator_weak \
-__attribute__((weak)) void *(*expr_allocator)(size_t)=malloc;\
-__attribute__((weak)) void *(*expr_reallocator)(void *,size_t)=realloc;\
-__attribute__((weak)) void (*expr_deallocator)(void *)=free
-#define expr_xmalloc(size) ({\
-	size_t __sz=(size);\
-	unlikely(__sz>expr_allocate_max)?\
-		NULL:\
-		expr_allocator(__sz);\
-})
-#define expr_xrealloc(old,size) ({\
-	void *__old=(old);\
-	size_t __sz=(size);\
-	unlikely(__sz>expr_allocate_max)?\
-		NULL:\
-		(__old?\
-			 expr_reallocator(__old,__sz):\
-			 expr_allocator(__sz));\
-})
-#define expr_xfree(old) ({\
-	void *__old=(old);\
-	if(unlikely(!__old))\
-		__builtin_trap();\
-	expr_deallocator(__old);\
-})
-#define xmalloc expr_xmalloc
-#define xrealloc expr_xrealloc
-#define xfree expr_xfree
 static inline void *xautoadd(void **restrict old,size_t *restrict size,size_t *restrict length,size_t n,size_t extend){
 	void *r;
 	size_t old_size=*size,new_length;

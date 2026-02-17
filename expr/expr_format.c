@@ -7,30 +7,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#define _EXPR_LIB 1
 #include "expr.h"
-
-#ifndef NDEBUG
-#define NDEBUG 1
-#endif
-
-#define addo(V,A) __builtin_add_overflow((V),(A),&(V))
-#define mulo(V,A) __builtin_mul_overflow((V),(A),&(V))
-
-#if NDEBUG
-#define debug(fmt,...) ((void)0)
-#else
-#define debug(fmt,...) ((void)fprintf(stderr,"[DEBUG]%s:%d: " fmt "\n",__func__,__LINE__,##__VA_ARGS__))
-#endif
-
-#ifdef __clang__
-#pragma GCC diagnostic ignored "-Wunknown-warning-option"
-#endif
-#pragma GCC diagnostic ignored "-Wzero-length-bounds"
-#pragma GCC diagnostic ignored "-Wstrict-aliasing"
-
-#define likely(cond) expr_likely(cond)
-#define unlikely(cond) expr_unlikely(cond)
-#define arrsize(arr) (sizeof(arr)/sizeof(*arr))
 
 #define c_trywrite(buf,sz) if(likely((r=(sz))>0)){\
 	r=writer(fd,(buf),r);\

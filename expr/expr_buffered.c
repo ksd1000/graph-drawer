@@ -7,32 +7,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <alloca.h>
+
+#define _EXPR_LIB 1
 #include "expr.h"
-
-#ifndef NDEBUG
-#define NDEBUG 1
-#endif
-
-#if NDEBUG
-#define debug(fmt,...) ((void)0)
-#else
-#define debug(fmt,...) ((void)fprintf(stderr,"[DEBUG]%s:%d: " fmt "\n",__func__,__LINE__,##__VA_ARGS__))
-#endif
-
-#ifdef __clang__
-#pragma GCC diagnostic ignored "-Wunknown-warning-option"
-#endif
-#pragma GCC diagnostic ignored "-Wzero-length-bounds"
-#pragma GCC diagnostic ignored "-Wstrict-aliasing"
-
-#define likely(cond) expr_likely(cond)
-#define unlikely(cond) expr_unlikely(cond)
-#define align(x) (((x)+(EXPR_ALIGN-1))&~(EXPR_ALIGN-1))
-
-#define bufsize_initial expr_bufsize_initial
-
-#define xrealloc expr_xrealloc
-#define xfree expr_xfree
 
 expr_weaks;
 

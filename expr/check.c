@@ -174,8 +174,6 @@ ab:
 }
 int main(int argc,char **argv){
 	double x0=expr_cast(expr_seed48(time(NULL)),double);
-	srand48(time(NULL)+getpid());
-	//expr_calc5("t+2","t",3,NULL,0);
 	es=expr_builtin_symbol_convert(expr_symbols);
 	assert(es);
 	expr_symset_add(es,"x0",EXPR_VARIABLE,0,&x0);

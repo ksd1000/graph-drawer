@@ -7,10 +7,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
-#include <assert.h>
-#include <alloca.h>
 #include <float.h>
+#ifdef __unix__
 #include <pthread.h>
+#include <alloca.h>
+#endif
 #include "graph.h"
 #include "texts/text.h"
 #define muldiv(m1,m2,f) ((uint64_t)(m1)*(m2)/(f))
@@ -330,10 +331,11 @@ void graph_draw(struct graph *restrict gp,uint32_t color,int32_t bold,double (*x
 	*current=DBL_MAX;
 }
 void graph_draw_mt(struct graph *restrict gp,uint32_t color,int32_t bold,double (*x)(double,void *),double (*y)(double,void *),void *arg,double from,double to,double step,volatile double *currents,int thread){
+#ifdef __unix__
 	pthread_t *pts;
 	struct mtarg *mts;
 	double last,gap,lpg;
-	if(thread<2/*||(to-from)<step*pow((double)(thread+1),2)*/){
+	if(thread<2){
 		graph_draw(gp,color,bold,x,y,arg,from,to,step,currents);
 		return;
 	}
@@ -361,6 +363,14 @@ void graph_draw_mt(struct graph *restrict gp,uint32_t color,int32_t bold,double 
 		pthread_join(pts[i],NULL);
 	}
 	return;
+#else
+	if(thread<2){
+		graph_draw(gp,color,bold,x,y,arg,from,to,step,currents);
+		return;
+	}
+	fprintf(stderr,"multi_thread is not implemented\n");
+	abort();
+#endif
 }
 static void graph_connect_pixel_x(struct graph *restrict gp,uint32_t color,int32_t bold,int32_t x1,int32_t y1,int32_t x2,int32_t y2){
 	int32_t dx,dy,idx;

@@ -271,14 +271,14 @@
 	if(_expdiff>INT64_C(52)){\
 		_r=EXPR_EDSIGN(&_a) _op_zero EXPR_EDSIGN(&_b)?-( _zero_val):(_zero_val);\
 	}else {\
-		_x2=(EXPR_EDBASE(&_b)|(UINT64_C(1)<<UINT64_C(52)))>>_expdiff;\
-		_x1=EXPR_EDBASE(&_a)|(UINT64_C(1)<<UINT64_C(52));\
+		_x2=((uint64_t)EXPR_EDBASE(&_b)|(UINT64_C(1)<<UINT64_C(52)))>>_expdiff;\
+		_x1=(uint64_t)EXPR_EDBASE(&_a)|(UINT64_C(1)<<UINT64_C(52));\
 		_x1 _op_cal _x2;\
 		if(_x1){\
 			_x2=UINT64_C(63)-__builtin_clzl(_x1);\
 			_x1&=~(UINT64_C(1)<<_x2);\
 			_x2=UINT64_C(52)-_x2;\
-			if(EXPR_EDEXP(&_a)<_x2){\
+			if((uint64_t)EXPR_EDEXP(&_a)<_x2){\
 				_r=EXPR_EDSIGN(&_a) _op_zero EXPR_EDSIGN(&_b)?-( _zero_val):(_zero_val);\
 			}else {\
 				EXPR_EDBASE(&_a)=_x1<<_x2;\
@@ -297,7 +297,7 @@
 	double _a,_b,_r;\
 	_a=(__a);\
 	_b=(__b);\
-	_expdiff=EXPR_EDEXP(&_a)-EXPR_EDEXP(&_b);\
+	_expdiff=(uint64_t)EXPR_EDEXP(&_a)-(uint64_t)EXPR_EDEXP(&_b);\
 	if(_expdiff<INT64_C(0)){\
 		_expdiff=-_expdiff;\
 		LOGIC_BIT(_b,_a,&=,&&,0.0)\
@@ -312,7 +312,7 @@
 	double _a,_b,_r;\
 	_a=(__a);\
 	_b=(__b);\
-	_expdiff=EXPR_EDEXP(&_a)-EXPR_EDEXP(&_b);\
+	_expdiff=(uint64_t)EXPR_EDEXP(&_a)-(uint64_t)EXPR_EDEXP(&_b);\
 	if(_expdiff<INT64_C(0)){\
 		_expdiff=-_expdiff;\
 		LOGIC_BIT(_b,_a,|=,||,_b>=0.0?_b:-_b)\
@@ -327,7 +327,7 @@
 	double _a,_b,_r;\
 	_a=(__a);\
 	_b=(__b);\
-	_expdiff=EXPR_EDEXP(&_a)-EXPR_EDEXP(&_b);\
+	_expdiff=(uint64_t)EXPR_EDEXP(&_a)-(uint64_t)EXPR_EDEXP(&_b);\
 	if(_expdiff<INT64_C(0)){\
 		_expdiff=-_expdiff;\
 		LOGIC_BIT(_b,_a,^=,^,_b>=0.0?_b:-_b)\

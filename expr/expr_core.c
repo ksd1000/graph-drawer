@@ -6915,6 +6915,7 @@ int expr_optimize(struct expr *restrict ep){
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #pragma GCC diagnostic ignored "-Wdangling-pointer"
+#pragma GCC diagnostic ignored "-Woverflow"
 
 #define sum (un.s0._sum)
 #define from (un.s0._from)

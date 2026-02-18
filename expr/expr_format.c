@@ -1491,6 +1491,8 @@ wfp_get:
 					aps+=arrwid;
 				}
 			}else {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 				const union expr_argf *arg_cur;
 				if(!forward&&unlikely(!(arg_cur=argt(wfp->type))))
 					goto_argfail;
@@ -1499,6 +1501,7 @@ wfp_get:
 					argnext1;
 				}else
 					forward=0;
+#pragma GCC diagnostic pop
 			}
 			break;
 	}

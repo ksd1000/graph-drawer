@@ -113,6 +113,8 @@ void show_help(void){
 			"\t--unreachable ,-u\tcall __builtin_unreachable\n"
 			"\t--table ,-T\twrite the table for writef()\n"
 			"\t--help ,-h\tshow this help\n"
+			"\t--calc ,-c expression\tcalc and output\n"
+			"\t--calc-safe ,-C expression\tcalc in protected mode and output\n"
 			,stdout);
 	exit(EXIT_SUCCESS);
 }

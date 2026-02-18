@@ -999,7 +999,7 @@ double expr_gcd2(double x,double y);
 double expr_lcm2(double x,double y);
 void expr_mirror(double *buf,size_t size);
 void expr_memswap(void *restrict s1,void *restrict s2,size_t size);
-void expr_memfry48(void *restrict buf,size_t size,size_t n,long seed);
+void expr_memfry48(void *restrict buf,size_t size,size_t n,int64_t seed);
 void expr_fry(double *restrict v,size_t n);
 void expr_contract(void *buf,size_t size);
 __attribute__((noreturn)) void expr_explode(void);
@@ -1072,7 +1072,7 @@ void expr_symset_detachs_s(struct expr_symset *restrict esp,struct expr_symbol *
 void expr_symset_detacha(struct expr_symset *restrict esp,struct expr_symbol *const *spa,size_t n);
 void expr_symset_detacha_s(struct expr_symset *restrict esp,struct expr_symbol *const *spa,size_t n,void *stack);
 int expr_symset_recombine(struct expr_symset *restrict esp,long seed);
-int expr_symset_recombine_s(struct expr_symset *restrict esp,long seed,void *stack);
+int expr_symset_recombine_s(struct expr_symset *restrict esp,uint64_t seed,void *stack);
 int expr_symset_tryrecombine(struct expr_symset *restrict esp,long seed);
 struct expr_symbol *expr_symset_rsearch(const struct expr_symset *restrict esp,void *addr);
 struct expr_symbol *expr_symset_rsearch_s(const struct expr_symset *restrict esp,void *addr,void *stack);

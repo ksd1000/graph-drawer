@@ -12,6 +12,7 @@
 #include <setjmp.h>
 
 #if defined(_EXPR_LIB)&&(_EXPR_LIB)
+#include <stdlib.h>
 #define expr_weaks \
 __attribute__((weak)) void *(*expr_allocator)(size_t)=malloc;\
 __attribute__((weak)) void *(*expr_reallocator)(void *,size_t)=realloc;\

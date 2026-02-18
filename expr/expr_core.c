@@ -375,8 +375,9 @@ const char *expr_error(int error){
 			return eerror[error];
 	}
 }
-
+#if defined(EXPR_ISOLATED)&&(EXPR_ISOLATED)
 expr_weaks;
+#endif
 
 void (*expr_contractor)(void *,size_t)=expr_contract;
 int expr_symset_allow_heap_stack=0;

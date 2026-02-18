@@ -810,14 +810,14 @@ extern const size_t expr_symbols_size;
 #define expr_internal_syscall7(num,a0,a1,a2,a3,a4,a5,a6) expr_internal_syscall(7,num,a0,a1,a2,a3,a4,a5,a6,)
 
 #define expr_internal_syscall_reg7(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ({\
-		expr_internal_regvarr(ID)=(num);\
-		expr_internal_regvarr(A0)=(a0);\
-		expr_internal_regvarr(A1)=(a1);\
-		expr_internal_regvarr(A2)=(a2);\
-		expr_internal_regvarr(A3)=(a3);\
-		expr_internal_regvarr(A4)=(a4);\
-		expr_internal_regvarr(A5)=(a5);\
-		expr_internal_regvarr(A6)=(a6);\
+		expr_internal_regvarr(ID)=(intptr_t)(num);\
+		expr_internal_regvarr(A0)=(intptr_t)(a0);\
+		expr_internal_regvarr(A1)=(intptr_t)(a1);\
+		expr_internal_regvarr(A2)=(intptr_t)(a2);\
+		expr_internal_regvarr(A3)=(intptr_t)(a3);\
+		expr_internal_regvarr(A4)=(intptr_t)(a4);\
+		expr_internal_regvarr(A5)=(intptr_t)(a5);\
+		expr_internal_regvarr(A6)=(intptr_t)(a6);\
 		E7;\
 		__asm__ volatile(\
 		EXPR_SYSIN \
@@ -827,13 +827,13 @@ extern const size_t expr_symbols_size;
 		expr_combine(__r_,RE);\
 })
 #define expr_internal_syscall_reg6(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ({\
-		expr_internal_regvarr(ID)=(num);\
-		expr_internal_regvarr(A0)=(a0);\
-		expr_internal_regvarr(A1)=(a1);\
-		expr_internal_regvarr(A2)=(a2);\
-		expr_internal_regvarr(A3)=(a3);\
-		expr_internal_regvarr(A4)=(a4);\
-		expr_internal_regvarr(A5)=(a5);\
+		expr_internal_regvarr(ID)=(intptr_t)(num);\
+		expr_internal_regvarr(A0)=(intptr_t)(a0);\
+		expr_internal_regvarr(A1)=(intptr_t)(a1);\
+		expr_internal_regvarr(A2)=(intptr_t)(a2);\
+		expr_internal_regvarr(A3)=(intptr_t)(a3);\
+		expr_internal_regvarr(A4)=(intptr_t)(a4);\
+		expr_internal_regvarr(A5)=(intptr_t)(a5);\
 		E6;\
 		__asm__ volatile(\
 		EXPR_SYSIN \
@@ -843,12 +843,12 @@ extern const size_t expr_symbols_size;
 		expr_combine(__r_,RE);\
 })
 #define expr_internal_syscall_reg5(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ({\
-		expr_internal_regvarr(ID)=(num);\
-		expr_internal_regvarr(A0)=(a0);\
-		expr_internal_regvarr(A1)=(a1);\
-		expr_internal_regvarr(A2)=(a2);\
-		expr_internal_regvarr(A3)=(a3);\
-		expr_internal_regvarr(A4)=(a4);\
+		expr_internal_regvarr(ID)=(intptr_t)(num);\
+		expr_internal_regvarr(A0)=(intptr_t)(a0);\
+		expr_internal_regvarr(A1)=(intptr_t)(a1);\
+		expr_internal_regvarr(A2)=(intptr_t)(a2);\
+		expr_internal_regvarr(A3)=(intptr_t)(a3);\
+		expr_internal_regvarr(A4)=(intptr_t)(a4);\
 		E5;\
 		__asm__ volatile(\
 		EXPR_SYSIN \
@@ -858,11 +858,11 @@ extern const size_t expr_symbols_size;
 		expr_combine(__r_,RE);\
 })
 #define expr_internal_syscall_reg4(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ({\
-		expr_internal_regvarr(ID)=(num);\
-		expr_internal_regvarr(A0)=(a0);\
-		expr_internal_regvarr(A1)=(a1);\
-		expr_internal_regvarr(A2)=(a2);\
-		expr_internal_regvarr(A3)=(a3);\
+		expr_internal_regvarr(ID)=(intptr_t)(num);\
+		expr_internal_regvarr(A0)=(intptr_t)(a0);\
+		expr_internal_regvarr(A1)=(intptr_t)(a1);\
+		expr_internal_regvarr(A2)=(intptr_t)(a2);\
+		expr_internal_regvarr(A3)=(intptr_t)(a3);\
 		E4;\
 		__asm__ volatile(\
 		EXPR_SYSIN \
@@ -872,10 +872,10 @@ extern const size_t expr_symbols_size;
 		expr_combine(__r_,RE);\
 })
 #define expr_internal_syscall_reg3(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ({\
-		expr_internal_regvarr(ID)=(num);\
-		expr_internal_regvarr(A0)=(a0);\
-		expr_internal_regvarr(A1)=(a1);\
-		expr_internal_regvarr(A2)=(a2);\
+		expr_internal_regvarr(ID)=(intptr_t)(num);\
+		expr_internal_regvarr(A0)=(intptr_t)(a0);\
+		expr_internal_regvarr(A1)=(intptr_t)(a1);\
+		expr_internal_regvarr(A2)=(intptr_t)(a2);\
 		E3;\
 		__asm__ volatile(\
 		EXPR_SYSIN \
@@ -885,9 +885,9 @@ extern const size_t expr_symbols_size;
 		expr_combine(__r_,RE);\
 })
 #define expr_internal_syscall_reg2(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ({\
-		expr_internal_regvarr(ID)=(num);\
-		expr_internal_regvarr(A0)=(a0);\
-		expr_internal_regvarr(A1)=(a1);\
+		expr_internal_regvarr(ID)=(intptr_t)(num);\
+		expr_internal_regvarr(A0)=(intptr_t)(a0);\
+		expr_internal_regvarr(A1)=(intptr_t)(a1);\
 		E2;\
 		__asm__ volatile(\
 		EXPR_SYSIN \
@@ -897,8 +897,8 @@ extern const size_t expr_symbols_size;
 		expr_combine(__r_,RE);\
 })
 #define expr_internal_syscall_reg1(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ({\
-		expr_internal_regvarr(ID)=(num);\
-		expr_internal_regvarr(A0)=(a0);\
+		expr_internal_regvarr(ID)=(intptr_t)(num);\
+		expr_internal_regvarr(A0)=(intptr_t)(a0);\
 		E1;\
 		__asm__ volatile(\
 		EXPR_SYSIN \
@@ -908,7 +908,7 @@ extern const size_t expr_symbols_size;
 		expr_combine(__r_,RE);\
 })
 #define expr_internal_syscall_reg0(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ({\
-		expr_internal_regvarr(ID)=(num);\
+		expr_internal_regvarr(ID)=(intptr_t)(num);\
 		E0;\
 		__asm__ volatile(\
 		EXPR_SYSIN \

@@ -380,7 +380,6 @@ expr_weaks;
 
 void (*expr_contractor)(void *,size_t)=expr_contract;
 int expr_symset_allow_heap_stack=0;
-long expr_seed_default=0;
 const size_t expr_page_size=PAGE_SIZE;
 
 #define free (use xfree() instead!)
@@ -4428,7 +4427,7 @@ err3:
 }
 static long firstdiff(const char *restrict s1,const char *restrict s2,size_t len1,size_t len2){
 	long r,r0;
-	long ampl=(0x330e)*EXPR_MAGIC48_A+EXPR_MAGIC48_B;
+	int64_t ampl=INT64_C(0x330e)*EXPR_MAGIC48_A+EXPR_MAGIC48_B;
 	do {
 		ampl=expr_next48v(ampl);
 		r=(int)(unsigned char)*(s1++)-(int)(unsigned char)*(s2++);

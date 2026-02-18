@@ -417,8 +417,8 @@ static inline void xfree_stack(void **restrict p){
 uint64_t expr_gcd64(uint64_t x,uint64_t y){
 	uint64_t r;
 	int r1;
-	r=__builtin_ctzl(x);
-	r1=__builtin_ctzl(y);
+	r=__builtin_ctzg(x);
+	r1=__builtin_ctzg(y);
 	r=r<r1?r:r1;
 	x>>=r;
 	y>>=r;

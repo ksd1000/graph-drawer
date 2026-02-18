@@ -7,4 +7,4 @@
 
 #define _EXPR_LIB 1
 #include "expr.h"
-expr_weaks;
+expr_globals;

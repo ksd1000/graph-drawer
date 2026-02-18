@@ -11,7 +11,7 @@
 #include "expr.h"
 
 #if defined(EXPR_ISOLATED)&&(EXPR_ISOLATED)
-expr_weaks;
+expr_globals;
 #endif
 
 #define fbuf ((char *)fp->buf)

@@ -18,7 +18,7 @@
 #define eval(_ep,_input) expr_eval(_ep,_input)
 
 #if defined(EXPR_ISOLATED)&&(EXPR_ISOLATED)
-expr_weaks;
+expr_globals;
 #endif
 
 static void *warped_xmalloc(size_t size){

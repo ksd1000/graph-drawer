@@ -376,7 +376,7 @@ const char *expr_error(int error){
 	}
 }
 #if defined(EXPR_ISOLATED)&&(EXPR_ISOLATED)
-expr_weaks;
+expr_globals;
 #endif
 
 void (*expr_contractor)(void *,size_t)=expr_contract;

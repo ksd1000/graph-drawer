@@ -273,6 +273,7 @@
 	}else {\
 		_x2=((uint64_t)EXPR_EDBASE(&_b)|(UINT64_C(1)<<UINT64_C(52)))>>_expdiff;\
 		_x1=(uint64_t)EXPR_EDBASE(&_a)|(UINT64_C(1)<<UINT64_C(52));\
+		debug(#_op_cal " x1=%zx,x2=%zx\n",_x1,_x2);\
 		_x1 _op_cal _x2;\
 		if(_x1){\
 			_x2=UINT64_C(63)-__builtin_clzl(_x1);\

@@ -6,7 +6,11 @@
 #include "expr.h"
 #include <time.h>
 #include <assert.h>
+#ifdef __unix__
 #include <err.h>
+#else
+#define err(v,fmt,...) ({fprintf(stderr,fmt,##__VA_ARGS__);exit(v)})
+#endif
 struct expr_symset *es;
 const struct proj {
 	const char *e;

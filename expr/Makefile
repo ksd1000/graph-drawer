@@ -4,8 +4,8 @@ LFLAG := -lc -lm
 all: expr.o expr-version
 expr.o: expr_global.o expr_core.o expr_format.o expr_buffered.o expr_builtin.o
 	ld -r -o expr.o expr_global.o expr_core.o expr_format.o expr_buffered.o expr_builtin.o
-check: expr_core.c expr.h check.c
-	$(CC) $(CFLAG) -fsanitize=address leak.c check.c expr_builtin.c -o check expr_core.c $(LFLAG) -g
+check: expr_core.c expr_global.c expr.h check.c expr_builtin.c
+	$(CC) $(CFLAG) -fsanitize=address leak.c check.c expr_builtin.c expr_global.c -o check expr_core.c $(LFLAG) -g
 expr_global.o: expr_global.c expr.h
 	$(CC) $(CFLAG) expr_global.c -c -o expr_global.o
 expr_core.o: expr_core.c expr.h

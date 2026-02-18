@@ -304,6 +304,7 @@ double graph_pixelstep(const struct graph *restrict gp){
 	return min(x,y);
 }
 
+#ifdef __unix__
 struct mtarg {
 	struct graph *restrict gp;
 	uint32_t color;
@@ -318,6 +319,7 @@ static void *graph_drawthread(struct mtarg *mt){
 	graph_draw(mt->gp,mt->color,mt->bold,mt->x,mt->y,mt->arg,mt->from,mt->to,mt->step,mt->current);
 	pthread_exit(NULL);
 }
+#endif
 void graph_draw(struct graph *restrict gp,uint32_t color,int32_t bold,double (*x)(double,void *),double (*y)(double,void *),void *arg,double from,double to,double step,volatile double *current){
 	int32_t last[2]={-1,-1};
 	double cur_null,toms=to-step;

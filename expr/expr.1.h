@@ -256,6 +256,7 @@ EXPR_END
 #define EXPR_EDEXP(d) (((union expr_double *)(d))->rd.exp)
 #define EXPR_EDSIGN(d) (((union expr_double *)(d))->rd.sign)
 #define EXPR_EDIVAL(d) (((union expr_double *)(d))->ival)
+#define EXPR_EDUVAL(d) (((union expr_double *)(d))->uval)
 
 #define EXPR_RPUSH(_sp) (*((_sp)++))
 #define EXPR_RPOP(_sp) (*(--(_sp)))

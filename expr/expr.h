@@ -323,7 +323,7 @@ EXPR_END
 
 #define expr_next48v(_val) (((EXPR_MAGIC48_A)*(_val)+(EXPR_MAGIC48_B))&0xffffffffffffl)
 #define expr_next48(_seedp) ({\
-	long *_next48_seed=(_seedp);\
+	int64_t *_next48_seed=(_seedp);\
 	*_next48_seed=expr_next48v(*_next48_seed);\
 })
 #define expr_seed48(__val) (0x330e|(((__val)&0xffffffffl)<<16))
@@ -331,11 +331,11 @@ EXPR_END
 
 #define expr_get48(_addr) ({\
 	const uint16_t *_get48_addr=(_addr);\
-	(long)*(uint32_t *)_get48_addr|((long)_get48_addr[2]<<32l);\
+	(int64_t)*(uint32_t *)_get48_addr|((int64_t)_get48_addr[2]<<32l);\
 })
 #define expr_set48(_addr,_val) ({\
 	uint16_t *_set48_addr=(_addr);\
-	long _set48_val=(_val);\
+	int64_t _set48_val=(_val);\
 	*(uint32_t *)_set48_addr=(uint32_t)_set48_val;\
 	_set48_addr[2]=(uint16_t)(_set48_val>>32l);\
 })
@@ -343,7 +343,7 @@ EXPR_END
 #define expr_ssnext48(_ss) ({\
 	struct expr_superseed48 *_ssnext48_ss=(_ss);\
 	uint16_t *_ssnext48_end,*_ssnext48_p;\
-	long _ssnext48_val,_ssnext48_r,_ssnext48_n=1;\
+	int64_t _ssnext48_val,_ssnext48_r,_ssnext48_n=1;\
 	_ssnext48_p=_ssnext48_ss->data;\
 	_ssnext48_end=_ssnext48_p+3*_ssnext48_ss->len;\
 	_ssnext48_r=expr_next48v(expr_get48(_ssnext48_p));\
@@ -363,7 +363,7 @@ EXPR_END
 #define expr_ssgetnext48(_ss) ({\
 	const struct expr_superseed48 *_ssgetnext48_ss=(_ss);\
 	const uint16_t *_ssgetnext48_end,*_ssgetnext48_p;\
-	long _ssgetnext48_val,_ssgetnext48_r,_ssgetnext48_n=1;\
+	int64_t _ssgetnext48_val,_ssgetnext48_r,_ssgetnext48_n=1;\
 	_ssgetnext48_p=_ssgetnext48_ss->data;\
 	_ssgetnext48_end=_ssgetnext48_p+3*_ssgetnext48_ss->len;\
 	_ssgetnext48_r=expr_next48v(expr_get48(_ssgetnext48_p));\
@@ -603,8 +603,8 @@ struct expr_inst {
 };
 union expr_symvalue {
 	double value;
-	long ivalue;
-	unsigned long uvalue;
+	int64_t ivalue;
+	uint64_t uvalue;
 	size_t size;
 	ssize_t off;
 	double *addr;
@@ -736,7 +736,6 @@ extern void (*expr_contractor)(void *,size_t);
 extern size_t expr_allocate_max;
 extern int expr_symset_allow_heap_stack;
 
-extern long expr_seed_default;
 extern size_t expr_bufsize_initial;
 extern const size_t expr_page_size;
 extern const size_t expr_symbols_size;

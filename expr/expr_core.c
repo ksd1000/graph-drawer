@@ -268,16 +268,16 @@
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #define LOGIC(a,b,_s) (((a)!=0.0) _s ((b)!=0.0))
 #define LOGIC_BIT(_a,_b,_op_cal,_op_zero,_zero_val) \
-	if(_expdiff>52){\
+	if(_expdiff>INT64_C(52)){\
 		_r=EXPR_EDSIGN(&_a) _op_zero EXPR_EDSIGN(&_b)?-( _zero_val):(_zero_val);\
 	}else {\
-		_x2=(EXPR_EDBASE(&_b)|(UINT64_C(1)<<52))>>_expdiff;\
-		_x1=EXPR_EDBASE(&_a)|(UINT64_C(1)<<52);\
+		_x2=(EXPR_EDBASE(&_b)|(UINT64_C(1)<<UINT64_C(52)))>>_expdiff;\
+		_x1=EXPR_EDBASE(&_a)|(UINT64_C(1)<<UINT64_C(52));\
 		_x1 _op_cal _x2;\
 		if(_x1){\
-			_x2=63-__builtin_clzl(_x1);\
+			_x2=UINT64_C(63)-__builtin_clzl(_x1);\
 			_x1&=~(UINT64_C(1)<<_x2);\
-			_x2=52-_x2;\
+			_x2=UINT64_C(52)-_x2;\
 			if(EXPR_EDEXP(&_a)<_x2){\
 				_r=EXPR_EDSIGN(&_a) _op_zero EXPR_EDSIGN(&_b)?-( _zero_val):(_zero_val);\
 			}else {\
@@ -298,7 +298,7 @@
 	_a=(__a);\
 	_b=(__b);\
 	_expdiff=EXPR_EDEXP(&_a)-EXPR_EDEXP(&_b);\
-	if(_expdiff<0){\
+	if(_expdiff<INT64_C(0)){\
 		_expdiff=-_expdiff;\
 		LOGIC_BIT(_b,_a,&=,&&,0.0)\
 	}else {\
@@ -313,7 +313,7 @@
 	_a=(__a);\
 	_b=(__b);\
 	_expdiff=EXPR_EDEXP(&_a)-EXPR_EDEXP(&_b);\
-	if(_expdiff<0){\
+	if(_expdiff<INT64_C(0)){\
 		_expdiff=-_expdiff;\
 		LOGIC_BIT(_b,_a,|=,||,_b>=0.0?_b:-_b)\
 	}else {\
@@ -328,7 +328,7 @@
 	_a=(__a);\
 	_b=(__b);\
 	_expdiff=EXPR_EDEXP(&_a)-EXPR_EDEXP(&_b);\
-	if(_expdiff<0){\
+	if(_expdiff<INT64_C(0)){\
 		_expdiff=-_expdiff;\
 		LOGIC_BIT(_b,_a,^=,^,_b>=0.0?_b:-_b)\
 	}else {\

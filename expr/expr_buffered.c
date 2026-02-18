@@ -143,12 +143,20 @@ err:
 }
 #undef fbuf
 #undef reterr
-ssize_t expr_buffered_write_flushat(struct expr_buffered_file *restrict fp,const void *buf,size_t size,int c){
-	uintptr_t rc=(uintptr_t)memrchr(buf,c,size);
-	ssize_t r,ret=0;
+ssize_t expr_buffered_write_flushat(struct expr_buffered_file *restrict fp,const void *buf,size_t size,void *c,size_t c_size){
+	uintptr_t rc=(uintptr_t)memmem(buf,size,c,c_size),rc1;
+	ssize_t r,ret;
 	if(!rc)
 		return expr_buffered_write(fp,buf,size);
-	++rc;
+	rc+=c_size;
+	r=rc-(uintptr_t)buf;
+next:
+	if(r&&(rc1=(uintptr_t)memmem((void *)rc,size-r,c,c_size))){
+		rc=rc1+c_size;
+		r=rc-(uintptr_t)buf;
+		goto next;
+	}
+	ret=0;
 	rcheckadd(expr_buffered_write(fp,buf,rc-(uintptr_t)buf));
 	rcheckadd(expr_buffered_flush(fp));
 	rcheckadd(expr_buffered_write(fp,(const void *)rc,(uintptr_t)buf+size-rc));

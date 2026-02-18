@@ -4866,7 +4866,7 @@ int expr_symset_recombine(struct expr_symset *restrict esp,long seed){
 	STACK_DEFAULT(stack,esp);
 	return expr_symset_recombine_s(esp,seed,stack);
 }
-int expr_symset_recombine_s(struct expr_symset *restrict esp,uint64_t seed,void *stack){
+int expr_symset_recombine_s(struct expr_symset *restrict esp,int64_t seed,void *stack){
 	struct expr_symbol **ss,**ss_cur,**ss_end,**p1,**p0;
 	struct expr_symbol *swapbuf;
 	if(unlikely(!esp->size))

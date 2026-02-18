@@ -169,38 +169,38 @@ void expr_sort(double *v,size_t n){
 #define ltol(_l) expr_ltol48(_l)
 #define ltom(_l) expr_ltom48(_l)
 static double expr_lrand48(double x){
-	return (double)ltol(expr_next48(cast(x,long *)));
+	return (double)ltol(expr_next48(cast(x,int64_t *)));
 }
 static double expr_mrand48(double x){
-	return (double)ltom(expr_next48(cast(x,long *)));
+	return (double)ltom(expr_next48(cast(x,int64_t *)));
 }
 static double expr_rand48(double x){
-	return (double)(expr_next48(cast(x,long *)));
+	return (double)(expr_next48(cast(x,int64_t *)));
 }
 static double expr_rand48_next(double x){
-	return (double)expr_next48v((long)x);
+	return (double)expr_next48v((int64_t)x);
 }
 static double expr_drand48_next(double x){
-	return ltod(expr_next48v((cast(x+1.0,long)&INT64_C(0xffffffffffff0))>>4));
+	return ltod(expr_next48v((cast(x+1.0,int64_t)&INT64_C(0xffffffffffff0))>>4));
 }
 static double expr_drand48(double x){
-	return ltod(expr_next48(cast(x,long *)));
+	return ltod(expr_next48(cast(x,int64_t *)));
 }
 static double expr_srand48(double x){
-	return cast(expr_seed48((long)x),double);
+	return cast(expr_seed48((int64_t)x),double);
 }
 #define state48(bits,m,retval) \
 	double *a,*end=args+n-1;\
-	long c,found=-1;\
+	int64_t c,found=-1;\
 	int_fast32_t i;\
 	if(args>=end)\
 		return NAN;\
 	for(i=0;likely(i!=(1<<(bits)));++i){\
 		a=args;\
-		c=((long)(uint32_t)(int32_t)*a<<(bits))|i;\
+		c=((int64_t)(uint32_t)(int32_t)*a<<(bits))|i;\
 		for(;;){\
 			c=expr_next48v(c);\
-			if(likely(m(c)!=(long)(uint32_t)(int32_t)a[1]))\
+			if(likely(m(c)!=(int64_t)(uint32_t)(int32_t)a[1]))\
 				break;\
 			++a;\
 			if(unlikely(a>=end))\
@@ -589,18 +589,18 @@ static double expr_bxfree(double x){
 }
 
 static double bsyscall(double *args,size_t n){
-	long num;
+	intptr_t num;
 	intptr_t a[6];
 	unsigned int i,argt;
 	if(n<1)
 		return -1;
 	if(n>7)
 		n=7;
-	num=(long)*args;
+	num=(intptr_t)*args;
 	argt=(unsigned int)(num>>32);
 	num&=0x0ffffffff;
 	for(i=1;i<(int)n;++i){
-		a[i-1]=argt&(1u<<i)?cast(args[i],long):(long)args[i];
+		a[i-1]=argt&(1u<<i)?cast(args[i],intptr_t):(intptr_t)args[i];
 	}
 	for(;i<7;++i){
 		a[i-1]=0;

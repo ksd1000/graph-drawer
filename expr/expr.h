@@ -979,7 +979,7 @@ ssize_t expr_vwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer,i
 ssize_t expr_vwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const union expr_argf *(*arg)(ptrdiff_t index,const struct expr_writeflag *flag,void *addr),void *addr,const struct expr_writefmt *restrict fmts,const uint8_t *restrict table);
 ssize_t expr_buffered_write(struct expr_buffered_file *restrict fp,const void *buf,size_t size);
 ssize_t expr_buffered_read(struct expr_buffered_file *restrict fp,void *buf,size_t size);
-ssize_t expr_buffered_write_flushat(struct expr_buffered_file *restrict fp,const void *buf,size_t size,int c);
+ssize_t expr_buffered_write_flushat(struct expr_buffered_file *restrict fp,const void *buf,size_t size,void *c,size_t c_size);
 ssize_t expr_buffered_flush(struct expr_buffered_file *restrict fp);
 ssize_t expr_buffered_drop(struct expr_buffered_file *restrict fp);
 ssize_t expr_buffered_rdrop(struct expr_buffered_file *restrict fp);
@@ -1072,7 +1072,7 @@ void expr_symset_detachs_s(struct expr_symset *restrict esp,struct expr_symbol *
 void expr_symset_detacha(struct expr_symset *restrict esp,struct expr_symbol *const *spa,size_t n);
 void expr_symset_detacha_s(struct expr_symset *restrict esp,struct expr_symbol *const *spa,size_t n,void *stack);
 int expr_symset_recombine(struct expr_symset *restrict esp,long seed);
-int expr_symset_recombine_s(struct expr_symset *restrict esp,uint64_t seed,void *stack);
+int expr_symset_recombine_s(struct expr_symset *restrict esp,int64_t seed,void *stack);
 int expr_symset_tryrecombine(struct expr_symset *restrict esp,long seed);
 struct expr_symbol *expr_symset_rsearch(const struct expr_symset *restrict esp,void *addr);
 struct expr_symbol *expr_symset_rsearch_s(const struct expr_symset *restrict esp,void *addr,void *stack);

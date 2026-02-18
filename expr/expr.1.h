@@ -13,12 +13,12 @@
 
 #if defined(_EXPR_LIB)&&(_EXPR_LIB)
 #include <stdlib.h>
-#define expr_weaks \
-__attribute__((weak)) void *(*expr_allocator)(size_t)=malloc;\
-__attribute__((weak)) void *(*expr_reallocator)(void *,size_t)=realloc;\
-__attribute__((weak)) void (*expr_deallocator)(void *)=free;\
-__attribute__((weak)) size_t expr_allocate_max=SSIZE_MAX;\
-__attribute__((weak)) size_t expr_bufsize_initial=512
+#define expr_globals \
+void *(*expr_allocator)(size_t)=malloc;\
+void *(*expr_reallocator)(void *,size_t)=realloc;\
+void (*expr_deallocator)(void *)=free;\
+size_t expr_allocate_max=SSIZE_MAX;\
+size_t expr_bufsize_initial=512
 
 #ifndef NDEBUG
 #define NDEBUG 1

@@ -287,7 +287,7 @@
 				EXPR_EDEXP(&_a)-=_x2;\
 				EXPR_EDSIGN(&_a) _op_cal EXPR_EDSIGN(&_b);\
 				_r=_a;\
-				debug(#_op_cal " r=%zx\n",_r);\
+				debug(#_op_cal " r=%zx\n",EXPR_EDUVAL(&_r));\
 			}\
 		}else {\
 			_r=EXPR_EDSIGN(&_a)?-0.0:0.0;\

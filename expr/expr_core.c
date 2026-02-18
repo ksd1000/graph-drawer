@@ -277,7 +277,7 @@
 		_x1 _op_cal _x2;\
 		debug(#_op_cal " <x1,x2>=%zx\n",_x1);\
 		if(_x1){\
-			_x2=UINT64_C(63)-__builtin_clzl(_x1);\
+			_x2=63-__builtin_clzg(_x1);\
 			_x1&=~(UINT64_C(1)<<_x2);\
 			_x2=UINT64_C(52)-_x2;\
 			if((uint64_t)EXPR_EDEXP(&_a)<_x2){\
@@ -287,7 +287,7 @@
 				EXPR_EDEXP(&_a)-=_x2;\
 				EXPR_EDSIGN(&_a) _op_cal EXPR_EDSIGN(&_b);\
 				_r=_a;\
-				debug(#_op_cal " r=%zx\n",EXPR_EDUVAL(&_r));\
+				debug(#_op_cal " r=%zx,exp=%zu\n",EXPR_EDUVAL(&_r),(uint64_t)EXPR_EDEXP(&_r));\
 			}\
 		}else {\
 			_r=EXPR_EDSIGN(&_a)?-0.0:0.0;\

@@ -10,7 +10,9 @@
 #define _EXPR_LIB 1
 #include "expr.h"
 
+#if defined(EXPR_ISOLATED)&&(EXPR_ISOLATED)
 expr_weaks;
+#endif
 
 #define fbuf ((char *)fp->buf)
 #define reterr(V) {r=(V);goto err;}

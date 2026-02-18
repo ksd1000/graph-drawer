@@ -143,19 +143,33 @@ err:
 }
 #undef fbuf
 #undef reterr
+
+#ifndef __unix__
+static void *internal_memmem(const void *buf,size_t size,const void *c,size_t c_size){
+	const char *end=buf+size;
+	int ch=(int)*(const char *)c;
+next:
+	if(unlikely(!size))
+		return NULL;
+	buf=memchr(buf,ch,size);
+	if(!buf||(size=end-(const char *)buf)<c_size)
+		return NULL;
+	if(!memcmp(buf,c,c_size))
+		return (void *)buf;
+	++buf;
+	--size;
+	goto next;
+}
+#define memmem internal_memmem
+#endif
 ssize_t expr_buffered_write_flushat(struct expr_buffered_file *restrict fp,const void *buf,size_t size,void *c,size_t c_size){
 	uintptr_t rc=(uintptr_t)memmem(buf,size,c,c_size),rc1;
 	ssize_t r,ret;
 	if(!rc)
 		return expr_buffered_write(fp,buf,size);
 	rc+=c_size;
-	r=rc-(uintptr_t)buf;
-next:
-	if(r&&(rc1=(uintptr_t)memmem((void *)rc,size-r,c,c_size))){
+	while((r=rc-(uintptr_t)buf)&&(rc1=(uintptr_t)memmem((void *)rc,size-r,c,c_size)))
 		rc=rc1+c_size;
-		r=rc-(uintptr_t)buf;
-		goto next;
-	}
 	ret=0;
 	rcheckadd(expr_buffered_write(fp,buf,rc-(uintptr_t)buf));
 	rcheckadd(expr_buffered_flush(fp));

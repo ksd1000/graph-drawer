@@ -590,7 +590,7 @@ static double expr_bxfree(double x){
 
 static double bsyscall(double *args,size_t n){
 	long num;
-	long a[6];
+	intptr_t a[6];
 	unsigned int i,argt;
 	if(n<1)
 		return -1;
@@ -625,7 +625,7 @@ static double systype(double x){
 				break;
 		}
 	}
-	return (double)((long)r<<32);
+	return (double)((int64_t)r<<32);
 }
 
 #define RMEM(sym,type)\

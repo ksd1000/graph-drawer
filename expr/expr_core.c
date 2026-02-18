@@ -631,8 +631,8 @@ typedef _Atomic(uint32_t) mutex_t;
 #define mutex_spinatomicl(lock,_label) for(mutex_spinlock(lock);;({mutex_spinunlock(lock);goto expr_combine(__atomic_label_,_label);}))if(0){expr_combine(__atomic_label_,_label):break;}else
 #define mutex_spinatomic(lock) mutex_spinatomicl(lock,__LINE__)
 
-#define mutex_wait(lock,val) expr_internal_syscall6(SYS_futex,(long)(lock),FUTEX_WAIT,(val),0,0,0)
-#define mutex_wake(lock,val) expr_internal_syscall6(SYS_futex,(long)(lock),FUTEX_WAKE,(val),0,0,0)
+#define mutex_wait(lock,val) expr_internal_syscall6(SYS_futex,(intptr_t)(lock),FUTEX_WAIT,(val),0,0,0)
+#define mutex_wake(lock,val) expr_internal_syscall6(SYS_futex,(intptr_t)(lock),FUTEX_WAKE,(val),0,0,0)
 #endif
 
 #endif

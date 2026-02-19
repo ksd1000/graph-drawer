@@ -2558,7 +2558,10 @@ c_fail:
 				cknp(ep,expr_detach(ep)>=0,goto c_fail);
 				if(!ep->sset||!(sv.es=expr_symset_search(ep->sset,sym.vv[0],dim=strlen(sym.vv[0])))){
 					seterr(ep,EXPR_ESYMBOL);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 					serrinfo(ep->errinfo,sym.vv[0],dim);
+#pragma GCC diagnostic pop
 					goto c_fail;
 				}else {
 alias_found_decl:

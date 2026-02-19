@@ -1241,8 +1241,9 @@ static int expr_createconst(struct expr *restrict ep,const char *symbol,size_t s
 	return expr_symset_addl(ep->sset,symbol,symlen,EXPR_CONSTANT,0,val)?
 	0:-1;
 }
-//some compiler may throw a maybe-uninitialized warning if inlined for unknown reason
-__attribute__((noinline))
+//some compiler may throw a maybe-uninitialized warning if inlined for unknown reason here
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 static int expr_createsvar(struct expr *restrict ep,const char *symbol,size_t symlen,double val){
 	if(unlikely(!symlen)){
 		seterr(ep,EXPR_EEV);
@@ -1257,6 +1258,7 @@ static int expr_createsvar(struct expr *restrict ep,const char *symbol,size_t sy
 	*r->un.addr=val;
 	return expr_symset_addl(ep->sset,symbol,symlen,EXPR_VARIABLE,0,r->un.addr)?0:-1;
 }
+#pragma GCC diagnostic pop
 static int expr_createvar4(struct expr *restrict ep,const char *symbol,size_t symlen,double val){
 	double *r;
 	if(unlikely(!symlen)){

@@ -24,8 +24,9 @@ size_t expr_bufsize_initial=512
 #define NDEBUG 1
 #endif
 
-#define addo(V,A) __builtin_add_overflow((V),(A),&(V))
-#define mulo(V,A) __builtin_mul_overflow((V),(A),&(V))
+#ifdef __clang__
+#pragma GCC diagnostic ignored "-Wunknown-warning-option"
+#endif
 
 #if NDEBUG
 #define debug(fmt,...) ((void)0)
@@ -34,11 +35,11 @@ size_t expr_bufsize_initial=512
 #endif
 #define warn(fmt,...) fprintf(stderr,fmt "\n",##__VA_ARGS__)
 
-#ifdef __clang__
-#pragma GCC diagnostic ignored "-Wunknown-warning-option"
-#endif
 #pragma GCC diagnostic ignored "-Wzero-length-bounds"
 #pragma GCC diagnostic ignored "-Wstrict-aliasing"
+
+#define addo(V,A) __builtin_add_overflow((V),(A),&(V))
+#define mulo(V,A) __builtin_mul_overflow((V),(A),&(V))
 
 #define likely(cond) expr_likely(cond)
 #define unlikely(cond) expr_unlikely(cond)

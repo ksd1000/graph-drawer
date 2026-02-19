@@ -56,6 +56,17 @@ size_t expr_bufsize_initial=512
 #define alloca(size) __builtin_alloca(size)
 #endif
 
+#if (__LONG_WIDTH__==64)
+#define ctz64 __builtin_ctzl
+#define clz64 __builtin_clzl
+#elif (__LLONG_WIDTH__==64)
+#define ctz64 __builtin_ctzll
+#define clz64 __builtin_clzll
+#else
+#define ctz64 __builtin_ctzg
+#define clz64 __builtin_clzg
+#endif
+
 #endif
 
 #ifndef _SSIZE_T_DEFINED_

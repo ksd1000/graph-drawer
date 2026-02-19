@@ -797,7 +797,7 @@ static double expr_exitif(double x){
 static double expr_ctz(double x){
 	uint64_t base=EXPR_EDBASE(&x);
 	if(base){
-		return (double)(__builtin_ctzg(base)+(EXPR_EDEXP(&x)-(1023L+52L)));
+		return (double)(ctz64(base)+(EXPR_EDEXP(&x)-(1023L+52L)));
 	}else
 		return (double)(EXPR_EDEXP(&x)-1023L);
 }
@@ -1198,7 +1198,7 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGCSYM2("pi_4",M_PI_4),
 	REGCSYM2("sqrt2",M_SQRT2),
 	REGCSYM2("sqrt1_2",M_SQRT1_2),
-	REGCSYM2("DBL_SHIFT",(double)__builtin_ctzg(sizeof(double))),
+	REGCSYM2("DBL_SHIFT",(double)ctz64(sizeof(double))),
 	REGCSYM2("DBL_SIZE",(double)sizeof(double)),
 	REGCSYM2("jmpbuf",(double)sizeof(struct expr_internal_jmpbuf)),
 	REGCSYM2("INSTLEN",(double)sizeof(struct expr_inst)),

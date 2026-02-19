@@ -277,7 +277,7 @@
 		_x1 _op_cal _x2;\
 		debug(#_op_cal " <x1,x2>=%zx\n",_x1);\
 		if(_x1){\
-			_x2=63-__builtin_clzg(_x1);\
+			_x2=63-clz64(_x1);\
 			_x1&=~(UINT64_C(1)<<_x2);\
 			_x2=UINT64_C(52)-_x2;\
 			if((uint64_t)EXPR_EDEXP(&_a)<_x2){\
@@ -417,8 +417,8 @@ static inline void xfree_stack(void **restrict p){
 uint64_t expr_gcd64(uint64_t x,uint64_t y){
 	uint64_t r;
 	int r1;
-	r=__builtin_ctzg(x);
-	r1=__builtin_ctzg(y);
+	r=ctz64(x);
+	r1=ctz64(y);
 	r=r<r1?r:r1;
 	x>>=r;
 	y>>=r;

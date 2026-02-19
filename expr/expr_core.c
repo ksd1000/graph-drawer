@@ -1241,6 +1241,8 @@ static int expr_createconst(struct expr *restrict ep,const char *symbol,size_t s
 	return expr_symset_addl(ep->sset,symbol,symlen,EXPR_CONSTANT,0,val)?
 	0:-1;
 }
+//some compiler may throw a maybe-uninitialized warning if inlined for unknown reason
+__attribute__((noinline))
 static int expr_createsvar(struct expr *restrict ep,const char *symbol,size_t symlen,double val){
 	if(unlikely(!symlen)){
 		seterr(ep,EXPR_EEV);

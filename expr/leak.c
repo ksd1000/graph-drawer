@@ -10,10 +10,10 @@
 #ifdef __clang__
 #pragma GCC diagnostic ignored "-Wunknown-warning-option"
 #endif
-ssize_t allocated=0;
-ssize_t freed=0;
+static ssize_t allocated=0;
+static ssize_t freed=0;
 int allow_allocator_return_null=0;
-uint32_t mutex[1]={0};
+static uint32_t mutex[1]={0};
 int lactive=1,lreport=0;
 #define lwarn if(lreport)warnx
 static void *lmalloc(size_t size){

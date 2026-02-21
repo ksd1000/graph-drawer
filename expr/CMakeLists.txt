@@ -1,0 +1,19 @@
+cmake_minimum_required(VERSION 3.10)
+project(expr)
+if(NOT DEFINED CMAKE_BUILD_TYPE)
+	set(CMAKE_BUILD_TYPE Release)
+endif()
+set(CMAKE_C_FLAGS_RELEASE "-O3 -DNDEBUG=1")
+set(CMAKE_C_FLAGS_DEBUG "-Og -g -DNDEBUG=0 -fsanitize=address")
+add_compile_options(-Wall -Werror)
+#set(LIBRARY_OUTPUT_PATH .)
+add_library(expr STATIC
+	expr_global.c
+	expr_core.c
+	expr_buffered.c
+	expr_builtin.c
+	expr_format.c
+)
+add_link_options(-lm)
+add_executable(expr-version expr-version.c)
+target_link_libraries(expr-version expr)

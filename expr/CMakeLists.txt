@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 project(expr)
-if((NOT DEFINED CMAKE_BUILD_TYPE) OR (CMAKE_BUILD_TYPE EQUAL ""))
+if((NOT DEFINED CMAKE_BUILD_TYPE) OR (CMAKE_BUILD_TYPE STREQUAL ""))
 	set(CMAKE_BUILD_TYPE Release)
 	message("-- CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} (default)")
 else()

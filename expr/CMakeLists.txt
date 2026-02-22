@@ -22,4 +22,4 @@ add_library(expr STATIC
 )
 add_link_options(-lm)
 add_executable(expr-version expr-version.c)
-target_link_libraries(expr-version expr)
+target_link_libraries(expr-version expr m)

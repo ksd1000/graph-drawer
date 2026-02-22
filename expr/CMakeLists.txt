@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(expr)
+project(expr C)
 if((NOT DEFINED CMAKE_BUILD_TYPE) OR (CMAKE_BUILD_TYPE STREQUAL ""))
 	set(CMAKE_BUILD_TYPE Release)
 	set(CBT_ISDEF " (default)")

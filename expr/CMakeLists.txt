@@ -20,6 +20,6 @@ add_library(expr STATIC
 	expr_builtin.c
 	expr_format.c
 )
-add_link_options(-lm)
+target_link_libraries(expr INTERFACE m)
 add_executable(expr-version expr-version.c)
-target_link_libraries(expr-version expr m)
+target_link_libraries(expr-version expr)

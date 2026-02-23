@@ -20,19 +20,20 @@ void (*expr_deallocator)(void *)=free;\
 size_t expr_allocate_max=SSIZE_MAX;\
 size_t expr_bufsize_initial=512
 
-#ifndef NDEBUG
-#define NDEBUG 1
+#ifndef EXPR_DEBUG
+#define EXPR_DEBUG 0
 #endif
 
 #ifdef __clang__
 #pragma GCC diagnostic ignored "-Wunknown-warning-option"
 #endif
 
-#if NDEBUG
-#define debug(fmt,...) ((void)0)
-#else
+#if (EXPR_DEBUG)
 #define debug(fmt,...) ((void)fprintf(stderr,"[DEBUG]%s:%d: " fmt "\n",__func__,__LINE__,##__VA_ARGS__))
+#else
+#define debug(fmt,...) ((void)0)
 #endif
+
 #define warn(fmt,...) fprintf(stderr,fmt "\n",##__VA_ARGS__)
 
 #pragma GCC diagnostic ignored "-Wzero-length-bounds"

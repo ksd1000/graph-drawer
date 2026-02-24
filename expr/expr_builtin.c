@@ -230,23 +230,23 @@ static double expr_mrand48_next(double *args,size_t n){
 static double expr_mrand48_state(double *args,size_t n){
 	state48(16,ltom,found);
 }
-static double expr_ssdrand48(double x){
-	return ltod(expr_ssnext48(cast(x,struct expr_superseed48 *)));
+static double expr_ssdrand48_b(double *args,size_t n){
+	return ltod(expr_ssnext48(cast(*args,expr_superseed48 *),(size_t)args[1]));
 }
-static double expr_ssrand48(double x){
-	return (double)(expr_ssnext48(cast(x,struct expr_superseed48 *)));
+static double expr_ssrand48_b(double *args,size_t n){
+	return (double)(expr_ssnext48(cast(*args,expr_superseed48 *),(size_t)args[1]));
 }
-static double expr_sslrand48(double x){
-	return (double)ltol(expr_ssnext48(cast(x,struct expr_superseed48 *)));
+static double expr_sslrand48_b(double *args,size_t n){
+	return (double)ltol(expr_ssnext48(cast(*args,expr_superseed48 *),(size_t)args[1]));
 }
-static double expr_ssmrand48(double x){
-	return (double)ltom(expr_ssnext48(cast(x,struct expr_superseed48 *)));
+static double expr_ssmrand48_b(double *args,size_t n){
+	return (double)ltom(expr_ssnext48(cast(*args,expr_superseed48 *),(size_t)args[1]));
 }
-static double expr_ssnext48_b(double x){
-	return (double)expr_ssgetnext48(cast(x,const struct expr_superseed48 *));
+static double expr_ssnext48_b(double *args,size_t n){
+	return (double)expr_ssgetnext48(cast(*args,const expr_superseed48 *),(size_t)args[1]);
 }
-static double expr_ssdnext48(double x){
-	return ltod(expr_ssgetnext48(cast(x,const struct expr_superseed48 *)));
+static double expr_ssdnext48_b(double *args,size_t n){
+	return ltod(expr_ssgetnext48(cast(*args,const expr_superseed48 *),(size_t)args[1]));
 }
 double expr_exp_old(double x){
 	size_t n;
@@ -1297,12 +1297,12 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGFSYM2_UA("drand48",expr_drand48),
 	REGFSYM2_UA("lrand48",expr_lrand48),
 	REGFSYM2_UA("mrand48",expr_mrand48),
-	REGFSYM2_NIU("ssrand48",expr_ssrand48),
-	REGFSYM2_NIU("ssdrand48",expr_ssdrand48),
-	REGFSYM2_NIU("sslrand48",expr_sslrand48),
-	REGFSYM2_NIU("ssmrand48",expr_ssmrand48),
-	REGFSYM2_NIU("ssnext48",expr_ssnext48_b),
-	REGFSYM2_NIU("ssdnext48",expr_ssdnext48),
+	REGMDSYM2_NIU("ssrand48",expr_ssrand48_b,2),
+	REGMDSYM2_NIU("ssdrand48",expr_ssdrand48_b,2),
+	REGMDSYM2_NIU("sslrand48",expr_sslrand48_b,2),
+	REGMDSYM2_NIU("ssmrand48",expr_ssmrand48_b,2),
+	REGMDSYM2_NIU("ssnext48",expr_ssnext48_b,2),
+	REGMDSYM2_NIU("ssdnext48",expr_ssdnext48_b,2),
 	REGFSYM2("srand48",expr_srand48),
 	REGFSYM2("drand48_next",expr_drand48_next),
 	REGFSYM2("rand48_next",expr_rand48_next),

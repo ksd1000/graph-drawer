@@ -620,23 +620,23 @@ int graph_connect(struct graph *restrict gp,uint32_t color,int32_t bold,double x
 	if(!strchr(vb,'e')&&!(p=strstr(vb,".00"))){\
 		*p=0;\
 	}\
-	/*ih=*/h=gapline_len*3/2;\
-	while((len=graph_textlen(gp,vb,1,h))>gapxi&&h>=4)\
-		h=muldiv(h,gapxi,len);\
+	ih=h=gapline_len*3/2;\
+	/*while((len=graph_textlen(gp,vb,1,h))>gapxi&&h>=4)\
+		h=muldiv(h,gapxi,len);*/\
 	--h;\
-	/*graph_draw_text_pixel(gp,color,0,vb,1,h,px+bold+4,ay-gapline_len*5/2+(ih-h));*/\
+	graph_draw_text_pixel(gp,color,0,vb,1,h,px+bold+4,ay-gapline_len*5/2+(ih-h));\
 }
 #define DRAWYVAL if(gp->draw_value){\
 	snprintf(vb,16,"%.5lg",v);\
 	if(!strchr(vb,'e')&&!(p=strstr(vb,".00"))){\
 		*p=0;\
 	}\
-	/*graph_draw_text_pixel(gp,color,0,vb,1,gapline_len*3/2,ax+bold+4,py);*/\
+	graph_draw_text_pixel(gp,color,0,vb,1,gapline_len*3/2,ax+bold+4,py);\
 }
 void graph_draw_axis(struct graph *restrict gp,uint32_t color,int32_t bold,double gapx,double gapy,uint32_t gapline_len){
 	int32_t px,py,ax=xtop(0),ay=ytop(0);
 	double v;
-	int32_t gapxi=xtop(gapx),len,h/*,ih*/;
+	int32_t gapxi=xtop(gapx),len,h,ih;
 	char vb[32];
 	char *p;
 	graph_draw_hline(gp,color,bold,0,gp->width,ay);

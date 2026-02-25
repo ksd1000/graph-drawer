@@ -616,7 +616,7 @@ int graph_connect(struct graph *restrict gp,uint32_t color,int32_t bold,double x
 	return graph_connect_pixel(gp,color,bold,xtop(x1),ytop(y1),xtop(x2),ytop(y2));
 }
 #define DRAWXVAL if(gp->draw_value){\
-	snprintf(vb,16,"%.5lg",v);\
+	printf("sn:%d\n",snprintf(vb,16,"%.5lg",v));\
 	puts("1");\
 	if(!strchr(vb,'e')&&!(p=strstr(vb,".00"))){\
 		*p=0;\

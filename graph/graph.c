@@ -620,7 +620,7 @@ int graph_connect(struct graph *restrict gp,uint32_t color,int32_t bold,double x
 	if(!strchr(vb,'e')&&!(p=strstr(vb,".00"))){\
 		*p=0;\
 	}\
-	/*ih*/=h=gapline_len*3/2;\
+	/*ih=*/h=gapline_len*3/2;\
 	while((len=graph_textlen(gp,vb,1,h))>gapxi&&h>=4)\
 		h=muldiv(h,gapxi,len);\
 	--h;\

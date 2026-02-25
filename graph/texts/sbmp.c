@@ -82,10 +82,14 @@ int sbmp_decompress(const struct sbmp *sp,struct sbmp *out){
 	return 0;
 }
 int sbmp_tstpixeln(const struct sbmp *sp,uint64_t n){
-	if(!sp->compressed)return !!SBMP_TSTPIXEL(sp,n);
-	const unsigned char *p=sp->data,*end=sp->data+sp->size-sizeof(uint64_t);
+	const unsigned char *p,*end;
 	uint64_t last,v,va3;
-	int currentval=sp->startval;
+	int currentval;
+	if(!sp->compressed)
+		return !!SBMP_TSTPIXEL(sp,n);
+	currentval=sp->startval;
+	p=sp->data;
+	end=sp->data+sp->size-sizeof(uint64_t);
 	last=0;
 	while(p<end){
 		v=*(uint64_t *)p;

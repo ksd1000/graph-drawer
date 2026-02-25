@@ -16,7 +16,7 @@ int sbmp_tstpixeln(const struct sbmp *sp,uint64_t n);
 int sbmp_tstpixel(const struct sbmp *sp,int32_t x,int32_t y);
 int sbmp_decompress(const struct sbmp *sp,struct sbmp *out);
 
-#define SBMP_INDEX(sb,x,y) ((y)*(sb)->width+(x))
+#define SBMP_INDEX(sb,x,y) ((uint64_t)(y)*(uint64_t)(sb)->width+(uint64_t)(x))
 #define SBMP_TSTPIXEL(sb,n) ((sb)->data[(n)>>3]&(1<<((n)&7)))
 #define SBMP_SETPIXEL(sb,n) ((sb)->data[(n)>>3]|=(1<<((n)&7)))
 #define SBMP_MODPIXEL(sb,n) ((sb)->data[(n)>>3]^=(1<<((n)&7)))

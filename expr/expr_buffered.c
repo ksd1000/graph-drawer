@@ -27,48 +27,59 @@ ssize_t expr_buffered_write(struct expr_buffered_file *restrict fp,const void *b
 	if(unlikely(!size)){
 		return expr_buffered_flush(fp);
 	}
-	do {
-		i=fp->index+size;
-		if(fp->dynamic){
-			void *p;
-			c=align(i+bufsize_initial);
-			if(c>fp->dynamic)
-				c=fp->dynamic;
-			if(fp->length<c){
-				p=xrealloc(fp->buf,c);
-				if(likely(p)){
-					debug("buffer_size %zu -> %zu",fp->length,c);
-					fp->buf=p;
-					fp->length=c;
-				}
-			}
-			if(unlikely(!fp->length))
-				reterr(PTRDIFF_MIN);
+	c=fp->length-fp->index;
+	if(unlikely(!c&&fp->length)){
+		rcheckadd(fp->un.writer(fp->fd,fp->buf,fp->length));
+		fp->index=0;
+		c=fp->length;
+	}
+	if(size<=c){
+size_le_c:
+		memcpy(fbuf+fp->index,buf,size);
+		if(size==c){
+			r=fp->un.writer(fp->fd,fp->buf,fp->length);
+			if(unlikely(r<0))
+				goto err;
+			fp->index=0;
+			return ret+r;
 		}else {
-			if(unlikely(!fp->length)){
-				rcheckadd(fp->un.writer(fp->fd,buf,size));
-				debug("%zd bytes written",ret);
-				return ret;
-			}
-		}
-		if(i<=fp->length){
-			memcpy(fbuf+fp->index,buf,size);
-			fp->index=i;
-			debug("%zd bytes stored",size);
+			fp->index+=size;
 			return ret;
 		}
-		if(fp->index<fp->length){
-			c=fp->length-fp->index;
-			memcpy(fbuf+fp->index,buf,c);
-			buf+=c;
-			size-=c;
+	}
+	if(fp->length<fp->dynamic){
+		void *p;
+		i=fp->index+size+bufsize_initial;
+		if(i>fp->dynamic)
+			i=fp->dynamic;
+		p=xrealloc(fp->buf,i);
+		if(unlikely(!p)){
+			reterr(PTRDIFF_MIN);
 		}
-		r=fp->un.writer(fp->fd,fp->buf,fp->length);
+		debug("buffer_size %zu -> %zu",fp->length,i);
+		fp->buf=p;
+		fp->length=i;
+		c=i-fp->index;
+		if(size<=c)
+			goto size_le_c;
+	}
+	memcpy(fbuf+fp->index,buf,c);
+	r=fp->un.writer(fp->fd,fp->buf,fp->length);
+	if(unlikely(r<0)){
+		fp->index=fp->length;
+		goto err;
+	}
+	ret+=r;
+	size-=c;
+	buf+=c;
+	if(size>=fp->length){
 		fp->index=0;
-		if(unlikely(r<0))
-			goto err;
-		ret+=r;
-	}while(size);
+		rcheckadd(fp->un.writer(fp->fd,buf,size));
+		debug("%zd bytes written",ret);
+		return ret;
+	}
+	fp->index=size;
+	memcpy(fp->buf,buf,size);
 	debug("%zd bytes written",ret);
 	return ret;
 err:

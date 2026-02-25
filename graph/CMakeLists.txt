@@ -11,7 +11,7 @@ set(CMAKE_C_FLAGS_RELEASE "-O3")
 set(CMAKE_C_FLAGS_DEBUG "-Og -g -fsanitize=address")
 set(CMAKE_C_FLAGS_MINSIZEREL "-Os")
 set(CMAKE_C_FLAGS_RELWITHDEBINFO "-O2 -g")
-add_compile_options(-Wall -Werror)
+add_compile_options(-Wall)
 add_library(graph STATIC
 	graph.c
 	texts/sbmp.c

@@ -42,7 +42,4 @@ int graph_connect_pixel(struct graph *restrict gp,uint32_t color,int32_t bold,in
 int graph_connect(struct graph *restrict gp,uint32_t color,int32_t bold,double x1,double y1,double x2,double y2);
 void graph_draw_axis(struct graph *restrict gp,uint32_t color,int32_t bold,double gapx,double gapy,uint32_t gapline_len);
 void graph_draw_grid(struct graph *restrict gp,uint32_t color,int32_t bold,double gapx,double gapy);
-
-#define graph_bmpsize(gp) (*(uint32_t *)((gp)->buf-54+2))
-#define graph_getbmp(gp) ((gp)->buf-54)
 #endif

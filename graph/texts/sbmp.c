@@ -58,7 +58,6 @@ int sbmp_decompress(const struct sbmp *sp,struct sbmp *out){
 	const unsigned char *p=sp->data,*end=sp->data+sp->size-sizeof(uint64_t);
 	uint64_t index,last,v,va3;
 	int currentval=!!sp->startval;
-size_t sum=0;
 	if(!sp->compressed)return -1;
 	last=0;
 	out->width=sp->width;
@@ -77,20 +76,12 @@ size_t sum=0;
 				SBMP_SETPIXEL(out,last);
 			}else {
 				SBMP_CLRPIXEL(out,last);
-				++sum;
 			}
 		}
 		currentval^=1;
 	}
-	printf("%c --- %zu\n",(int)sp->c,sum);
 	return 0;
 }
-/*
-size_t ok=0;
-__attribute__((destructor)) void showok(void){
-	printf("ok=%zu\n",ok);
-	printf("sum=%zu\n",sum);
-}*/
 int sbmp_tstpixeln(const struct sbmp *sp,uint64_t n){
 	const unsigned char *p,*end;
 	uint64_t last,v,va3;

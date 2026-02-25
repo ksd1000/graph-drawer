@@ -172,33 +172,7 @@ void graph_fill(struct graph *restrict gp,uint32_t color){
 	}
 }
 int init_graph_frombmp(struct graph *restrict gp,const void *bmp,size_t size,double minx,double maxx,double miny,double maxy){
-//	int32_t width,height,byte_width,hsize;
-//	uint16_t bpp;
 	int r;
-	/*
-	if(size<54)return -1;
-	if(memcmp((char *)bmp,"BM",2))return -1;
-	bpp=*(uint16_t *)((char *)bmp+28);
-	switch(bpp){
-		case 8:
-		case 16:
-		case 24:
-		case 32:
-			break;
-		default:
-			return -1;
-	}
-	width=*(uint32_t *)((char *)bmp+18);
-	height=*(uint32_t *)((char *)bmp+22);
-	byte_width=((width*bpp+31)>>5)<<2;
-	hsize=*(uint32_t *)((char *)bmp+10);
-	if(hsize+byte_width*height!=size)return -1;
-	if(*(uint32_t *)((char *)bmp+2)!=size)return -1;
-	// *(uint32_t *)((char *)bmp+14);
-	if(*(uint32_t *)((char *)bmp+34)!=byte_width*height)return -1;
-	if(width<=0||height<=0||minx>=maxx||miny>=maxy)
-		return -1;
-		*/
 #define inbmp ((const struct bitmap *)bmp)
 	if(bm_check(inbmp,size)<0)
 		return -1;
@@ -231,18 +205,6 @@ int init_graph(struct graph *restrict gp,int32_t width,int32_t height,uint16_t b
 	gp->arrow=1;
 	gp->draw_value=1;
 	gp->bpp=bpp/8;
-	/*
-	memset(gp->buf,0,gp->hsize);
-	memcpy(gp->buf,"BM",2);
-	*(uint32_t *)(gp->buf+2)=54+gp->byte_width*height;
-	*(uint32_t *)(gp->buf+10)=54;
-	*(uint32_t *)(gp->buf+14)=40;
-	*(uint32_t *)(gp->buf+18)=width;
-	*(uint32_t *)(gp->buf+22)=height;
-	*(uint16_t *)(gp->buf+26)=1;
-	*(uint16_t *)(gp->buf+28)=bpp;
-	*(uint32_t *)(gp->buf+34)=gp->byte_width*height;
-	*/
 	bm_init(gp->bm,width,height,bpp);
 	gp->buf=gp->bm->data;
 	return 0;

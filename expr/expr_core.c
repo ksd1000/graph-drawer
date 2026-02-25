@@ -643,6 +643,7 @@ void expr_mutex_lock(uint32_t *lock){
 #ifdef _MUTEX_H_
 	mutex_lock((mutex_t *)lock);
 #endif
+	return;
 }
 int expr_mutex_trylock(uint32_t *lock){
 #ifdef _MUTEX_H_
@@ -655,16 +656,19 @@ void expr_mutex_unlock(uint32_t *lock){
 #ifdef _MUTEX_H_
 	mutex_unlock((mutex_t *)lock);
 #endif
+	return;
 }
 void expr_mutex_spinlock(uint32_t *lock){
 #ifdef _MUTEX_H_
 	mutex_spinlock((mutex_t *)lock);
 #endif
+	return;
 }
 void expr_mutex_spinunlock(uint32_t *lock){
 #ifdef _MUTEX_H_
 	mutex_spinunlock((mutex_t *)lock);
 #endif
+	return;
 }
 
 intptr_t expr_warped_syscall0(int num){

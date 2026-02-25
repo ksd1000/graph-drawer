@@ -81,6 +81,10 @@ int sbmp_decompress(const struct sbmp *sp,struct sbmp *out){
 	}
 	return 0;
 }
+size_t ok=0;
+__attribute__((destructor)) void showok(void){
+	printf("ok=%zu\n",ok);
+}
 int sbmp_tstpixeln(const struct sbmp *sp,uint64_t n){
 	const unsigned char *p,*end;
 	uint64_t last,v,va3;
@@ -103,5 +107,7 @@ int sbmp_tstpixeln(const struct sbmp *sp,uint64_t n){
 	return currentval;
 }
 int sbmp_tstpixel(const struct sbmp *sp,int32_t x,int32_t y){
-	return sbmp_tstpixeln(sp,y*sp->width+x);
+	int r=sbmp_tstpixeln(sp,y*sp->width+x);
+	if(r)++ok;
+	return r;
 }

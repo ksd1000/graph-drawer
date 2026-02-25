@@ -687,7 +687,7 @@ onzero:\
 		ival_mul_pow_nl(4,50625);\
 		ival_mul_pow_nl(2,225);\
 		ival_mul_pow_nlm(1,15)
-#define nbuf_size(x) (((x)+23ul)&~7ul)
+#define nbuf_size(x) (((x)+23u)&~7u)
 #define fconvs(pref) \
 conv_f(expr_combine(pref,1),16,r=extint_left(ival,r,3*ext),nbuf_size(256));\
 conv_f(expr_combine(pref,2),2,,nbuf_size(1024));\

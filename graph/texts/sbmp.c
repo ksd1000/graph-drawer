@@ -94,10 +94,10 @@ int sbmp_tstpixeln(const struct sbmp *sp,uint64_t n){
 	last=0;
 	while(p<end){
 		v=*(uint64_t *)p;
-		va3=v&3UL;
-		p+=1UL<<va3;
-		if(va3<3UL)v&=((1UL<<(8UL<<va3))-1UL);
-		last+=(v>>2UL);
+		va3=v&UINT64_C(3);
+		p+=UINT64_C(1)<<va3;
+		if(va3<UINT64_C(3))v&=((UINT64_C(1)<<(UINT64_C(8)<<va3))-UINT64_C(1));
+		last+=(v>>UINT64_C(2));
 		if(n<last)break;
 		currentval^=1;
 	}

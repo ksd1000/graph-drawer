@@ -42,7 +42,7 @@ static ssize_t writeext(expr_writer writer,intptr_t fd,size_t count,int c){
 	}
 	return sum;
 }
-#define flag_plusorspace(_f) (*(_f)->bit&(UINTMAX_C(3)<<62))
+#define flag_plusorspace(_f) (*(_f)->bit&(UINT64_C(3)<<62))
 #define flag_width(_f,_dflt) ((_f)->width_set?(_f)->width:(_dflt))
 #define flag_digit(_f,_dflt) ((_f)->digit_set?(size_t)(_f)->digit:(_dflt))
 #define cwrite_common(_s,_sz) \
@@ -363,7 +363,7 @@ static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr
 			*(uint32_t *)p=*(const uint32_t *)(expr_isinf(val)?"INF":"NAN");\
 		else\
 			*(uint32_t *)p=*(const uint32_t *)(expr_isinf(val)?"inf":"nan");\
-		cwrite_common(nbuf,p==nbuf?INTMAX_C(3):INTMAX_C(4));\
+		cwrite_common(nbuf,(ssize_t)(p==nbuf?3:4));\
 	}\
 	endp=nbuf+_nsize;\
 	np=endp;\
@@ -793,14 +793,14 @@ static ssize_t faction_G(expr_writer writer,intptr_t fd,const union expr_argf *a
 static ssize_t faction_p(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	if(!arg->addr){
 		ssize_t r,sum,ext,sz;
-		cwrite_common("null",INTMAX_C(4));
+		cwrite_common("null",(ssize_t)4);
 	}
 	return converter_x81(writer,fd,arg,(flag->sharp=1,flag));
 }
 static ssize_t faction_P(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	if(!arg->addr){
 		ssize_t r,sum,ext,sz;
-		cwrite_common("NULL",INTMAX_C(4));
+		cwrite_common("NULL",(ssize_t)4);
 	}
 	return converter_x81(writer,fd,arg,(flag->sharp=1,flag));
 }

@@ -450,7 +450,7 @@ struct expr_writeflag {
 	size_t width;
 	ssize_t digit;
 	uint64_t bit[0];
-#if (!defined(__BIG_ENDIAN__)||!__BIG_ENDIAN__)
+#if (!defined(__BIG_ENDIAN__)||!(__BIG_ENDIAN__))
 	uint64_t unused:35,
 		 op:8,
 		 argsize:8,
@@ -564,7 +564,7 @@ struct expr_vmdinfo {
 };
 typedef uint16_t expr_superseed48[3];
 struct expr_rawdouble {
-#if (!defined(__BIG_ENDIAN__)||!__BIG_ENDIAN__)
+#if (!defined(__BIG_ENDIAN__)||!(__BIG_ENDIAN__))
 	uint64_t base:52;
 	uint64_t exp:11;
 	uint64_t sign:1;
@@ -636,7 +636,7 @@ struct expr_symbol {
 };
 struct expr_symbol_infile {
 	uint32_t length;
-#if (!defined(__BIG_ENDIAN__)||!__BIG_ENDIAN__)
+#if (!defined(__BIG_ENDIAN__)||!(__BIG_ENDIAN__))
 	uint16_t strlen:6,type:3,flag:6,unused:1;
 #else
 	uint16_t unused:1,flag:6,type:3,strlen:6;

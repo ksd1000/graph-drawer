@@ -774,7 +774,7 @@ static ssize_t faction_##name(expr_writer writer,intptr_t fd,const union expr_ar
 }
 faction_hexdump(h);
 static ssize_t faction_c(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
-#if (!defined(__BIG_ENDIAN__)||!__BIG_ENDIAN__)
+#if (!defined(__BIG_ENDIAN__)||!(__BIG_ENDIAN__))
 	return writer(fd,arg,1);
 #else
 	return writer(fd,(const uint8_t *)arg+(sizeof(void *)-1),1);

@@ -6890,7 +6890,7 @@ static int expr_optimize_once(struct expr *restrict ep){
 	r+=expr_optimize_cac(ep);
 	r+=expr_optimize_svc0(ep);
 	r+=expr_optimize_copyend(ep);
-	debug("optimized %d times",r);
+	debug("optimized %d times (%p)",r,ep);
 	return r;
 }
 static int expr_optimize0(struct expr *restrict ep){

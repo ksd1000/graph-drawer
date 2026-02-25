@@ -618,7 +618,8 @@ int graph_connect(struct graph *restrict gp,uint32_t color,int32_t bold,double x
 #define DRAWXVAL if(gp->draw_value){\
 	printf("sn:%d\n",snprintf(vb,16,"%.5lg",v));\
 	puts("1");\
-	if(!strchr(vb,'e')&&!(p=strstr(vb,".00"))){\
+	if(!strchr(vb,'e')&&(p=strstr(vb,".00"))){\
+	puts("1-1");\
 		*p=0;\
 	}\
 	puts("2");\
@@ -632,7 +633,7 @@ int graph_connect(struct graph *restrict gp,uint32_t color,int32_t bold,double x
 #define DRAWYVAL if(gp->draw_value){\
 	snprintf(vb,16,"%.5lg",v);\
 	puts("4");\
-	if(!strchr(vb,'e')&&!(p=strstr(vb,".00"))){\
+	if(!strchr(vb,'e')&&(p=strstr(vb,".00"))){\
 		*p=0;\
 	}\
 	puts("5");\

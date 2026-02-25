@@ -11,7 +11,8 @@ const struct sbmp *text_getsbmp(char c){
 	struct sbmp *sp;
 	for(int i=0;i<TEXT_COUNT;++i){
 		sp=(struct sbmp *)texts[i];
-		if(sp->c==c)return sp;
+		if(sp->c==c)
+			return sp;
 	}
 	return NULL;
 }

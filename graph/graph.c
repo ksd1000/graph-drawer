@@ -104,18 +104,18 @@ static int32_t graph_drawchar(struct graph *restrict gp,uint32_t color,int32_t b
 	}
 	if(height>text->height)for(int32_t xi=x;(md1=muldiv(xi-x,text->width,width))<text->width&&xi-x<width&&xi<gp->width;++xi){
 		for(int32_t yi=y;(md2=muldiv(yi-y,text->height,height))<text->height&&yi-y<height&&yi<gp->height;++yi){
-			if(0&&!sbmp_tstpixel(text,md1,md2))continue;
+			if(1||!sbmp_tstpixel(text,md1,md2))continue;
 			graph_setpixel_bold(gp,color,bold,xi,yi);
 		}
 	}else if(height<text->height)for(int32_t xi=0;(md1=muldiv(xi,width,text->width))<gp->width&&xi<text->width&&md1-x<width;++xi){
 		for(int32_t yi=0;(md2=muldiv(yi,height,text->height))<gp->height&&yi<text->height&&md2-y<height;++yi){
-			if(0&&!sbmp_tstpixel(text,xi,yi))continue;
+			if(1||!sbmp_tstpixel(text,xi,yi))continue;
 			//setpixel(xi,yi);
 			graph_setpixel_bold(gp,color,bold,x+md1,y+md2);
 		}
 	}else for(int32_t xi=x;xi-x<width&&xi<gp->width;++xi){
 		for(int32_t yi=y;yi-y<height&&yi<gp->height;++yi){
-			if(0&&!sbmp_tstpixel(text,xi-x,yi-y))continue;
+			if(1||&&!sbmp_tstpixel(text,xi-x,yi-y))continue;
 			//setpixel(xi,yi);
 			graph_setpixel_bold(gp,color,bold,xi,yi);
 		}

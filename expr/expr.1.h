@@ -176,11 +176,11 @@ EXPR_SVCP0,
 EXPR_END
 };
 
-#define EXPR_VOID ((void *)-1UL)
-#define EXPR_VOID_NR ((void *)-2UL)
+#define EXPR_VOID ((void *)-1)
+#define EXPR_VOID_NR ((void *)-2)
 
-#define EXPR_SYMSET_INITIALIZER {NULL,0UL,0UL,0UL,0}
-#define EXPR_MUTEX_INITIALIZER 0u
+#define EXPR_SYMSET_INITIALIZER {NULL,0,0,0,0}
+#define EXPR_MUTEX_INITIALIZER UINT32_C(0]
 
 #define EXPR_SYMLEN 64
 
@@ -335,17 +335,17 @@ EXPR_END
 #define EXPR_MAGIC48_A 0x5deece66dul
 #define EXPR_MAGIC48_B 0xb
 
-#define expr_ltod48(_l) (expr_cast((((_l)&0xffffffffffffl)<<4)|0x3ff0000000000000l,double)-1.0)
-#define expr_ltol48(_l) ((int32_t)(((_l)&0xffffffff0000l)>>17))
-#define expr_ltom48(_l) ((int32_t)(((_l)&0xffffffff0000l)>>16))
+#define expr_ltod48(_l) (expr_cast((((_l)&UINT64_C(0xffffffffffff))<<4)|UINT64_C(0x3ff0000000000000),double)-1.0)
+#define expr_ltol48(_l) ((int32_t)(((_l)&UINT64_C(0xffffffff0000))>>17))
+#define expr_ltom48(_l) ((int32_t)(((_l)&UINT64_C(0xffffffff0000))>>16))
 
-#define expr_next48v(_val) (((EXPR_MAGIC48_A)*(_val)+(EXPR_MAGIC48_B))&0xffffffffffffl)
+#define expr_next48v(_val) (((EXPR_MAGIC48_A)*(_val)+(EXPR_MAGIC48_B))&UINT64_C(0xffffffffffff))
 #define expr_next48(_seedp) ({\
 	int64_t *_next48_seed=(_seedp);\
 	*_next48_seed=expr_next48v(*_next48_seed);\
 })
-#define expr_seed48(__val) (0x330e|(((__val)&0xffffffffl)<<16))
-#define expr_next48l32(_seedp) (expr_next48(_seedp)&0xffffffffl)
+#define expr_seed48(__val) (0x330e|(((__val)&UINT64_C(0xffffffff))<<16))
+#define expr_next48l32(_seedp) (expr_next48(_seedp)&UINT64_C(0xffffffff))
 
 #define expr_get48(_addr) ({\
 	const uint16_t *_get48_addr=(_addr);\
@@ -372,7 +372,7 @@ EXPR_END
 		expr_set48(*__ss,__r);\
 		++__ss;\
 	}\
-	__val&0xffffffffffffl;\
+	__val&UINT64_C(0xffffffffffff);\
 })
 
 #define expr_ssgetnext48(_ss,_sz) ({\
@@ -387,7 +387,7 @@ EXPR_END
 		__n+=2;\
 		++__ss;\
 	}\
-	__val&0xffffffffffffl;\
+	__val&UINT64_C(0xffffffffffff);\
 })
 
 #define expr_symbol_hot(_esp) ({const struct expr_symbol *restrict __esp=(_esp);(char *)(__esp->str+__esp->strlen+1);})

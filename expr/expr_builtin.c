@@ -347,35 +347,35 @@ static double expr_strtol(double *args,size_t n){
 }
 static double expr_qmed(double *args,size_t n){
 	expr_sortq(args,n);
-	return n&1ul?args[n>>1ul]:(n>>=1ul,(args[n]+args[n-1])/2);
+	return n&1?args[n>>1]:(n>>=1,(args[n]+args[n-1])/2);
 }
 static double expr_med(double *args,size_t n){
 	expr_sort(args,n);
-	return n&1ul?args[n>>1ul]:(n>>=1ul,(args[n]+args[n-1])/2);
+	return n&1?args[n>>1]:(n>>=1,(args[n]+args[n-1])/2);
 }
 static double expr_hmed(double *args,size_t n){
 	expr_sort4(args,n,warped_xmalloc,warped_xfree);
-	return n&1ul?args[n>>1ul]:(n>>=1ul,(args[n]+args[n-1])/2);
+	return n&1?args[n>>1]:(n>>=1,(args[n]+args[n-1])/2);
 }
 static double expr_med_old(double *args,size_t n){
 	expr_sort_old(args,n);
-	return n&1ul?args[n>>1ul]:(n>>=1ul,(args[n]+args[n-1])/2);
+	return n&1?args[n>>1]:(n>>=1,(args[n]+args[n-1])/2);
 }
 static double expr_qgmed(double *args,size_t n){
 	expr_sort(args,n);
-	return n&1ul?args[n>>1ul]:(n>>=1ul,sqrt(args[n]*args[n-1]));
+	return n&1?args[n>>1]:(n>>=1,sqrt(args[n]*args[n-1]));
 }
 static double expr_gmed(double *args,size_t n){
 	expr_sort(args,n);
-	return n&1ul?args[n>>1ul]:(n>>=1ul,sqrt(args[n]*args[n-1]));
+	return n&1?args[n>>1]:(n>>=1,sqrt(args[n]*args[n-1]));
 }
 static double expr_hgmed(double *args,size_t n){
 	expr_sort4(args,n,warped_xmalloc,warped_xfree);
-	return n&1ul?args[n>>1ul]:(n>>=1ul,sqrt(args[n]*args[n-1]));
+	return n&1?args[n>>1]:(n>>=1,sqrt(args[n]*args[n-1]));
 }
 static double expr_gmed_old(double *args,size_t n){
 	expr_sort_old(args,n);
-	return n&1ul?args[n>>1ul]:(n>>=1ul,sqrt(args[n]*args[n-1]));
+	return n&1?args[n>>1]:(n>>=1,sqrt(args[n]*args[n-1]));
 }
 static double expr_mode0(size_t n,double *args,int heap){
 	double max,cnt;
@@ -722,7 +722,7 @@ MEM(zu,size_t);
 FMEM(f,float);
 FMEM(d,double);
 FMEM(l,long double);
-#define REGMEM2(s,t) REGMDEPSYM2_NI("_" #t #s,expr_##t##s,2ul),REGMDEPSYM2_NI("_" #t #s "c",expr_##t##s##_c,2ul)
+#define REGMEM2(s,t) REGMDEPSYM2_NI("_" #t #s,expr_##t##s,2),REGMDEPSYM2_NI("_" #t #s "c",expr_##t##s##_c,2)
 #define REGRMEM(s) REGFSYM2_NI("_r" #s,expr_r##s)
 #define REGRMEMC(s) REGFSYM2_NI("_r" #s "c",expr_r##s##_c)
 #define REGZMEM(s) REGFSYM2_NI("_z" #s,expr_z##s)
@@ -796,19 +796,19 @@ static double expr_exitif(double x){
 static double expr_ctz(double x){
 	uint64_t base=EXPR_EDBASE(&x);
 	if(base){
-		return (double)(ctz64(base)+(EXPR_EDEXP(&x)-(1023L+52L)));
+		return (double)(ctz64(base)+(EXPR_EDEXP(&x)-(uint64_t)(1023+52)));
 	}else
-		return (double)(EXPR_EDEXP(&x)-1023L);
+		return (double)(EXPR_EDEXP(&x)-UINT64_C(1023));
 }
 static double expr_clz(double x){
-	return (double)(EXPR_EDEXP(&x)-1023L);
+	return (double)(EXPR_EDEXP(&x)-UINT64_C(1023));
 }
 static double expr_ffs(double x){
 	int64_t base=EXPR_EDBASE(&x);
 	if(base){
-		return (double)(__builtin_ffsl(base)+(EXPR_EDEXP(&x)-(1023L+52L)));
+		return (double)(__builtin_ffsl(base)+(EXPR_EDEXP(&x)-(uint64_t)(1023+52)));
 	}else
-		return (double)(EXPR_EDEXP(&x)-1023L+1L);
+		return (double)(EXPR_EDEXP(&x)-UINT64_C(1022));
 }
 static double expr_fact(double x){
 	double sum=1.0;
@@ -852,7 +852,7 @@ static double expr_piece(const struct expr *args,size_t n,double input){
 }
 static double expr_assign(const struct expr *args,size_t n,double input){
 	double *p;
-	const struct expr *endp=args+(n&~1ul);
+	const struct expr *endp=args+(n&~1);
 	while(args<endp){
 		p=expr_cast(eval(args++,input),__typeof(p));
 		*p=(__typeof(*p))eval(args++,input);
@@ -861,7 +861,7 @@ static double expr_assign(const struct expr *args,size_t n,double input){
 }
 static double expr_assigni(const struct expr *args,size_t n,double input){
 	int64_t *p;
-	const struct expr *endp=args+(n&~1ul);
+	const struct expr *endp=args+(n&~1);
 	while(args<endp){
 		p=expr_cast(eval(args++,input),__typeof(p));
 		*p=(__typeof(*p))eval(args++,input);
@@ -870,7 +870,7 @@ static double expr_assigni(const struct expr *args,size_t n,double input){
 }
 static double expr_assignu(const struct expr *args,size_t n,double input){
 	uint64_t *p;
-	const struct expr *endp=args+(n&~1ul);
+	const struct expr *endp=args+(n&~1);
 	while(args<endp){
 		p=expr_cast(eval(args++,input),__typeof(p));
 		*p=(__typeof(*p))eval(args++,input);
@@ -1348,7 +1348,7 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGMDSYM2("min",expr_min,0),
 	REGMDSYM2_U("mode",expr_mode,0),
 	REGMDSYM2("mul",expr_mul,0),
-	REGMDSYM2("nfact",expr_nfact,2ul),
+	REGMDSYM2("nfact",expr_nfact,2),
 	REGMDSYM2("pow_old_n",expr_pow_old_n,2),
 	REGMDSYM2("qmed",expr_qmed,0),
 	REGMDSYM2("qgmed",expr_qgmed,0),
@@ -1364,18 +1364,18 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGCSYM2("sysp5",INT64_C(1)<<37),
 	REGCSYM2("sysp6",INT64_C(1)<<38),
 
-	REGMDEPSYM2_NIW("assert",bassert,1ul),
-	REGMDEPSYM2_NI("ldr",expr_ldr,2ul),
-	REGMDEPSYM2_NI("str",expr_str,3ul),
-	REGMDEPSYM2_NI("bzero",expr_bzero,2ul),
-	REGMDEPSYM2_NI("contract",bcontract,2ul),
-	REGMDEPSYM2_NI("fry",bfry,2ul),
-	REGMDEPSYM2_NI("memset",expr_memset,3ul),
-	REGMDEPSYM2_NI("mirror",bmirror,2ul),
-	REGMDEPSYM2_NI("sort",bsort,2ul),
-	REGMDEPSYM2_NI("hsort",bhsort,2ul),
-	REGMDEPSYM2_NI("xsort",bxsort,2ul),
-	REGMDEPSYM2_NI("sort_old",bsort_old,2ul),
+	REGMDEPSYM2_NIW("assert",bassert,1),
+	REGMDEPSYM2_NI("ldr",expr_ldr,2),
+	REGMDEPSYM2_NI("str",expr_str,3),
+	REGMDEPSYM2_NI("bzero",expr_bzero,2),
+	REGMDEPSYM2_NI("contract",bcontract,2),
+	REGMDEPSYM2_NI("fry",bfry,2),
+	REGMDEPSYM2_NI("memset",expr_memset,3),
+	REGMDEPSYM2_NI("mirror",bmirror,2),
+	REGMDEPSYM2_NI("sort",bsort,2),
+	REGMDEPSYM2_NI("hsort",bhsort,2),
+	REGMDEPSYM2_NI("xsort",bxsort,2),
+	REGMDEPSYM2_NI("sort_old",bsort_old,2),
 	REGMDSYM2_NIU("destruct",expr_destruct,0),
 	REGMDSYM2_NIU("longjmp_out",expr_longjmp_out,0),
 

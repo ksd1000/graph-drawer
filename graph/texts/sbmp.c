@@ -36,13 +36,13 @@ struct sbmp *sbmp_compress(const struct sbmp *sp){
 			*(uint8_t *)p=((index-last)<<2);
 			p+=sizeof(uint8_t);
 		}else if(index-last<=(UINT16_MAX>>2)){
-			*(uint16_t *)p=((index-last)<<2)|1U;
+			*(uint16_t *)p=((index-last)<<2)|UINT64_C(1);
 			p+=sizeof(uint16_t);
 		}else if(index-last<=(UINT32_MAX>>2)){
-			*(uint32_t *)p=((index-last)<<2)|2U;
+			*(uint32_t *)p=((index-last)<<2)|UINT64_C(2);
 			p+=sizeof(uint32_t);
 		}else {
-			*(uint64_t *)p=((index-last)<<2)|3UL;
+			*(uint64_t *)p=((index-last)<<2)|UINT64_C(3);
 			p+=sizeof(uint64_t);
 		}
 		last=index;
@@ -68,10 +68,10 @@ size_t sum=0;
 	out->compressed=0;
 	while(p<end){
 		v=*(uint64_t *)p;
-		va3=v&3UL;
-		p+=1UL<<va3;
-		if(va3<3UL)v&=((1UL<<(8UL<<va3))-1UL);
-		index=last+(v>>2UL);
+		va3=v&UINT64_C(3);
+		p+=UINT64_C(1)<<va3;
+		if(va3<UINT64_C(3))v&=((UINT64_C(1)<<(UINT64_C(8)<<va3))-UINT64_C(1));
+		index=last+(v>>UINT64_C(2));
 		for(;last<index;++last){
 			if(currentval){
 				SBMP_SETPIXEL(out,last);

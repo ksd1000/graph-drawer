@@ -82,7 +82,7 @@ size_t sum=0;
 		}
 		currentval^=1;
 	}
-	//printf("%c --- %zu\n",(int)sp->c,sum);
+	printf("%c --- %zu\n",(int)sp->c,sum);
 	return 0;
 }
 /*

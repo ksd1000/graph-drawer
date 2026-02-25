@@ -671,10 +671,11 @@ int graph_connect(struct graph *restrict gp,uint32_t color,int32_t bold,double x
 	graph_draw_text_pixel(gp,color,0,vb,1,gapline_len*3/2,ax+bold+4,py);\
 }
 void graph_draw_axis(struct graph *restrict gp,uint32_t color,int32_t bold,double gapx,double gapy,uint32_t gapline_len){
-	int32_t px,py,ax=xtop(0),ay=ytop(0),gapxi=xtop(gapx),len,h,ih;
+	int32_t px,py,ax=xtop(0),ay=ytop(0);
 	double v;
-	char vb[32];
-	char *p;
+//	int32_t gapxi=xtop(gapx),len,h,ih;
+//	char vb[32];
+//	char *p;
 	graph_draw_hline(gp,color,bold,0,gp->width,ay);
 	graph_draw_vline(gp,color,bold,0,gp->height,ax);
 	if(gapx>DBL_EPSILON){

@@ -401,7 +401,7 @@ EXPR_END
 #define EXPR_SYMSET_DEPTHUNIT (2*sizeof(void *))
 
 #define expr_symbol_foreach5(_sp,_esp,_stack,_atindex,_label) \
-	for(unsigned int __inloop_index=0;;)if(0){\
+	for(unsigned int __inloop_index=0;;({goto expr_combine(expr_symset_foreach_label_,_label);}))if(0){\
 		expr_static_assert(__builtin_constant_p((_atindex)));\
 		expr_static_assert(__builtin_constant_p((_atindex)<EXPR_SYMNEXT));\
 		expr_static_assert(__builtin_constant_p((_atindex)>=EXPR_SYMNEXT));\

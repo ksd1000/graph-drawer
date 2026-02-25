@@ -617,20 +617,25 @@ int graph_connect(struct graph *restrict gp,uint32_t color,int32_t bold,double x
 }
 #define DRAWXVAL if(gp->draw_value){\
 	snprintf(vb,16,"%.5lg",v);\
+	puts("1");\
 	if(!strchr(vb,'e')&&!(p=strstr(vb,".00"))){\
 		*p=0;\
 	}\
+	puts("2");\
 	ih=h=gapline_len*3/2;\
-	/*while((len=graph_textlen(gp,vb,1,h))>gapxi&&h>=4)\
-		h=muldiv(h,gapxi,len);*/\
+	while((len=graph_textlen(gp,vb,1,h))>gapxi&&h>=4)\
+		h=muldiv(h,gapxi,len);\
 	--h;\
+	puts("3");\
 	graph_draw_text_pixel(gp,color,0,vb,1,h,px+bold+4,ay-gapline_len*5/2+(ih-h));\
 }
 #define DRAWYVAL if(gp->draw_value){\
 	snprintf(vb,16,"%.5lg",v);\
+	puts("4");\
 	if(!strchr(vb,'e')&&!(p=strstr(vb,".00"))){\
 		*p=0;\
 	}\
+	puts("5");\
 	graph_draw_text_pixel(gp,color,0,vb,1,gapline_len*3/2,ax+bold+4,py);\
 }
 void graph_draw_axis(struct graph *restrict gp,uint32_t color,int32_t bold,double gapx,double gapy,uint32_t gapline_len){

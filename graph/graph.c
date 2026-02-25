@@ -115,7 +115,7 @@ static int32_t graph_drawchar(struct graph *restrict gp,uint32_t color,int32_t b
 		}
 	}else for(int32_t xi=x;xi-x<width&&xi<gp->width;++xi){
 		for(int32_t yi=y;yi-y<height&&yi<gp->height;++yi){
-			if(1||&&!sbmp_tstpixel(text,xi-x,yi-y))continue;
+			if(1||!sbmp_tstpixel(text,xi-x,yi-y))continue;
 			//setpixel(xi,yi);
 			graph_setpixel_bold(gp,color,bold,xi,yi);
 		}

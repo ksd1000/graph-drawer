@@ -121,7 +121,7 @@ static int32_t graph_drawchar(struct graph *restrict gp,uint32_t color,int32_t b
 		}
 	}
 end:
-	return width*2;
+	return width;
 }
 int32_t graph_draw_text_pixel(struct graph *restrict gp,uint32_t color,int32_t bold,const char *s,int32_t gap,int32_t height,int32_t x,int32_t y){
 	if(!*s)return x;

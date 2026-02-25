@@ -495,20 +495,8 @@ static double expr_str(const struct expr *args,size_t n,double input){
 	return *un.r=eval(++args,input);
 }
 static double expr_memset(const struct expr *args,size_t n,double input){
-	union {
-		double *r;
-		double dr;
-	} un;
-	double *endp;
-	double val;
-	un.dr=eval(args,input);
-	val=eval(++args,input);
-	endp=un.r+(ptrdiff_t)eval(++args,input);
-	while(un.r<endp){
-		*un.r=val;
-		++un.r;
-	}
-	return val;
+	memset(expr_cast(eval(args,input),void *),(int)eval(args+1,input),(size_t)eval(args+2,input));
+	return 0;
 }
 static double expr_bzero(const struct expr *args,size_t n,double input){
 	union {

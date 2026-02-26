@@ -729,7 +729,7 @@ const struct expr_builtin_keyword expr_keywords[]={
 	REGKEYSC("xorn",EXPR_XORN,5,"xorn(index_name,start_index,end_index,index_step,element)"),
 	REGKEYSC("gcdn",EXPR_GCDN,5,"gcdn(index_name,start_index,end_index,index_step,element)"),
 	REGKEYSC("lcmn",EXPR_LCMN,5,"lcmn(index_name,start_index,end_index,index_step,element)"),
-	REGKEYSC("for",EXPR_FOR,5,"for(var_name,start_var,cond,body,value)"),
+	REGKEYSC("for",EXPR_FOR,5,"for(index_name,start_index,end_index,index_step,element)"),
 	REGKEYSC("loop",EXPR_LOOP,5,"loop(var_name,start_var,count,body,value)"),
 	REGKEYSC("vmd",EXPR_VMD,7,"vmd(index_name,start_index,end_index,index_step,element,md_symbol,[constant_expression max_dim])"),
 	REGKEYS("do",EXPR_DO,1,"do(body) do{body}"),
@@ -4289,7 +4289,6 @@ ssize_t expr_symset_write(const struct expr_symset *restrict esp,expr_writer wri
 		goto err3;\
 	((void)0)
 ssize_t expr_symset_write_s(const struct expr_symset *restrict esp,expr_writer writer,intptr_t fd,void *stack){
-//	uintptr_t minsp=UINTPTR_MAX;
 	size_t maxlen=0,count;
 	ssize_t r;
 	ptrdiff_t off;
@@ -4302,7 +4301,7 @@ ssize_t expr_symset_write_s(const struct expr_symset *restrict esp,expr_writer w
 	}
 	temp=xmalloc(align(maxlen)-EXPR_SYMBOL_EXTRA);
 	if(unlikely(!temp))
-		return -1;
+		return PTRDIFF_MIN+1;
 	tempesp->size=esp->size;
 	tempesp->maxlen=maxlen;
 	try_write(tempesp,sizeof(struct expr_symset_infile));
@@ -4311,6 +4310,8 @@ ssize_t expr_symset_write_s(const struct expr_symset *restrict esp,expr_writer w
 		goto end;
 	++count;
 	expr_symset_foreach4(sp,esp,stack,EXPR_SYMNEXT/2){
+		if(unlikely(sp->strlen>=EXPR_SYMLEN-1))
+			return PTRDIFF_MIN+3;
 		off=sp->length;
 		maxlen=off-EXPR_SYMBOL_EXTRA;
 		temp->length=maxlen;
@@ -4329,7 +4330,7 @@ err2:
 	return r;
 err3:
 	xfree(temp);
-	return -2;
+	return PTRDIFF_MIN+2;
 }
 ssize_t expr_symset_read(struct expr_symset *restrict esp,const void *buf,size_t size){
 	const struct expr_symset_infile *esi;
@@ -4338,7 +4339,7 @@ ssize_t expr_symset_read(struct expr_symset *restrict esp,const void *buf,size_t
 	size_t count,len;
 	ssize_t added;
 	if(size<sizeof(struct expr_symset_infile))
-		return -2;
+		return PTRDIFF_MIN+2;
 	esi=(const struct expr_symset_infile *)buf;
 	count=esi->size;
 	ebi=(const struct expr_symbol_infile *)((uintptr_t)buf+sizeof(struct expr_symset_infile));
@@ -4350,11 +4351,11 @@ ssize_t expr_symset_read(struct expr_symset *restrict esp,const void *buf,size_t
 		if(unlikely(ebi->length<=off_sin))
 			break;
 		if(unlikely(ebi->length>size))
-			return -((added<<2)|2);
+			return PTRDIFF_MIN+2;
 		len=ebi->length+EXPR_SYMBOL_EXTRA;
 		sp=xmalloc(len);
 		if(unlikely(!sp))
-			return -((added<<2)|1);
+			return PTRDIFF_MIN+1;
 		sp->length=len;
 		sp->strlen=ebi->strlen;
 		sp->type=ebi->type;
@@ -4370,7 +4371,7 @@ ssize_t expr_symset_read(struct expr_symset *restrict esp,const void *buf,size_t
 		ebi=(const struct expr_symbol_infile *)((uintptr_t)ebi+ebi->length);
 		--count;
 	}
-	return unlikely(added<esi->size)?-(added<<2):added;
+	return unlikely(added<esi->size)?PTRDIFF_MIN+3:added;
 }
 ssize_t expr_symset_readfd(struct expr_symset *restrict esp,expr_reader reader,intptr_t fd){
 	struct expr_symset_infile esi[1];
@@ -4380,21 +4381,21 @@ ssize_t expr_symset_readfd(struct expr_symset *restrict esp,expr_reader reader,i
 	ssize_t added,r;
 	r=reader(fd,esi,sizeof(struct expr_symset_infile));
 	if(unlikely(r<0))
-		return -3;
+		return r;
 	if(unlikely(r<sizeof(struct expr_symset_infile)))
-		return -2;
+		return PTRDIFF_MIN+2;
 	count=esi->size;
 	maxlen=esi->maxlen;
 	if(unlikely(maxlen<=off_sin))
-		return -2;
+		return PTRDIFF_MIN+2;
 	ebi=xmalloc(maxlen);
 	if(unlikely(!ebi))
-		return -1;
+		return PTRDIFF_MIN+1;
 	added=0;
 	while(count){
 		r=reader(fd,ebi,off_sin);
 		if(unlikely(r<0))
-			goto err3;
+			goto errr;
 		if(unlikely(r<off_sin))
 			goto err2;
 		if(unlikely(ebi->length<=off_sin))
@@ -4406,7 +4407,7 @@ ssize_t expr_symset_readfd(struct expr_symset *restrict esp,expr_reader reader,i
 			goto err2;
 		r=reader(fd,(void *)((uintptr_t)ebi+off_sin),ebi->length-off_sin);
 		if(unlikely(r<0))
-			goto err3;
+			goto errr;
 		if(unlikely(r<ebi->length-off_sin))
 			goto err2;
 		sp=xmalloc(len);
@@ -4426,16 +4427,16 @@ ssize_t expr_symset_readfd(struct expr_symset *restrict esp,expr_reader reader,i
 		--count;
 	}
 	xfree(ebi);
-	return unlikely(added<esi->size)?-(added<<2):added;
+	return unlikely(added<esi->size)?PTRDIFF_MIN+4:added;
 err:
 	xfree(ebi);
-	return -((added<<2)|1);
+	return PTRDIFF_MIN+1;
 err2:
 	xfree(ebi);
-	return -((added<<2)|2);
-err3:
+	return PTRDIFF_MIN+2;
+errr:
 	xfree(ebi);
-	return -((added<<2)|3);
+	return r;
 //WARNING: the symbol value of variables or functions
 //cannot be reused after a PIE-program restarted.
 }
@@ -4541,8 +4542,6 @@ struct expr_symbol *expr_symbol_vcreatel(const char *sym,size_t symlen,int type,
 	char *p1;
 	if(unlikely(!symlen))
 		return NULL;
-	if(unlikely(symlen>=EXPR_SYMLEN))
-		symlen=EXPR_SYMLEN-1;
 	len=sizeof(struct expr_symbol)+symlen+1;
 	switch(type){
 		case EXPR_CONSTANT:
@@ -4614,8 +4613,6 @@ struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const cha
 	struct expr_symbol *ep,**next;
 	size_t depth,alen;
 	next=expr_symset_findtail(esp,sym,symlen,&depth);
-//	printf("adding %s\n",sym);
-//	if(symlen==1)trap;
 	if(unlikely(!next))
 		return NULL;
 	ep=expr_symbol_vcreatel(sym,symlen,type,flag,ap);
@@ -4843,7 +4840,7 @@ void expr_symset_detacha_s(struct expr_symset *restrict esp,struct expr_symbol *
 	size_t depthm1;
 	struct expr_symbol *const *spa_cur=spa;
 	struct expr_symbol *const *spa_end=spa+n;
-	if(likely(esp->depth<=(1<<16))){
+	if(likely(esp->depth<=(UINT64_C(1)<<EXPR_SYMBOL_DEPTHM1_WIDTH))){
 		depthm1=esp->depth-1;
 		do {
 			*(*spa_cur)->tail=NULL;

@@ -626,12 +626,12 @@ union expr_symvalue {
 	double (*mdepfunc)(const struct expr *,size_t,double);
 };
 _Static_assert(EXPR_SYMLEN<=64,"EXPR_SYMLEN is more than 6 bits");
-
+#define EXPR_SYMBOL_DEPTHM1_WIDTH 54
 struct expr_symbol {
 	struct expr_symbol *next[EXPR_SYMNEXT];
 	struct expr_symbol **tail;
-	uint32_t length;
-	uint32_t strlen:6,type:3,flag:6,saved:1,depthm1:16;
+	size_t length,strlen;
+	uint64_t type:3,flag:6,saved:1,depthm1:EXPR_SYMBOL_DEPTHM1_WIDTH;
 	char str[];
 };
 struct expr_symbol_infile {

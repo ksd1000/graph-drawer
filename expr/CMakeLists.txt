@@ -13,13 +13,20 @@ set(CMAKE_C_FLAGS_MINSIZEREL "-Os")
 set(CMAKE_C_FLAGS_RELWITHDEBINFO "-O2 -g")
 add_compile_options(-Wall -Werror)
 #set(LIBRARY_OUTPUT_PATH .)
-add_library(expr STATIC
+add_library(expr_object OBJECT
 	expr_global.c
 	expr_core.c
 	expr_buffered.c
 	expr_builtin.c
 	expr_format.c
 )
+target_compile_options(expr_object PRIVATE -fPIC)
+
+add_library(expr STATIC $<TARGET_OBJECTS:expr_object>)
 target_link_libraries(expr INTERFACE m)
+
+add_library(expr_shared SHARED $<TARGET_OBJECTS:expr_object>)
+target_link_libraries(expr_shared INTERFACE m)
+
 add_executable(expr-version expr-version.c)
 target_link_libraries(expr-version expr)

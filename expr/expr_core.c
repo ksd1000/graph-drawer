@@ -4302,10 +4302,10 @@ ssize_t expr_symset_write_s(const struct expr_symset *restrict esp,expr_writer w
 	temp=xmalloc(align(maxlen)-EXPR_SYMBOL_EXTRA);
 	if(unlikely(!temp))
 		return PTRDIFF_MIN+1;
-	tempesp->size=esp->size;
-	tempesp->maxlen=maxlen;
+	tempesp->size=le64(esp->size);
+	tempesp->maxlen=le32(maxlen);
 	try_write(tempesp,sizeof(struct expr_symset_infile));
-	count=tempesp->size;
+	count=esp->size;
 	if(!count)
 		goto end;
 	++count;
@@ -4314,7 +4314,9 @@ ssize_t expr_symset_write_s(const struct expr_symset *restrict esp,expr_writer w
 			return PTRDIFF_MIN+3;
 		off=sp->length;
 		maxlen=off-EXPR_SYMBOL_EXTRA;
-		temp->length=maxlen;
+		if(unlikely(maxlen>UINT32_MAX))
+			return PTRDIFF_MIN+3;
+		temp->length=le32(maxlen);
 		temp->strlen=sp->strlen;
 		temp->type=sp->type;
 		temp->flag=sp->flag;
@@ -4341,7 +4343,7 @@ ssize_t expr_symset_read(struct expr_symset *restrict esp,const void *buf,size_t
 	if(size<sizeof(struct expr_symset_infile))
 		return PTRDIFF_MIN+2;
 	esi=(const struct expr_symset_infile *)buf;
-	count=esi->size;
+	count=le64(esi->size);
 	ebi=(const struct expr_symbol_infile *)((uintptr_t)buf+sizeof(struct expr_symset_infile));
 	size-=sizeof(struct expr_symset_infile);
 	added=0;
@@ -4384,8 +4386,8 @@ ssize_t expr_symset_readfd(struct expr_symset *restrict esp,expr_reader reader,i
 		return r;
 	if(unlikely(r<sizeof(struct expr_symset_infile)))
 		return PTRDIFF_MIN+2;
-	count=esi->size;
-	maxlen=esi->maxlen;
+	count=le64(esi->size);
+	maxlen=le32(esi->maxlen);
 	if(unlikely(maxlen<=off_sin))
 		return PTRDIFF_MIN+2;
 	ebi=xmalloc(maxlen);
@@ -4398,11 +4400,12 @@ ssize_t expr_symset_readfd(struct expr_symset *restrict esp,expr_reader reader,i
 			goto errr;
 		if(unlikely(r<off_sin))
 			goto err2;
-		if(unlikely(ebi->length<=off_sin))
+		len=le32(ebi->length);
+		if(unlikely(len<=off_sin))
 			goto err2;
-		if(unlikely(ebi->length>maxlen))
+		if(unlikely(len>maxlen))
 			goto err2;
-		len=ebi->length+EXPR_SYMBOL_EXTRA;
+		len+=EXPR_SYMBOL_EXTRA;
 		if(unlikely(len<=sizeof(struct expr_symbol)))
 			goto err2;
 		r=reader(fd,(void *)((uintptr_t)ebi+off_sin),ebi->length-off_sin);

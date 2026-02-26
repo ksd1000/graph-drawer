@@ -72,6 +72,10 @@ size_t expr_bufsize_initial=512
 #define clz64 __builtin_clzg
 #endif
 
+#define le16(x) expr_le(x,16)
+#define le32(x) expr_le(x,32)
+#define le64(x) expr_le(x,64)
+
 #endif
 
 #ifndef _SSIZE_T_DEFINED_
@@ -279,6 +283,8 @@ EXPR_END
 //R:reverse
 #define EXPR_PUSH(_sp) (*(--(_sp)))
 #define EXPR_POP(_sp) (*((_sp)++))
+
+#define expr_bswap(x,N) __builtin_bswap##N((uint##N##_t)(x))
 
 #define expr_cast(x,type) \
 	({\
@@ -637,8 +643,10 @@ struct expr_symbol {
 struct expr_symbol_infile {
 	uint32_t length;
 #if (!defined(__BIG_ENDIAN__)||!(__BIG_ENDIAN__))
+#define expr_le(x,N) ((uint##N##_t)(x))
 	uint16_t strlen:6,type:3,flag:6,unused:1;
 #else
+#define expr_le(x,N) expr_bswap(x,N)
 	uint16_t unused:1,flag:6,type:3,strlen:6;
 #endif
 	char str[];
@@ -692,7 +700,7 @@ struct expr_symset {
 	uint32_t freeable,mutex;
 };
 struct expr_symset_infile {
-	size_t size;
+	uint64_t size;
 	uint32_t maxlen;
 	char data[];
 }__attribute__((packed));

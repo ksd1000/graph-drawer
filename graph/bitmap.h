@@ -26,8 +26,12 @@ struct bitmap {
 _Static_assert(sizeof(struct bitmap)==54,"error on size of bitmap header");
 #if (!defined(__BIG_ENDIAN__)||!(__BIG_ENDIAN__))
 #define BM_MAGIC ((uint16_t)('B')|((uint16_t)('M'<<8)))
+#define bm_l16(x) ((uint16_t)(x))
+#define bm_l32(x) ((uint32_t)(x))
 #else
 #define BM_MAGIC ((uint16_t)('M')|((uint16_t)('B'<<8)))
+#define bm_l16(x) __builtin_bswap16((uint16_t)(x))
+#define bm_l32(x) __builtin_bswap32((uint32_t)(x))
 #endif
 #define bm_byte_width(_w,_bpp) ((((_w)*(_bpp)+31)>>5)<<2)
 #define bm_byte_widthof(__bm) ({const struct bitmap *restrict _bm=(__bm);bm_byte_width(_bm->width,_bm->bpp);})

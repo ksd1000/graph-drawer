@@ -22,31 +22,34 @@
 		return r;\
 	sum+=r;\
 }
-static ssize_t writeext(expr_writer writer,intptr_t fd,size_t count,int c){
-	char buf[128];
+#define EXPR_WCBUFSIZE 512
+ssize_t expr_writec(expr_writer writer,intptr_t fd,size_t count,int c){
+	char buf[EXPR_WCBUFSIZE];
 	ssize_t r,sum;
-	if(unlikely((ssize_t)count)<=0)
+	if(unlikely(count>SSIZE_MAX))
 		return 0;
-	if(count<=128){
+	if(count<=EXPR_WCBUFSIZE){
 		memset(buf,c,count);
 		return writer(fd,buf,count);
 	}
-	memset(buf,c,128);
+	memset(buf,c,EXPR_WCBUFSIZE);
 	sum=0;
 	do {
-		c_trywrite(buf,128);
-		count-=128;
-	}while(count>128);
+		c_trywrite(buf,EXPR_WCBUFSIZE);
+		count-=EXPR_WCBUFSIZE;
+	}while(count>EXPR_WCBUFSIZE);
 	if(count){
 		c_trywrite(buf,count);
 	}
 	return sum;
 }
+#define writeext expr_writec
+
 #define flag_plusorspace(_f) (*(_f)->bit&(UINT64_C(3)<<62))
 #define flag_width(_f,_dflt) ((_f)->width_set?(_f)->width:(_dflt))
 #define flag_digit(_f,_dflt) ((_f)->digit_set?(size_t)(_f)->digit:(_dflt))
-#define cwrite_common(_s,_sz) \
-	sz=(_sz);\
+
+#define cwrite_common0(_s) \
 	ext=(ssize_t)flag_width(flag,0)-sz;\
 	if(ext>0){\
 		sum=0;\
@@ -59,7 +62,23 @@ static ssize_t writeext(expr_writer writer,intptr_t fd,size_t count,int c){
 		}\
 		return sum;\
 	}\
-	return likely(sz>0)?writer(fd,(_s),sz):0;
+	return (likely(sz>0)?writer(fd,(_s),sz):0)
+
+#define cwrite_common(_s,_sz) \
+	sz=(_sz);\
+	cwrite_common0(_s)
+
+ssize_t expr_converter_common(expr_writer writer,intptr_t fd,const void *buf,size_t size,const struct expr_writeflag *flag){
+	ssize_t ext,r,sum;
+#define sz ((ssize_t)size)
+	cwrite_common0(buf);
+#undef sz
+}
+#define write_val10_to_p(val) \
+	do {\
+		*(--p)=(char)('0'+val%10);\
+		val/=10;\
+	}while(val)
 static ssize_t converter_d(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	char nbuf[32];
 	intptr_t val=arg->sint;
@@ -75,10 +94,80 @@ static ssize_t converter_d(expr_writer writer,intptr_t fd,const union expr_argf 
 	}else
 		minus=0;
 	if(val){
-		do {
-			*(--p)=(char)('0'+val%10);
-			val/=10;
-		}while(val);
+		write_val10_to_p(val);
+	}else
+		*(--p)='0';
+	switch(minus){
+		case 0:
+			if(flag_plusorspace(flag))
+				*(--p)='+';
+			break;
+		case 1:
+			*(--p)='-';
+			break;
+		case 2:
+			if(flag->plus)
+				*(--p)='+';
+			break;
+		default:
+			__builtin_unreachable();
+	}
+	cwrite_common(p,endp-p);
+}
+static ssize_t converter_size(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+	static const char dimc[]={"bkmgtpe"};
+	static const char dimC[]={"BKMGTPE"};
+	char nbuf[64];
+	char dbuf[32];
+	int64_t val=(int64_t)arg->sint;
+	char *endp=nbuf+32;
+	char *p=endp;
+	ssize_t ext,sum,r,sz;
+	int minus,dim;
+	if(!val)
+		minus=2;
+	else if(val<0){
+		val=-val;
+		minus=1;
+	}else
+		minus=0;
+	if(val){
+		int64_t sdimm1;
+		size_t dig;
+		dim=(63-clz64((uint64_t)val))/10;
+		if(dim||flag->sharp)
+			*(--p)=(flag->cap?dimC:dimc)[dim];
+		dim*=10;
+		dig=(size_t)flag_digit(flag,0);
+		if(unlikely(dig>32))
+			dig=32;
+		if(dig){
+			char *dp,*dp_end;
+			int64_t r;
+			int feq;
+			feq=!!flag->eq;
+			dp=dbuf;
+			dp_end=dbuf+dig;
+			sdimm1=(INT64_C(1)<<dim)-1;
+			r=val&sdimm1;
+			if(!r&&feq)
+				goto no_digit;
+			do {
+				r*=10;
+				*(dp++)=(char)('0'+(r>>dim));
+				r&=sdimm1;
+				if(!r&&feq){
+					dig=dp-dbuf;
+					break;
+				}
+			}while(dp<dp_end);
+			p-=dig;
+			memcpy(p,dbuf,dig);
+			*(--p)='.';
+		}
+no_digit:
+		val>>=dim;
+		write_val10_to_p(val);
 	}else
 		*(--p)='0';
 	switch(minus){
@@ -339,7 +428,7 @@ static void extint_mirror(char *buf,size_t size){
 static size_t extint_ascii_rev(uint64_t *buf,size_t size,const char *chars,uint32_t base,char *outbuf){
 	write_ascii(--out,outbuf-out);
 }
-#define conv_f0(_name,_base,_shift,_nsize,_how,_before_how) \
+#define conv_f0s(_start,_name,_base,_shift,_nsize,_how,_before_how) \
 static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){\
 	expr_static_assert(__builtin_constant_p((_nsize)));\
 	double val=arg->dbl;\
@@ -356,6 +445,7 @@ static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr
 	ssize_t ext,sum,r,sz,fsz,ds;\
 	size_t digit,width;\
 	const char *_conv_str=flag->cap?conv_btoX:conv_btox;\
+	_start;\
 	if(unlikely(!expr_isfinite(val))){\
 		p=nbuf;\
 		write_sign_to_p(EXPR_EDSIGN(&val));\
@@ -444,6 +534,7 @@ static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr
 	}\
 	return sum;\
 }
+#define conv_f0(_name,_base,_shift,_nsize,_how,_before_how) conv_f0s(,_name,_base,_shift,_nsize,_how,_before_how)
 #define conv_f(_name,_base,_shift,_nsize) conv_f0(_name,_base,_shift,_nsize,{\
 	c_trywrite(np,ds);\
 	if(fsz){\
@@ -822,28 +913,28 @@ static ssize_t faction_percent(expr_writer writer,intptr_t fd,const union expr_a
 const struct expr_writefmt expr_writefmts_default[]={
 	fmtc_register(faction_percent,0,0,'%'),
 
-	fmtc_register(converter_x81,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'\x81','x'),
-	fmtc_register(converter_x82,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'\x82','\x92','b'),
-	fmtc_register(converter_x83,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'\x83','\x93'),
-	fmtc_register(converter_x84,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'\x84','\x94'),
-	fmtc_register(converter_x85,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'\x85','\x95'),
-	fmtc_register(converter_x86,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'\x86','\x96'),
-	fmtc_register(converter_x87,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'\x87','\x97'),
-	fmtc_register(converter_x88,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'\x88','\x98','o'),
-	fmtc_register(converter_x89,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'\x89','\x99'),
-	fmtc_register(converter_x8a,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'\x8a','\x9a','u'),
-	fmtc_register(converter_x8b,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'\x8b'),
-	fmtc_register(converter_x8c,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'\x8c'),
-	fmtc_register(converter_x8d,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'\x8d'),
-	fmtc_register(converter_x8e,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'\x8e'),
-	fmtc_register(converter_x8f,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'\x8f'),
+	fmtc_register(converter_x81,1,EXPR_FLAGTYPE_UNSIGNED,'\x81','x'),
+	fmtc_register(converter_x82,1,EXPR_FLAGTYPE_UNSIGNED,'\x82','\x92','b'),
+	fmtc_register(converter_x83,1,EXPR_FLAGTYPE_UNSIGNED,'\x83','\x93'),
+	fmtc_register(converter_x84,1,EXPR_FLAGTYPE_UNSIGNED,'\x84','\x94'),
+	fmtc_register(converter_x85,1,EXPR_FLAGTYPE_UNSIGNED,'\x85','\x95'),
+	fmtc_register(converter_x86,1,EXPR_FLAGTYPE_UNSIGNED,'\x86','\x96'),
+	fmtc_register(converter_x87,1,EXPR_FLAGTYPE_UNSIGNED,'\x87','\x97'),
+	fmtc_register(converter_x88,1,EXPR_FLAGTYPE_UNSIGNED,'\x88','\x98','o'),
+	fmtc_register(converter_x89,1,EXPR_FLAGTYPE_UNSIGNED,'\x89','\x99'),
+	fmtc_register(converter_x8a,1,EXPR_FLAGTYPE_UNSIGNED,'\x8a','\x9a','u'),
+	fmtc_register(converter_x8b,1,EXPR_FLAGTYPE_UNSIGNED,'\x8b'),
+	fmtc_register(converter_x8c,1,EXPR_FLAGTYPE_UNSIGNED,'\x8c'),
+	fmtc_register(converter_x8d,1,EXPR_FLAGTYPE_UNSIGNED,'\x8d'),
+	fmtc_register(converter_x8e,1,EXPR_FLAGTYPE_UNSIGNED,'\x8e'),
+	fmtc_register(converter_x8f,1,EXPR_FLAGTYPE_UNSIGNED,'\x8f'),
 
-	fmtc_register(converter_x81,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'\x91','X'),
-	fmtc_register(converter_x8b,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'\x9b'),
-	fmtc_register(converter_x8c,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'\x9c'),
-	fmtc_register(converter_x8d,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'\x9d'),
-	fmtc_register(converter_x8e,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'\x9e'),
-	fmtc_register(converter_x8f,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'\x9f'),
+	fmtc_register(converter_x81,1,EXPR_FLAGTYPE_UNSIGNED,'\x91','X'),
+	fmtc_register(converter_x8b,1,EXPR_FLAGTYPE_UNSIGNED,'\x9b'),
+	fmtc_register(converter_x8c,1,EXPR_FLAGTYPE_UNSIGNED,'\x9c'),
+	fmtc_register(converter_x8d,1,EXPR_FLAGTYPE_UNSIGNED,'\x9d'),
+	fmtc_register(converter_x8e,1,EXPR_FLAGTYPE_UNSIGNED,'\x9e'),
+	fmtc_register(converter_x8f,1,EXPR_FLAGTYPE_UNSIGNED,'\x9f'),
 
 	fmtc_register(converter_xa1,1,EXPR_FLAGTYPE_DOUBLE,'\xa1','a'),
 	fmtc_register(converter_xa2,1,EXPR_FLAGTYPE_DOUBLE,'\xa2'),
@@ -879,8 +970,8 @@ const struct expr_writefmt expr_writefmts_default[]={
 
 	fmtc_register(faction_s,1,EXPR_FLAGTYPE_ADDR,'s'),
 	fmtc_register(faction_S,2,EXPR_FLAGTYPE_ADDR,'S'),
-	fmtc_register(faction_c,1,EXPR_FLAGTYPE_UNSIGNED_INTEGER,'c'),
-	fmtc_register(converter_d,1,EXPR_FLAGTYPE_SIGNED_INTEGER,'d'),
+	fmtc_register(faction_c,1,EXPR_FLAGTYPE_UNSIGNED,'c'),
+	fmtc_register(converter_d,1,EXPR_FLAGTYPE_SIGNED,'d'),
 	fmtc_register(converter_fe,1,EXPR_FLAGTYPE_DOUBLE,'e'),
 	fmtc_register(converter_fe,1,EXPR_FLAGTYPE_DOUBLE,'E'),
 	fmtc_register(faction_g,1,EXPR_FLAGTYPE_DOUBLE,'g'),
@@ -889,6 +980,8 @@ const struct expr_writefmt expr_writefmts_default[]={
 	fmtc_register(faction_P,1,EXPR_FLAGTYPE_ADDR,'P'),
 	fmtc_register(faction_h,2,EXPR_FLAGTYPE_ADDR,'h'),
 	fmtc_register(faction_h,2,EXPR_FLAGTYPE_ADDR,'H'),
+	fmtc_register(converter_size,1,EXPR_FLAGTYPE_SIGNED,'m'),
+	fmtc_register(converter_size,1,EXPR_FLAGTYPE_SIGNED,'M'),
 
 };
 const uint8_t expr_writefmts_default_size=arrsize(expr_writefmts_default);
@@ -978,6 +1071,8 @@ const uint8_t expr_writefmts_table_default[256]={
 ['P']=62,
 ['h']=63,
 ['H']=64,
+['m']=65,
+['M']=66,
 };
 #define wf_trywrite(buf,sz) {\
 	v=writer(fd,(buf),(sz));\
@@ -1029,32 +1124,6 @@ out:
 		onfalse;\
 	}\
 })
-struct writef_args {
-	const union expr_argf *base;
-	size_t arglen;
-};
-static const union expr_argf *ewr_arg(ptrdiff_t index,const struct expr_writeflag *flag,void *addr){
-	struct writef_args *wa=addr;
-	const union expr_argf *r=wa->base+index;
-	range_checkn(r,wa->base,wa->arglen,goto err);
-	debug("getting arg[%zd] (base=%p,len=%zu)=%p",index,wa->base,wa->arglen,r);
-	return flag->addr?r->aaddr:r;
-err:
-	debug("getting arg[%zd] (base=%p,len=%zu)=NULL",index,wa->base,wa->arglen);
-	return NULL;
-}
-ssize_t expr_writef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const union expr_argf *restrict args,size_t arglen){
-	struct writef_args wa[1];
-	wa->base=args;
-	wa->arglen=arglen;
-	return expr_vwritef_r(fmt,fmtlen,writer,fd,ewr_arg,wa,expr_writefmts_default,expr_writefmts_table_default);
-}
-ssize_t expr_writef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const union expr_argf *restrict args,size_t arglen,const struct expr_writefmt *restrict fmts,const uint8_t *restrict table){
-	struct writef_args wa[1];
-	wa->base=args;
-	wa->arglen=arglen;
-	return expr_vwritef_r(fmt,fmtlen,writer,fd,ewr_arg,wa,fmts,table);
-}
 ssize_t expr_vwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const union expr_argf *(*arg)(ptrdiff_t index,const struct expr_writeflag *flag,void *addr),void *addr){
 	return expr_vwritef_r(fmt,fmtlen,writer,fd,arg,addr,expr_writefmts_default,expr_writefmts_table_default);
 }
@@ -1081,12 +1150,6 @@ next:
 		wf_trywrite(fmt_old,endp-fmt_old);
 		goto end;
 	}
-	/*
-	if(*fmt!='%'){
-		++fmt;
-		continue;
-	}
-	*/
 	if(fmt>fmt_old){
 		wf_trywrite(fmt_old,fmt-fmt_old);
 		fmt_old=fmt;
@@ -1097,16 +1160,7 @@ next:
 	fmt_inc_check;
 	*flag->bit=0;
 #define fmt_setflag(_field) \
-	if(flag->_field)\
-		break;\
 	flag->_field=1;\
-	fmt_inc_check;\
-	goto reflag
-#define fmt_setsize(_sz) \
-	if(flag->argsize)\
-		break;\
-	flag->argsize=(_sz);\
-	debug("argsize:%zu",(size_t)flag->argsize);\
 	fmt_inc_check;\
 	goto reflag
 reflag:
@@ -1178,10 +1232,10 @@ reflag:
 	if(*fmt=='*'){\
 		fmt_inc_check;\
 		if(*fmt=='*'){\
-			dest=*argt(EXPR_FLAGTYPE_SIGNED_INTEGER)->siaddr;\
+			dest=*argt(EXPR_FLAGTYPE_SIGNED)->siaddr;\
 			fmt_inc_check;\
 		}else\
-			dest=argt(EXPR_FLAGTYPE_SIGNED_INTEGER)->sint;\
+			dest=argt(EXPR_FLAGTYPE_SIGNED)->sint;\
 		_after;\
 		argnext1;\
 	}else {\
@@ -1346,9 +1400,9 @@ current_get:
 			if(flag->zero){
 				if(flag->digit_set){
 					if(flag->plus)
-						save.imax+=flag->digit;
+						save.smax+=flag->digit;
 					else
-						save.imax=flag->digit;
+						save.smax=flag->digit;
 				}else
 					save.umax=0;
 			}else {
@@ -1471,7 +1525,7 @@ wfp_get:
 				for(;;){
 					if(arrwid<8){
 						bit_copy(&val,aps,arrwid);
-						if(wfp->type==EXPR_FLAGTYPE_SIGNED_INTEGER&&
+						if(wfp->type==EXPR_FLAGTYPE_SIGNED&&
 						(val&(UINT64_C(0x80)<<((arrwid-1)*8))))
 							val=(~UINT64_C(0)&~mask)|(val&mask);
 						else
@@ -1514,7 +1568,6 @@ end:
 #undef arg1
 #undef argt
 #undef goto_argfail
-#undef fmt_setsize
 #undef fmt_setflag
 #undef fmt_inc_check
 #undef get_next_arg64
@@ -1530,3 +1583,96 @@ end:
 #undef fmt_repeat
 #undef fmt_dorepeat
 #undef fmt_op_cond
+struct writef_args {
+	const union expr_argf *base;
+	size_t arglen;
+};
+static const union expr_argf *arr_arg(ptrdiff_t index,const struct expr_writeflag *flag,void *addr){
+	struct writef_args *wa=addr;
+	const union expr_argf *r=wa->base+index;
+	range_checkn(r,wa->base,wa->arglen,goto err);
+	debug("getting arg[%zd] (base=%p,len=%zu)=%p",index,wa->base,wa->arglen,r);
+	return flag->addr?r->aaddr:r;
+err:
+	debug("getting arg[%zd] (base=%p,len=%zu)=NULL",index,wa->base,wa->arglen);
+	return NULL;
+}
+ssize_t expr_writef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const union expr_argf *restrict args,size_t arglen){
+	struct writef_args wa[1];
+	wa->base=args;
+	wa->arglen=arglen;
+	return expr_vwritef_r(fmt,fmtlen,writer,fd,arr_arg,wa,expr_writefmts_default,expr_writefmts_table_default);
+}
+ssize_t expr_writef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const union expr_argf *restrict args,size_t arglen,const struct expr_writefmt *restrict fmts,const uint8_t *restrict table){
+	struct writef_args wa[1];
+	wa->base=args;
+	wa->arglen=arglen;
+	return expr_vwritef_r(fmt,fmtlen,writer,fd,arr_arg,wa,fmts,table);
+}
+struct fmtarg {
+	va_list *ap;
+	ptrdiff_t index_old;
+	union expr_argf save[1];
+};
+static const union expr_argf *ap_getarg(ptrdiff_t index,const struct expr_writeflag *flag,void *addr){
+	struct fmtarg *restrict a=addr;
+	int type=(int)flag->type,useaddr=!!flag->addr;
+	if(index==a->index_old){
+		goto end;
+	}
+	if(unlikely(index!=a->index_old+1)){
+		return NULL;
+	}
+	if(useaddr){
+		type=EXPR_FLAGTYPE_ADDR;
+	}
+	switch(type){
+		case EXPR_FLAGTYPE_DOUBLE:
+			a->save->dbl=va_arg(*a->ap,double);
+			break;
+		case EXPR_FLAGTYPE_ADDR:
+			a->save->addr=va_arg(*a->ap,void *);
+			break;
+		default:
+			switch(flag->argsize){
+				case 1 ... sizeof(int):
+					a->save->smax=va_arg(*a->ap,int);
+					break;
+				default:
+					a->save->smax=va_arg(*a->ap,intptr_t);
+					break;
+			}
+			break;
+	}
+	++a->index_old;
+end:
+	return useaddr?a->save->aaddr:a->save;
+}
+ssize_t expr_vapwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const struct expr_writefmt *restrict fmts,const uint8_t *restrict table,va_list ap){
+	struct fmtarg a[1];
+	a->ap=&ap;
+	a->index_old=-1;
+	return expr_vwritef_r(fmt,fmtlen,writer,fd,ap_getarg,a,fmts,table);
+}
+ssize_t expr_apwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const struct expr_writefmt *restrict fmts,const uint8_t *restrict table,...){
+	va_list ap;
+	ssize_t r;
+	va_start(ap,table);
+	r=expr_vapwritef_r(fmt,fmtlen,writer,fd,fmts,table,ap);
+	va_end(ap);
+	return r;
+}
+ssize_t expr_vapwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,va_list ap){
+	struct fmtarg a[1];
+	a->ap=&ap;
+	a->index_old=-1;
+	return expr_vwritef(fmt,fmtlen,writer,fd,ap_getarg,a);
+}
+ssize_t expr_apwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,...){
+	va_list ap;
+	ssize_t r;
+	va_start(ap,fd);
+	r=expr_vapwritef(fmt,fmtlen,writer,fd,ap);
+	va_end(ap);
+	return r;
+}

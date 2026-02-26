@@ -449,8 +449,8 @@ struct expr_libinfo {
 	const char *license;
 };
 #define EXPR_FLAGTYPE_ADDR 0
-#define EXPR_FLAGTYPE_SIGNED_INTEGER 1
-#define EXPR_FLAGTYPE_UNSIGNED_INTEGER 2
+#define EXPR_FLAGTYPE_SIGNED 1
+#define EXPR_FLAGTYPE_UNSIGNED 2
 #define EXPR_FLAGTYPE_DOUBLE 3
 struct expr_writeflag {
 	size_t width;
@@ -516,8 +516,8 @@ union expr_argf {
 #endif
 	expr_umaxf_t umax;
 	expr_umaxf_t *umaddr;
-	expr_imaxf_t imax;
-	expr_imaxf_t *imaddr;
+	expr_imaxf_t smax;
+	expr_imaxf_t *smaddr;
 };
 expr_static_assert(sizeof(union expr_argf)==sizeof(double));
 expr_static_assert(sizeof(union expr_argf)==sizeof(expr_umaxf_t));

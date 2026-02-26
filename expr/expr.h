@@ -449,8 +449,8 @@ struct expr_libinfo {
 	const char *license;
 };
 #define EXPR_FLAGTYPE_ADDR 0
-#define EXPR_FLAGTYPE_SIGNED_INTEGER 1
-#define EXPR_FLAGTYPE_UNSIGNED_INTEGER 2
+#define EXPR_FLAGTYPE_SIGNED 1
+#define EXPR_FLAGTYPE_UNSIGNED 2
 #define EXPR_FLAGTYPE_DOUBLE 3
 struct expr_writeflag {
 	size_t width;
@@ -516,8 +516,8 @@ union expr_argf {
 #endif
 	expr_umaxf_t umax;
 	expr_umaxf_t *umaddr;
-	expr_imaxf_t imax;
-	expr_imaxf_t *imaddr;
+	expr_imaxf_t smax;
+	expr_imaxf_t *smaddr;
 };
 expr_static_assert(sizeof(union expr_argf)==sizeof(double));
 expr_static_assert(sizeof(union expr_argf)==sizeof(expr_umaxf_t));
@@ -991,10 +991,16 @@ struct expr {
 	char errinfo[EXPR_SYMLEN];
 	char extra_data[];
 };
-ssize_t expr_writef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const union expr_argf *restrict args,size_t arglen);
-ssize_t expr_writef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const union expr_argf *restrict args,size_t arglen,const struct expr_writefmt *restrict fmts,const uint8_t *restrict table);
+ssize_t expr_writec(expr_writer writer,intptr_t fd,size_t count,int c);
+ssize_t expr_converter_common(expr_writer writer,intptr_t fd,const void *buf,size_t size,const struct expr_writeflag *flag);
 ssize_t expr_vwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const union expr_argf *(*arg)(ptrdiff_t index,const struct expr_writeflag *flag,void *addr),void *addr);
 ssize_t expr_vwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const union expr_argf *(*arg)(ptrdiff_t index,const struct expr_writeflag *flag,void *addr),void *addr,const struct expr_writefmt *restrict fmts,const uint8_t *restrict table);
+ssize_t expr_writef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const union expr_argf *restrict args,size_t arglen);
+ssize_t expr_writef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const union expr_argf *restrict args,size_t arglen,const struct expr_writefmt *restrict fmts,const uint8_t *restrict table);
+ssize_t expr_vapwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const struct expr_writefmt *restrict fmts,const uint8_t *restrict table,va_list ap);
+ssize_t expr_apwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const struct expr_writefmt *restrict fmts,const uint8_t *restrict table,...);
+ssize_t expr_vapwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,va_list ap);
+ssize_t expr_apwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,...);
 ssize_t expr_buffered_write(struct expr_buffered_file *restrict fp,const void *buf,size_t size);
 ssize_t expr_buffered_read(struct expr_buffered_file *restrict fp,void *buf,size_t size);
 ssize_t expr_buffered_write_flushat(struct expr_buffered_file *restrict fp,const void *buf,size_t size,void *c,size_t c_size);

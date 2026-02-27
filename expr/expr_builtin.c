@@ -1198,6 +1198,7 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGCSYM2("INSTLEN",(double)sizeof(struct expr_inst)),
 	REGCSYM2("IPP_OFF",(double)offsetof(struct expr,ipp)),
 	REGCSYM2("SIZE_OFF",(double)offsetof(struct expr,size)),
+	REGCSYM(__SIZEOF_POINTER__),
 #if PHYSICAL_CONSTANT
 	REGCSYM2("c",299792458.0),
 	REGCSYM2("e0",8.8541878128e-12),

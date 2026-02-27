@@ -745,6 +745,8 @@ extern const uint8_t expr_writefmts_table_default[256];
 extern const uint8_t expr_number_table[256];
 
 extern const struct expr_builtin_symbol expr_symbols[];
+extern const size_t expr_symbols_size;
+
 extern const struct expr_builtin_keyword expr_keywords[];
 
 extern void *(*expr_allocator)(size_t);
@@ -756,7 +758,6 @@ extern int expr_symset_allow_heap_stack;
 
 extern size_t expr_bufsize_initial;
 extern const size_t expr_page_size;
-extern const size_t expr_symbols_size;
 
 #define expr_internal_regvarr(_name) register intptr_t expr_combine(__r_,_name) __asm__(#_name)
 #define expr_internal_regvar(_name) register intptr_t _name __asm__(#_name)

@@ -1103,7 +1103,11 @@ static double expr_hypot(double *args,size_t n){
 const struct expr_builtin_symbol expr_symbols[]={
 	REGCSYM(DBL_MAX),
 	REGCSYM(DBL_MIN),
+#ifdef DBL_TRUE_MIN
 	REGCSYM(DBL_TRUE_MIN),
+#else
+	REGCSYM2("DBL_TRUE_MIN",4.9406564584124654e-324),
+#endif
 	REGCSYM(DBL_EPSILON),
 
 	REGCSYM_E(CONSTANT),
@@ -1399,5 +1403,4 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGMDEPSYM2("rooti",expr_rooti,0),
 	{.str=NULL}
 };
-#define arrsize(arr) (sizeof(arr)/sizeof(*arr))
 const size_t expr_symbols_size=arrsize(expr_symbols)-1;

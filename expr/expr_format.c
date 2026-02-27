@@ -732,50 +732,50 @@ onzero:\
 		}
 #define ival_mul5p \
 		fsz=ext;\
-		ival_mul_pow(13,1220703125u);\
-		ival_mul_pow_nl(8,390625);\
+		ival_mul_pow(13,UINT32_C(1220703125));\
+		ival_mul_pow_nl(8,UINT32_C(390625));\
 		ival_mul_pow_nl(4,625);\
 		ival_mul_pow_nl(2,25);\
 		ival_mul_pow_nlm(1,5)
 #define ival_mul3p \
 		fsz=ext;\
-		ival_mul_pow(20,3486784401u);\
-		ival_mul_pow_nl(16,43046721);\
+		ival_mul_pow(20,UINT32_C(3486784401));\
+		ival_mul_pow_nl(16,UINT32_C(43046721));\
 		ival_mul_pow_nl(8,6561);\
 		ival_mul_pow_nl(4,81);\
 		ival_mul_pow_nl(2,9);\
 		ival_mul_pow_nlm(1,3)
 #define ival_mul7p \
 		fsz=ext;\
-		ival_mul_pow(11,1977326743u);\
-		ival_mul_pow_nl(8,5764801);\
+		ival_mul_pow(11,UINT32_C(1977326743));\
+		ival_mul_pow_nl(8,UINT32_C(5764801));\
 		ival_mul_pow_nl(4,2401);\
 		ival_mul_pow_nl(2,49);\
 		ival_mul_pow_nlm(1,7)
 #define ival_mul9p \
 		fsz=ext;\
-		ival_mul_pow(10,3486784401u);\
-		ival_mul_pow_nl(8,43046721);\
+		ival_mul_pow(10,UINT32_C(3486784401));\
+		ival_mul_pow_nl(8,UINT32_C(43046721));\
 		ival_mul_pow_nl(4,6561);\
 		ival_mul_pow_nl(2,81);\
 		ival_mul_pow_nlm(1,9)
 #define ival_mul11p \
 		fsz=ext;\
-		ival_mul_pow(9,2357947691u);\
-		ival_mul_pow_nl(8,214358881);\
+		ival_mul_pow(9,UINT32_C(2357947691));\
+		ival_mul_pow_nl(8,UINT32_C(214358881));\
 		ival_mul_pow_nl(4,14641);\
 		ival_mul_pow_nl(2,121);\
 		ival_mul_pow_nlm(1,11)
 #define ival_mul13p \
 		fsz=ext;\
-		ival_mul_pow(8,815730721u);\
+		ival_mul_pow(8,UINT32_C(815730721));\
 		ival_mul_pow_nl(4,28561);\
 		ival_mul_pow_nl(2,169);\
 		ival_mul_pow_nlm(1,13)
 #define ival_mul15p \
 		fsz=ext;\
-		ival_mul_pow(8,2562890625u);\
-		ival_mul_pow_nl(4,50625);\
+		ival_mul_pow(8,UINT32_C(2562890625));\
+		ival_mul_pow_nl(4,UINT32_C(50625));\
 		ival_mul_pow_nl(2,225);\
 		ival_mul_pow_nlm(1,15)
 #define nbuf_size(x) (((x)+23u)&~7u)

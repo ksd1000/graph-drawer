@@ -1621,7 +1621,7 @@ ssize_t expr_writef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,
 	return expr_vwritef_r(fmt,fmtlen,writer,fd,arr_arg,wa,fmts,table);
 }
 struct fmtarg {
-	va_list *ap;
+	va_list ap;
 	ptrdiff_t index_old;
 	union expr_argf save[1];
 };
@@ -1639,18 +1639,18 @@ static const union expr_argf *ap_getarg(ptrdiff_t index,const struct expr_writef
 	}
 	switch(type){
 		case EXPR_FLAGTYPE_DOUBLE:
-			a->save->dbl=va_arg(*a->ap,double);
+			a->save->dbl=va_arg(a->ap,double);
 			break;
 		case EXPR_FLAGTYPE_ADDR:
-			a->save->addr=va_arg(*a->ap,void *);
+			a->save->addr=va_arg(a->ap,void *);
 			break;
 		default:
 			switch(flag->argsize){
 				case 1 ... sizeof(int):
-					a->save->smax=va_arg(*a->ap,int);
+					a->save->smax=va_arg(a->ap,int);
 					break;
 				default:
-					a->save->smax=va_arg(*a->ap,intptr_t);
+					a->save->smax=va_arg(a->ap,intptr_t);
 					break;
 			}
 			break;
@@ -1659,31 +1659,23 @@ static const union expr_argf *ap_getarg(ptrdiff_t index,const struct expr_writef
 end:
 	return useaddr?a->save->aaddr:a->save;
 }
+#define ap_common(_start,_end,_fmts,_table) \
+	ssize_t r;\
+	struct fmtarg a[1];\
+	a->index_old=-1;\
+	_start;\
+	r=expr_vwritef_r(fmt,fmtlen,writer,fd,ap_getarg,a,_fmts,_table);\
+	_end;\
+	return r
 ssize_t expr_vapwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const struct expr_writefmt *restrict fmts,const uint8_t *restrict table,va_list ap){
-	struct fmtarg a[1];
-	a->ap=&ap;
-	a->index_old=-1;
-	return expr_vwritef_r(fmt,fmtlen,writer,fd,ap_getarg,a,fmts,table);
+	ap_common(va_copy(a->ap,ap),va_end(a->ap),fmts,table);
 }
 ssize_t expr_apwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const struct expr_writefmt *restrict fmts,const uint8_t *restrict table,...){
-	va_list ap;
-	ssize_t r;
-	va_start(ap,table);
-	r=expr_vapwritef_r(fmt,fmtlen,writer,fd,fmts,table,ap);
-	va_end(ap);
-	return r;
+	ap_common(va_start(a->ap,table),va_end(a->ap),fmts,table);
 }
 ssize_t expr_vapwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,va_list ap){
-	struct fmtarg a[1];
-	a->ap=&ap;
-	a->index_old=-1;
-	return expr_vwritef_r(fmt,fmtlen,writer,fd,ap_getarg,a,expr_writefmts_default,expr_writefmts_table_default);
+	ap_common(va_copy(a->ap,ap),va_end(a->ap),expr_writefmts_default,expr_writefmts_table_default);
 }
 ssize_t expr_apwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,...){
-	va_list ap;
-	ssize_t r;
-	va_start(ap,fd);
-	r=expr_vapwritef_r(fmt,fmtlen,writer,fd,expr_writefmts_default,expr_writefmts_table_default,ap);
-	va_end(ap);
-	return r;
+	ap_common(va_start(a->ap,fd),va_end(a->ap),expr_writefmts_default,expr_writefmts_table_default);
 }

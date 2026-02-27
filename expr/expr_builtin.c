@@ -345,6 +345,9 @@ static double expr_pow_old_n(double *args,size_t n){
 static double expr_strtol(double *args,size_t n){
 	return (double)strtol(cast(*args,const char *),NULL,(int)args[1]);
 }
+static double expr_strtod_b(double *args,size_t n){
+	return (double)strtod(cast(*args,const char *),n>1?cast(args[1],char **):NULL);
+}
 static double expr_qmed(double *args,size_t n){
 	expr_sortq(args,n);
 	return n&1?args[n>>1]:(n>>=1,(args[n]+args[n-1])/2);
@@ -1345,6 +1348,7 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGMDSYM2("qmed",expr_qmed,0),
 	REGMDSYM2("qgmed",expr_qgmed,0),
 	REGMDSYM2("qmode",expr_qmode,0),
+	REGMDSYM2_U("strtod",expr_strtod_b,0),
 
 	REGMDSYM2_NIU("syscall",bsyscall,0),
 	REGFSYM_U(systype),

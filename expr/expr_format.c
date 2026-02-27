@@ -1644,7 +1644,7 @@ static const union expr_argf *ap_getarg(ptrdiff_t index,const struct expr_writef
 		case EXPR_FLAGTYPE_ADDR:
 			a->save->addr=va_arg(a->ap,void *);
 			break;
-		default:
+		case EXPR_FLAGTYPE_SIGNED:
 			switch(flag->argsize){
 				case 1 ... sizeof(int):
 					a->save->smax=va_arg(a->ap,int);
@@ -1654,6 +1654,18 @@ static const union expr_argf *ap_getarg(ptrdiff_t index,const struct expr_writef
 					break;
 			}
 			break;
+		case EXPR_FLAGTYPE_UNSIGNED:
+			switch(flag->argsize){
+				case 1 ... sizeof(int):
+					a->save->smax=va_arg(a->ap,unsigned int);
+					break;
+				default:
+					a->save->smax=va_arg(a->ap,uintptr_t);
+					break;
+			}
+			break;
+		default:
+			__builtin_unreachable();
 	}
 	++a->index_old;
 end:

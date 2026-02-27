@@ -2650,7 +2650,7 @@ use_byte:
 				cknp(ep,expr_addconst(ep,v0,un.v),goto c_fail);
 				if(--dim){
 					if(dim>sv.i)
-						dim=un.sz;
+						dim=sv.i;
 					if(dim){
 						do {
 							sv.v=consteval(sym.vv[dim],strlen(sym.vv[dim]),asym,asymlen,ep->sset,ep);

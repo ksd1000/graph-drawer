@@ -172,8 +172,29 @@ next:
 	--size;
 	goto next;
 }
+static void *internal_memrchr(const void *buf,int c,size_t size){
+	const char *end=buf+size;
+	while(--end>(const char *)buf){
+		if(*end==c)
+			return (void *)end;
+	}
+	return NULL;
+}
 #define memmem internal_memmem
+#define memrchr internal_memrchr
 #endif
+ssize_t expr_buffered_write_flushatc(struct expr_buffered_file *restrict fp,const void *buf,size_t size,int c){
+	uintptr_t rc=(uintptr_t)memrchr(buf,size,c);
+	ssize_t r,ret;
+	if(!rc)
+		return expr_buffered_write(fp,buf,size);
+	++rc;
+	ret=0;
+	rcheckadd(expr_buffered_write(fp,buf,rc-(uintptr_t)buf));
+	rcheckadd(expr_buffered_flush(fp));
+	rcheckadd(expr_buffered_write(fp,(const void *)rc,(uintptr_t)buf+size-rc));
+	return ret;
+}
 ssize_t expr_buffered_write_flushat(struct expr_buffered_file *restrict fp,const void *buf,size_t size,void *c,size_t c_size){
 	uintptr_t rc=(uintptr_t)memmem(buf,size,c,c_size),rc1;
 	ssize_t r,ret;

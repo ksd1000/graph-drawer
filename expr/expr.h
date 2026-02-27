@@ -1027,6 +1027,7 @@ ssize_t expr_vapwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer
 ssize_t expr_apwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,...);
 ssize_t expr_buffered_write(struct expr_buffered_file *restrict fp,const void *buf,size_t size);
 ssize_t expr_buffered_read(struct expr_buffered_file *restrict fp,void *buf,size_t size);
+ssize_t expr_buffered_write_flushatc(struct expr_buffered_file *restrict fp,const void *buf,size_t size,int c);
 ssize_t expr_buffered_write_flushat(struct expr_buffered_file *restrict fp,const void *buf,size_t size,void *c,size_t c_size);
 ssize_t expr_buffered_flush(struct expr_buffered_file *restrict fp);
 ssize_t expr_buffered_drop(struct expr_buffered_file *restrict fp);

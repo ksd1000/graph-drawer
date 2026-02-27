@@ -987,25 +987,25 @@ const struct expr_writefmt expr_writefmts_default[]={
 const uint8_t expr_writefmts_default_size=arrsize(expr_writefmts_default);
 const uint8_t expr_writefmts_table_default[256]={
 ['q']=0,
-['n']=255,
-['N']=254,
-['r']=253,
-['l']=252,
-['L']=251,
-['T']=250,
-['t']=249,
-['k']=248,
-['Q']=247,
-['@']=246,
-['j']=245,
-['C']=244,
-['I']=243,
-['D']=242,
-['w']=241,
-['W']=240,
-['V']=239,
-['v']=238,
-['z']=237,
+['n']=EXPR_FMTC_WRITESIZE,
+['N']=EXPR_FMTC_WRITESIZEDF,
+['r']=EXPR_FMTC_JUMP_INDEX,
+['l']=EXPR_FMTC_LOOP,
+['L']=EXPR_FMTC_LOOP_FORWARD,
+['T']=EXPR_FMTC_DELIM,
+['t']=EXPR_FMTC_TAIL,
+['k']=EXPR_FMTC_SETARR,
+['Q']=EXPR_FMTC_EXITIF,
+['@']=EXPR_FMTC_READ_FMTC,
+['j']=EXPR_FMTC_JUMP,
+['C']=EXPR_FMTC_READ_CONVERTER,
+['I']=EXPR_FMTC_INC,
+['D']=EXPR_FMTC_DEC,
+['w']=EXPR_FMTC_PUSH,
+['W']=EXPR_FMTC_CLEAR,
+['V']=EXPR_FMTC_SAVE,
+['v']=EXPR_FMTC_EVAL,
+['z']=EXPR_FMTC_FLUSH,
 
 ['%']=1,
 [(uint8_t)'\x81']=2,['x']=2,
@@ -1261,18 +1261,18 @@ reflag:
 current_get:
 	flag->op=current;
 	switch((r1=table[current])){
-		case 0:
+		case EXPR_FMTC_EXIT:
 			goto end;
-		case 255:
+		case EXPR_FMTC_WRITESIZE:
 			debug("n=%zu",ret);
 			bit_copy(arg1->zaddr,&ret,flag->argsize);
 			argnext1;
 			break;
-		case 254:
+		case EXPR_FMTC_WRITESIZEDF:
 			*arg1->daddr=(double)ret;
 			argnext1;
 			break;
-		case 253:
+		case EXPR_FMTC_JUMP_INDEX:
 #define fmt_op_cond(onexit) \
 			if(flag->eq){\
 				intptr_t *restrict ar;\
@@ -1306,14 +1306,14 @@ current_get:
 			}
 			debug("jumpto args[%zd]",index);
 			break;
-		case 252:
+		case EXPR_FMTC_LOOP:
 			loop=flag_width(flag,0);
 			break;
-		case 251:
+		case EXPR_FMTC_LOOP_FORWARD:
 			loop=flag_width(flag,0);
 			forward=1;
 			break;
-		case 250:
+		case EXPR_FMTC_DELIM:
 #define setdlm(dlm,dsz) \
 			dsz=flag_width(flag,0);\
 			if(dsz){\
@@ -1325,26 +1325,31 @@ current_get:
 			}
 			setdlm(delim,delimsz);
 			break;
-		case 249:
+		case EXPR_FMTC_TAIL:
 			setdlm(tail,tailsz);
 			break;
-		case 248:
+		case EXPR_FMTC_SETARR:
 			arrwid=flag_digit(flag,8);
 			if(unlikely(arrwid>8||!arrwid))
 				goto_argfail;
 			arrlen=flag_width(flag,0);
 			break;
-		case 247:
-			if(arg1->uint)
-				goto end;
+		case EXPR_FMTC_EXITIF:
+			if(flag->plus){
+				if(save.umax)
+					goto end;
+			}else {
+				if(arg1->uint)
+					goto end;
+			}
 			argnext1;
 			break;
-		case 246:
+		case EXPR_FMTC_READ_FMTC:
 			current=(uint8_t)arg1->uint;
 			argnext1;
 			goto current_get;
 #define fmt_jumpto(target) range_checkn(fmt=(target),fmt0,fmtlen,goto_argfail)
-		case 245:
+		case EXPR_FMTC_JUMP:
 			fmt_op_cond(
 				if(flag->plus){
 					range_checkn(--fmt_save_current,fmt_save,8,goto_argfail);
@@ -1364,11 +1369,11 @@ current_get:
 			argback(arrlen);
 			arrlen=0;
 			goto continue_keepfmt;
-		case 244:
+		case EXPR_FMTC_READ_CONVERTER:
 			wfp=(const struct expr_writefmt *)arg1->addr;
 			argnext1;
 			goto wfp_get;
-		case 243:
+		case EXPR_FMTC_INC:
 			if(flag->width_set)
 				*arg1->uiaddr*=flag->width;
 			if(flag->digit_set)
@@ -1377,7 +1382,7 @@ current_get:
 				++(*arg1->uiaddr);
 			argnext1;
 			break;
-		case 242:
+		case EXPR_FMTC_DEC:
 			if(flag->width_set)
 				*arg1->uiaddr/=flag->width;
 			if(flag->digit_set)
@@ -1386,17 +1391,17 @@ current_get:
 				--(*arg1->uiaddr);
 			argnext1;
 			break;
-		case 241:
+		case EXPR_FMTC_PUSH:
 			debug("push fmt[%zd]",fmt-fmt0);
-			EXPR_RPUSH(fmt_save_current)=fmt;
 			range_checkn(fmt_save_current,fmt_save,8,goto_argfail);
+			EXPR_RPUSH(fmt_save_current)=fmt;
 			break;
-		case 240:
+		case EXPR_FMTC_CLEAR:
 			fmt_save_current=fmt_save;
 			break;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
-		case 239:
+		case EXPR_FMTC_SAVE:
 			if(flag->zero){
 				if(flag->digit_set){
 					if(flag->plus)
@@ -1410,7 +1415,7 @@ current_get:
 				argnext1;
 			}
 			break;
-		case 238:
+		case EXPR_FMTC_EVAL:
 			{
 				union expr_argf old;
 				old.umax=*arg1->umaddr;
@@ -1463,16 +1468,22 @@ current_get:
 					case 15:
 						save.umax=-save.umax;
 						break;
+					case 16:
+						save.umax=!save.umax;
+						break;
+					case 17:
+						save.umax=!!save.umax;
+						break;
 					default:
 						goto_argfail;
 				}
-				*arg1->uiaddr=old.umax;
+				*arg1->umaddr=old.umax;
 				if(flag->eq)
 					save.umax=old.umax;
 			}
 			argnext1;
 			break;
-		case 237:
+		case EXPR_FMTC_FLUSH:
 			v=writer(fd,"",0);
 			if(unlikely(v<0))
 				return v;

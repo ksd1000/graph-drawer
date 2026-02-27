@@ -490,6 +490,29 @@ struct expr_writeflag {
 		 unused:35;
 #endif
 };
+#define EXPR_FMTC_EXIT 0
+#define EXPR_FMTC_WRITESIZE 255
+#define EXPR_FMTC_WRITESIZEDF 254
+#define EXPR_FMTC_JUMP_INDEX 253
+#define EXPR_FMTC_LOOP 252
+#define EXPR_FMTC_LOOP_FORWARD 251
+#define EXPR_FMTC_DELIM 250
+#define EXPR_FMTC_TAIL 249
+#define EXPR_FMTC_SETARR 248
+#define EXPR_FMTC_EXITIF 247
+#define EXPR_FMTC_READ_FMTC 246
+#define EXPR_FMTC_JUMP 245
+#define EXPR_FMTC_READ_CONVERTER 244
+#define EXPR_FMTC_INC 243
+#define EXPR_FMTC_DEC 242
+#define EXPR_FMTC_PUSH 241
+#define EXPR_FMTC_CLEAR 240
+#define EXPR_FMTC_SAVE 239
+#define EXPR_FMTC_EVAL 238
+#define EXPR_FMTC_FLUSH 237
+
+#define EXPR_FMTC_MAX 255
+#define EXPR_FMTC_MIN 237
 expr_static_assert(offsetof(struct expr_writeflag,bit)+sizeof(uint64_t)==sizeof(struct expr_writeflag));
 typedef ssize_t (*expr_writer)(intptr_t fd,const void *buf,size_t size);
 typedef ssize_t (*expr_reader)(intptr_t fd,void *buf,size_t size);

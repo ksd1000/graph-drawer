@@ -1666,13 +1666,13 @@ ssize_t expr_vapwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer
 	struct fmtarg a[1];
 	a->ap=&ap;
 	a->index_old=-1;
-	return expr_vwritef(fmt,fmtlen,writer,fd,ap_getarg,a);
+	return expr_vwritef_r(fmt,fmtlen,writer,fd,ap_getarg,a,expr_writefmts_default,expr_writefmts_table_default);
 }
 ssize_t expr_apwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,...){
 	va_list ap;
 	ssize_t r;
 	va_start(ap,fd);
-	r=expr_vapwritef(fmt,fmtlen,writer,fd,ap);
+	r=expr_vapwritef_r(fmt,fmtlen,writer,fd,expr_writefmts_default,expr_writefmts_table_default,ap);
 	va_end(ap);
 	return r;
 }

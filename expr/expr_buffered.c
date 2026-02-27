@@ -157,7 +157,8 @@ err:
 #undef reterr
 
 #ifndef __unix__
-static void *internal_memmem(const void *buf,size_t size,const void *c,size_t c_size){
+/*
+static void *fake_memmem(const void *buf,size_t size,const void *c,size_t c_size){
 	const char *end=buf+size;
 	int ch=(int)*(const char *)c;
 next:
@@ -172,7 +173,9 @@ next:
 	--size;
 	goto next;
 }
-static void *internal_memrchr(const void *buf,int c,size_t size){
+#define memmem fake_memmem
+*/
+static void *fake_memrchr(const void *buf,int c,size_t size){
 	const char *end=buf+size;
 	while(--end>(const char *)buf){
 		if(*end==c)
@@ -180,9 +183,23 @@ static void *internal_memrchr(const void *buf,int c,size_t size){
 	}
 	return NULL;
 }
-#define memmem internal_memmem
-#define memrchr internal_memrchr
+#define memrchr fake_memrchr
 #endif
+static void *fake_memrmem(const void *buf,size_t size,const void *c,size_t c_size){
+	const char *end=buf+size;
+	const char *r;
+	int ch=(int)*(const char *)c;
+next:
+	if(unlikely(!size))
+		return NULL;
+	r=memrchr(buf,ch,size);
+	if(!r||(end-r)<c_size)
+		return NULL;
+	if(!memcmp(r,c,c_size))
+		return (void *)r;
+	size=r-(const char *)buf;
+	goto next;
+}
 ssize_t expr_buffered_write_flushatc(struct expr_buffered_file *restrict fp,const void *buf,size_t size,int c){
 	uintptr_t rc=(uintptr_t)memrchr(buf,size,c);
 	ssize_t r,ret;
@@ -196,13 +213,11 @@ ssize_t expr_buffered_write_flushatc(struct expr_buffered_file *restrict fp,cons
 	return ret;
 }
 ssize_t expr_buffered_write_flushat(struct expr_buffered_file *restrict fp,const void *buf,size_t size,void *c,size_t c_size){
-	uintptr_t rc=(uintptr_t)memmem(buf,size,c,c_size),rc1;
+	uintptr_t rc=(uintptr_t)fake_memrmem(buf,size,c,c_size);
 	ssize_t r,ret;
 	if(!rc)
 		return expr_buffered_write(fp,buf,size);
 	rc+=c_size;
-	while((r=rc-(uintptr_t)buf)&&(rc1=(uintptr_t)memmem((void *)rc,size-r,c,c_size)))
-		rc=rc1+c_size;
 	ret=0;
 	rcheckadd(expr_buffered_write(fp,buf,rc-(uintptr_t)buf));
 	rcheckadd(expr_buffered_flush(fp));

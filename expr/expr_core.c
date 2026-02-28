@@ -47,8 +47,10 @@
 #define likely(cond) expr_likely(cond)
 #define unlikely(cond) expr_unlikely(cond)
 #define cast(X,T) expr_cast(X,T)
-#define eval(_ep,_input) expr_eval(_ep,_input)
 #define align(x) (((x)+(EXPR_ALIGN-1))&~(EXPR_ALIGN-1))
+
+static double expr_eval_static(const struct expr *restrict ep,double input);
+#define eval(_ep,_input) expr_eval_static(_ep,_input)
 
 #ifndef PAGE_SIZE
 #define PAGE_SIZE 4096
@@ -7238,12 +7240,19 @@ break1:\
 		__asm__("":::"memory");\
 		++ip;\
 break2:
+
+#define EXPR_EVAL_BODY \
+	EXPR_EVALVARS;\
+	for(struct expr_inst *ip=ep->data;;){\
+		EXPR_EVALSTEP(return *ip->dst.dst);\
+	}
 __attribute__((noinline))
 double expr_eval(const struct expr *restrict ep,double input){
-	EXPR_EVALVARS;
-	for(struct expr_inst *ip=ep->data;;){
-		EXPR_EVALSTEP(return *ip->dst.dst);
-	}
+	EXPR_EVAL_BODY;
+}
+__attribute__((noinline))
+static double expr_eval_static(const struct expr *restrict ep,double input){
+	EXPR_EVAL_BODY;
 }
 
 __attribute__((noinline))
@@ -7255,27 +7264,32 @@ int expr_step(const struct expr *restrict ep,double input,double *restrict outpu
 	return 0;
 }
 
+#undef eval
+#define eval(_ep,_input) expr_callback_static(_ep,_input,ec)
+#define EXPR_CALLBACK_BODY \
+	EXPR_EVALVARS;\
+	struct expr_inst *old_ip;\
+	double out;\
+	for(struct expr_inst *ip=ep->data;;){\
+		old_ip=ip;\
+		if(ec->before)\
+			ec->before(ep,ip,ec->arg);\
+		EXPR_EVALSTEP(out=*ip->dst.dst;goto end);\
+		if(ec->after)\
+			ec->after(ep,old_ip,ec->arg);\
+	}\
+end:\
+	if(ec->after)\
+		ec->after(ep,old_ip,ec->arg);\
+	return out
 __attribute__((noinline))
-double expr_callback(const struct expr *restrict ep,double input,const struct expr_callback *ec){
-	EXPR_EVALVARS;
-	struct expr_inst *old_ip;
-	double out;
-	for(struct expr_inst *ip=ep->data;;){
-		old_ip=ip;
-		if(ec->before)
-			ec->before(ep,ip,ec->arg);
-#undef eval
-#define eval(_ep,_input) expr_callback(_ep,_input,ec)
-		EXPR_EVALSTEP(out=*ip->dst.dst;goto end);
-#undef eval
-		if(ec->after)
-			ec->after(ep,old_ip,ec->arg);
-	}
-end:
-	if(ec->after)
-		ec->after(ep,old_ip,ec->arg);
-	return out;
+static double expr_callback_static(const struct expr *restrict ep,double input,const struct expr_callback *ec){
+	EXPR_CALLBACK_BODY;
 }
+double expr_callback(const struct expr *restrict ep,double input,const struct expr_callback *ec){
+	EXPR_CALLBACK_BODY;
+}
+#undef eval
 
 #undef sum
 #undef from

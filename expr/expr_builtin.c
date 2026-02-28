@@ -1097,7 +1097,37 @@ static double expr_hypot(double *args,size_t n){
 	}
 	return sqrt(ret);
 }
-//regs
+
+#define warpi(name,...) \
+static double expr_##name##_b(double *args,size_t n){\
+	return (double)name(__VA_ARGS__);\
+}
+#define warpp(name,...) \
+static double expr_##name##_b(double *args,size_t n){\
+	return cast(name(__VA_ARGS__),double);\
+}
+#define warpz(name,...) \
+static double expr_##name##_b(double *args,size_t n){\
+	name(__VA_ARGS__);\
+	return 0;\
+}
+#define wp(n) cast(args[n],void *)
+#define wi(n,T) ((T)args[n])
+#ifndef __unix__
+#define memrchr expr_fake_memrchr
+#define memmem expr_fake_memmem
+#endif
+#define memrmem expr_fake_memrmem
+warpi(strlen,wp(0));
+warpp(strchr,wp(0),wi(1,int));
+warpp(memchr,wp(0),wi(1,int),wi(2,size_t));
+warpz(memset,wp(0),wi(1,int),wi(2,size_t));
+warpz(memcpy,wp(0),wp(1),wi(2,size_t));
+warpi(memcmp,wp(0),wp(1),wi(2,size_t));
+warpp(memrchr,wp(0),wi(1,int),wi(2,size_t));
+warpp(memmem,wp(0),wi(1,size_t),wp(2),wi(3,size_t));
+warpp(memrmem,wp(0),wi(1,size_t),wp(2),wi(3,size_t));
+
 //#define REGSYM(s) {#s,s}
 #define REGZASYM(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.zafunc=s},.type=EXPR_ZAFUNCTION,.flag=0}
 #define REGFSYM(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.func=s},.type=EXPR_FUNCTION,.flag=EXPR_SF_INJECTION}
@@ -1228,22 +1258,6 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGCSYM2("sqrc",89875517873681764.0),
 	REGCSYM2("u0",1.25663706212e-6),
 #endif
-
-#ifdef __linux__
-	REGCSYM(__linux__),
-#endif
-
-#ifdef __unix__
-	REGCSYM(__unix__),
-#endif
-
-#ifdef __aarch64__
-	REGCSYM(__aarch64__),
-#endif
-
-#ifdef __x86_64__
-	REGCSYM(__x86_64__),
-#endif
 	REGFSYM2("abs",fabs),
 	REGFSYM(acos),
 	REGFSYM(acosh),
@@ -1352,7 +1366,6 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGMDSYM2_U("hmode",expr_hmode,0),
 	REGMDSYM2("hypot",expr_hypot,0),
 	REGMDSYM2("lcm",expr_lcm,0),
-	REGMDSYM2_U("long",expr_strtol,2),
 	REGMDSYM2("max",expr_max,0),
 	REGMDSYM2_U("med",expr_med,0),
 	REGMDSYM2("med_old",expr_med_old,0),
@@ -1366,7 +1379,18 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGMDSYM2("qmed",expr_qmed,0),
 	REGMDSYM2("qgmed",expr_qgmed,0),
 	REGMDSYM2("qmode",expr_qmode,0),
-	REGMDSYM2_U("strtod",expr_strtod_b,0),
+	REGMDSYM2_NIU("strtol",expr_strtol,2),
+	REGMDSYM2_NIU("strtod",expr_strtod_b,0),
+#define REGWARP(name,dim) REGMDSYM2_NIU(#name,expr_##name##_b,dim)
+	REGWARP(strlen,1),
+	REGWARP(strchr,2),
+	REGWARP(memchr,3),
+	REGWARP(memset,3),
+	REGWARP(memcpy,3),
+	REGWARP(memcmp,3),
+	REGWARP(memrchr,3),
+	REGWARP(memmem,4),
+	REGWARP(memrmem,4),
 
 	REGMDSYM2_NIU("syscall",bsyscall,0),
 	REGFSYM_U(systype),

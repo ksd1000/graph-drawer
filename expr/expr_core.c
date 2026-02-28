@@ -5118,12 +5118,20 @@ err:
 int expr_init7(struct expr *restrict ep,const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag){
 	return expr_init8(ep,e,len,asym,asymlen,esp,flag,NULL);
 }
-int expr_init5(struct expr *restrict ep,const char *e,const char *asym,struct expr_symset *esp,int flag){
-	return expr_init7(ep,e,e?strlen(e):0,asym,asym?strlen(asym):0,esp,flag);
+#define strlenof(x) ((x)?strlen(x):0)
+#define len strlenof(e)
+#define asymlen strlenof(asym)
+int expr_init(struct expr *restrict ep,const char *e,const char *asym,struct expr_symset *esp,int flag){
+	return expr_init8(ep,e,len,asym,asymlen,esp,flag,NULL);
 }
-int expr_init(struct expr *restrict ep,const char *e,const char *asym,struct expr_symset *esp){
-	return expr_init5(ep,e,asym,esp,0);
+int expr_init4(struct expr *restrict ep,const char *e,const char *asym,int flag){
+	return expr_init8(ep,e,len,asym,asymlen,NULL,flag,NULL);
 }
+int expr_init3(struct expr *restrict ep,const char *e,const char *asym){
+	return expr_init8(ep,e,len,asym,asymlen,NULL,EXPR_IF_PROTECT,NULL);
+}
+#undef len
+#undef asymlen
 static struct expr *expr_new10(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,int n,int *error,char errinfo[EXPR_SYMLEN],struct expr *restrict parent){
 	struct expr *ep,*ep0;
 	if(unlikely(n<1))
@@ -5158,23 +5166,34 @@ static struct expr *expr_new10(const char *e,size_t len,const char *asym,size_t 
 struct expr *expr_new9(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,int n,int *error,char errinfo[EXPR_SYMLEN]){
 	return expr_new10(e,len,asym,asymlen,esp,flag,n,error,errinfo,NULL);
 }
-struct expr *expr_new7(const char *e,const char *asym,struct expr_symset *esp,int flag,int n,int *error,char errinfo[EXPR_SYMLEN]){
-	return expr_new9(e,e?strlen(e):0,asym,asym?strlen(asym):0,esp,flag,n,error,errinfo);
-}
 struct expr *expr_new8(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,int *error,char errinfo[EXPR_SYMLEN]){
-	return expr_new9(e,len,asym,asymlen,esp,flag,1,error,errinfo);
+	return expr_new10(e,len,asym,asymlen,esp,flag,1,error,errinfo,NULL);
 }
-struct expr *expr_new6(const char *e,const char *asym,struct expr_symset *esp,int flag,int *error,char errinfo[EXPR_SYMLEN]){
-	return expr_new7(e,asym,esp,flag,1,error,errinfo);
+#define strlenof(x) ((x)?strlen(x):0)
+#define len strlenof(e)
+#define asymlen strlenof(asym)
+struct expr *expr_new7(const char *e,const char *asym,struct expr_symset *esp,int flag,int n,int *error,char errinfo[EXPR_SYMLEN]){
+	return expr_new10(e,len,asym,asymlen,esp,flag,n,error,errinfo,NULL);
 }
-struct expr *expr_new(const char *e,const char *asym,struct expr_symset *esp,int *error,char errinfo[EXPR_SYMLEN]){
-	return expr_new7(e,asym,esp,0,1,error,errinfo);
+struct expr *expr_new(const char *e,const char *asym,struct expr_symset *esp,int flag,int *error,char errinfo[EXPR_SYMLEN]){
+	return expr_new10(e,len,asym,asymlen,esp,flag,1,error,errinfo,NULL);
 }
+struct expr *expr_new4(const char *e,const char *asym,struct expr_symset *esp,int flag){
+	return expr_new10(e,len,asym,asymlen,esp,flag,1,NULL,NULL,NULL);
+}
+struct expr *expr_new3(const char *e,const char *asym,int flag){
+	return expr_new10(e,len,asym,asymlen,NULL,flag,1,NULL,NULL,NULL);
+}
+struct expr *expr_new2(const char *e,const char *asym){
+	return expr_new10(e,len,asym,asymlen,NULL,EXPR_IF_PROTECT,1,NULL,NULL,NULL);
+}
+#undef len
+#undef asymlen
 double expr_calc5(const char *e,int *error,char errinfo[EXPR_SYMLEN],struct expr_symset *esp,int flag){
 	struct expr ep[1];
 	double r;
 	flag&=~EXPR_IF_INSTANT_FREE;
-	if(unlikely(expr_init5(ep,e,NULL,esp,flag)<0)){
+	if(unlikely(expr_init(ep,e,NULL,esp,flag)<0)){
 		if(error)
 			*error=ep->error;
 		if(errinfo)

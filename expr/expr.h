@@ -444,7 +444,7 @@ EXPR_END
 	const void *__buf=(buf);\
 	const char *__end=__buf+(size);\
 	void *__out=NULL;\
-	int __c=(c);\
+	char __c=(char)(c);\
 	while(--__end>(const char *)__buf){\
 		if(expr_unlikely(*__end==__c)){\
 			__out=(void *)__end;\
@@ -460,7 +460,7 @@ EXPR_END
 	size_t ___c_size=(c_size);\
 	const char *___end=___buf+___size;\
 	const char *___r;\
-	int ___ch=(int)*(const unsigned char *)___c;\
+	char ___ch=*(const char *)___c;\
 	if(expr_likely(___size)){\
 		do {\
 			___r=memrchr(___buf,___ch,___size);\

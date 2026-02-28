@@ -133,7 +133,7 @@ const struct eproj {
 void errcheck(const char *e,int expect){
 	int error;
 	printf("checking %s --- expect \"%s\"",e,expr_error(expect));
-	if(new_expr6(e,"t",es,EXPR_IF_INSTANT_FREE,&error,NULL)){
+	if(expr_new6(e,"t",es,EXPR_IF_INSTANT_FREE,&error,NULL)){
 		printf("\nerror! %s should be \"%s\" but ok\n",e,expr_error(expect));
 		goto ab;
 	}else if(error!=expect){
@@ -151,7 +151,7 @@ void check(const char *e,double expect){
 	struct expr ep[1];
 	//static int k=0;if(k++==39)exit(0);
 	printf("checking %s --- expect %lg",e,expect);
-	if(init_expr5(ep,e,"t",es,EXPR_IF_INSTANT_FREE)<0){
+	if(expr_init5(ep,e,"t",es,EXPR_IF_INSTANT_FREE)<0){
 		printf("\nerror! %s:%s\n",expr_error(ep->error),ep->errinfo);
 		goto ab;
 	}
@@ -183,7 +183,7 @@ int main(int argc,char **argv){
 		check(p->e,p->expect);
 	for(const struct eproj *p=eprojs;p->e;++p)
 		errcheck(p->e,p->expect);
-	new_expr7("t**3+sin(t)+sum(n,0,100,1,sin(n*t))","t",NULL,EXPR_IF_INSTANT_FREE,1250,NULL,NULL);
+	expr_new7("t**3+sin(t)+sum(n,0,100,1,sin(n*t))","t",NULL,EXPR_IF_INSTANT_FREE,1250,NULL,NULL);
 	assert(es->size==expr_symbols_size+2);
 	expr_symset_free(es);
 	for(const struct expr_builtin_keyword *p=expr_keywords;;++p){

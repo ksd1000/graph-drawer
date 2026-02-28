@@ -185,7 +185,6 @@ void expr_sort(double *v,size_t n){
 			return;
 	}
 }
-#define cast(x,T) expr_cast(x,T)
 #define ltod(_l) expr_ltod48(_l)
 #define ltol(_l) expr_ltol48(_l)
 #define ltom(_l) expr_ltom48(_l)
@@ -573,7 +572,7 @@ static double expr_malloc(double x){
 	un.r=xmalloc((size_t)fabs(x));
 	return un.dr;
 }
-static double expr_new(double x){
+static double expr_new_b(double x){
 	union {
 		double *r;
 		double dr;
@@ -1338,7 +1337,7 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGFSYM2_NI("exitif",expr_exitif),
 	REGFSYM2_NI("malloc",expr_malloc),
 	REGMDSYM2_NIU("realloc",expr_realloc,2),
-	REGFSYM2_NI("new",expr_new),
+	REGFSYM2_NI("new",expr_new_b),
 	REGFSYM2_NI("free",expr_bxfree),
 	REGFSYM2_NI("system",expr_system),
 

@@ -49,8 +49,9 @@ size_t expr_bufsize_initial=512
 #define likely(cond) expr_likely(cond)
 #define unlikely(cond) expr_unlikely(cond)
 #define arrsize(arr) (sizeof(arr)/sizeof(*arr))
-
 #define align(x) (((x)+(EXPR_ALIGN-1))&~(EXPR_ALIGN-1))
+#define assume(cond) expr_assume(cond)
+#define cast(X,T) expr_cast(X,T)
 
 #define bufsize_initial expr_bufsize_initial
 
@@ -1118,8 +1119,8 @@ struct expr_symset *expr_builtin_symbol_convert(const struct expr_builtin_symbol
 size_t expr_strscan(const char *restrict s,size_t sz,char *restrict buf,size_t outsz);
 char *expr_astrscan(const char *s,size_t sz,size_t *restrict outsz);
 void expr_free(struct expr *restrict ep);
-void init_expr_symset(struct expr_symset *restrict esp);
-struct expr_symset *new_expr_symset(void);
+void expr_symset_init(struct expr_symset *restrict esp);
+struct expr_symset *expr_symset_new(void);
 void expr_symset_free(struct expr_symset *restrict esp);
 void expr_symset_free_s(struct expr_symset *restrict esp,void *stack);
 void expr_symset_wipe(struct expr_symset *restrict esp);
@@ -1177,16 +1178,16 @@ size_t expr_symset_copy_s(struct expr_symset *restrict dst,const struct expr_sym
 struct expr_symset *expr_symset_clone(const struct expr_symset *restrict ep);
 struct expr_symset *expr_symset_clone_s(const struct expr_symset *restrict ep,void *stack);
 int expr_isconst(const struct expr *restrict ep);
-void init_expr_const(struct expr *restrict ep,double val);
-struct expr *new_expr_const(double val);
-int init_expr7(struct expr *restrict ep,const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag);
-int init_expr5(struct expr *restrict ep,const char *e,const char *asym,struct expr_symset *esp,int flag);
-int init_expr(struct expr *restrict ep,const char *e,const char *asym,struct expr_symset *esp);
-struct expr *new_expr9(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,int n,int *error,char errinfo[EXPR_SYMLEN]);
-struct expr *new_expr7(const char *e,const char *asym,struct expr_symset *esp,int flag,int n,int *error,char errinfo[EXPR_SYMLEN]);
-struct expr *new_expr8(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,int *error,char errinfo[EXPR_SYMLEN]);
-struct expr *new_expr6(const char *e,const char *asym,struct expr_symset *esp,int flag,int *error,char errinfo[EXPR_SYMLEN]);
-struct expr *new_expr(const char *e,const char *asym,struct expr_symset *esp,int *error,char errinfo[EXPR_SYMLEN]);
+void expr_init_const(struct expr *restrict ep,double val);
+struct expr *expr_new_const(double val);
+int expr_init7(struct expr *restrict ep,const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag);
+int expr_init5(struct expr *restrict ep,const char *e,const char *asym,struct expr_symset *esp,int flag);
+int expr_init(struct expr *restrict ep,const char *e,const char *asym,struct expr_symset *esp);
+struct expr *expr_new9(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,int n,int *error,char errinfo[EXPR_SYMLEN]);
+struct expr *expr_new7(const char *e,const char *asym,struct expr_symset *esp,int flag,int n,int *error,char errinfo[EXPR_SYMLEN]);
+struct expr *expr_new8(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,int *error,char errinfo[EXPR_SYMLEN]);
+struct expr *expr_new6(const char *e,const char *asym,struct expr_symset *esp,int flag,int *error,char errinfo[EXPR_SYMLEN]);
+struct expr *expr_new(const char *e,const char *asym,struct expr_symset *esp,int *error,char errinfo[EXPR_SYMLEN]);
 double expr_calc5(const char *e,int *error,char errinfo[EXPR_SYMLEN],struct expr_symset *esp,int flag);
 double expr_calc4(const char *e,int *error,char errinfo[EXPR_SYMLEN],struct expr_symset *esp);
 double expr_calc3(const char *e,int *error,char errinfo[EXPR_SYMLEN]);

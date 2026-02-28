@@ -1124,10 +1124,10 @@ out:
 		onfalse;\
 	}\
 })
-ssize_t expr_vwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const union expr_argf *(*arg)(ptrdiff_t index,const struct expr_writeflag *flag,void *addr),void *addr){
+ssize_t expr_vwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,expr_argffetch arg,void *addr){
 	return expr_vwritef_r(fmt,fmtlen,writer,fd,arg,addr,expr_writefmts_default,expr_writefmts_table_default);
 }
-ssize_t expr_vwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const union expr_argf *(*arg)(ptrdiff_t index,const struct expr_writeflag *flag,void *addr),void *addr,const struct expr_writefmt *restrict fmts,const uint8_t *restrict table){
+ssize_t expr_vwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,expr_argffetch arg,void *addr,const struct expr_writefmt *restrict fmts,const uint8_t *restrict table){
 	const char *endp=fmt+fmtlen,*fmt_old=fmt,*fmt0=fmt;
 	ssize_t ret=0;
 	ssize_t v;

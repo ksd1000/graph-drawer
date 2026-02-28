@@ -458,20 +458,14 @@ EXPR_END
 #define expr_fake_memrmem(buf,size,c,c_size) ({\
 	const void *___buf=(buf);\
 	const void *___c=(c);\
-	size_t ___size=(size);\
 	size_t ___c_size=(c_size);\
-	const char *___end=___buf+___size;\
+	size_t ___size=(size)-(___c_size-1);\
 	const char *___r;\
 	char ___ch=*(const char *)___c;\
-	if(expr_likely(___size>=___c_size)){\
-		___size-=(___c_size-1);\
+	if(expr_likely((ssize_t)___size>0)){\
 		do {\
 			___r=memrchr(___buf,___ch,___size);\
-			if(!___r||(___end-___r)<___c_size){\
-				___r=NULL;\
-				break;\
-			}\
-			if(!memcmp(___r,___c,___c_size))\
+			if(!___r||!memcmp(___r,___c,___c_size))\
 				break;\
 			___size=___r-(const char *)___buf;\
 		}while(expr_likely(___size));\
@@ -482,18 +476,13 @@ EXPR_END
 #define expr_fake_memmem(buf,size,c,c_size) ({\
 	const void *___r=(buf);\
 	const void *___c=(c);\
-	size_t ___size=(size);\
 	size_t ___c_size=(c_size);\
-	const char *___end=___r+___size;\
+	size_t ___size=(size)-(___c_size-1);\
 	char ___ch=*(const char *)___c;\
-	if(expr_likely(___size)){\
+	if(expr_likely((ssize_t)___size>0)){\
 		do {\
 			___r=memchr(___r,___ch,___size);\
-			if(!___r||(___end-(const char *)___r)<___c_size){\
-				___r=NULL;\
-				break;\
-			}\
-			if(!memcmp(___r,___c,___c_size))\
+			if(!___r||!memcmp(___r,___c,___c_size))\
 				break;\
 			++___r;\
 		}while(expr_likely(___size));\

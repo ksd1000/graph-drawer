@@ -11,12 +11,16 @@
 #include <limits.h>
 #include <setjmp.h>
 
+typedef void *(*expr_allocator_type)(size_t);
+typedef void *(*expr_reallocator_type)(void *,size_t);
+typedef void (*expr_deallocator_type)(void *);
+
 #if defined(_EXPR_LIB)&&(_EXPR_LIB)
 #include <stdlib.h>
 #define expr_globals \
-void *(*expr_allocator)(size_t)=malloc;\
-void *(*expr_reallocator)(void *,size_t)=realloc;\
-void (*expr_deallocator)(void *)=free;\
+expr_allocator_type expr_allocator=malloc;\
+expr_reallocator_type expr_reallocator=realloc;\
+expr_deallocator_type expr_deallocator=free;\
 size_t expr_allocate_max=SSIZE_MAX;\
 size_t expr_bufsize_initial=512
 
@@ -583,6 +587,7 @@ struct expr_writefmt {
 	uint8_t op[7];
 	uint8_t type:2,no_arg:1,digit_check:1,setcap:1,unused:3;
 };
+typedef const union expr_argf *(*expr_argffetch)(ptrdiff_t index,const struct expr_writeflag *flag,void *addr);
 struct expr_buffered_file {
 	intptr_t fd;
 	union {
@@ -1051,8 +1056,8 @@ struct expr {
 };
 ssize_t expr_writec(expr_writer writer,intptr_t fd,size_t count,int c);
 ssize_t expr_converter_common(expr_writer writer,intptr_t fd,const void *buf,size_t size,const struct expr_writeflag *flag);
-ssize_t expr_vwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const union expr_argf *(*arg)(ptrdiff_t index,const struct expr_writeflag *flag,void *addr),void *addr);
-ssize_t expr_vwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const union expr_argf *(*arg)(ptrdiff_t index,const struct expr_writeflag *flag,void *addr),void *addr,const struct expr_writefmt *restrict fmts,const uint8_t *restrict table);
+ssize_t expr_vwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,expr_argffetch arg,void *addr);
+ssize_t expr_vwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,expr_argffetch arg,void *addr,const struct expr_writefmt *restrict fmts,const uint8_t *restrict table);
 ssize_t expr_writef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const union expr_argf *restrict args,size_t arglen);
 ssize_t expr_writef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const union expr_argf *restrict args,size_t arglen,const struct expr_writefmt *restrict fmts,const uint8_t *restrict table);
 ssize_t expr_vapwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const struct expr_writefmt *restrict fmts,const uint8_t *restrict table,va_list ap);
@@ -1070,14 +1075,14 @@ ssize_t expr_buffered_rdropall(struct expr_buffered_file *restrict fp);
 ssize_t expr_buffered_close(struct expr_buffered_file *restrict fp);
 void expr_buffered_rclose(struct expr_buffered_file *restrict fp);
 ssize_t expr_file_readfd(expr_reader reader,intptr_t fd,size_t tail,void *savep);
-int expr_sort4(double *restrict v,size_t n,void *(*allocator)(size_t),void (*deallocator)(void *));
+uint64_t expr_gcd64(uint64_t x,uint64_t y);
+int expr_sort4(double *restrict v,size_t n,expr_allocator_type allocator,expr_deallocator_type deallocator);
 void expr_sortq(double *restrict v,size_t n);
 void expr_sort_old(double *restrict v,size_t n);
 void expr_sort(double *v,size_t n);
 double expr_exp_old(double x);
 double expr_multilevel_derivate(const struct expr *ep,double input,long level,double epsilon);
 const char *expr_error(int error);
-uint64_t expr_gcd64(uint64_t x,uint64_t y);
 double expr_gcd2(double x,double y);
 double expr_lcm2(double x,double y);
 void expr_mirror(double *buf,size_t size);

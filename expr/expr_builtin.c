@@ -31,8 +31,26 @@ static void *warped_xrealloc(void *old,size_t size){
 static void warped_xfree(void *old){
 	return xfree(old);
 }
+uint64_t expr_gcd64(uint64_t x,uint64_t y){
+	uint64_t r;
+	int r1;
+	r=ctz64(x);
+	r1=ctz64(y);
+	r=r<r1?r:r1;
+	x>>=r;
+	y>>=r;
+	r1=(x<y);
+	while(likely(x&&y)){
+		if(r1^=1)
+			x%=y;
+		else
+			y%=x;
+	}
+	assume(!x||!y);
+	return (x|y)<<r;
+}
 __attribute__((noinline))
-int expr_sort4(double *restrict v,size_t n,void *(*allocator)(size_t),void (*deallocator)(void *)){
+int expr_sort4(double *restrict v,size_t n,expr_allocator_type allocator,expr_deallocator_type deallocator){
 	struct dnode {
 		struct dnode *lt,*gt;
 		size_t eq;

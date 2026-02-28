@@ -415,24 +415,6 @@ static inline void xfree_stack(void **restrict p){
 	expr_deallocator(*p);
 }
 
-uint64_t expr_gcd64(uint64_t x,uint64_t y){
-	uint64_t r;
-	int r1;
-	r=ctz64(x);
-	r1=ctz64(y);
-	r=r<r1?r:r1;
-	x>>=r;
-	y>>=r;
-	r1=(x<y);
-	while(likely(x&&y)){
-		if(r1^=1)
-			x%=y;
-		else
-			y%=x;
-	}
-	assume(!x||!y);
-	return (x|y)<<r;
-}
 #define gcd2(__x,__y) ({\
 	double _x,_y;\
 	int r1;\

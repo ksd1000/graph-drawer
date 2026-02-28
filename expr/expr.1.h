@@ -11,12 +11,16 @@
 #include <limits.h>
 #include <setjmp.h>
 
+typedef void *(*expr_allocator_type)(size_t);
+typedef void *(*expr_reallocator_type)(void *,size_t);
+typedef void (*expr_deallocator_type)(void *);
+
 #if defined(_EXPR_LIB)&&(_EXPR_LIB)
 #include <stdlib.h>
 #define expr_globals \
-void *(*expr_allocator)(size_t)=malloc;\
-void *(*expr_reallocator)(void *,size_t)=realloc;\
-void (*expr_deallocator)(void *)=free;\
+expr_allocator_type expr_allocator=malloc;\
+expr_reallocator_type expr_reallocator=realloc;\
+expr_deallocator_type expr_deallocator=free;\
 size_t expr_allocate_max=SSIZE_MAX;\
 size_t expr_bufsize_initial=512
 
@@ -583,6 +587,7 @@ struct expr_writefmt {
 	uint8_t op[7];
 	uint8_t type:2,no_arg:1,digit_check:1,setcap:1,unused:3;
 };
+typedef const union expr_argf *(*expr_argffetch)(ptrdiff_t index,const struct expr_writeflag *flag,void *addr);
 struct expr_buffered_file {
 	intptr_t fd;
 	union {

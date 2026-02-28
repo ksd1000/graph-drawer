@@ -440,6 +440,43 @@ EXPR_END
 
 #define expr_symset_foreach(_sp,_esp,_stack) expr_symset_foreach4(_sp,_esp,_stack,0)
 
+#define expr_fake_memrchr(buf,c,size) ({\
+	const void *__buf=(buf);\
+	const char *__end=__buf+(size);\
+	void *__out=NULL;\
+	int __c=(c);\
+	while(--__end>(const char *)__buf){\
+		if(expr_unlikely(*__end==__c)){\
+			__out=(void *)__end;\
+			break;\
+		}\
+	}\
+	__out;\
+})
+#define expr_fake_memrmem(buf,size,c,c_size) ({\
+	const void *___buf=(buf);\
+	const void *___c=(c);\
+	size_t ___size=(size);\
+	size_t ___c_size=(c_size);\
+	const char *___end=___buf+___size;\
+	const char *___r;\
+	int ___ch=(int)*(const unsigned char *)___c;\
+	if(expr_likely(___size)){\
+		do {\
+			___r=memrchr(___buf,___ch,___size);\
+			if(!___r||(___end-___r)<___c_size){\
+				___r=NULL;\
+				break;\
+			}\
+			if(!memcmp(___r,___c,___c_size))\
+				break;\
+			___size=___r-(const char *)___buf;\
+		}while(expr_likely(___size));\
+	}else\
+		___r=NULL;\
+	(void *)___r;\
+})
+
 struct expr_libinfo {
 	const char *version;
 	const char *compiler_version;

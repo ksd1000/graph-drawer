@@ -331,10 +331,7 @@ EXPR_END
 			 expr_allocator(__sz));\
 })
 #define expr_xfree(old) ({\
-	void *__old=(old);\
-	if(unlikely(!__old))\
-		__builtin_trap();\
-	expr_deallocator(__old);\
+	expr_deallocator(old);\
 })
 
 #define EXPR_ALIGN (sizeof(void *))

@@ -49,8 +49,9 @@ size_t expr_bufsize_initial=512
 #define likely(cond) expr_likely(cond)
 #define unlikely(cond) expr_unlikely(cond)
 #define arrsize(arr) (sizeof(arr)/sizeof(*arr))
-
 #define align(x) (((x)+(EXPR_ALIGN-1))&~(EXPR_ALIGN-1))
+#define assume(cond) expr_assume(cond)
+#define cast(X,T) expr_cast(X,T)
 
 #define bufsize_initial expr_bufsize_initial
 

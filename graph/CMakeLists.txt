@@ -12,8 +12,10 @@ set(CMAKE_C_FLAGS_DEBUG "-O0 -g -fsanitize=address")
 set(CMAKE_C_FLAGS_MINSIZEREL "-Os")
 set(CMAKE_C_FLAGS_RELWITHDEBINFO "-O2 -g")
 add_compile_options(-Wall)
-add_library(graph STATIC
+add_library(graph_object OBJECT
 	graph.c
 	texts/sbmp.c
 	texts/text.c
 )
+add_library(graph STATIC $<TARGET_OBJECTS:graph_object>)
+add_library(graph_shared SHARED $<TARGET_OBJECTS:graph_object>)

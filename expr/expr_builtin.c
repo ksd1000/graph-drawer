@@ -1113,7 +1113,6 @@ static double expr_##name##_b(double *args,size_t n){\
 }
 #define wp(n) cast(args[n],void *)
 #define wi(n,T) ((T)args[n])
-#undef __unix__
 #ifndef __unix__
 #define memrchr expr_fake_memrchr
 #define memmem expr_fake_memmem

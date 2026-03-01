@@ -2208,6 +2208,15 @@ esymbol:
 	}
 	return NULL;
 }
+#define IMPORT_ERROR_BLOCK {\
+	if(!ignore){\
+		seterr(ep,EXPR_EDS);\
+		goto err;\
+	}\
+}else {\
+	seterr(ep,EXPR_EMEM);\
+	goto err;\
+}
 static int expr_import(struct expr *restrict ep,const char *symbol,size_t symlen,int ignore){
 	const struct expr_symbol *p=expr_symset_search(ep->sset,symbol,symlen);
 	if(unlikely(!p)){
@@ -2226,24 +2235,18 @@ err:
 		STACK_DEFAULT(stack,esp);
 		debug("import %p",esp);
 		expr_symset_foreach(sp,esp,stack){
-			if(unlikely(!expr_symset_addcopy(ep->sset,sp)&&!ignore)){
+			if(unlikely(!expr_symset_addcopy(ep->sset,sp))){
 				if(expr_symset_search(ep->sset,sp->str,sp->strlen))
-					seterr(ep,EXPR_EDS);
-				else
-					seterr(ep,EXPR_EMEM);
-				goto err;
+					IMPORT_ERROR_BLOCK;
 			}
 		}
 	}else {
 		const struct expr_builtin_symbol *bs;
 		bs=expr_symbol_un(p)->bsyms;
 		debug("import %s",bs->str);
-		if(unlikely(expr_builtin_symbol_xaddall(ep->sset,&bs,bs)<0&&!ignore)){
+		if(unlikely(expr_builtin_symbol_xaddall(ep->sset,&bs,bs)<0)){
 			if(expr_symset_search(ep->sset,bs->str,bs->strlen))
-				seterr(ep,EXPR_EDS);
-			else
-				seterr(ep,EXPR_EMEM);
-			goto err;
+				IMPORT_ERROR_BLOCK;
 		}
 	}
 	return 0;

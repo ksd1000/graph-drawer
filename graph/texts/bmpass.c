@@ -14,6 +14,7 @@
 #include <limits.h>
 #include <string.h>
 #include "sbmp.h"
+#include "expr.h"
 #define BUFSIZE (1024*1024)
 static size_t sbsize_max=0;
 static size_t sbosize_max=0;

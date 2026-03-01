@@ -394,7 +394,7 @@ static inline void *xautoadd(void **restrict old,size_t *restrict size,size_t *r
 		++(*size);
 		return (uint8_t *)*old+old_size*n;
 	}
-	new_length=*length+extend;
+	new_length=*length+*length/4+extend;
 	r=xrealloc(*old,new_length*n);
 	if(unlikely(!r)){
 		return NULL;
@@ -2208,10 +2208,11 @@ esymbol:
 	}
 	return NULL;
 }
-#define IMPORT_ERROR_BLOCK {\
+#define IMPORT_ERROR_BLOCK(SP) {\
 	if(!ignore){\
 		seterr(ep,EXPR_EDS);\
-		goto err;\
+		serrinfo(ep->errinfo,SP->str,SP->strlen);\
+		return -1;\
 	}\
 }else {\
 	seterr(ep,EXPR_EMEM);\
@@ -2237,7 +2238,7 @@ err:
 		expr_symset_foreach(sp,esp,stack){
 			if(unlikely(!expr_symset_addcopy(ep->sset,sp))){
 				if(expr_symset_search(ep->sset,sp->str,sp->strlen))
-					IMPORT_ERROR_BLOCK;
+					IMPORT_ERROR_BLOCK(sp);
 			}
 		}
 	}else {
@@ -2246,7 +2247,7 @@ err:
 		debug("import %s",bs->str);
 		if(unlikely(expr_builtin_symbol_xaddall(ep->sset,&bs,bs)<0)){
 			if(expr_symset_search(ep->sset,bs->str,bs->strlen))
-				IMPORT_ERROR_BLOCK;
+				IMPORT_ERROR_BLOCK(bs);
 		}
 	}
 	return 0;

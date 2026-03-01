@@ -831,6 +831,7 @@ extern size_t expr_bufsize_initial;
 	expr_symbols_syscall,\
 	expr_symbols_superseed48,\
 	expr_symbols_string,\
+	expr_symbols_symset,\
 	expr_symbols_memory,\
 	NULL
 #define expr_symbols_ess \
@@ -1114,8 +1115,9 @@ extern const struct expr_builtin_symbol expr_symbols_expr[];
 extern const struct expr_builtin_symbol expr_symbols_common[];
 extern const struct expr_builtin_symbol expr_symbols_syscall[];
 extern const struct expr_builtin_symbol expr_symbols_superseed48[];
-extern const struct expr_builtin_symbol expr_symbols_string[];
 extern const struct expr_builtin_symbol expr_symbols_memory[];
+extern const struct expr_builtin_symbol expr_symbols_symset[];
+extern const struct expr_builtin_symbol expr_symbols_string[];
 //global functions of expr_core.c :
 const char *expr_error(int error);
 double expr_gcd2(double x,double y);

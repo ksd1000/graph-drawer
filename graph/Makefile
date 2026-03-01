@@ -13,6 +13,9 @@ texts/sbmp.o:
 texts/text.h:
 	make -C texts
 .PHONY:
+genh:
+	sh gengraphh
+.PHONY:
 cleanall:
 	make clean
 	make -C texts clean

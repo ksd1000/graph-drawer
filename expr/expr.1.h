@@ -11,6 +11,21 @@
 #include <limits.h>
 #include <setjmp.h>
 
+#ifndef _SSIZE_T_DEFINED_
+#define _SSIZE_T_DEFINED_
+typedef ptrdiff_t ssize_t;
+#endif
+
+#ifndef SSIZE_MAX
+#define SSIZE_MAX PTRDIFF_MAX
+#endif
+
+#define expr_static_assert(cond) _Static_assert((cond),"static assertion " #cond " failed")
+expr_static_assert(sizeof(ssize_t)==sizeof(ptrdiff_t));
+expr_static_assert(sizeof(size_t)==sizeof(ptrdiff_t));
+expr_static_assert(sizeof(void *)==sizeof(ptrdiff_t));
+expr_static_assert(sizeof(void *)>=sizeof(double));
+
 typedef void *(*expr_allocator_type)(size_t);
 typedef void *(*expr_reallocator_type)(void *,size_t);
 typedef void (*expr_deallocator_type)(void *);
@@ -83,20 +98,6 @@ size_t expr_bufsize_initial=512
 
 #endif
 
-#ifndef _SSIZE_T_DEFINED_
-#define _SSIZE_T_DEFINED_
-typedef ptrdiff_t ssize_t;
-#endif
-
-#ifndef SSIZE_MAX
-#define SSIZE_MAX PTRDIFF_MAX
-#endif
-
-#define expr_static_assert(cond) _Static_assert((cond),"static assertion " #cond " failed")
-expr_static_assert(sizeof(ssize_t)==sizeof(ptrdiff_t));
-expr_static_assert(sizeof(size_t)==sizeof(ptrdiff_t));
-expr_static_assert(sizeof(void *)==sizeof(ptrdiff_t));
-expr_static_assert(sizeof(void *)>=sizeof(double));
 
 enum expr_op :int {
 EXPR_COPY=0,
@@ -813,25 +814,21 @@ struct expr_internal_jmpbuf {
 	jmp_buf jb;
 };
 
-extern const struct expr_writefmt expr_writefmts_default[];
-extern const uint8_t expr_writefmts_default_size;
-extern const uint8_t expr_writefmts_table_default[256];
-extern const uint8_t expr_number_table[256];
-
-extern const struct expr_builtin_symbol expr_symbols[];
-extern const size_t expr_symbols_size;
-
-extern const struct expr_builtin_keyword expr_keywords[];
-
 extern void *(*expr_allocator)(size_t);
 extern void *(*expr_reallocator)(void *,size_t);
 extern void (*expr_deallocator)(void *);
-extern void (*expr_contractor)(void *,size_t);
 extern size_t expr_allocate_max;
-extern int expr_symset_allow_heap_stack;
-
 extern size_t expr_bufsize_initial;
-extern const size_t expr_page_size;
+
+#define expr_symbols_all \
+	expr_symbols_default,\
+	expr_symbols_expr,\
+	expr_symbols_common,\
+	expr_symbols_syscall,\
+	expr_symbols_superseed48,\
+	expr_symbols_string,\
+	expr_symbols_memory,\
+	NULL
 
 #define expr_internal_regvarr(_name) register intptr_t expr_combine(__r_,_name) __asm__(#_name)
 #define expr_internal_regvar(_name) register intptr_t _name __asm__(#_name)

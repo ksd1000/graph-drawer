@@ -408,6 +408,9 @@ static double expr_mode0(size_t n,double *args,int heap){
 		case 2:
 			expr_sortq(args,n);
 			break;
+		case 3:
+			expr_sort_old(args,n);
+			break;
 		default:
 			expr_sort4(args,n,warped_xmalloc,warped_xfree);
 			break;
@@ -437,6 +440,9 @@ static double expr_qmode(double *args,size_t n){
 }
 static double expr_hmode(double *args,size_t n){
 	return expr_mode0(n,args,1);
+}
+static double expr_mode_old(double *args,size_t n){
+	return expr_mode0(n,args,3);
 }
 static double expr_sign(double x){
 	if(x>0.0)
@@ -513,10 +519,6 @@ static double expr_str(const struct expr *args,size_t n,double input){
 	un.dr=eval(args,input);
 	un.r+=(ptrdiff_t)eval(++args,input);
 	return *un.r=eval(++args,input);
-}
-static double expr_memset(const struct expr *args,size_t n,double input){
-	memset(expr_cast(eval(args,input),void *),(int)eval(args+1,input),(size_t)eval(args+2,input));
-	return 0;
 }
 static double expr_bzero(const struct expr *args,size_t n,double input){
 	union {
@@ -1132,8 +1134,8 @@ warpp(memrmem,wp(0),wi(1,size_t),wp(2),wi(3,size_t));
 #define REGZASYM(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.zafunc=s},.type=EXPR_ZAFUNCTION,.flag=0}
 #define REGFSYM(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.func=s},.type=EXPR_FUNCTION,.flag=EXPR_SF_INJECTION}
 #define REGFSYM_U(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.func=s},.type=EXPR_FUNCTION,.flag=EXPR_SF_INJECTION|EXPR_SF_UNSAFE}
-#define REGCSYM(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.value=s},.type=EXPR_CONSTANT}
-#define REGCSYM_E(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.value=EXPR_##s},.type=EXPR_CONSTANT}
+#define REGCSYM(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.value=(double)(s)},.type=EXPR_CONSTANT}
+#define REGCSYM_E(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.value=(double)(EXPR_##s)},.type=EXPR_CONSTANT}
 #define REGFSYM2(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SF_INJECTION}
 #define REGFSYM2_NI(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SF_UNSAFE}
 #define REGFSYM2_U(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SF_INJECTION|EXPR_SF_UNSAFE}
@@ -1149,8 +1151,9 @@ warpp(memrmem,wp(0),wi(1,size_t),wp(2),wi(3,size_t));
 #define REGMDEPSYM2_NI(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdepfunc=sym},.dim=d,.type=EXPR_MDEPFUNCTION,.flag=EXPR_SF_UNSAFE}
 #define REGMDEPSYM2_U(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdepfunc=sym},.dim=d,.type=EXPR_MDEPFUNCTION,.flag=EXPR_SF_INJECTION|EXPR_SF_UNSAFE}
 #define REGMDEPSYM2_NIW(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdepfunc=sym},.dim=d,.type=EXPR_MDEPFUNCTION,.flag=EXPR_SF_WRITEIP|EXPR_SF_UNSAFE}
-#define REGCSYM2(s,val) {.strlen=sizeof(s)-1,.str=s,.un={.value=val},.type=EXPR_CONSTANT}
-const struct expr_builtin_symbol expr_symbols[]={
+#define REGCSYM2(s,val) {.strlen=sizeof(s)-1,.str=s,.un={.value=(double)(val)},.type=EXPR_CONSTANT}
+#define REGWARP(name,dim) REGMDSYM2_NIU(#name,expr_##name##_b,dim)
+const struct expr_builtin_symbol expr_symbols_default[]={
 	REGCSYM(DBL_MAX),
 	REGCSYM(DBL_MIN),
 #ifdef DBL_TRUE_MIN
@@ -1160,60 +1163,6 @@ const struct expr_builtin_symbol expr_symbols[]={
 #endif
 	REGCSYM(DBL_EPSILON),
 
-	REGCSYM_E(CONSTANT),
-	REGCSYM_E(VARIABLE),
-	REGCSYM_E(FUNCTION),
-	REGCSYM_E(MDFUNCTION),
-	REGCSYM_E(MDEPFUNCTION),
-	REGCSYM_E(HOTFUNCTION),
-	REGCSYM_E(ZAFUNCTION),
-
-	REGCSYM_E(IF_NOOPTIMIZE),
-	REGCSYM_E(IF_INSTANT_FREE),
-	REGCSYM_E(IF_INJECTION),
-//	REGCSYM_E(IF_NOBUILTIN),
-	REGCSYM_E(IF_NOKEYWORD),
-	REGCSYM_E(IF_PROTECT),
-//	REGCSYM_E(IF_INJECTION_B),
-//	REGCSYM_E(IF_INJECTION_S),
-	REGCSYM_E(IF_KEEPSYMSET),
-	REGCSYM_E(IF_DETACHSYMSET),
-	REGCSYM_E(IF_UNSAFE),
-	REGCSYM_E(IF_EXTEND_MASK),
-	REGCSYM_E(IF_SETABLE),
-
-	REGCSYM_E(SF_INJECTION),
-	REGCSYM_E(SF_WRITEIP),
-	REGCSYM_E(SF_PMD),
-	REGCSYM_E(SF_PME),
-	REGCSYM_E(SF_PFUNC),
-	REGCSYM_E(SF_UNSAFE),
-	REGCSYM_E(SF_ALLOWADDR),
-
-	REGCSYM_E(ESYMBOL),
-	REGCSYM_E(EPT),
-	REGCSYM_E(EFP),
-	REGCSYM_E(ENVP),
-	REGCSYM_E(ENEA),
-	REGCSYM_E(ENUMBER),
-	REGCSYM_E(ETNV),
-	REGCSYM_E(EEV),
-	REGCSYM_E(EUO),
-	REGCSYM_E(EZAFP),
-	REGCSYM_E(EDS),
-	REGCSYM_E(EVMD),
-	REGCSYM_E(EMEM),
-	REGCSYM_E(EUSN),
-	REGCSYM_E(ENC),
-	REGCSYM_E(ECTA),
-	REGCSYM_E(ESAF),
-	REGCSYM_E(EVD),
-	REGCSYM_E(EPM),
-	REGCSYM_E(EIN),
-	REGCSYM_E(EBS),
-	REGCSYM_E(EVZP),
-	REGCSYM_E(EANT),
-	REGCSYM_E(EUDE),
 
 	REGCSYM(FLT_MAX),
 	REGCSYM(FLT_MIN),
@@ -1241,23 +1190,6 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGCSYM2("sqrt1_2",M_SQRT1_2),
 	REGCSYM2("DBL_SHIFT",(double)ctz64(sizeof(double))),
 	REGCSYM2("DBL_SIZE",(double)sizeof(double)),
-	REGCSYM2("jmpbuf",(double)sizeof(struct expr_internal_jmpbuf)),
-	REGCSYM2("INSTLEN",(double)sizeof(struct expr_inst)),
-	REGCSYM2("IPP_OFF",(double)offsetof(struct expr,ipp)),
-	REGCSYM2("SIZE_OFF",(double)offsetof(struct expr,size)),
-	REGCSYM(__SIZEOF_POINTER__),
-#if PHYSICAL_CONSTANT
-	REGCSYM2("c",299792458.0),
-	REGCSYM2("e0",8.8541878128e-12),
-	REGCSYM2("e1",1.602176634e-19),
-	REGCSYM2("G",6.67430e-11),
-	REGCSYM2("h",6.62607015e-34),
-	REGCSYM2("k",1.380649e-23),
-	REGCSYM2("N_A",6.02214076e+23),
-	REGCSYM2("R",8.31446261815234),
-	REGCSYM2("sqrc",89875517873681764.0),
-	REGCSYM2("u0",1.25663706212e-6),
-#endif
 	REGFSYM2("abs",fabs),
 	REGFSYM(acos),
 	REGFSYM(acosh),
@@ -1324,12 +1256,6 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGFSYM2_UA("drand48",expr_drand48),
 	REGFSYM2_UA("lrand48",expr_lrand48),
 	REGFSYM2_UA("mrand48",expr_mrand48),
-	REGMDSYM2_NIU("ssrand48",expr_ssrand48_b,2),
-	REGMDSYM2_NIU("ssdrand48",expr_ssdrand48_b,2),
-	REGMDSYM2_NIU("sslrand48",expr_sslrand48_b,2),
-	REGMDSYM2_NIU("ssmrand48",expr_ssmrand48_b,2),
-	REGMDSYM2_NIU("ssnext48",expr_ssnext48_b,2),
-	REGMDSYM2_NIU("ssdnext48",expr_ssdnext48_b,2),
 	REGFSYM2("srand48",expr_srand48),
 	REGFSYM2("drand48_next",expr_drand48_next),
 	REGFSYM2("rand48_next",expr_rand48_next),
@@ -1338,12 +1264,116 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGMDSYM2("mrand48_next",expr_mrand48_next,0),
 	REGMDSYM2("mrand48_state",expr_mrand48_state,0),
 
+
+	REGMDSYM2("add",expr_add,0),
+	REGMDSYM2("and",expr_and,0),
+	REGMDSYM2("or",expr_or,0),
+	REGMDSYM2("xor",expr_xor,0),
+	REGMDSYM2("cmp",expr_cmp,2),
+	REGMDSYM2("gcd",expr_gcd,0),
+	REGMDSYM2("hypot",expr_hypot,0),
+	REGMDSYM2("lcm",expr_lcm,0),
+	REGMDSYM2("max",expr_max,0),
+	REGMDSYM2("mode_old",expr_mode_old,0),
+	REGMDSYM2("med_old",expr_med_old,0),
+	REGMDSYM2("gmed_old",expr_gmed_old,0),
+	REGMDSYM2("min",expr_min,0),
+	REGMDSYM2("mul",expr_mul,0),
+	REGMDSYM2("nfact",expr_nfact,2),
+	REGMDSYM2("pow_old_n",expr_pow_old_n,2),
+
+
+	REGMDEPSYM2_NI("assign",expr_assign,0),
+	REGMDEPSYM2_NI("assigni",expr_assigni,0),
+	REGMDEPSYM2_NI("assignu",expr_assignu,0),
+	REGMDEPSYM2("andl",expr_andl,0),
+	REGMDEPSYM2("findbound2",expr_findbound2,3),
+	REGMDEPSYM2("orl",expr_orl,0),
+	REGMDEPSYM2("piece",expr_piece,0),
+	REGMDEPSYM2("d",expr_derivate,0),
+	REGMDEPSYM2_U("dn",expr_multi_derivate,0),
+	REGMDEPSYM2("root",expr_root,0),
+	REGMDEPSYM2("root2",expr_root2,0),
+	REGMDEPSYM2("rooti",expr_rooti,0),
+	{.str=NULL}
+};
+const struct expr_builtin_symbol expr_symbols_expr[]={
+	REGCSYM_E(CONSTANT),
+	REGCSYM_E(VARIABLE),
+	REGCSYM_E(FUNCTION),
+	REGCSYM_E(MDFUNCTION),
+	REGCSYM_E(MDEPFUNCTION),
+	REGCSYM_E(HOTFUNCTION),
+	REGCSYM_E(ZAFUNCTION),
+
+	REGCSYM_E(IF_NOOPTIMIZE),
+	REGCSYM_E(IF_INSTANT_FREE),
+	REGCSYM_E(IF_INJECTION),
+	REGCSYM_E(IF_NOKEYWORD),
+	REGCSYM_E(IF_PROTECT),
+	REGCSYM_E(IF_KEEPSYMSET),
+	REGCSYM_E(IF_DETACHSYMSET),
+	REGCSYM_E(IF_UNSAFE),
+	REGCSYM_E(IF_EXTEND_MASK),
+	REGCSYM_E(IF_SETABLE),
+
+	REGCSYM_E(SF_INJECTION),
+	REGCSYM_E(SF_WRITEIP),
+	REGCSYM_E(SF_PMD),
+	REGCSYM_E(SF_PME),
+	REGCSYM_E(SF_PFUNC),
+	REGCSYM_E(SF_UNSAFE),
+	REGCSYM_E(SF_ALLOWADDR),
+
+	REGCSYM_E(ESYMBOL),
+	REGCSYM_E(EPT),
+	REGCSYM_E(EFP),
+	REGCSYM_E(ENVP),
+	REGCSYM_E(ENEA),
+	REGCSYM_E(ENUMBER),
+	REGCSYM_E(ETNV),
+	REGCSYM_E(EEV),
+	REGCSYM_E(EUO),
+	REGCSYM_E(EZAFP),
+	REGCSYM_E(EDS),
+	REGCSYM_E(EVMD),
+	REGCSYM_E(EMEM),
+	REGCSYM_E(EUSN),
+	REGCSYM_E(ENC),
+	REGCSYM_E(ECTA),
+	REGCSYM_E(ESAF),
+	REGCSYM_E(EVD),
+	REGCSYM_E(EPM),
+	REGCSYM_E(EIN),
+	REGCSYM_E(EBS),
+	REGCSYM_E(EVZP),
+	REGCSYM_E(EANT),
+	REGCSYM_E(EUDE),
+	REGCSYM2("jmpbuf",(double)sizeof(struct expr_internal_jmpbuf)),
+	REGCSYM2("INSTLEN",(double)sizeof(struct expr_inst)),
+	REGCSYM2("IPP_OFF",(double)offsetof(struct expr,ipp)),
+	REGCSYM2("SIZE_OFF",(double)offsetof(struct expr,size)),
+	REGCSYM(__SIZEOF_POINTER__),
+	{.str=NULL}
+};
+const struct expr_builtin_symbol expr_symbols_common[]={
+	REGMDEPSYM2_NIW("assert",bassert,1),
+	REGMDEPSYM2_NI("ldr",expr_ldr,2),
+	REGMDEPSYM2_NI("str",expr_str,3),
+	REGMDEPSYM2_NI("bzero",expr_bzero,2),
+	REGMDEPSYM2_NI("contract",bcontract,2),
+	REGMDEPSYM2_NI("fry",bfry,2),
+	REGMDEPSYM2_NI("mirror",bmirror,2),
+	REGMDEPSYM2_NI("sort",bsort,2),
+	REGMDEPSYM2_NI("hsort",bhsort,2),
+	REGMDEPSYM2_NI("xsort",bxsort,2),
+	REGMDEPSYM2_NI("sort_old",bsort_old,2),
+	REGMDSYM2_NIU("destruct",expr_destruct,0),
+	REGMDSYM2_NIU("longjmp_out",expr_longjmp_out,0),
+
 	REGZASYM2_U("abort",(double (*)(void))abort),
-//	REGZASYM(drand48),
 	REGZASYM2_U("explode",(double (*)(void))expr_explode),
 	REGZASYM2_U("frame",expr_frame),
-//	REGZASYM2("lrand48",expr_lrand48),
-//	REGZASYM2("mrand48",expr_mrand48),
 	REGZASYM2_U("trap",(double (*)(void))expr_trap),
 	REGZASYM2_U("ubehavior",(double (*)(void))expr_ubehavior),
 
@@ -1355,43 +1385,32 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGFSYM2_NI("free",expr_bxfree),
 	REGFSYM2_NI("system",expr_system),
 
-	REGMDSYM2("add",expr_add,0),
-	REGMDSYM2("and",expr_and,0),
-	REGMDSYM2("or",expr_or,0),
-	REGMDSYM2("xor",expr_xor,0),
-	REGMDSYM2("cmp",expr_cmp,2),
-	REGMDSYM2("gcd",expr_gcd,0),
 	REGMDSYM2_U("hgmed",expr_hgmed,0),
 	REGMDSYM2_U("hmed",expr_hmed,0),
 	REGMDSYM2_U("hmode",expr_hmode,0),
-	REGMDSYM2("hypot",expr_hypot,0),
-	REGMDSYM2("lcm",expr_lcm,0),
-	REGMDSYM2("max",expr_max,0),
 	REGMDSYM2_U("med",expr_med,0),
-	REGMDSYM2("med_old",expr_med_old,0),
 	REGMDSYM2_U("gmed",expr_gmed,0),
-	REGMDSYM2("gmed_old",expr_gmed_old,0),
-	REGMDSYM2("min",expr_min,0),
 	REGMDSYM2_U("mode",expr_mode,0),
-	REGMDSYM2("mul",expr_mul,0),
-	REGMDSYM2("nfact",expr_nfact,2),
-	REGMDSYM2("pow_old_n",expr_pow_old_n,2),
-	REGMDSYM2("qmed",expr_qmed,0),
-	REGMDSYM2("qgmed",expr_qgmed,0),
-	REGMDSYM2("qmode",expr_qmode,0),
+	REGMDSYM2_U("qmed",expr_qmed,0),
+	REGMDSYM2_U("qgmed",expr_qgmed,0),
+	REGMDSYM2_U("qmode",expr_qmode,0),
 	REGMDSYM2_NIU("strtol",expr_strtol,2),
 	REGMDSYM2_NIU("strtod",expr_strtod_b,0),
-#define REGWARP(name,dim) REGMDSYM2_NIU(#name,expr_##name##_b,dim)
-	REGWARP(strlen,1),
-	REGWARP(strchr,2),
-	REGWARP(memchr,3),
-	REGWARP(memset,3),
-	REGWARP(memcpy,3),
-	REGWARP(memcmp,3),
-	REGWARP(memrchr,3),
-	REGWARP(memmem,4),
-	REGWARP(memrmem,4),
-
+#if PHYSICAL_CONSTANT
+	REGCSYM2("c",299792458.0),
+	REGCSYM2("e0",8.8541878128e-12),
+	REGCSYM2("e1",1.602176634e-19),
+	REGCSYM2("G",6.67430e-11),
+	REGCSYM2("h",6.62607015e-34),
+	REGCSYM2("k",1.380649e-23),
+	REGCSYM2("N_A",6.02214076e+23),
+	REGCSYM2("R",8.31446261815234),
+	REGCSYM2("sqrc",89875517873681764.0),
+	REGCSYM2("u0",1.25663706212e-6),
+#endif
+	{.str=NULL}
+};
+const struct expr_builtin_symbol expr_symbols_syscall[]={
 	REGMDSYM2_NIU("syscall",bsyscall,0),
 	REGFSYM_U(systype),
 	REGCSYM2("sysp0",INT64_C(1)<<32),
@@ -1401,22 +1420,30 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGCSYM2("sysp4",INT64_C(1)<<36),
 	REGCSYM2("sysp5",INT64_C(1)<<37),
 	REGCSYM2("sysp6",INT64_C(1)<<38),
-
-	REGMDEPSYM2_NIW("assert",bassert,1),
-	REGMDEPSYM2_NI("ldr",expr_ldr,2),
-	REGMDEPSYM2_NI("str",expr_str,3),
-	REGMDEPSYM2_NI("bzero",expr_bzero,2),
-	REGMDEPSYM2_NI("contract",bcontract,2),
-	REGMDEPSYM2_NI("fry",bfry,2),
-	REGMDEPSYM2_NI("memset",expr_memset,3),
-	REGMDEPSYM2_NI("mirror",bmirror,2),
-	REGMDEPSYM2_NI("sort",bsort,2),
-	REGMDEPSYM2_NI("hsort",bhsort,2),
-	REGMDEPSYM2_NI("xsort",bxsort,2),
-	REGMDEPSYM2_NI("sort_old",bsort_old,2),
-	REGMDSYM2_NIU("destruct",expr_destruct,0),
-	REGMDSYM2_NIU("longjmp_out",expr_longjmp_out,0),
-
+	{.str=NULL}
+};
+const struct expr_builtin_symbol expr_symbols_superseed48[]={
+	REGMDSYM2_NIU("ssrand48",expr_ssrand48_b,2),
+	REGMDSYM2_NIU("ssdrand48",expr_ssdrand48_b,2),
+	REGMDSYM2_NIU("sslrand48",expr_sslrand48_b,2),
+	REGMDSYM2_NIU("ssmrand48",expr_ssmrand48_b,2),
+	REGMDSYM2_NIU("ssnext48",expr_ssnext48_b,2),
+	REGMDSYM2_NIU("ssdnext48",expr_ssdnext48_b,2),
+	{.str=NULL}
+};
+const struct expr_builtin_symbol expr_symbols_string[]={
+	REGWARP(strlen,1),
+	REGWARP(strchr,2),
+	REGWARP(memchr,3),
+	REGWARP(memset,3),
+	REGWARP(memcpy,3),
+	REGWARP(memcmp,3),
+	REGWARP(memrchr,3),
+	REGWARP(memmem,4),
+	REGWARP(memrmem,4),
+	{.str=NULL}
+};
+const struct expr_builtin_symbol expr_symbols_memory[]={
 	REGMEM(8),
 	REGMEM(16),
 	REGMEM(32),
@@ -1434,19 +1461,5 @@ const struct expr_builtin_symbol expr_symbols[]={
 	REGFMEM(f),
 	REGFMEM(d),
 	REGFMEM(l),
-
-	REGMDEPSYM2_NI("assign",expr_assign,0),
-	REGMDEPSYM2_NI("assigni",expr_assigni,0),
-	REGMDEPSYM2_NI("assignu",expr_assignu,0),
-	REGMDEPSYM2("andl",expr_andl,0),
-	REGMDEPSYM2("findbound2",expr_findbound2,3),
-	REGMDEPSYM2("orl",expr_orl,0),
-	REGMDEPSYM2("piece",expr_piece,0),
-	REGMDEPSYM2("d",expr_derivate,0),
-	REGMDEPSYM2_U("dn",expr_multi_derivate,0),
-	REGMDEPSYM2("root",expr_root,0),
-	REGMDEPSYM2("root2",expr_root2,0),
-	REGMDEPSYM2("rooti",expr_rooti,0),
 	{.str=NULL}
 };
-const size_t expr_symbols_size=arrsize(expr_symbols)-1;

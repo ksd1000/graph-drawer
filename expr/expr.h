@@ -11,6 +11,21 @@
 #include <limits.h>
 #include <setjmp.h>
 
+#ifndef _SSIZE_T_DEFINED_
+#define _SSIZE_T_DEFINED_
+typedef ptrdiff_t ssize_t;
+#endif
+
+#ifndef SSIZE_MAX
+#define SSIZE_MAX PTRDIFF_MAX
+#endif
+
+#define expr_static_assert(cond) _Static_assert((cond),"static assertion " #cond " failed")
+expr_static_assert(sizeof(ssize_t)==sizeof(ptrdiff_t));
+expr_static_assert(sizeof(size_t)==sizeof(ptrdiff_t));
+expr_static_assert(sizeof(void *)==sizeof(ptrdiff_t));
+expr_static_assert(sizeof(void *)>=sizeof(double));
+
 typedef void *(*expr_allocator_type)(size_t);
 typedef void *(*expr_reallocator_type)(void *,size_t);
 typedef void (*expr_deallocator_type)(void *);
@@ -83,20 +98,6 @@ size_t expr_bufsize_initial=512
 
 #endif
 
-#ifndef _SSIZE_T_DEFINED_
-#define _SSIZE_T_DEFINED_
-typedef ptrdiff_t ssize_t;
-#endif
-
-#ifndef SSIZE_MAX
-#define SSIZE_MAX PTRDIFF_MAX
-#endif
-
-#define expr_static_assert(cond) _Static_assert((cond),"static assertion " #cond " failed")
-expr_static_assert(sizeof(ssize_t)==sizeof(ptrdiff_t));
-expr_static_assert(sizeof(size_t)==sizeof(ptrdiff_t));
-expr_static_assert(sizeof(void *)==sizeof(ptrdiff_t));
-expr_static_assert(sizeof(void *)>=sizeof(double));
 
 enum expr_op :int {
 EXPR_COPY=0,
@@ -813,25 +814,21 @@ struct expr_internal_jmpbuf {
 	jmp_buf jb;
 };
 
-extern const struct expr_writefmt expr_writefmts_default[];
-extern const uint8_t expr_writefmts_default_size;
-extern const uint8_t expr_writefmts_table_default[256];
-extern const uint8_t expr_number_table[256];
-
-extern const struct expr_builtin_symbol expr_symbols[];
-extern const size_t expr_symbols_size;
-
-extern const struct expr_builtin_keyword expr_keywords[];
-
 extern void *(*expr_allocator)(size_t);
 extern void *(*expr_reallocator)(void *,size_t);
 extern void (*expr_deallocator)(void *);
-extern void (*expr_contractor)(void *,size_t);
 extern size_t expr_allocate_max;
-extern int expr_symset_allow_heap_stack;
-
 extern size_t expr_bufsize_initial;
-extern const size_t expr_page_size;
+
+#define expr_symbols_all \
+	expr_symbols_default,\
+	expr_symbols_expr,\
+	expr_symbols_common,\
+	expr_symbols_syscall,\
+	expr_symbols_superseed48,\
+	expr_symbols_string,\
+	expr_symbols_memory,\
+	NULL
 
 #define expr_internal_regvarr(_name) register intptr_t expr_combine(__r_,_name) __asm__(#_name)
 #define expr_internal_regvar(_name) register intptr_t _name __asm__(#_name)
@@ -1066,6 +1063,7 @@ struct expr {
 	char errinfo[EXPR_SYMLEN];
 	char extra_data[];
 };
+//global functions of expr_format.c :
 ssize_t expr_writec(expr_writer writer,intptr_t fd,size_t count,int c);
 ssize_t expr_converter_common(expr_writer writer,intptr_t fd,const void *buf,size_t size,const struct expr_writeflag *flag);
 ssize_t expr_vwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,expr_argffetch arg,void *addr);
@@ -1076,6 +1074,11 @@ ssize_t expr_vapwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writ
 ssize_t expr_apwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const struct expr_writefmt *restrict fmts,const uint8_t *restrict table,...);
 ssize_t expr_vapwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,va_list ap);
 ssize_t expr_apwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,...);
+//global externs of expr_format.c :
+extern const struct expr_writefmt expr_writefmts_default[];
+extern const uint8_t expr_writefmts_default_size;
+extern const uint8_t expr_writefmts_table_default[256];
+//global functions of expr_buffered.c :
 ssize_t expr_buffered_write(struct expr_buffered_file *restrict fp,const void *buf,size_t size);
 ssize_t expr_buffered_read(struct expr_buffered_file *restrict fp,void *buf,size_t size);
 ssize_t expr_buffered_write_flushatc(struct expr_buffered_file *restrict fp,const void *buf,size_t size,int c);
@@ -1087,6 +1090,8 @@ ssize_t expr_buffered_rdropall(struct expr_buffered_file *restrict fp);
 ssize_t expr_buffered_close(struct expr_buffered_file *restrict fp);
 void expr_buffered_rclose(struct expr_buffered_file *restrict fp);
 ssize_t expr_file_readfd(expr_reader reader,intptr_t fd,size_t tail,void *savep);
+//global externs of expr_buffered.c :
+//global functions of expr_builtin.c :
 uint64_t expr_gcd64(uint64_t x,uint64_t y);
 int expr_sort4(double *restrict v,size_t n,expr_allocator_type allocator,expr_deallocator_type deallocator);
 void expr_sortq(double *restrict v,size_t n);
@@ -1094,6 +1099,15 @@ void expr_sort_old(double *restrict v,size_t n);
 void expr_sort(double *v,size_t n);
 double expr_exp_old(double x);
 double expr_multilevel_derivate(const struct expr *ep,double input,long level,double epsilon);
+//global externs of expr_builtin.c :
+extern const struct expr_builtin_symbol expr_symbols_default[];
+extern const struct expr_builtin_symbol expr_symbols_expr[];
+extern const struct expr_builtin_symbol expr_symbols_common[];
+extern const struct expr_builtin_symbol expr_symbols_syscall[];
+extern const struct expr_builtin_symbol expr_symbols_superseed48[];
+extern const struct expr_builtin_symbol expr_symbols_string[];
+extern const struct expr_builtin_symbol expr_symbols_memory[];
+//global functions of expr_core.c :
 const char *expr_error(int error);
 double expr_gcd2(double x,double y);
 double expr_lcm2(double x,double y);
@@ -1125,7 +1139,11 @@ intptr_t expr_warped_syscall7(int num,intptr_t a0,intptr_t a1,intptr_t a2,intptr
 const struct expr_builtin_symbol *expr_builtin_symbol_search(const struct expr_builtin_symbol *syms,const char *sym,size_t sz);
 const struct expr_builtin_symbol *expr_builtin_symbol_rsearch(const struct expr_builtin_symbol *syms,void *addr);
 struct expr_symbol *expr_builtin_symbol_add(struct expr_symset *restrict esp,const struct expr_builtin_symbol *p);
-size_t expr_builtin_symbol_addall(struct expr_symset *restrict esp,const struct expr_builtin_symbol *syms);
+ssize_t expr_builtin_symbol_addalls(struct expr_symset *restrict esp,const struct expr_builtin_symbol *syms,...);
+ssize_t expr_builtin_symbol_addall(struct expr_symset *restrict esp,const struct expr_builtin_symbol *syms);
+ssize_t expr_builtin_symbol_xaddalls(struct expr_symset *restrict esp,const struct expr_builtin_symbol **symsp,const struct expr_builtin_symbol *syms,...);
+ssize_t expr_builtin_symbol_xaddall(struct expr_symset *restrict esp,const struct expr_builtin_symbol **symsp,const struct expr_builtin_symbol *syms);
+struct expr_symset *expr_builtin_symbol_converts(const struct expr_builtin_symbol *syms,...);
 struct expr_symset *expr_builtin_symbol_convert(const struct expr_builtin_symbol *syms);
 size_t expr_strscan(const char *restrict s,size_t sz,char *restrict buf,size_t outsz);
 char *expr_astrscan(const char *s,size_t sz,size_t *restrict outsz);
@@ -1211,4 +1229,10 @@ int expr_optimize(struct expr *restrict ep);
 double expr_eval(const struct expr *restrict ep,double input);
 int expr_step(const struct expr *restrict ep,double input,double *restrict output,struct expr_inst **restrict saveip);
 double expr_callback(const struct expr *restrict ep,double input,const struct expr_callback *ec);
+//global externs of expr_core.c :
+extern void (*expr_contractor)(void *,size_t);
+extern int expr_symset_allow_heap_stack;
+extern const size_t expr_page_size;
+extern const struct expr_builtin_keyword expr_keywords[];
+extern const uint8_t expr_number_table[256];
 #endif

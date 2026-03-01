@@ -174,7 +174,7 @@ ab:
 }
 int main(int argc,char **argv){
 	double x0=expr_cast(expr_seed48(time(NULL)),double);
-	es=expr_builtin_symbol_convert(expr_symbols);
+	es=expr_builtin_symbol_converts(expr_symbols_all);
 	assert(es);
 	expr_symset_add(es,"x0",EXPR_VARIABLE,0,&x0);
 	expr_symset_add(es,"defined_symbol",EXPR_CONSTANT,0,2304.0);
@@ -184,17 +184,16 @@ int main(int argc,char **argv){
 	for(const struct eproj *p=eprojs;p->e;++p)
 		errcheck(p->e,p->expect);
 	expr_new7("t**3+sin(t)+sum(n,0,100,1,sin(n*t))","t",NULL,EXPR_IF_INSTANT_FREE,1250,NULL,NULL);
-	assert(es->size==expr_symbols_size+2);
-	expr_symset_free(es);
 	for(const struct expr_builtin_keyword *p=expr_keywords;;++p){
 		if(!p->str){
 			break;
 		}
-		if(expr_builtin_symbol_search(expr_symbols,p->str,p->strlen)){
+		if(expr_symset_search(es,p->str,p->strlen)){
 			printf("conflict %s\n",p->str);
 			printf("ABORTING\n");
 			abort();
 		}
 	}
+	expr_symset_free(es);
 	return 0;
 }

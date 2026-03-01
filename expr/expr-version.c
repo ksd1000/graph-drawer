@@ -148,7 +148,7 @@ void do_calc(const char *e,int flag){
 	double result;
 	int error=0;
 	char errinfo[EXPR_SYMLEN];
-	struct expr_symset *esp=expr_builtin_symbol_convert(expr_symbols);
+	struct expr_symset *esp=expr_builtin_symbol_converts(expr_symbols_all);
 	result=expr_calc5(e,&error,errinfo,esp,flag);
 	if(esp)
 		expr_symset_free(esp);

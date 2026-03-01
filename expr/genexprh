@@ -1,7 +1,13 @@
 #! /bin/bash
+dump() {
+	echo "//global functions" of "$1" ":" >>expr.h
+	. ./decdump < "$1" >>expr.h
+	echo "//global externs of" "$1" ":" >>expr.h
+	. ./extdump < "$1" >>expr.h
+}
 cat expr.1.h > expr.h
-. ./decdump < expr_format.c >>expr.h
-. ./decdump < expr_buffered.c >>expr.h
-. ./decdump < expr_builtin.c >>expr.h
-. ./decdump < expr_core.c >>expr.h
+dump expr_format.c
+dump expr_buffered.c
+dump expr_builtin.c
+dump expr_core.c
 cat expr.2.h >> expr.h

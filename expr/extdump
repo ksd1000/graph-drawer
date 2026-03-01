@@ -1,0 +1,2 @@
+#! /bin/bash
+grep 'static ' -v |grep '^[a-z]* .*=' | sed 's/=.*$/;/g' | sed 's/^/extern /g'

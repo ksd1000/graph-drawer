@@ -786,27 +786,72 @@ struct expr_symbol *expr_builtin_symbol_add(struct expr_symset *restrict esp,con
 			__builtin_unreachable();
 	}
 }
-size_t expr_builtin_symbol_addall(struct expr_symset *restrict esp,const struct expr_builtin_symbol *syms){
-	size_t r=0;
-	for(;syms->str;++syms){
-		if(likely(expr_builtin_symbol_add(esp,syms)))
-			++r;
-	}
-	return r;
+ssize_t expr_builtin_symbol_addalls(struct expr_symset *restrict esp,const struct expr_builtin_symbol *syms,...){
+	ssize_t r=0;
+	ssize_t fail=0;
+	va_list ap;
+	va_start(ap,syms);
+	do {
+		for(;syms->str;++syms){
+			if(likely(expr_builtin_symbol_add(esp,syms)))
+				++r;
+			else
+				--fail;
+		}
+		syms=va_arg(ap,const struct expr_builtin_symbol *);
+	}while(syms);
+	va_end(ap);
+	return fail?fail:r;
 }
-struct expr_symset *expr_builtin_symbol_convert(const struct expr_builtin_symbol *syms){
+ssize_t expr_builtin_symbol_addall(struct expr_symset *restrict esp,const struct expr_builtin_symbol *syms){
+	return expr_builtin_symbol_addalls(esp,syms,NULL);
+}
+ssize_t expr_builtin_symbol_xaddalls(struct expr_symset *restrict esp,const struct expr_builtin_symbol **symsp,const struct expr_builtin_symbol *syms,...){
+	ssize_t r=0;
+	va_list ap;
+	va_start(ap,syms);
+	do {
+		for(;syms->str;++syms){
+			if(likely(expr_builtin_symbol_add(esp,syms)))
+				++r;
+			else
+				goto err;
+		}
+		syms=va_arg(ap,const struct expr_builtin_symbol *);
+	}while(syms);
+	va_end(ap);
+	return r;
+err:
+	*symsp=syms;
+	va_end(ap);
+	return -r;
+}
+ssize_t expr_builtin_symbol_xaddall(struct expr_symset *restrict esp,const struct expr_builtin_symbol **symsp,const struct expr_builtin_symbol *syms){
+	return expr_builtin_symbol_xaddalls(esp,symsp,syms,NULL);
+}
+struct expr_symset *expr_builtin_symbol_converts(const struct expr_builtin_symbol *syms,...){
 	struct expr_symset *esp=expr_symset_new();
+	va_list ap;
 	if(unlikely(!esp))
 		return NULL;
-	for(;syms->str;++syms){
-		struct expr_symbol *r;
-		if(unlikely(!(r=expr_builtin_symbol_add(esp,syms)))){
-			trap;
-			expr_symset_free(esp);
-			return NULL;
+	va_start(ap,syms);
+	do {
+		for(;syms->str;++syms){
+			//printf("add %s\n",syms->str);
+			if(unlikely(!expr_builtin_symbol_add(esp,syms)))
+				goto err;
 		}
-	}
+		syms=va_arg(ap,const struct expr_builtin_symbol *);
+	}while(syms);
+	va_end(ap);
 	return esp;
+err:
+	expr_symset_free(esp);
+	va_end(ap);
+	return NULL;
+}
+struct expr_symset *expr_builtin_symbol_convert(const struct expr_builtin_symbol *syms){
+	return expr_builtin_symbol_converts(syms,NULL);
 }
 const uint8_t expr_number_table[256]={
 [0 ... '0'-1]=127,

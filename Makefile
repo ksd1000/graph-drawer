@@ -15,6 +15,10 @@ expr/expr-version: expr
 graph/graph.a: graph
 	make -C graph
 .PHONY:
+genh:
+	make -C expr genh
+	make -C graph genh
+.PHONY:
 cleanall:
 	make -C expr cleanall
 	make -C graph cleanall

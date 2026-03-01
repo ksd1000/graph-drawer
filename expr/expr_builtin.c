@@ -20,6 +20,51 @@
 expr_globals;
 #endif
 
+#define r_fail \
+	{\
+		warn("cannot allocate memory,size=%zu",size);\
+		warn("ABORTING");\
+		abort();\
+	}
+static void *xmalloc_nonnull(size_t size){
+	void *r;
+	r=malloc(size);
+	if(unlikely(!r))
+		r_fail;
+	return r;
+}
+static void *xrealloc_nonnull(void *old,size_t size){
+	void *r;
+	r=realloc(old,size);
+	if(unlikely(!r))
+		r_fail;
+	return r;
+}
+static expr_allocator_type a_old;
+static expr_reallocator_type r_old;
+static expr_deallocator_type d_old;
+static size_t m_old;
+static expr_allocator_type a_old;
+static double expr_setup_nonnull_xmalloc(void){
+	if(expr_allocator==xmalloc_nonnull){
+		expr_allocator=a_old;
+		expr_reallocator=r_old;
+		expr_deallocator=d_old;
+		expr_allocate_max=m_old;
+		return 1.0;
+	}else {
+		a_old=expr_allocator;
+		r_old=expr_reallocator;
+		d_old=expr_deallocator;
+		m_old=expr_allocate_max;
+		expr_allocator=xmalloc_nonnull;
+		expr_reallocator=xrealloc_nonnull;
+		expr_deallocator=free;
+		expr_allocate_max=SIZE_MAX;
+		return 0.0;
+	}
+}
+static volatile double expr_allow_alloc_return_null=0.0;
 static void *warped_xmalloc(size_t size){
 	return xmalloc(size);
 }
@@ -1100,38 +1145,15 @@ static double expr_hypot(double *args,size_t n){
 	return sqrt(ret);
 }
 
-#define warpi(name,...) \
-static double expr_##name##_b(double *args,size_t n){\
-	return (double)name(__VA_ARGS__);\
-}
-#define warpp(name,...) \
-static double expr_##name##_b(double *args,size_t n){\
-	return cast(name(__VA_ARGS__),double);\
-}
-#define warpz(name,...) \
-static double expr_##name##_b(double *args,size_t n){\
-	name(__VA_ARGS__);\
-	return 0;\
-}
-#define wp(n) cast(args[n],void *)
-#define wi(n,T) ((T)args[n])
 #ifndef __unix__
 #define memrchr expr_fake_memrchr
 #define memmem expr_fake_memmem
 #endif
 #define memrmem expr_fake_memrmem
-warpi(strlen,wp(0));
-warpp(strchr,wp(0),wi(1,int));
-warpp(memchr,wp(0),wi(1,int),wi(2,size_t));
-warpz(memset,wp(0),wi(1,int),wi(2,size_t));
-warpz(memcpy,wp(0),wp(1),wi(2,size_t));
-warpi(memcmp,wp(0),wp(1),wi(2,size_t));
-warpp(memrchr,wp(0),wi(1,int),wi(2,size_t));
-warpp(memmem,wp(0),wi(1,size_t),wp(2),wi(3,size_t));
-warpp(memrmem,wp(0),wi(1,size_t),wp(2),wi(3,size_t));
 
 //#define REGSYM(s) {#s,s}
 #define REGZASYM(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.zafunc=s},.type=EXPR_ZAFUNCTION,.flag=0}
+#define REGZASYM_U(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.zafunc=s},.type=EXPR_ZAFUNCTION,.flag=EXPR_SF_UNSAFE}
 #define REGFSYM(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.func=s},.type=EXPR_FUNCTION,.flag=EXPR_SF_INJECTION}
 #define REGFSYM_U(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.func=s},.type=EXPR_FUNCTION,.flag=EXPR_SF_INJECTION|EXPR_SF_UNSAFE}
 #define REGCSYM(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.value=(double)(s)},.type=EXPR_CONSTANT}
@@ -1152,7 +1174,6 @@ warpp(memrmem,wp(0),wi(1,size_t),wp(2),wi(3,size_t));
 #define REGMDEPSYM2_U(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdepfunc=sym},.dim=d,.type=EXPR_MDEPFUNCTION,.flag=EXPR_SF_INJECTION|EXPR_SF_UNSAFE}
 #define REGMDEPSYM2_NIW(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdepfunc=sym},.dim=d,.type=EXPR_MDEPFUNCTION,.flag=EXPR_SF_WRITEIP|EXPR_SF_UNSAFE}
 #define REGCSYM2(s,val) {.strlen=sizeof(s)-1,.str=s,.un={.value=(double)(val)},.type=EXPR_CONSTANT}
-#define REGWARP(name,dim) REGMDSYM2_NIU(#name,expr_##name##_b,dim)
 const struct expr_builtin_symbol expr_symbols_default[]={
 	REGCSYM(DBL_MAX),
 	REGCSYM(DBL_MIN),
@@ -1305,18 +1326,11 @@ const struct expr_builtin_symbol expr_symbols_packages[]={
 	REGPACK(syscall),
 	REGPACK(superseed48),
 	REGPACK(string),
+	REGPACK(symset),
 	REGPACK(memory),
 	{.str=NULL}
 };
 const struct expr_builtin_symbol expr_symbols_expr[]={
-	REGCSYM_E(CONSTANT),
-	REGCSYM_E(VARIABLE),
-	REGCSYM_E(FUNCTION),
-	REGCSYM_E(MDFUNCTION),
-	REGCSYM_E(MDEPFUNCTION),
-	REGCSYM_E(HOTFUNCTION),
-	REGCSYM_E(ZAFUNCTION),
-
 	REGCSYM_E(IF_NOOPTIMIZE),
 	REGCSYM_E(IF_INSTANT_FREE),
 	REGCSYM_E(IF_INJECTION),
@@ -1327,14 +1341,6 @@ const struct expr_builtin_symbol expr_symbols_expr[]={
 	REGCSYM_E(IF_UNSAFE),
 	REGCSYM_E(IF_EXTEND_MASK),
 	REGCSYM_E(IF_SETABLE),
-
-	REGCSYM_E(SF_INJECTION),
-	REGCSYM_E(SF_WRITEIP),
-	REGCSYM_E(SF_PMD),
-	REGCSYM_E(SF_PME),
-	REGCSYM_E(SF_PFUNC),
-	REGCSYM_E(SF_UNSAFE),
-	REGCSYM_E(SF_ALLOWADDR),
 
 	REGCSYM_E(ESYMBOL),
 	REGCSYM_E(EPT),
@@ -1367,6 +1373,7 @@ const struct expr_builtin_symbol expr_symbols_expr[]={
 	REGCSYM(__SIZEOF_POINTER__),
 	{.str=NULL}
 };
+#define REGVSYM(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.addr=(double *)&(s)},.type=EXPR_CONSTANT}
 const struct expr_builtin_symbol expr_symbols_common[]={
 	REGMDEPSYM2_NIW("assert",bassert,1),
 	REGMDEPSYM2_NI("ldr",expr_ldr,2),
@@ -1385,6 +1392,7 @@ const struct expr_builtin_symbol expr_symbols_common[]={
 	REGZASYM2_U("abort",(double (*)(void))abort),
 	REGZASYM2_U("explode",(double (*)(void))expr_explode),
 	REGZASYM2_U("frame",expr_frame),
+	REGZASYM_U(expr_setup_nonnull_xmalloc),
 	REGZASYM2_U("trap",(double (*)(void))expr_trap),
 	REGZASYM2_U("ubehavior",(double (*)(void))expr_ubehavior),
 
@@ -1407,6 +1415,7 @@ const struct expr_builtin_symbol expr_symbols_common[]={
 	REGMDSYM2_U("qmode",expr_qmode,0),
 	REGMDSYM2_NIU("strtol",expr_strtol,2),
 	REGMDSYM2_NIU("strtod",expr_strtod_b,0),
+	REGVSYM(expr_allow_alloc_return_null),
 #if PHYSICAL_CONSTANT
 	REGCSYM2("c",299792458.0),
 	REGCSYM2("e0",8.8541878128e-12),
@@ -1442,18 +1451,6 @@ const struct expr_builtin_symbol expr_symbols_superseed48[]={
 	REGMDSYM2_NIU("ssdnext48",expr_ssdnext48_b,2),
 	{.str=NULL}
 };
-const struct expr_builtin_symbol expr_symbols_string[]={
-	REGWARP(strlen,1),
-	REGWARP(strchr,2),
-	REGWARP(memchr,3),
-	REGWARP(memset,3),
-	REGWARP(memcpy,3),
-	REGWARP(memcmp,3),
-	REGWARP(memrchr,3),
-	REGWARP(memmem,4),
-	REGWARP(memrmem,4),
-	{.str=NULL}
-};
 const struct expr_builtin_symbol expr_symbols_memory[]={
 	REGMEM(8),
 	REGMEM(16),
@@ -1472,5 +1469,90 @@ const struct expr_builtin_symbol expr_symbols_memory[]={
 	REGFMEM(f),
 	REGFMEM(d),
 	REGFMEM(l),
+	{.str=NULL}
+};
+#define warpi(name,...) \
+static double expr_##name##_b(double *args,size_t n){\
+	return (double)name(__VA_ARGS__);\
+}
+#define warpp(name,...) \
+static double expr_##name##_b(double *args,size_t n){\
+	return cast(name(__VA_ARGS__),double);\
+}
+#define warpz(name,...) \
+static double expr_##name##_b(double *args,size_t n){\
+	name(__VA_ARGS__);\
+	return 0;\
+}
+#define wp(n) cast(args[n],void *)
+#define wi(n,T) ((T)args[n])
+warpi(strlen,wp(0));
+warpp(strchr,wp(0),wi(1,int));
+warpz(strcpy,wp(0),wp(1));
+warpi(strcmp,wp(0),wp(1));
+warpp(memchr,wp(0),wi(1,int),wi(2,size_t));
+warpz(memset,wp(0),wi(1,int),wi(2,size_t));
+warpz(memcpy,wp(0),wp(1),wi(2,size_t));
+warpi(memcmp,wp(0),wp(1),wi(2,size_t));
+warpp(memrchr,wp(0),wi(1,int),wi(2,size_t));
+warpp(memmem,wp(0),wi(1,size_t),wp(2),wi(3,size_t));
+warpp(memrmem,wp(0),wi(1,size_t),wp(2),wi(3,size_t));
+#define rwarpp(name,...) \
+static double expr_##name##_b(double *args,size_t n){\
+	return cast(expr_##name(__VA_ARGS__),double);\
+}
+#define rwarpz(name,...) \
+static double expr_##name##_b(double *args,size_t n){\
+	return cast(expr_##name(__VA_ARGS__),double);\
+}
+#define REGWARP(name,dim) REGMDSYM2_NIU(#name,expr_##name##_b,dim)
+#define REGWARPZA(name) REGZASYM2_U(#name,(double (*)(void))expr_##name##_b)
+#define REGWARPF(name) REGFSYM2_U(#name,expr_##name##_b)
+static double expr_symset_new_b(void){
+	struct expr_symset *r=expr_symset_new();
+	return cast(r,double);
+}
+static double expr_symset_free_b(double x){
+	expr_symset_free(cast(x,void *));
+	return 0;
+}
+rwarpp(symset_add,wp(0),wp(1),wi(2,int),wi(3,int),wp(4));
+rwarpp(symset_search,wp(0),wp(1),wi(2,size_t));
+const struct expr_builtin_symbol expr_symbols_symset[]={
+	REGWARPZA(symset_new),
+	REGWARPF(symset_free),
+	REGWARP(symset_add,5),
+	REGWARP(symset_search,3),
+
+	REGCSYM_E(CONSTANT),
+	REGCSYM_E(VARIABLE),
+	REGCSYM_E(FUNCTION),
+	REGCSYM_E(MDFUNCTION),
+	REGCSYM_E(MDEPFUNCTION),
+	REGCSYM_E(HOTFUNCTION),
+	REGCSYM_E(ZAFUNCTION),
+	REGCSYM_E(ALIAS),
+
+	REGCSYM_E(SF_INJECTION),
+	REGCSYM_E(SF_WRITEIP),
+	REGCSYM_E(SF_PMD),
+	REGCSYM_E(SF_PME),
+	REGCSYM_E(SF_PFUNC),
+	REGCSYM_E(SF_UNSAFE),
+	REGCSYM_E(SF_ALLOWADDR),
+	{.str=NULL}
+};
+const struct expr_builtin_symbol expr_symbols_string[]={
+	REGWARP(strlen,1),
+	REGWARP(strchr,2),
+	REGWARP(strcpy,2),
+	REGWARP(strcmp,2),
+	REGWARP(memchr,3),
+	REGWARP(memset,3),
+	REGWARP(memcpy,3),
+	REGWARP(memcmp,3),
+	REGWARP(memrchr,3),
+	REGWARP(memmem,4),
+	REGWARP(memrmem,4),
 	{.str=NULL}
 };

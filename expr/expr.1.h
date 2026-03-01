@@ -831,6 +831,7 @@ extern size_t expr_bufsize_initial;
 	expr_symbols_syscall,\
 	expr_symbols_superseed48,\
 	expr_symbols_string,\
+	expr_symbols_symset,\
 	expr_symbols_memory,\
 	NULL
 #define expr_symbols_ess \

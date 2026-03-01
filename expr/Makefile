@@ -19,6 +19,9 @@ expr_builtin.o: expr_builtin.c expr.h
 expr-version: expr.o expr-version.c
 	$(CC) $(CFLAG) expr-version.c expr.o -o expr-version $(LFLAG)
 .PHONY:
+genh:
+	sh genexprh
+.PHONY:
 cleanall:
 	make clean
 .PHONY:

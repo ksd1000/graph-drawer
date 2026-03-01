@@ -219,7 +219,7 @@ EXPR_END
 #define EXPR_EVD 18
 #define EXPR_EPM 19
 #define EXPR_EIN 20
-#define EXPR_EBS 21
+#define EXPR_ETNP 21
 #define EXPR_EVZP 22
 #define EXPR_EANT 23
 #define EXPR_EUDE 24
@@ -241,12 +241,12 @@ EXPR_END
 #define EXPR_SF_WRITEIP 2
 //for MDEPFUNCTION,if it is called,the ->ip first-argument expression will
 //be set to current ip.
-#define EXPR_SF_PMD 4
-//for CONSTANT and VARIABLE,means the value of it is an address of a
-//multi-dimension function.
-#define EXPR_SF_PME 8
-//for CONSTANT and VARIABLE,means the value of it is an address of a
-//multi-dimension function with expression argument.
+#define EXPR_SF_PACKAGE 4
+//for VARIABLE,means the value of it is an address of a
+//multi-dimension function.for ALIAS it means the target is a package.
+#define EXPR_SF_NONBUILTIN 8
+//for VARIABLE,means the value of it is an address of a
+//multi-dimension function with expression argument.for ALIAS with SF_PACKAGE it means the target is a non-builtin package.
 #define EXPR_SF_UNSAFE 16
 //a non-hot function has the flag means it may allow user to read/write
 //the memory freely or make a system call.they are disabled in protected
@@ -255,6 +255,8 @@ EXPR_END
 //only for a unsafe function,it means it is able and only able to accept
 //a address of a VARIABLE as its argument in protected mode.
 
+#define EXPR_SF_PMD EXPR_SF_PACKAGE
+#define EXPR_SF_PME EXPR_SF_NONBUILTIN
 #define EXPR_SF_PFUNC 12
 #define EXPR_SF_PMASK (~12)
 //expr initial flag
@@ -705,6 +707,8 @@ union expr_symvalue {
 	double (*zafunc)(void);
 	double (*mdfunc)(double *,size_t);
 	double (*mdepfunc)(const struct expr *,size_t,double);
+	const struct expr_builtin_symbol *bsyms;
+	const struct expr_symset *sset;
 };
 _Static_assert(EXPR_SYMLEN<=64,"EXPR_SYMLEN is more than 6 bits");
 #define EXPR_SYMBOL_DEPTHM1_WIDTH 54
@@ -828,6 +832,10 @@ extern size_t expr_bufsize_initial;
 	expr_symbols_superseed48,\
 	expr_symbols_string,\
 	expr_symbols_memory,\
+	NULL
+#define expr_symbols_ess \
+	expr_symbols_default,\
+	expr_symbols_packages,\
 	NULL
 
 #define expr_internal_regvarr(_name) register intptr_t expr_combine(__r_,_name) __asm__(#_name)
@@ -1101,6 +1109,7 @@ double expr_exp_old(double x);
 double expr_multilevel_derivate(const struct expr *ep,double input,long level,double epsilon);
 //global externs of expr_builtin.c :
 extern const struct expr_builtin_symbol expr_symbols_default[];
+extern const struct expr_builtin_symbol expr_symbols_packages[];
 extern const struct expr_builtin_symbol expr_symbols_expr[];
 extern const struct expr_builtin_symbol expr_symbols_common[];
 extern const struct expr_builtin_symbol expr_symbols_syscall[];

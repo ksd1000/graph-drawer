@@ -361,7 +361,7 @@ static const char *eerror[]={
 	[EXPR_EVD]="Void value must be dropped",
 	[EXPR_EPM]="In protected mode",
 	[EXPR_EIN]="Injective function only",
-	[EXPR_EBS]="Cannot remove a builtin symbol",
+	[EXPR_ETNP]="Target is not a package",
 	[EXPR_EVZP]="Variable-length multi-demension function without a maximal length is not allowed in protected mode",
 	[EXPR_EANT]="Alias is not terminated",
 	[EXPR_EUDE]="User-defined error",
@@ -743,9 +743,11 @@ const struct expr_builtin_keyword expr_keywords[]={
 	REGKEYS("try",EXPR_NEG,1,"try([new_symbol]){body}"),
 	REGKEYC("alias",EXPR_NOT,2,"alias(alias_name,target)"),
 	REGKEYCN("return",EXPR_RET,2,"return(ep,val)"),
-	REGKEY("error",EXPR_TSTL,2,"error(const string)"),
+	REGKEY("error",EXPR_TSTL,1,"error(const string)"),
 	REGKEYCN("svcp",EXPR_SVCP,3,"svc(sys_num,arg[],constant_expression n)"),
 	REGKEYCN("svc",EXPR_SVC,EXPR_SYSAM+1,"svcn(sys_num,...)"),
+	REGKEY("import",EXPR_NEX0,1,"import(package)"),
+	REGKEY("include",EXPR_DIF0,1,"include(package)"),
 	{NULL}
 };
 const struct expr_builtin_symbol *expr_builtin_symbol_search(const struct expr_builtin_symbol *syms,const char *sym,size_t sz){
@@ -767,7 +769,10 @@ const struct expr_builtin_symbol *expr_builtin_symbol_rsearch(const struct expr_
 struct expr_symbol *expr_builtin_symbol_add(struct expr_symset *restrict esp,const struct expr_builtin_symbol *p){
 	switch(p->type){
 		case EXPR_CONSTANT:
-			return expr_symset_addl(esp,p->str,p->strlen,EXPR_CONSTANT,p->flag,p->un.value);
+			if(p->flag&EXPR_SF_PACKAGE)
+				return expr_symset_addl(esp,p->str,p->strlen,EXPR_CONSTANT,p->flag,p->un.uaddr);
+			else
+				return expr_symset_addl(esp,p->str,p->strlen,EXPR_CONSTANT,p->flag,p->un.value);
 		case EXPR_VARIABLE:
 			return expr_symset_addl(esp,p->str,p->strlen,EXPR_VARIABLE,p->flag,p->un.addr);
 		case EXPR_FUNCTION:
@@ -779,9 +784,9 @@ struct expr_symbol *expr_builtin_symbol_add(struct expr_symset *restrict esp,con
 		case EXPR_ZAFUNCTION:
 			return expr_symset_addl(esp,p->str,p->strlen,EXPR_ZAFUNCTION,p->flag,p->un.zafunc);
 		case EXPR_HOTFUNCTION:
-			return expr_symset_addl(esp,p->str,p->strlen,EXPR_HOTFUNCTION,0,p->un.hot);
+			return expr_symset_addl(esp,p->str,p->strlen,EXPR_HOTFUNCTION,p->flag,p->un.hot);
 		case EXPR_ALIAS:
-			return expr_symset_addl(esp,p->str,p->strlen,EXPR_ALIAS,0,p->un.hot);
+			return expr_symset_addl(esp,p->str,p->strlen,EXPR_ALIAS,p->flag,p->un.hot);
 		default:
 			__builtin_unreachable();
 	}
@@ -824,7 +829,7 @@ ssize_t expr_builtin_symbol_xaddalls(struct expr_symset *restrict esp,const stru
 err:
 	*symsp=syms;
 	va_end(ap);
-	return -r;
+	return -r-1;
 }
 ssize_t expr_builtin_symbol_xaddall(struct expr_symset *restrict esp,const struct expr_builtin_symbol **symsp,const struct expr_builtin_symbol *syms){
 	return expr_builtin_symbol_xaddalls(esp,symsp,syms,NULL);
@@ -2099,11 +2104,11 @@ static const struct expr_symbol *alias_target(struct expr *restrict ep,const str
 	size_t len,len0;
 	const char *p,*p0;
 	const struct expr_symbol *prev;
+	p0=alias->str;
+	len0=alias->strlen;
 	if(alias->type!=EXPR_ALIAS){
 		return alias;
 	}
-	p0=alias->str;
-	len0=alias->strlen;
 	for(size_t n=ep->sset->size-1;;--n){
 		p=expr_symbol_hot(alias);
 		len=HOTLEN(alias);
@@ -2121,7 +2126,7 @@ static const struct expr_symbol *alias_target(struct expr *restrict ep,const str
 					return prev;
 			}
 		}
-		if(likely(alias->type!=EXPR_ALIAS)){
+		if(alias->type!=EXPR_ALIAS){
 			return alias;
 		}
 		if(unlikely(!n)){
@@ -2203,6 +2208,46 @@ esymbol:
 	}
 	return NULL;
 }
+static int expr_import(struct expr *restrict ep,const char *symbol,size_t symlen,int ignore){
+	const struct expr_symbol *p=expr_symset_search(ep->sset,symbol,symlen);
+	if(unlikely(!p)){
+		seterr(ep,EXPR_ESYMBOL);
+err:
+		serrinfo(ep->errinfo,symbol,symlen);
+		return -1;
+	}
+	if(unlikely(p->type!=EXPR_CONSTANT||!(p->flag&EXPR_SF_PACKAGE))){
+		seterr(ep,EXPR_ETNP);
+		goto err;
+	}
+	cknp(ep,expr_detach(ep)>=0,goto err);
+	if(p->flag&EXPR_SF_NONBUILTIN){
+		const struct expr_symset *esp=expr_symbol_un(p)->sset;
+		STACK_DEFAULT(stack,esp);
+		debug("import %p",esp);
+		expr_symset_foreach(sp,esp,stack){
+			if(unlikely(!expr_symset_addcopy(ep->sset,sp)&&!ignore)){
+				if(expr_symset_search(ep->sset,sp->str,sp->strlen))
+					seterr(ep,EXPR_EDS);
+				else
+					seterr(ep,EXPR_EMEM);
+				goto err;
+			}
+		}
+	}else {
+		const struct expr_builtin_symbol *bs;
+		bs=expr_symbol_un(p)->bsyms;
+		debug("import %s",bs->str);
+		if(unlikely(expr_builtin_symbol_xaddall(ep->sset,&bs,bs)<0&&!ignore)){
+			if(expr_symset_search(ep->sset,bs->str,bs->strlen))
+				seterr(ep,EXPR_EDS);
+			else
+				seterr(ep,EXPR_EMEM);
+			goto err;
+		}
+	}
+	return 0;
+}
 static double *getvalue(struct expr *restrict ep,const char *e,const char *endp,const char **_p,const char *asym,size_t asymlen){
 	const char *p,*p2,*p4,*e0=e;
 	double *v0=NULL,*v1;
@@ -2219,6 +2264,7 @@ static double *getvalue(struct expr *restrict ep,const char *e,const char *endp,
 		struct expr_vmdinfo *ev;
 		char **vv1;
 		const char *ccp;
+		char *cp;
 		struct expr_symset *esp;
 		struct expr_symbol *ebp;
 		size_t sz;
@@ -2987,6 +3033,42 @@ flpm:
 				}
 				seterr(ep,EXPR_EUDE);
 				return NULL;
+			case EXPR_NEX0:
+				if(p<=e+1){
+					seterr(ep,EXPR_ENEA);
+					serrinfoc(ep->errinfo,"import");
+					return NULL;
+				}
+				/*if(e[1]!='\"'||findpair_dmark(e+1,endp)!=p-1){
+				}else {
+					un.cp=expr_astrscan(e+2,p-e-3,&sv.i);
+					cknp(ep,un.cp,return NULL);
+					r0=expr_import(ep,un.cp,sv.i);
+					xfree(un.cp);
+				}*/
+				if(unlikely(expr_import(ep,e+1,p-e-1,0)<0))
+					return NULL;
+				v0=EXPR_VOID;
+				e=p+1;
+				goto vend;
+			case EXPR_DIF0:
+				if(p<=e+1){
+					seterr(ep,EXPR_ENEA);
+					serrinfoc(ep->errinfo,"include");
+					return NULL;
+				}
+				/*if(e[1]!='\"'||findpair_dmark(e+1,endp)!=p-1){
+				}else {
+					un.cp=expr_astrscan(e+2,p-e-3,&sv.i);
+					cknp(ep,un.cp,return NULL);
+					r0=expr_import(ep,un.cp,sv.i);
+					xfree(un.cp);
+				}*/
+				if(unlikely(expr_import(ep,e+1,p-e-1,1)<0))
+					return NULL;
+				v0=EXPR_VOID;
+				e=p+1;
+				goto vend;
 			case EXPR_ALO:
 				sym.vv=expr_sep(ep,e,p-e+1);
 				if(unlikely(!sym.vv))
@@ -3420,15 +3502,22 @@ fok:
 			e=p+1;
 			goto vend;
 		case EXPR_CONSTANT:
+#if UNABLE_GETADDR_IN_PROTECTED_MODE
+			if(unlikely((flag&EXPR_SF_PACKAGE)&&(ep->iflag&EXPR_IF_PROTECT))){
+				seterr(ep,EXPR_EPM);
+				serrinfo(ep->errinfo,e,p-e);
+				return NULL;
+			}
+#endif
 			v0=expr_newvar(ep);
 			cknp(ep,v0,return NULL);
 			cknp(ep,expr_addconst(ep,v0,expr_symbol_un(sym.es)->value),return NULL);
-			goto treat_as_variable;
+			e=p;
+			goto vend;
 		case EXPR_VARIABLE:
 			v0=expr_newvar(ep);
 			cknp(ep,v0,return NULL);
 			cknp(ep,expr_addcopy(ep,v0,expr_symbol_un(sym.es)->addr),return NULL);
-treat_as_variable:
 			p2=e;
 			e=p;
 			if(e<endp&&*e=='('){
@@ -4603,7 +4692,10 @@ struct expr_symbol *expr_symbol_vcreatel(const char *sym,size_t symlen,int type,
 	ep->strlen=symlen;
 	switch(type){
 		case EXPR_CONSTANT:
-			expr_symbol_un(ep)->value=va_arg(ap,double);
+			if(flag&EXPR_SF_PACKAGE)
+				expr_symbol_un(ep)->uaddr=va_arg(ap,void *);
+			else
+				expr_symbol_un(ep)->value=va_arg(ap,double);
 			break;
 		case EXPR_VARIABLE:
 			expr_symbol_un(ep)->addr=va_arg(ap,double *);

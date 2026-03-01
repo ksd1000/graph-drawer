@@ -1297,6 +1297,17 @@ const struct expr_builtin_symbol expr_symbols_default[]={
 	REGMDEPSYM2("rooti",expr_rooti,0),
 	{.str=NULL}
 };
+#define REGPACK(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.bsyms=expr_symbols_##s},.type=EXPR_CONSTANT,.flag=EXPR_SF_PACKAGE}
+const struct expr_builtin_symbol expr_symbols_packages[]={
+	REGPACK(default),
+	REGPACK(expr),
+	REGPACK(common),
+	REGPACK(syscall),
+	REGPACK(superseed48),
+	REGPACK(string),
+	REGPACK(memory),
+	{.str=NULL}
+};
 const struct expr_builtin_symbol expr_symbols_expr[]={
 	REGCSYM_E(CONSTANT),
 	REGCSYM_E(VARIABLE),
@@ -1345,7 +1356,7 @@ const struct expr_builtin_symbol expr_symbols_expr[]={
 	REGCSYM_E(EVD),
 	REGCSYM_E(EPM),
 	REGCSYM_E(EIN),
-	REGCSYM_E(EBS),
+	REGCSYM_E(ETNP),
 	REGCSYM_E(EVZP),
 	REGCSYM_E(EANT),
 	REGCSYM_E(EUDE),

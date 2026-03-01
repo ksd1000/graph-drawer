@@ -64,12 +64,12 @@ void lfree(void *p){
 	++freed;
 	expr_mutex_unlock(mutex);
 }
-static void __attribute__((constructor)) lstart(void){
+static void __attribute__((constructor(0))) lstart(void){
 	expr_allocator=lmalloc;
 	expr_reallocator=lrealloc;
 	expr_deallocator=lfree;
 }
-static void __attribute__((destructor)) lend(void){
+static void __attribute__((destructor(0))) lend(void){
 	expr_mutex_lock(mutex);
 	if(freed!=allocated){
 		warnx("DETECTED MEMORY LEAK IN %zd OBJECTS",allocated-freed);

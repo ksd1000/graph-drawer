@@ -612,6 +612,12 @@ struct expr_buffered_file {
 	void *buf;
 	size_t index,length,dynamic,written;
 };
+#define expr_buffered_drop(fp) ((fp)->index=0)
+#define expr_buffered_rdrop(fp) ({\
+	struct expr_buffered_file *__fp=(fp);\
+	__fp->index=0;\
+	__fp->written=0;\
+})
 struct expr;
 struct expr_symset;
 struct expr_suminfo {

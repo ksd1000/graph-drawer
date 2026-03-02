@@ -612,6 +612,12 @@ struct expr_buffered_file {
 	void *buf;
 	size_t index,length,dynamic,written;
 };
+#define expr_buffered_drop(fp) ((fp)->index=0)
+#define expr_buffered_rdrop(fp) ({\
+	struct expr_buffered_file *__fp=(fp);\
+	__fp->index=0;\
+	__fp->written=0;\
+})
 struct expr;
 struct expr_symset;
 struct expr_suminfo {
@@ -1093,8 +1099,6 @@ ssize_t expr_buffered_read(struct expr_buffered_file *restrict fp,void *buf,size
 ssize_t expr_buffered_write_flushatc(struct expr_buffered_file *restrict fp,const void *buf,size_t size,int c);
 ssize_t expr_buffered_write_flushat(struct expr_buffered_file *restrict fp,const void *buf,size_t size,void *c,size_t c_size);
 ssize_t expr_buffered_flush(struct expr_buffered_file *restrict fp);
-ssize_t expr_buffered_drop(struct expr_buffered_file *restrict fp);
-ssize_t expr_buffered_rdrop(struct expr_buffered_file *restrict fp);
 ssize_t expr_buffered_rdropall(struct expr_buffered_file *restrict fp);
 ssize_t expr_buffered_close(struct expr_buffered_file *restrict fp);
 void expr_buffered_rclose(struct expr_buffered_file *restrict fp);

@@ -1103,6 +1103,7 @@ struct expr {
 	char errinfo[EXPR_SYMLEN];
 	char extra_data[];
 };
+typedef struct expr expr_t[1];
 //global functions of expr_format.c :
 ssize_t expr_writec(expr_writer writer,intptr_t fd,size_t count,int c);
 ssize_t expr_converter_common(expr_writer writer,intptr_t fd,const void *buf,size_t size,const struct expr_writeflag *flag);

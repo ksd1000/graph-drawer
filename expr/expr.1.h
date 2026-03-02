@@ -1103,3 +1103,4 @@ struct expr {
 	char errinfo[EXPR_SYMLEN];
 	char extra_data[];
 };
+typedef struct expr expr_t[1];

@@ -332,6 +332,7 @@ ssize_t expr_buffered_readline(struct expr_buffered_file *restrict fp,int c,void
 				return PTRDIFF_MIN;
 			}
 			fp->buf=p;
+			++fp->length;
 		}
 		*(char *)(fp->buf+in)=0;
 		fp->written=in;

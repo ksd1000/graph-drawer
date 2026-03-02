@@ -608,10 +608,35 @@ struct expr_buffered_file {
 	union {
 		expr_reader reader;
 		expr_writer writer;
+		const void *uaddr;
 	} un;
 	void *buf;
 	size_t index,length,dynamic,written;
 };
+typedef intptr_t (*expr_buffered_test)(const void *buf,intptr_t arg,size_t size);
+#define expr_buffered_init_internal(fp,_fd,_wrer,_buf,_len,_field) \
+	struct expr_buffered_file *__fp=(fp);\
+	__fp->fd=(_fd);\
+	__fp->un._field=(_wrer);\
+	__fp->buf=(_buf);\
+	if(__fp->buf){\
+		__fp->length=(_len);\
+		__fp->dynamic=0;\
+	}else {\
+		__fp->length=0;\
+		__fp->dynamic=(_len);\
+	}\
+	__fp->index=0
+
+#define expr_buffered_init(fp,_fd,_writer,_buf,_len) ({\
+	expr_buffered_init_internal(fp,_fd,_writer,_buf,_len,writer);\
+})
+
+#define expr_buffered_rinit(fp,_fd,_reader,_buf,_len) ({\
+	expr_buffered_init_internal(fp,_fd,_reader,_buf,_len,reader);\
+	__fp->written=0;\
+})
+
 #define expr_buffered_drop(fp) ((fp)->index=0)
 #define expr_buffered_rdrop(fp) ({\
 	struct expr_buffered_file *__fp=(fp);\

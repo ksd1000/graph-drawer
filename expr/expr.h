@@ -608,10 +608,35 @@ struct expr_buffered_file {
 	union {
 		expr_reader reader;
 		expr_writer writer;
+		const void *uaddr;
 	} un;
 	void *buf;
 	size_t index,length,dynamic,written;
 };
+typedef intptr_t (*expr_buffered_test)(const void *buf,intptr_t arg,size_t size);
+#define expr_buffered_init_internal(fp,_fd,_wrer,_buf,_len,_field) \
+	struct expr_buffered_file *__fp=(fp);\
+	__fp->fd=(_fd);\
+	__fp->un._field=(_wrer);\
+	__fp->buf=(_buf);\
+	if(__fp->buf){\
+		__fp->length=(_len);\
+		__fp->dynamic=0;\
+	}else {\
+		__fp->length=0;\
+		__fp->dynamic=(_len);\
+	}\
+	__fp->index=0
+
+#define expr_buffered_init(fp,_fd,_writer,_buf,_len) ({\
+	expr_buffered_init_internal(fp,_fd,_writer,_buf,_len,writer);\
+})
+
+#define expr_buffered_rinit(fp,_fd,_reader,_buf,_len) ({\
+	expr_buffered_init_internal(fp,_fd,_reader,_buf,_len,reader);\
+	__fp->written=0;\
+})
+
 #define expr_buffered_drop(fp) ((fp)->index=0)
 #define expr_buffered_rdrop(fp) ({\
 	struct expr_buffered_file *__fp=(fp);\
@@ -1096,12 +1121,14 @@ extern const uint8_t expr_writefmts_table_default[256];
 //global functions of expr_buffered.c :
 ssize_t expr_buffered_write(struct expr_buffered_file *restrict fp,const void *buf,size_t size);
 ssize_t expr_buffered_read(struct expr_buffered_file *restrict fp,void *buf,size_t size);
+ssize_t expr_buffered_read5(struct expr_buffered_file *restrict fp,void *buf,size_t size,expr_buffered_test test,intptr_t arg);
 ssize_t expr_buffered_write_flushatc(struct expr_buffered_file *restrict fp,const void *buf,size_t size,int c);
 ssize_t expr_buffered_write_flushat(struct expr_buffered_file *restrict fp,const void *buf,size_t size,void *c,size_t c_size);
 ssize_t expr_buffered_flush(struct expr_buffered_file *restrict fp);
 ssize_t expr_buffered_rdropall(struct expr_buffered_file *restrict fp);
 ssize_t expr_buffered_close(struct expr_buffered_file *restrict fp);
 void expr_buffered_rclose(struct expr_buffered_file *restrict fp);
+ssize_t expr_buffered_readline(struct expr_buffered_file *restrict fp,int c,void *savep);
 ssize_t expr_file_readfd(expr_reader reader,intptr_t fd,size_t tail,void *savep);
 //global externs of expr_buffered.c :
 //global functions of expr_builtin.c :

@@ -1484,7 +1484,7 @@ current_get:
 			argnext1;
 			break;
 		case EXPR_FMTC_FLUSH:
-			v=writer(fd,"",0);
+			v=writer(fd,NULL,flag->sharp?SIZE_MAX:0);
 			if(unlikely(v<0))
 				return v;
 			ret+=v;

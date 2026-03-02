@@ -24,10 +24,13 @@ expr_globals;
 ssize_t expr_buffered_write(struct expr_buffered_file *restrict fp,const void *buf,size_t size){
 	size_t i,c;
 	ssize_t r,ret=0;
-	if(unlikely(size>SSIZE_MAX))
-		reterr(PTRDIFF_MIN);
 	if(unlikely(!size)){
 		return expr_buffered_flush(fp);
+	}
+	if(unlikely(size>SSIZE_MAX)){
+		i=fp->index;
+		expr_buffered_drop(fp);
+		return i;
 	}
 	c=fp->length-fp->index;
 	if(unlikely(!c&&fp->length)){
@@ -92,8 +95,15 @@ err:
 ssize_t expr_buffered_read(struct expr_buffered_file *restrict fp,void *buf,size_t size){
 	size_t i;
 	ssize_t r;
-	if(unlikely(size>SSIZE_MAX))
-		reterr(PTRDIFF_MIN);
+	if(unlikely(size>SSIZE_MAX)){
+		if(size==SIZE_MAX){
+			i=fp->index-fp->written;
+			expr_buffered_rdrop(fp);
+			return i;
+		}else {
+			return expr_buffered_rdropall(fp);
+		}
+	}
 	while(fp->length<fp->dynamic){
 		void *p;
 		i=align(fp->length+bufsize_initial+EXTEND_FRAC(fp->length));
@@ -162,29 +172,23 @@ err:
 #define memrchr expr_fake_memrchr
 #endif
 #define memrmem expr_fake_memrmem
+
+#define flushat_common(rcfetch,rcinc) \
+	ssize_t r,ret;\
+	uintptr_t rc=(uintptr_t)(rcfetch);\
+	if(!rc)\
+		return expr_buffered_write(fp,buf,size);\
+	rcinc;\
+	ret=0;\
+	rcheckadd(expr_buffered_write(fp,buf,rc-(uintptr_t)buf));\
+	rcheckadd(expr_buffered_flush(fp));\
+	rcheckadd(expr_buffered_write(fp,(const void *)rc,(uintptr_t)buf+size-rc));\
+	return ret
 ssize_t expr_buffered_write_flushatc(struct expr_buffered_file *restrict fp,const void *buf,size_t size,int c){
-	uintptr_t rc=(uintptr_t)memrchr(buf,size,c);
-	ssize_t r,ret;
-	if(!rc)
-		return expr_buffered_write(fp,buf,size);
-	++rc;
-	ret=0;
-	rcheckadd(expr_buffered_write(fp,buf,rc-(uintptr_t)buf));
-	rcheckadd(expr_buffered_flush(fp));
-	rcheckadd(expr_buffered_write(fp,(const void *)rc,(uintptr_t)buf+size-rc));
-	return ret;
+	flushat_common(memrchr(buf,size,c),++rc);
 }
 ssize_t expr_buffered_write_flushat(struct expr_buffered_file *restrict fp,const void *buf,size_t size,void *c,size_t c_size){
-	uintptr_t rc=(uintptr_t)memrmem(buf,size,c,c_size);
-	ssize_t r,ret;
-	if(!rc)
-		return expr_buffered_write(fp,buf,size);
-	rc+=c_size;
-	ret=0;
-	rcheckadd(expr_buffered_write(fp,buf,rc-(uintptr_t)buf));
-	rcheckadd(expr_buffered_flush(fp));
-	rcheckadd(expr_buffered_write(fp,(const void *)rc,(uintptr_t)buf+size-rc));
-	return ret;
+	flushat_common(memrmem(buf,size,c,c_size),rc+=c_size);
 }
 #undef rcheckadd
 ssize_t expr_buffered_flush(struct expr_buffered_file *restrict fp){
@@ -195,21 +199,6 @@ ssize_t expr_buffered_flush(struct expr_buffered_file *restrict fp){
 	}else
 		r=0;
 	debug("%zd bytes written",r);
-	return r;
-}
-ssize_t expr_buffered_drop(struct expr_buffered_file *restrict fp){
-	ssize_t r;
-	r=fp->index;
-	debug("%zd - %zd bytes dropped",r,fp->written);
-	fp->index=0;
-	return r;
-}
-ssize_t expr_buffered_rdrop(struct expr_buffered_file *restrict fp){
-	ssize_t r;
-	r=fp->index;
-	debug("%zd - %zd bytes dropped",r,fp->written);
-	fp->index=0;
-	fp->written=0;
 	return r;
 }
 ssize_t expr_buffered_rdropall(struct expr_buffered_file *restrict fp){

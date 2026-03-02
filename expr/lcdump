@@ -5,9 +5,11 @@ echo typedef expr_argffetch = void *\;
 echo typedef expr_allocator_type = void *\;
 echo typedef expr_reallocator_type = void *\;
 echo typedef expr_deallocator_type = void *\;
+echo typedef expr_buffered_test = void *\;
 echo typedef expr_symbol_type = 'enum(EXPR_CONSTANT=0,EXPR_VARIABLE=1,EXPR_FUMCTION=2,EXPR_MDFUNCTION=3,EXPR_MDEPFUNCTION=4,EXPR_ZAFUNCTION=5,EXPR_HOTFUNCTION=6,EXPR_ALIAS=7)'\;
 echo typedef expr_symbol_type_short = 'enum[short](EXPR_CONSTANT=0,EXPR_VARIABLE=1,EXPR_FUMCTION=2,EXPR_MDFUNCTION=3,EXPR_MDEPFUNCTION=4,EXPR_ZAFUNCTION=5,EXPR_HOTFUNCTION=6,EXPR_ALIAS=7)'\;
 echo typedef struct_expr_builtin_symbol = 'struct(void *,string,ushort,expr_symbol_type_short,short,short)'\;
+echo typedef struct_expr_buffered_file = 'struct(long,void *,void *,ulong,ulong,ulong,ulong)'\;
 sed 's/__attribute__((.*)) //g' |
 	sed 's/expr_static_assert/_/g' |
 	grep '^[a-z].* [^(]*(.*);' |
@@ -26,6 +28,7 @@ sed 's/__attribute__((.*)) //g' |
 	sed 's/ptrdiff_t/long/g' |
 	sed 's/char errinfo\[.*\]/string/g' |
 	sed 's/struct expr_builtin_symbol/struct_expr_builtin_symbol/g' |
+	sed 's/struct expr_buffered_file/struct_expr_buffered_file/g' |
 	sed 's/int type,int flag/expr_symbol_type,int/g' |
 	sed 's/struct [^,(]*\*/void \*/g' |
 	sed 's/union [^,(]*\*/void \*/g' |

@@ -1316,13 +1316,10 @@ static double *expr_createvar(struct expr *restrict ep,const char *symbol,size_t
 	cknp(ep,expr_detach(ep)>=0,return NULL);
 	return expr_symset_addl(ep->sset,symbol,symlen,EXPR_VARIABLE,0,r)?r:NULL;
 }
-static int expr_createhot(struct expr *restrict ep,const char *symbol,size_t symlen,const char *hotexpr,size_t hotlen,int flag){
-	if(unlikely(!symlen)){
-		seterr(ep,EXPR_EEV);
-		return -1;
-	}
+static int expr_createhot(struct expr *restrict ep,const char *symbol,size_t symlen,const char *hotexpr,size_t hotlen,int type,int flag){
 	cknp(ep,expr_detach(ep)>=0,return -1);
-	return expr_symset_addl(ep->sset,symbol,symlen,EXPR_HOTFUNCTION,flag|EXPR_SF_INJECTION,hotexpr,hotlen)?
+	debug("%zu --- %s",hotlen,hotexpr);
+	return expr_symset_addl(ep->sset,symbol,symlen,type,flag|EXPR_SF_INJECTION,hotexpr,hotlen)?
 	0:-1;
 }
 static inline const char *findpair(const char *c,const char *endp){
@@ -2691,7 +2688,7 @@ alias_found_decl:
 					serrinfo(ep->errinfo,sym.vv[0],dim);
 					goto c_fail;
 				}
-				r0=expr_createhot(ep,sym.vv[0],dim,sym.vv[1],strlen(sym.vv[1]),0);
+				r0=expr_createhot(ep,sym.vv[0],dim,sym.vv[1],strlen(sym.vv[1]),EXPR_HOTFUNCTION,0);
 				expr_free2(sym.vv);
 				cknp(ep,!r0,return NULL);
 				v0=EXPR_VOID;
@@ -3668,6 +3665,15 @@ sym_notfound:
 	e=p;
 	p4=p;
 	switch(*p){
+		case '{':
+			p=findpair_brace(e,endp);
+			if(unlikely(!p))
+				goto pterr;
+			r0=expr_createhot(ep,p2,p4-1-p2,e+1,p-e-1,EXPR_ALIAS,0);
+			cknp(ep,!r0,return NULL);
+			v0=EXPR_VOID;
+			e=p+1;
+			goto vend;
 		case '(':
 			p=findpair(e,endp);
 			if(unlikely(!p))
@@ -3676,11 +3682,11 @@ sym_notfound:
 				++p;
 				goto constant;
 			}
-			if(unlikely(type)){
-				seterr(ep,EXPR_EUO);
-				*ep->errinfo=':';
-				return NULL;
-			}
+//			if(unlikely(type)){
+//				seterr(ep,EXPR_EUO);
+//				*ep->errinfo=':';
+//				return NULL;
+//			}
 			if(asym&&p-e-1==asymlen&&!memcmp(e+1,asym,asymlen)){
 				flag=EXPR_SF_WRITEIP;
 				e=p+2;
@@ -3691,7 +3697,7 @@ sym_notfound:
 				goto pterr;
 			if(!flag)
 				++p;
-			r0=expr_createhot(ep,p2,p4-1-p2,e,p-e,flag);
+			r0=expr_createhot(ep,p2,p4-1-p2,e,p-e,EXPR_HOTFUNCTION,flag);
 			cknp(ep,!r0,return NULL);
 			v0=EXPR_VOID;
 			e=p;

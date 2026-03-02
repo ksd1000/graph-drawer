@@ -17,6 +17,6 @@ add_library(graph_object OBJECT
 	texts/sbmp.c
 	texts/text.c
 )
-target_compile_options(expr_object PRIVATE -fPIC)
+target_compile_options(graph_object PRIVATE -fPIC)
 add_library(graph STATIC $<TARGET_OBJECTS:graph_object>)
 add_library(graph_shared SHARED $<TARGET_OBJECTS:graph_object>)

@@ -30,7 +30,7 @@ sed 's/__attribute__((.*)) //g' |
 	sed 's/struct [^,(]*\*/void \*/g' |
 	sed 's/union [^,(]*\*/void \*/g' |
 	sed 's/va_list ap/void \*/g' |
-	sed 's/,\.\.\.//g' |
+	sed 's/,\.\.\./,void \*/g' |
 	sed 's/ \*[^(,]*,/ \*,/g' |
 	sed 's/ \*[^(,]*)/ \*)/g' |
 	sed 's/ [^(,\*]*,/,/g' |

@@ -13,7 +13,7 @@
 expr_globals;
 #endif
 
-#define EXTEND_FRAC(x) (3*(x)/8)
+#define EXTEND_FRAC(x) (((x)/8)*3)
 
 #define fbuf ((char *)fp->buf)
 #define reterr(V) {r=(V);goto err;}
@@ -52,7 +52,7 @@ size_le_c:
 	if(fp->length<fp->dynamic){
 		void *p;
 		i=align(fp->index+size+bufsize_initial+EXTEND_FRAC(fp->length));
-		if(i>fp->dynamic)
+		if(unlikely(i>fp->dynamic||i<fp->length))
 			i=fp->dynamic;
 		p=xrealloc(fp->buf,i);
 		if(unlikely(!p)){
@@ -97,7 +97,7 @@ ssize_t expr_buffered_read(struct expr_buffered_file *restrict fp,void *buf,size
 	while(fp->length<fp->dynamic){
 		void *p;
 		i=align(fp->length+bufsize_initial+EXTEND_FRAC(fp->length));
-		if(i>fp->dynamic)
+		if(unlikely(i>fp->dynamic||i<fp->length))
 			i=fp->dynamic;
 		p=xrealloc(fp->buf,i);
 		if(unlikely(!p))

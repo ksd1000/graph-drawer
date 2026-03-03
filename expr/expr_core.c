@@ -96,8 +96,7 @@ static double expr_eval_static(const struct expr *restrict ep,double input);
 		case EXPR_XORN:\
 		case EXPR_GCDN:\
 		case EXPR_LCMN:\
-		case EXPR_FOR:\
-		case EXPR_LOOP
+		case EXPR_FOR
 #define MDCASES EXPR_MD:\
 		case EXPR_ME:\
 		case EXPR_MEP
@@ -709,7 +708,6 @@ const struct expr_builtin_keyword expr_keywords[]={
 	REGKEYSC("gcdn",EXPR_GCDN,5,"gcdn(index_name,start_index,end_index,index_step,element)"),
 	REGKEYSC("lcmn",EXPR_LCMN,5,"lcmn(index_name,start_index,end_index,index_step,element)"),
 	REGKEYSC("for",EXPR_FOR,5,"for(index_name,start_index,end_index,index_step,element)"),
-	REGKEYSC("loop",EXPR_LOOP,5,"loop(var_name,start_var,count,body,value)"),
 	REGKEYSC("vmd",EXPR_VMD,7,"vmd(index_name,start_index,end_index,index_step,element,md_symbol,[constant_expression max_dim])"),
 	REGKEYS("do",EXPR_DO,1,"do(body) do{body}"),
 	REGKEYSC("if",EXPR_IF,3,"if(cond,if_value,else_value) if(cond){body}[{else_body}]"),
@@ -748,6 +746,8 @@ const struct expr_builtin_keyword expr_keywords[]={
 	REGKEYCN("svc",EXPR_SVC,EXPR_SYSAM+1,"svcn(sys_num,...)"),
 	REGKEY("import",EXPR_NEX0,1,"import(package)"),
 	REGKEY("include",EXPR_DIF0,1,"include(package)"),
+	REGKEY("convert",EXPR_ZA,1,"convert(const string)"),
+	REGKEYS("end",EXPR_MD,1,"end(expression)"),
 	{NULL}
 };
 const struct expr_builtin_symbol *expr_builtin_symbol_search(const struct expr_builtin_symbol *syms,const char *sym,size_t sz){
@@ -1093,11 +1093,17 @@ static inline void expr_free_keepres(struct expr *restrict ep){
 		expr_symset_free(ep->sset);
 	}
 }
-void expr_free(struct expr *restrict ep){
-	struct expr *ep0=(struct expr *)ep;
+static inline void expr_freeres(struct expr *restrict ep){
 	struct expr_resource *erp,*erp1;
-start:
-	expr_free_keepres(ep);
+	ep->un.end->val=0.0;
+	for(erp=ep->res;erp;){
+		if(erp->un.uaddr&&
+			erp->type==EXPR_HOTFUNCTION&&
+			(erp->flag&EXPR_RF_DESTRUCTOR)
+			)
+				ep->un.end->val=eval(erp->un.ep,ep->un.end->val);
+		erp=erp->next;
+	}
 	for(erp=ep->res;erp;){
 		if(erp->un.uaddr)switch(erp->type){
 			case EXPR_HOTFUNCTION:
@@ -1111,6 +1117,12 @@ start:
 		erp=erp->next;
 		xfree(erp1);
 	}
+}
+void expr_free(struct expr *restrict ep){
+	struct expr *ep0=(struct expr *)ep;
+start:
+	expr_free_keepres(ep);
+	expr_freeres(ep);
 	switch(ep->freeable){
 		case 1:
 			xfree(ep0);
@@ -1225,17 +1237,20 @@ static struct expr_resource *expr_newres(struct expr *restrict ep){
 			return NULL;
 		p->next=NULL;
 		p->type=EXPR_CONSTANT;
+		p->flag=0;
 		ep->res=p;
 		return p;
 	}
 	p=ep->tail?ep->tail:ep->res;
-	while(p->next)p=p->next;
+	while(p->next)
+		p=p->next;
 	p->next=xmalloc(sizeof(struct expr_resource));
 	if(unlikely(!p->next))
 		return NULL;
 	p=p->next;
 	p->next=NULL;
 	p->type=EXPR_CONSTANT;
+	p->flag=0;
 	ep->tail=p;
 	return p;
 }
@@ -3067,6 +3082,37 @@ flpm:
 				}*/
 				if(unlikely(expr_import(ep,e+1,p-e-1,1)<0))
 					return NULL;
+				v0=EXPR_VOID;
+				e=p+1;
+				goto vend;
+			case EXPR_ZA:
+				if(p<=e+1){
+					seterr(ep,EXPR_ENEA);
+convert_error:
+					serrinfoc(ep->errinfo,"convert");
+					return NULL;
+				}
+				if(unlikely(e[1]!='\"'||findpair_dmark(e+1,endp)!=p-1)){
+					seterr(ep,EXPR_EPT);
+					goto convert_error;
+				}
+				un.cp=expr_astrscan(e+2,p-e-3,&sv.i);
+				cknp(ep,un.cp,return NULL);
+				v0=scan(ep,un.cp,un.cp+sv.i,asym,asymlen);
+				xfree(un.cp);
+				if(unlikely(!v0))
+					return NULL;
+				e=p+1;
+				goto vend;
+			case EXPR_MD:
+				un.ep=expr_new8p(e+1,p-e-1,asym,asymlen,ep->sset,ep->iflag,&ep->error,ep->errinfo,ep);
+				if(unlikely(!un.ep))
+					return NULL;
+				sym.er=expr_newres(ep);
+				cknp(ep,sym.er,expr_free(un.ep);return NULL);
+				sym.er->un.ep=un.ep;
+				sym.er->type=EXPR_HOTFUNCTION;
+				sym.er->flag=EXPR_RF_DESTRUCTOR;
 				v0=EXPR_VOID;
 				e=p+1;
 				goto vend;
@@ -5925,18 +5971,7 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 			CALSUM(EXPR_XORN,sum=likely(inited)?xor2(sum,y):(inited=1,y),inited=0,sum,dest);\
 			CALSUM(EXPR_GCDN,sum=likely(inited)?gcd2(sum,y):(inited=1,y),inited=0,sum,dest);\
 			CALSUM(EXPR_LCMN,sum=likely(inited)?lcm2(sum,y):(inited=1,y),inited=0,sum,dest);\
-			CALSUM(EXPR_FOR,,,sum,dest);\
-			case EXPR_LOOP:\
-				ip->un.es->index=\
-				eval(ip->un.es->fromep,input);\
-				to=eval(ip->un.es->toep,input);\
-				if(unlikely(to<0))\
-					to=-to;\
-				for(;likely(to>0.0);to-=1.0){\
-					eval(ip->un.es->stepep,input);\
-				}\
-				*dest=eval(ip->un.es->ep,input);\
-				break
+			CALSUM(EXPR_FOR,,,sum,dest)
 #define CALMD_INSWITCH(dest) case EXPR_MD:\
 				ap=ip->un.em->args;\
 				endp=ap+ip->un.em->dim;\

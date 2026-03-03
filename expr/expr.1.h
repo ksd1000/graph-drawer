@@ -603,6 +603,7 @@ struct expr_writefmt {
 	uint8_t type:2,no_arg:1,digit_check:1,setcap:1,unused:3;
 };
 typedef const union expr_argf *(*expr_argffetch)(ptrdiff_t index,const struct expr_writeflag *flag,void *addr);
+#define EXPR_BF_ZERO 1
 struct expr_buffered_file {
 	intptr_t fd;
 	union {
@@ -612,6 +613,7 @@ struct expr_buffered_file {
 	} un;
 	void *buf;
 	size_t index,length,dynamic,written;
+	size_t flag;
 };
 typedef intptr_t (*expr_buffered_test)(const void *buf,intptr_t arg,size_t size);
 #define expr_buffered_init_internal(fp,_fd,_wrer,_buf,_len,_field) \

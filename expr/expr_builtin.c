@@ -405,7 +405,7 @@ static double expr_pow_old_n(double *args,size_t n){
 	return expr_pow_old(*args,args[1]);
 }
 static double expr_strtol(double *args,size_t n){
-	return (double)strtol(cast(*args,const char *),NULL,(int)args[1]);
+	return cast(strtol(cast(*args,const char *),NULL,(int)args[1]),double);
 }
 static double expr_strtod_b(double *args,size_t n){
 	return (double)strtod(cast(*args,const char *),n>1?cast(args[1],char **):NULL);

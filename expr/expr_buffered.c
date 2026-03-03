@@ -106,6 +106,10 @@ ssize_t expr_buffered_read5(struct expr_buffered_file *restrict fp,void *buf,siz
 			return expr_buffered_rdropall(fp);
 		}
 	}
+	if(unlikely(fp->flag&EXPR_BF_ZERO)){
+		debug("end index=%zu",fp->index);
+		return 0;
+	}
 	debug("start index=%zu",fp->index);
 	while(fp->length<fp->dynamic){
 		void *p;
@@ -132,21 +136,18 @@ try_read_again:
 			}
 		}
 		if(!r){
+			fp->flag|=EXPR_BF_ZERO;
 			if(!size){
 				debug("end index=%zu",fp->index);
 				return 0;
 			}
-			break;
+			goto size_ok;
 		}else {
 			fp->index+=r;
 			if(fp->index<fp->length)
 				goto try_read_again;
 		}
 	}
-	//if(unlikely(!size)){
-	//	debug("end index=%zu",fp->index);
-	//	return 0;
-	//}
 	if(!size){
 		i=fp->length-fp->index;
 		if(i){
@@ -158,6 +159,7 @@ try_read_again:
 		debug("end index=%zu",fp->index);
 		return 0;
 	}
+size_ok:
 	i=fp->index-fp->written;
 	if(i){
 		if(i>size){
@@ -175,6 +177,10 @@ try_read_again:
 		}
 		buf+=i;
 		size-=i;
+	}
+	if(unlikely(fp->flag&EXPR_BF_ZERO)){
+		debug("end index=%zu",fp->index);
+		return 0;
 	}
 	if(unlikely(fp->length<=size)){
 		debug("end index=%zu",fp->index);
@@ -303,7 +309,16 @@ ssize_t expr_buffered_readline(struct expr_buffered_file *restrict fp,int c,void
 			*(void **)savep=p;
 			debug("return %zd",cp-p);
 			return cp-p;
-		}
+		}/*else {
+			in=fp->index;
+			fp->written=in;
+			if(unlikely(in==fp->length)){
+				leninc1;
+			}
+			*end=0;
+			*(void **)savep=p;
+			return end-p;
+		}*/
 		memmove(fp->buf,p,r);
 		fp->index-=fp->written;
 		fp->written=0;
@@ -324,15 +339,13 @@ ssize_t expr_buffered_readline(struct expr_buffered_file *restrict fp,int c,void
 			return 0;
 		}
 		if(unlikely(in==fp->length)){
-			if(fp->dynamic==in){
-				return PTRDIFF_MIN;
-			}
-			p=xrealloc(fp->buf,in+1);
-			if(unlikely(!p)){
-				return PTRDIFF_MIN;
-			}
-			fp->buf=p;
-			++fp->length;
+#define leninc1 \
+			if(unlikely(fp->dynamic==in||!(p=xrealloc(fp->buf,in+1)))){\
+				return PTRDIFF_MIN;\
+			}\
+			fp->buf=p;\
+			++fp->length
+			leninc1;
 		}
 		*(char *)(fp->buf+in)=0;
 		fp->written=in;
@@ -348,7 +361,14 @@ ssize_t expr_buffered_readline(struct expr_buffered_file *restrict fp,int c,void
 		debug("return %zd",fp->written-1);
 		return fp->written-1;
 	}
-	return PTRDIFF_MIN;
+	in=fp->index;
+	if(unlikely(in==fp->length)){
+		leninc1;
+	}
+	fp->written=in;
+	*(char *)(fp->buf+in)=0;
+	*(void **)savep=fp->buf;
+	return in;
 }
 ssize_t expr_file_readfd(expr_reader reader,intptr_t fd,size_t tail,void *savep){
 	struct expr_buffered_file vf[1];

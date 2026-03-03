@@ -20,32 +20,43 @@ expr_globals;
 	if(unlikely(r<0))\
 		return r;\
 	ret+=r
-#define bw_trywrite3(buf,size,ext) \
-	r=fp->un.writer(fp->fd,buf,size);\
+#define FLUSH(size,trunc,onerr) \
+	r=fp->un.writer(fp->fd,fp->buf,size);\
 	if(unlikely(r<0)){\
-		ext;\
-		goto err;\
+		onerr;\
+		return PTRDIFF_MIN;\
 	}\
 	if(unlikely(!r))\
 		fp->flag|=EXPR_BF_ZERO;\
-	if(unlikely(r<(size)))\
+	else\
+		fp->written+=r;\
+	if(unlikely((ssize_t)(r1=size-r)>0)){\
 		fp->flag|=EXPR_BF_TRUNC;\
-	ret+r
-#define bw_trywrite(buf,size) bw_trywrite3(buf,size,)
+		memmove(fp->buf,fp->buf+r,r1);\
+		fp->index=r1;\
+		return trunc;\
+	}else\
+		fp->index=0
 ssize_t expr_buffered_write(struct expr_buffered_file *restrict fp,const void *buf,size_t size){
 	size_t i,c;
-	ssize_t r,ret=0;
+	ssize_t r,s0,r1;
 	if(unlikely(!size)){
-		return expr_buffered_flush(fp);
+		r=expr_buffered_flush(fp);
+		if(unlikely(r<0)){
+			fp->written=0;
+			return PTRDIFF_MIN;
+		}
+		fp->written=r;
+		return 0;
 	}
+	fp->written=0;
 	if(unlikely(size>SSIZE_MAX)){
-		i=fp->index;
 		expr_buffered_drop(fp);
-		return i;
+		return 0;
 	}
 	c=fp->length-fp->index;
 	if(unlikely(!c&&fp->length)){
-		bw_trywrite(fp->buf,fp->length);
+		FLUSH(fp->length,0,);
 		fp->index=0;
 		c=fp->length;
 	}
@@ -53,12 +64,12 @@ ssize_t expr_buffered_write(struct expr_buffered_file *restrict fp,const void *b
 size_le_c:
 		memcpy(fp->buf+fp->index,buf,size);
 		if(size==c){
-			bw_trywrite(fp->buf,fp->length);
+			FLUSH(fp->length,size,);
 			fp->index=0;
-			return ret;
+			return size;
 		}else {
 			fp->index+=size;
-			return ret;
+			return size;
 		}
 	}
 	if(fp->length<fp->dynamic){
@@ -68,7 +79,8 @@ size_le_c:
 			i=fp->dynamic;
 		p=xrealloc(fp->buf,i);
 		if(unlikely(!p)){
-			reterr(PTRDIFF_MIN);
+			fp->flag|=EXPR_BF_EMEM;
+			return PTRDIFF_MIN;
 		}
 		debug("buffer_size %zu -> %zu",fp->length,i);
 		fp->buf=p;
@@ -77,24 +89,30 @@ size_le_c:
 		if(size<=c)
 			goto size_le_c;
 	}
+	s0=size;
 	memcpy(fp->buf+fp->index,buf,c);
-	bw_trywrite3(fp->buf,fp->length,fp->index=fp->length);
 	size-=c;
+	FLUSH(fp->length,s0-size,fp->index=fp->length);
 	buf+=c;
 	if(size>=fp->length){
 		fp->index=0;
-		bw_trywrite3(buf,size,fp->flag|=EXPR_BF_EMPTY);
-		debug("%zd bytes written",ret);
-		return ret;
+		r=fp->un.writer(fp->fd,buf,size);
+		if(unlikely(r<0)){
+			fp->flag|=EXPR_BF_EMPTY;
+			return PTRDIFF_MIN;
+		}
+		if(unlikely(!r))
+			fp->flag|=EXPR_BF_ZERO;
+		else {
+			size-=r;
+			fp->written+=r;
+		}
+		return s0-size;
 	}
 	fp->index=size;
 	memcpy(fp->buf,buf,size);
 	debug("%zd bytes written",ret);
-	return ret;
-err:
-	fp->written=ret;
-	debug("%zu bytes written,error code:%zd",ret,r);
-	return r;
+	return s0-size;
 }
 ssize_t expr_buffered_read(struct expr_buffered_file *restrict fp,void *buf,size_t size){
 	return expr_buffered_read5(fp,buf,size,NULL,0);
@@ -122,8 +140,10 @@ ssize_t expr_buffered_read5(struct expr_buffered_file *restrict fp,void *buf,siz
 		if(unlikely(i>fp->dynamic||i<=fp->length))
 			i=fp->dynamic;
 		p=xrealloc(fp->buf,i);
-		if(unlikely(!p))
+		if(unlikely(!p)){
+			fp->flag|=EXPR_BF_EMEM;
 			reterr(PTRDIFF_MIN);
+		}
 		fp->buf=p;
 		fp->length=i;
 try_read_again:

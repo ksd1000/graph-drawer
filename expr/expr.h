@@ -606,6 +606,7 @@ typedef const union expr_argf *(*expr_argffetch)(ptrdiff_t index,const struct ex
 #define EXPR_BF_ZERO 1
 #define EXPR_BF_TRUNC 2
 #define EXPR_BF_EMPTY 4
+#define EXPR_BF_EMEM 8
 struct expr_buffered_file {
 	intptr_t fd;
 	union {

@@ -604,6 +604,8 @@ struct expr_writefmt {
 };
 typedef const union expr_argf *(*expr_argffetch)(ptrdiff_t index,const struct expr_writeflag *flag,void *addr);
 #define EXPR_BF_ZERO 1
+#define EXPR_BF_TRUNC 2
+#define EXPR_BF_EMPTY 4
 struct expr_buffered_file {
 	intptr_t fd;
 	union {

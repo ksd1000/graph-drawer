@@ -90,10 +90,12 @@ size_le_c:
 			goto size_le_c;
 	}
 	s0=size;
-	memcpy(fp->buf+fp->index,buf,c);
-	size-=c;
-	FLUSH(fp->length,s0-size,fp->index=fp->length);
-	buf+=c;
+	if(fp->index){
+		memcpy(fp->buf+fp->index,buf,c);
+		size-=c;
+		FLUSH(fp->length,s0-size,fp->index=fp->length);
+		buf+=c;
+	}
 	if(size>=fp->length){
 		fp->index=0;
 		r=fp->un.writer(fp->fd,buf,size);
@@ -112,7 +114,7 @@ size_le_c:
 	fp->index=size;
 	memcpy(fp->buf,buf,size);
 	debug("%zd bytes written",ret);
-	return s0-size;
+	return s0;
 }
 ssize_t expr_buffered_read(struct expr_buffered_file *restrict fp,void *buf,size_t size){
 	return expr_buffered_read5(fp,buf,size,NULL,0);

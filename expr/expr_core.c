@@ -5704,9 +5704,10 @@ static double expr_zero_element(enum expr_op op){
 		case EXPR_NEXT:
 		case EXPR_OFF:
 			return 0.0;
+		case EXPR_MOD:
+			return INFINITY;
 		case EXPR_MUL:
 		case EXPR_DIV:
-		case EXPR_MOD:
 		case EXPR_POW:
 			return 1.0;
 		default:

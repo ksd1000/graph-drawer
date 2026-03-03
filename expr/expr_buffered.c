@@ -16,10 +16,6 @@ expr_globals;
 #define EXTEND_FRAC(x) (((x)/8)*3)
 
 #define reterr(V) {r=(V);goto err;}
-#define rcheckadd(V) r=(V);\
-	if(unlikely(r<0))\
-		return r;\
-	ret+=r
 #define FLUSH(size,trunc,onerr) \
 	r=fp->un.writer(fp->fd,fp->buf,size);\
 	if(unlikely(r<0)){\
@@ -43,13 +39,11 @@ ssize_t expr_buffered_write(struct expr_buffered_file *restrict fp,const void *b
 	if(unlikely(!size)){
 		r=expr_buffered_flush(fp);
 		if(unlikely(r<0)){
-			fp->written=0;
 			return PTRDIFF_MIN;
 		}
-		fp->written=r;
+		fp->written+=r;
 		return 0;
 	}
-	fp->written=0;
 	if(unlikely(size>SSIZE_MAX)){
 		expr_buffered_drop(fp);
 		return 0;
@@ -113,7 +107,7 @@ size_le_c:
 	}
 	fp->index=size;
 	memcpy(fp->buf,buf,size);
-	debug("%zd bytes written",ret);
+	debug("%zd bytes written",s0);
 	return s0;
 }
 ssize_t expr_buffered_read(struct expr_buffered_file *restrict fp,void *buf,size_t size){
@@ -241,6 +235,10 @@ err:
 #endif
 #define memrmem expr_fake_memrmem
 
+#define rcheckadd(V) r=(V);\
+	if(unlikely(r<0))\
+		return r;\
+	ret+=r
 #define flushat_common(rcfetch,rcinc) \
 	ssize_t r,ret;\
 	uintptr_t rc=(uintptr_t)(rcfetch);\
@@ -249,7 +247,8 @@ err:
 	rcinc;\
 	ret=0;\
 	rcheckadd(expr_buffered_write(fp,buf,rc-(uintptr_t)buf));\
-	rcheckadd(expr_buffered_flush(fp));\
+	if(unlikely(expr_buffered_flush(fp)<0))\
+		return r;\
 	rcheckadd(expr_buffered_write(fp,(const void *)rc,(uintptr_t)buf+size-rc));\
 	return ret
 ssize_t expr_buffered_write_flushatc(struct expr_buffered_file *restrict fp,const void *buf,size_t size,int c){

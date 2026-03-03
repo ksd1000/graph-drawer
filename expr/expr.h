@@ -152,7 +152,6 @@ EXPR_ORN,
 EXPR_XORN,
 EXPR_GCDN,
 EXPR_LCMN,
-EXPR_LOOP,
 EXPR_FOR,
 EXPR_ZA,
 EXPR_MD,
@@ -631,7 +630,8 @@ typedef intptr_t (*expr_buffered_test)(const void *buf,intptr_t arg,size_t size)
 		__fp->length=0;\
 		__fp->dynamic=(_len);\
 	}\
-	__fp->index=0
+	__fp->index=0;\
+	__fp->written=0
 
 #define expr_buffered_init(fp,_fd,_writer,_buf,_len) ({\
 	expr_buffered_init_internal(fp,_fd,_writer,_buf,_len,writer);\
@@ -639,7 +639,6 @@ typedef intptr_t (*expr_buffered_test)(const void *buf,intptr_t arg,size_t size)
 
 #define expr_buffered_rinit(fp,_fd,_reader,_buf,_len) ({\
 	expr_buffered_init_internal(fp,_fd,_reader,_buf,_len,reader);\
-	__fp->written=0;\
 })
 
 #define expr_buffered_drop(fp) ((fp)->index=0)
@@ -819,6 +818,7 @@ struct expr_symset_infile {
 	uint32_t maxlen;
 	char data[];
 }__attribute__((packed));
+#define EXPR_RF_DESTRUCTOR 1
 struct expr_resource {
 	struct expr_resource *next;
 	union {
@@ -827,7 +827,7 @@ struct expr_resource {
 		char *str;
 		struct expr *ep;
 	} un;
-	int type,unused;
+	int type,flag;
 };
 
 union expr_double {

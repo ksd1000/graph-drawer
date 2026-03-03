@@ -1535,11 +1535,13 @@ const struct expr_builtin_symbol expr_symbols_symset[]={
 
 	REGCSYM_E(SF_INJECTION),
 	REGCSYM_E(SF_WRITEIP),
-	REGCSYM_E(SF_PMD),
-	REGCSYM_E(SF_PME),
+	REGCSYM_E(SF_PACKAGE),
+	REGCSYM_E(SF_NONBUILTIN),
 	REGCSYM_E(SF_PFUNC),
 	REGCSYM_E(SF_UNSAFE),
 	REGCSYM_E(SF_ALLOWADDR),
+	REGCSYM_E(SF_PMD),
+	REGCSYM_E(SF_PME),
 	{.str=NULL}
 };
 const struct expr_builtin_symbol expr_symbols_string[]={

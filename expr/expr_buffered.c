@@ -20,6 +20,18 @@ expr_globals;
 	if(unlikely(r<0))\
 		return r;\
 	ret+=r
+#define bw_trywrite3(buf,size,ext) \
+	r=fp->un.writer(fp->fd,buf,size);\
+	if(unlikely(r<0)){\
+		ext;\
+		goto err;\
+	}\
+	if(unlikely(!r))\
+		fp->flag|=EXPR_BF_ZERO;\
+	if(unlikely(r<(size)))\
+		fp->flag|=EXPR_BF_TRUNC;\
+	ret+r
+#define bw_trywrite(buf,size) bw_trywrite3(buf,size,)
 ssize_t expr_buffered_write(struct expr_buffered_file *restrict fp,const void *buf,size_t size){
 	size_t i,c;
 	ssize_t r,ret=0;
@@ -33,7 +45,7 @@ ssize_t expr_buffered_write(struct expr_buffered_file *restrict fp,const void *b
 	}
 	c=fp->length-fp->index;
 	if(unlikely(!c&&fp->length)){
-		rcheckadd(fp->un.writer(fp->fd,fp->buf,fp->length));
+		bw_trywrite(fp->buf,fp->length);
 		fp->index=0;
 		c=fp->length;
 	}
@@ -41,11 +53,9 @@ ssize_t expr_buffered_write(struct expr_buffered_file *restrict fp,const void *b
 size_le_c:
 		memcpy(fp->buf+fp->index,buf,size);
 		if(size==c){
-			r=fp->un.writer(fp->fd,fp->buf,fp->length);
-			if(unlikely(r<0))
-				goto err;
+			bw_trywrite(fp->buf,fp->length);
 			fp->index=0;
-			return ret+r;
+			return ret;
 		}else {
 			fp->index+=size;
 			return ret;
@@ -68,17 +78,12 @@ size_le_c:
 			goto size_le_c;
 	}
 	memcpy(fp->buf+fp->index,buf,c);
-	r=fp->un.writer(fp->fd,fp->buf,fp->length);
-	if(unlikely(r<0)){
-		fp->index=fp->length;
-		goto err;
-	}
-	ret+=r;
+	bw_trywrite3(fp->buf,fp->length,fp->index=fp->length);
 	size-=c;
 	buf+=c;
 	if(size>=fp->length){
 		fp->index=0;
-		rcheckadd(fp->un.writer(fp->fd,buf,size));
+		bw_trywrite3(buf,size,fp->flag|=EXPR_BF_EMPTY);
 		debug("%zd bytes written",ret);
 		return ret;
 	}

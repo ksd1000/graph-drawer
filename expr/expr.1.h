@@ -631,7 +631,8 @@ typedef intptr_t (*expr_buffered_test)(const void *buf,intptr_t arg,size_t size)
 		__fp->dynamic=(_len);\
 	}\
 	__fp->index=0;\
-	__fp->written=0
+	__fp->written=0;\
+	__fp->flag=0
 
 #define expr_buffered_init(fp,_fd,_writer,_buf,_len) ({\
 	expr_buffered_init_internal(fp,_fd,_writer,_buf,_len,writer);\

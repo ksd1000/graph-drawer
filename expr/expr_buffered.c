@@ -20,7 +20,7 @@ expr_globals;
 	r=fp->un.writer(fp->fd,fp->buf,size);\
 	if(unlikely(r<0)){\
 		onerr;\
-		return PTRDIFF_MIN;\
+		return r;\
 	}\
 	if(unlikely(!r))\
 		fp->flag|=EXPR_BF_ZERO;\
@@ -51,7 +51,6 @@ ssize_t expr_buffered_write(struct expr_buffered_file *restrict fp,const void *b
 	c=fp->length-fp->index;
 	if(unlikely(!c&&fp->length)){
 		FLUSH(fp->length,0,);
-		fp->index=0;
 		c=fp->length;
 	}
 	if(size<=c){
@@ -59,7 +58,6 @@ size_le_c:
 		memcpy(fp->buf+fp->index,buf,size);
 		if(size==c){
 			FLUSH(fp->length,size,);
-			fp->index=0;
 			return size;
 		}else {
 			fp->index+=size;
@@ -241,15 +239,20 @@ err:
 	ret+=r
 #define flushat_common(rcfetch,rcinc) \
 	ssize_t r,ret;\
+	ssize_t n;\
 	uintptr_t rc=(uintptr_t)(rcfetch);\
 	if(!rc)\
 		return expr_buffered_write(fp,buf,size);\
 	rcinc;\
+	n=rc-(uintptr_t)buf;\
 	ret=0;\
-	rcheckadd(expr_buffered_write(fp,buf,rc-(uintptr_t)buf));\
+	rcheckadd(expr_buffered_write(fp,buf,n));\
 	if(unlikely(expr_buffered_flush(fp)<0))\
 		return r;\
-	rcheckadd(expr_buffered_write(fp,(const void *)rc,(uintptr_t)buf+size-rc));\
+	n=size-n;\
+	if(n){\
+		rcheckadd(expr_buffered_write(fp,(const void *)rc,n));\
+	}\
 	return ret
 ssize_t expr_buffered_write_flushatc(struct expr_buffered_file *restrict fp,const void *buf,size_t size,int c){
 	flushat_common(memrchr(buf,size,c),++rc);
@@ -259,10 +262,9 @@ ssize_t expr_buffered_write_flushat(struct expr_buffered_file *restrict fp,const
 }
 #undef rcheckadd
 ssize_t expr_buffered_flush(struct expr_buffered_file *restrict fp){
-	ssize_t r;
+	ssize_t r,r1;
 	if(fp->index){
-		r=fp->un.writer(fp->fd,fp->buf,fp->index);
-		fp->index=0;
+		FLUSH(fp->index,r,);
 	}else
 		r=0;
 	debug("%zd bytes written",r);

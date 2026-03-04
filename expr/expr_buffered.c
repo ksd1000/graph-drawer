@@ -247,7 +247,8 @@ err:
 	n=rc-(uintptr_t)buf;\
 	ret=0;\
 	rcheckadd(expr_buffered_write(fp,buf,n));\
-	if(unlikely(expr_buffered_flush(fp)<0))\
+	r=expr_buffered_flush(fp);\
+	if(unlikely(r<0))\
 		return r;\
 	n=size-n;\
 	if(n){\
@@ -257,8 +258,20 @@ err:
 ssize_t expr_buffered_write_flushatc(struct expr_buffered_file *restrict fp,const void *buf,size_t size,int c){
 	flushat_common(memrchr(buf,size,c),++rc);
 }
+ssize_t expr_buffered_write_flushatt(struct expr_buffered_file *restrict fp,const void *buf,size_t size,expr_buffered_test test,intptr_t arg){
+	flushat_common(test(buf,arg,size),rc+=(uintptr_t)buf);
+}
 ssize_t expr_buffered_write_flushat(struct expr_buffered_file *restrict fp,const void *buf,size_t size,void *c,size_t c_size){
 	flushat_common(memrmem(buf,size,c,c_size),rc+=c_size);
+}
+ssize_t expr_buffered_write_sync(struct expr_buffered_file *restrict fp,const void *buf,size_t size){
+	ssize_t r1,r=expr_buffered_write(fp,buf,size);
+	if(unlikely(r<0))
+		return r;
+	r1=expr_buffered_flush(fp);
+	if(unlikely(r1<0))
+		return r1;
+	return r;
 }
 #undef rcheckadd
 ssize_t expr_buffered_flush(struct expr_buffered_file *restrict fp){

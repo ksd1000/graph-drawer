@@ -492,6 +492,8 @@ EXPR_END
 		___r=NULL;\
 	(void *)___r;\
 })
+
+#define expr_free(ep) expr_free2((ep),0)
 struct expr_libinfo {
 	const char *version;
 	const char *compiler_version;
@@ -1201,7 +1203,8 @@ struct expr_symset *expr_builtin_symbol_converts(const struct expr_builtin_symbo
 struct expr_symset *expr_builtin_symbol_convert(const struct expr_builtin_symbol *syms);
 size_t expr_strscan(const char *restrict s,size_t sz,char *restrict buf,size_t outsz);
 char *expr_astrscan(const char *s,size_t sz,size_t *restrict outsz);
-void expr_free(struct expr *restrict ep);
+void expr_free2(struct expr *restrict ep,int flag);
+void expr_free1(struct expr *restrict ep);
 void expr_symset_init(struct expr_symset *restrict esp);
 struct expr_symset *expr_symset_new(void);
 void expr_symset_free(struct expr_symset *restrict esp);

@@ -278,9 +278,11 @@ ssize_t expr_buffered_write_flushat(struct expr_buffered_file *restrict fp,const
 		rcinc;\
 		n=rc-(uintptr_t)buf;\
 		rcheckadd(expr_buffered_write(fp,buf,n));\
+		debug("flash point found at %zd",n);\
 		r=expr_buffered_flush(fp);\
 		if(unlikely(r<0))\
 			return r;\
+		debug("flash ok %zd",r);\
 		buf=(const void *)rc;\
 		size-=n;\
 	}while(size);\

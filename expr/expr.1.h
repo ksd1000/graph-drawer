@@ -492,6 +492,8 @@ EXPR_END
 		___r=NULL;\
 	(void *)___r;\
 })
+
+#define expr_free(ep) expr_free2((ep),0)
 struct expr_libinfo {
 	const char *version;
 	const char *compiler_version;

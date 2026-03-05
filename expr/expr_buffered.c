@@ -230,6 +230,7 @@ err:
 
 #ifndef __unix__
 #define memrchr expr_fake_memrchr
+#define memmem expr_fake_memmem
 #endif
 #define memrmem expr_fake_memrmem
 
@@ -261,8 +262,37 @@ ssize_t expr_buffered_write_flushatc(struct expr_buffered_file *restrict fp,cons
 ssize_t expr_buffered_write_flushatt(struct expr_buffered_file *restrict fp,const void *buf,size_t size,expr_buffered_test test,intptr_t arg){
 	flushat_common(test(buf,arg,size),rc+=(uintptr_t)buf);
 }
-ssize_t expr_buffered_write_flushat(struct expr_buffered_file *restrict fp,const void *buf,size_t size,void *c,size_t c_size){
+ssize_t expr_buffered_write_flushat(struct expr_buffered_file *restrict fp,const void *buf,size_t size,const void *c,size_t c_size){
 	flushat_common(memrmem(buf,size,c,c_size),rc+=c_size);
+}
+#define sflushat_common(rcfetch,rcinc) \
+	ssize_t r,ret=0;\
+	ssize_t n;\
+	uintptr_t rc;\
+	do {\
+		rc=(uintptr_t)(rcfetch);\
+		if(!rc){\
+			rcheckadd(expr_buffered_write(fp,buf,size));\
+			return ret;\
+		}\
+		rcinc;\
+		n=rc-(uintptr_t)buf;\
+		rcheckadd(expr_buffered_write(fp,buf,n));\
+		r=expr_buffered_flush(fp);\
+		if(unlikely(r<0))\
+			return r;\
+		buf=(const void *)rc;\
+		size-=n;\
+	}while(size);\
+	return ret
+ssize_t expr_buffered_write_sflushatc(struct expr_buffered_file *restrict fp,const void *buf,size_t size,int c){
+	sflushat_common(memchr(buf,size,c),++rc);
+}
+ssize_t expr_buffered_write_sflushatt(struct expr_buffered_file *restrict fp,const void *buf,size_t size,expr_buffered_test test,intptr_t arg){
+	sflushat_common(test(buf,arg,size),rc+=(uintptr_t)buf);
+}
+ssize_t expr_buffered_write_sflushat(struct expr_buffered_file *restrict fp,const void *buf,size_t size,const void *c,size_t c_size){
+	sflushat_common(memmem(buf,size,c,c_size),rc+=c_size);
 }
 ssize_t expr_buffered_write_sync(struct expr_buffered_file *restrict fp,const void *buf,size_t size){
 	ssize_t r1,r=expr_buffered_write(fp,buf,size);
@@ -350,16 +380,7 @@ ssize_t expr_buffered_readline(struct expr_buffered_file *restrict fp,int c,void
 			*(void **)savep=p;
 			debug("return %zd",cp-p);
 			return cp-p;
-		}/*else {
-			in=fp->index;
-			fp->written=in;
-			if(unlikely(in==fp->length)){
-				leninc1;
-			}
-			*end=0;
-			*(void **)savep=p;
-			return end-p;
-		}*/
+		}
 		memmove(fp->buf,p,r);
 		fp->index-=fp->written;
 		fp->written=0;

@@ -48,6 +48,7 @@ size_t expr_bufsize_initial=512
 #endif
 
 #if (EXPR_DEBUG)
+#include <stdio.h>
 #define debug(fmt,...) ((void)fprintf(stderr,"[DEBUG]%s:%d: " fmt "\n",__func__,__LINE__,##__VA_ARGS__))
 #else
 #define debug(fmt,...) ((void)0)
@@ -400,10 +401,10 @@ EXPR_END
 	__val&UINT64_C(0xffffffffffff);\
 })
 
-#define expr_symbol_hot(_esp) ({const struct expr_symbol *restrict __esp=(_esp);(char *)(__esp->str+__esp->strlen+1);})
-#define expr_symbol_hotlen(_esp) ({const struct expr_symbol *restrict __esp=(_esp);(size_t)__esp->length-(size_t)__esp->strlen-sizeof(struct expr_symbol)-2;})
-#define expr_symbol_un(_esp) ({const struct expr_symbol *restrict __esp=(_esp);(union expr_symvalue *)(__esp->str+__esp->strlen+1);})
-#define expr_symbol_dim(_esp) ({const struct expr_symbol *restrict __esp=(_esp);(size_t *)(__esp->str+__esp->strlen+1+sizeof(union expr_symvalue));})
+#define expr_symbol_hot(_esp) ({const struct expr_symbol *__esp=(_esp);(char *)(__esp->str+__esp->strlen+1);})
+#define expr_symbol_hotlen(_esp) ({const struct expr_symbol *__esp=(_esp);(size_t)__esp->length-(size_t)__esp->strlen-sizeof(struct expr_symbol)-2;})
+#define expr_symbol_un(_esp) ({const struct expr_symbol *__esp=(_esp);(union expr_symvalue *)(__esp->str+__esp->strlen+1);})
+#define expr_symbol_dim(_esp) ({const struct expr_symbol *__esp=(_esp);(size_t *)(__esp->str+__esp->strlen+1+sizeof(union expr_symvalue));})
 #define expr_assume(cond) if(cond);else __builtin_unreachable()
 #define expr_likely(cond) __builtin_expect(!!(cond),1)
 #define expr_unlikely(cond) __builtin_expect(!!(cond),0)

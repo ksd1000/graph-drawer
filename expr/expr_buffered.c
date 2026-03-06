@@ -3,7 +3,6 @@
  *This is free software: you are free to change and redistribute it.           *
  *******************************************************************************/
 #define _GNU_SOURCE
-#include <stdio.h>
 #include <string.h>
 
 #define _EXPR_LIB 1

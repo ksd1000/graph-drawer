@@ -4,7 +4,6 @@
  *******************************************************************************/
 #define _GNU_SOURCE
 #include <math.h>
-#include <stdio.h>
 #include <string.h>
 #include <float.h>
 #include <setjmp.h>

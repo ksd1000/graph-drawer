@@ -14,10 +14,11 @@ struct graph {
 	int32_t width,height,lastx,lasty;
 	uint32_t byte_width,hsize;
 	uint16_t bpp;
-	char connect:1;
-	char drawing:1;
-	char arrow:1;
-	char draw_value:1;
+	uint8_t connect:1;
+	uint8_t drawing:1;
+	uint8_t arrow:1;
+	uint8_t draw_value:1;
+	uint8_t :4;
 	//connect decides if the continuous points will be connected
 };
 

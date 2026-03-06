@@ -146,20 +146,45 @@ int32_t graph_draw_text(struct graph *restrict gp,uint32_t color,int32_t bold,co
 	return graph_draw_text_pixel(gp,color,bold,s,gap,height,xtop(x),ytop(y));
 }
 int32_t graph_xtop(const struct graph *restrict gp,double x){
-	if(xisnan(&x))return INT32_MAX;
+	if(xisnan(&x))
+		return INT32_MAX;
 	return xtop(x);
 }
 int32_t graph_ytop(const struct graph *restrict gp,double y){
-	if(xisnan(&y))return INT32_MAX;
+	if(xisnan(&y))
+		return INT32_MAX;
 	return ytop(y);
 }
+#define CORRECT(V,_fld) \
+	if(V<0)\
+		V=0;\
+	else if(V>=gp->_fld)\
+		V=gp->_fld-1
+#define SWAPIFGT(v1,v2) \
+	if(v1>v2){\
+		int32_t swapbuf;\
+		swapbuf=v1;\
+		v1=v2;\
+		v2=swapbuf;\
+	}
+void graph_fill6(struct graph *restrict gp,uint32_t color,int32_t x1,int32_t y1,int32_t x2,int32_t y2){
+	CORRECT(x1,height);
+	CORRECT(x2,height);
+	CORRECT(y1,width);
+	CORRECT(y2,width);
+	SWAPIFGT(x1,x2);
+	SWAPIFGT(y1,y2);
+	for(;y1<y2;++y1){
+		for(;x1<x2;++x1){
+			setpixel(x1,y1);
+		}
+	}
+}
 void graph_fill(struct graph *restrict gp,uint32_t color){
-	char *p,*buf=gp->buf;
 	int32_t x,y;
-	for(y=0;y<gp->height;++y,buf+=gp->byte_width){
-		p=buf;
-		for(x=0;x<gp->width;p+=gp->bpp,++x){
-			memcpy(p,&color,gp->bpp);
+	for(y=0;y<gp->height;++y){
+		for(x=0;x<gp->width;++x){
+			setpixel(x,y);
 		}
 	}
 }

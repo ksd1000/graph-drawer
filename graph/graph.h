@@ -14,10 +14,11 @@ struct graph {
 	int32_t width,height,lastx,lasty;
 	uint32_t byte_width,hsize;
 	uint16_t bpp;
-	char connect:1;
-	char drawing:1;
-	char arrow:1;
-	char draw_value:1;
+	uint8_t connect:1;
+	uint8_t drawing:1;
+	uint8_t arrow:1;
+	uint8_t draw_value:1;
+	uint8_t :4;
 	//connect decides if the continuous points will be connected
 };
 
@@ -28,6 +29,7 @@ int32_t graph_text_height(void);
 int32_t graph_draw_text(struct graph *restrict gp,uint32_t color,int32_t bold,const char *s,int32_t gap,int32_t height,double x,double y);
 int32_t graph_xtop(const struct graph *restrict gp,double x);
 int32_t graph_ytop(const struct graph *restrict gp,double y);
+void graph_fill6(struct graph *restrict gp,uint32_t color,int32_t x1,int32_t y1,int32_t x2,int32_t y2);
 void graph_fill(struct graph *restrict gp,uint32_t color);
 int init_graph_frombmp(struct graph *restrict gp,const void *bmp,size_t size,double minx,double maxx,double miny,double maxy);
 int init_graph(struct graph *restrict gp,int32_t width,int32_t height,uint16_t bpp,double minx,double maxx,double miny,double maxy);

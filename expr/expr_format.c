@@ -1079,6 +1079,21 @@ const uint8_t expr_writefmts_table_default[256]={
 		return v;\
 	ret+=v;\
 }
+#define scannum(base) \
+	while(nptr<endp){\
+		if(base<=10)\
+			get=(uint8_t)*nptr-(uint8_t)'0';\
+		else\
+			get=expr_ntable(*nptr);\
+		if(unlikely(get>=base))\
+			goto out;\
+		if(unlikely(mulo(r,base)))\
+			goto out;\
+		if(unlikely(addo(r,get)))\
+			goto out;\
+		++nptr;\
+	}\
+	goto out
 static inline const char *internal_strtoz_10(const char *restrict nptr,const char *endp,ssize_t *restrict outval){
 	size_t r=0;
 	int neg=0;
@@ -1089,21 +1104,79 @@ static inline const char *internal_strtoz_10(const char *restrict nptr,const cha
 			neg=1;
 		}
 	}
-#define scannum(base) \
-	while(nptr<endp){\
-		get=(uint8_t)*nptr-(uint8_t)'0';\
-		if(unlikely(get>=base))\
-			goto out;\
-		if(unlikely(mulo(r,base)))\
-			goto out;\
-		if(unlikely(addo(r,get)))\
-			goto out;\
-		++nptr;\
-	}\
-	goto out
 	scannum(10);
 out:
 	debug("result:%zd",(ssize_t)(neg?-r:r));
+	*outval=(ssize_t)(neg?-r:r);
+	return nptr;
+}
+static inline const char *internal_strtoz_x(const char *restrict nptr,const char *endp,ssize_t *restrict outval){
+	size_t r=0;
+	unsigned int get;
+	scannum(16);
+out:
+	debug("result:%zd",(ssize_t)r);
+	*outval=(ssize_t)r;
+	return nptr;
+}
+static inline const char *internal_strtoz_o(const char *restrict nptr,const char *endp,ssize_t *restrict outval){
+	size_t r=0;
+	unsigned int get;
+	scannum(8);
+out:
+	debug("result:%zd",(ssize_t)r);
+	*outval=(ssize_t)r;
+	return nptr;
+}
+static inline const char *internal_strtoz_oux(const char *restrict nptr,const char *endp,ssize_t *restrict outval,int allowneg){
+	const char *n0=nptr;
+	size_t r=0;
+	int neg=0,base=0;
+	unsigned int get;
+	if(allowneg&&nptr<endp&&*nptr=='-'){
+		++nptr;
+		neg=1;
+	}
+	if(nptr<endp&&*nptr=='0'){
+		++nptr;
+		if(nptr<endp&&*nptr=='x'){
+			++nptr;
+			base=2;
+		}else 
+			base=1;
+	}
+	if(unlikely(nptr>=endp)){
+		debug("result:?");
+		return n0;
+	}
+	switch(base){
+		case 0:
+			if(unlikely((uint8_t)*nptr-(uint8_t)'0'>=(uint8_t)10))
+				return n0;
+			break;
+		case 1:
+			if(unlikely((uint8_t)*nptr-(uint8_t)'0'>=(uint8_t)8))
+				return n0;
+			break;
+		case 2:
+			if(unlikely(expr_ntable(*nptr)>=(uint8_t)16))
+				return n0;
+			break;
+		default:
+			__builtin_unreachable();
+	}
+	switch(base){
+		case 0:
+			scannum(10);
+		case 1:
+			scannum(8);
+		case 2:
+			scannum(16);
+		default:
+			__builtin_unreachable();
+	}
+out:
+	debug("result:%zd,nptr:%p",(ssize_t)(neg?-r:r),nptr);
 	*outval=(ssize_t)(neg?-r:r);
 	return nptr;
 }
@@ -1689,4 +1762,77 @@ ssize_t expr_vapwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer
 }
 ssize_t expr_apwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,...){
 	ap_common(va_start(a->ap,fd),va_end(a->ap),expr_writefmts_default,expr_writefmts_table_default);
+}
+size_t expr_sscanf(const char *str,size_t len,const char *fmt,size_t fmtlen,void *const *addr,size_t addrlen){
+	const char *p,*str0=str,*fend=fmt+fmtlen,*end=str+len;
+	void *const *aend=addr+addrlen;
+	void *a;
+	size_t r,n=0;
+	ssize_t zi;
+next:
+	p=memchr(fmt,'%',fmtlen);
+	debug("memchr=%p",p);
+	if(!p){
+		return n;
+	}
+	r=p-fmt;
+	debug("r=%zu,len=%zu,*fmt=%c,*str=%c",r,len,*fmt,*str);
+	if(r){
+		if(unlikely(len<r||memcmp(fmt,str,r)||p+1==fend)){
+			return n;
+		}
+		debug("memcmp ok");
+		str+=r;
+		len-=r;
+		fmt=p;
+		fmtlen-=r;
+	}
+	++p;
+#define do_scan(scanner,write) \
+			if(unlikely(addr>=aend))\
+				return n;\
+			fmt=p+1;\
+			fmtlen=fend-fmt;\
+			scanner;\
+			if(unlikely(p==str))\
+				return n;\
+			str=p;\
+			len=end-str;\
+			a=*addr;\
+			++addr;\
+			if(a)\
+				*(ssize_t *)a=zi;\
+			++n;\
+			goto next
+	switch(*p){
+		case '%':
+			if(unlikely(*str!='%'))
+				return n;
+			fmt=p+1;
+			fmtlen=fend-fmt;
+			++str;
+			--len;
+			goto next;
+		case 'n':
+			if(unlikely(addr>=aend))
+				return n;
+			fmt=p+1;
+			fmtlen=fend-fmt;
+			a=*addr;
+			++addr;
+			if(a)
+				*(ssize_t *)a=str-str0;
+			++n;
+			goto next;
+		case 'd':
+			do_scan(p=internal_strtoz_oux(str,end,&zi,1),*(ssize_t *)a=zi);
+		case 'u':
+			do_scan(p=internal_strtoz_oux(str,end,&zi,0),*(ssize_t *)a=zi);
+		case 'x':
+			do_scan(p=internal_strtoz_x(str,end,&zi),*(ssize_t *)a=zi);
+		case 'o':
+			do_scan(p=internal_strtoz_o(str,end,&zi),*(ssize_t *)a=zi);
+		default:
+			return n;
+	}
 }

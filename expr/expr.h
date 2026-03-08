@@ -493,7 +493,24 @@ EXPR_END
 		___r=NULL;\
 	(void *)___r;\
 })
-
+#define expr_ntable(c) ({\
+	unsigned char __c=(unsigned char)(c);\
+	switch(__c){\
+		case '0' ... '9':\
+			__c-='0';\
+			break;\
+		case 'A' ... 'Z':\
+			__c-='A';\
+			break;\
+		case 'a' ... 'z':\
+			__c-='a';\
+			break;\
+		default:\
+			__c=127;\
+			break;\
+	}\
+	__c;\
+})
 #define expr_free(ep) expr_free2((ep),0)
 struct expr_libinfo {
 	const char *version;
@@ -1124,6 +1141,7 @@ ssize_t expr_vapwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writ
 ssize_t expr_apwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const struct expr_writefmt *restrict fmts,const uint8_t *restrict table,...);
 ssize_t expr_vapwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,va_list ap);
 ssize_t expr_apwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,...);
+size_t expr_sscanf(const char *str,size_t len,const char *fmt,size_t fmtlen,void *const *addr,size_t addrlen);
 //global externs of expr_format.c :
 extern const struct expr_writefmt expr_writefmts_default[];
 extern const uint8_t expr_writefmts_default_size;

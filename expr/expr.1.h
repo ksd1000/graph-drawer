@@ -493,7 +493,24 @@ EXPR_END
 		___r=NULL;\
 	(void *)___r;\
 })
-
+#define expr_ntable(c) ({\
+	unsigned char __c=(unsigned char)(c);\
+	switch(__c){\
+		case '0' ... '9':\
+			__c-='0';\
+			break;\
+		case 'A' ... 'Z':\
+			__c-='A';\
+			break;\
+		case 'a' ... 'z':\
+			__c-='a';\
+			break;\
+		default:\
+			__c=127;\
+			break;\
+	}\
+	__c;\
+})
 #define expr_free(ep) expr_free2((ep),0)
 struct expr_libinfo {
 	const char *version;

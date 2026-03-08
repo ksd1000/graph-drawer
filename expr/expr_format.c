@@ -1768,7 +1768,12 @@ size_t expr_sscanf(const char *str,size_t len,const char *fmt,size_t fmtlen,void
 	void *const *aend=addr+addrlen;
 	void *a;
 	size_t r,n=0;
-	ssize_t zi;
+	union {
+		ssize_t _zi;
+		char _ch;
+	} un;
+#define zi un._zi
+#define ch un._ch
 next:
 	p=memchr(fmt,'%',fmtlen);
 	debug("memchr=%p",p);
@@ -1800,8 +1805,9 @@ next:
 			len=end-str;\
 			a=*addr;\
 			++addr;\
-			if(a)\
-				*(ssize_t *)a=zi;\
+			if(a){\
+				write;\
+			}\
 			++n;\
 			goto next
 	switch(*p){
@@ -1824,6 +1830,10 @@ next:
 				*(ssize_t *)a=str-str0;
 			++n;
 			goto next;
+		case 'C':
+			do_scan(ch=*str;p=str+1,*(char *)a=ch);
+		case 'c':
+			do_scan(zi=(ssize_t)(unsigned char)*str;p=str+1,*(ssize_t *)a=zi);
 		case 'd':
 			do_scan(p=internal_strtoz_oux(str,end,&zi,1),*(ssize_t *)a=zi);
 		case 'u':
@@ -1836,3 +1846,5 @@ next:
 			return n;
 	}
 }
+#undef zi
+#undef ch

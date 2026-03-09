@@ -2322,15 +2322,24 @@ pterr:
 				seterr(ep,EXPR_EPT);
 				return NULL;
 			}
-			if(unlikely(p==e+1)){
+			p2=p;
+			++e;
+			if(unlikely(p==e)){
 envp:
 				seterr(ep,EXPR_ENVP);
 				return NULL;
 			}
-			v0=scan(ep,e+1,p,asym,asymlen);
+			while(*e=='('&&findpair(e,endp)==p-1){
+				++e;
+				--p;
+				if(unlikely(p==e))
+					goto envp;
+				debug("nested pt");
+			}
+			v0=scan(ep,e,p,asym,asymlen);
 			if(unlikely(!v0))
 				return NULL;
-			e=p+1;
+			e=p2+1;
 			goto vend;
 		case ':':
 			if(e+1>=endp||e[1]!=':'){

@@ -1222,8 +1222,9 @@ next:
 		wf_trywrite(fmt_old,endp-fmt_old);
 		goto end;
 	}
-	if(fmt>fmt_old){
-		wf_trywrite(fmt_old,fmt-fmt_old);
+	v=fmt-fmt_old;
+	if(v>0){
+		wf_trywrite(fmt_old,v);
 		fmt_old=fmt;
 	}
 #define fmt_inc_check ++fmt;\

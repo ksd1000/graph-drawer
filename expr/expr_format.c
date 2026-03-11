@@ -21,7 +21,7 @@
 		return r;\
 	sum+=r;\
 }
-#define EXPR_WCBUFSIZE 512
+#define EXPR_WCBUFSIZE 1024
 ssize_t expr_writec(expr_writer writer,intptr_t fd,size_t count,int c){
 	char buf[EXPR_WCBUFSIZE];
 	ssize_t r,sum;

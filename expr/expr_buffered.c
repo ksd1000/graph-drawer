@@ -314,16 +314,17 @@ ssize_t expr_buffered_flush(struct expr_buffered_file *restrict fp){
 	debug("%zd bytes written",r);
 	return r;
 }
+#define TRASHLEN 1024
 ssize_t expr_buffered_rdropall(struct expr_buffered_file *restrict fp){
 	ssize_t r,ret=fp->index-fp->written;
 	char *trash;
 	size_t trashlen;
-	if(fp->length){
+	if(fp->length>=TRASHLEN){
 		trash=fp->buf;
 		trashlen=fp->length;
 	}else {
-		trash=alloca(1024);
-		trashlen=1024;
+		trash=alloca(TRASHLEN);
+		trashlen=TRASHLEN;
 	}
 	for(;;){
 		r=fp->un.reader(fp->fd,trash,trashlen);

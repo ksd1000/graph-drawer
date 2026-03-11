@@ -36,8 +36,7 @@ typedef void (*expr_deallocator_type)(void *);
 expr_allocator_type expr_allocator=malloc;\
 expr_reallocator_type expr_reallocator=realloc;\
 expr_deallocator_type expr_deallocator=free;\
-size_t expr_allocate_max=SSIZE_MAX;\
-size_t expr_bufsize_initial=512
+size_t expr_allocate_max=SSIZE_MAX
 
 #ifndef EXPR_DEBUG
 #define EXPR_DEBUG 0
@@ -69,7 +68,7 @@ size_t expr_bufsize_initial=512
 #define assume(cond) expr_assume(cond)
 #define cast(X,T) expr_cast(X,T)
 
-#define bufsize_initial expr_bufsize_initial
+#define BUFSIZE_INITIAL EXPR_BUFSIZE_INITIAL
 
 #define xmalloc expr_xmalloc
 #define xrealloc expr_xrealloc
@@ -626,6 +625,8 @@ typedef const union expr_argf *(*expr_argffetch)(ptrdiff_t index,const struct ex
 #define EXPR_BF_TRUNC 2
 #define EXPR_BF_EMPTY 4
 #define EXPR_BF_EMEM 8
+
+#define EXPR_BUFSIZE_INITIAL 512
 struct expr_buffered_file {
 	intptr_t fd;
 	union {

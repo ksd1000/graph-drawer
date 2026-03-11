@@ -65,7 +65,7 @@ size_le_c:
 	}
 	if(fp->length<fp->dynamic){
 		void *p;
-		i=align(fp->index+size+bufsize_initial+EXTEND_FRAC(fp->length));
+		i=align(fp->index+size+BUFSIZE_INITIAL+EXTEND_FRAC(fp->length));
 		if(unlikely(i>fp->dynamic||i<=fp->length))
 			i=fp->dynamic;
 		p=xrealloc(fp->buf,i);
@@ -129,7 +129,7 @@ ssize_t expr_buffered_read5(struct expr_buffered_file *restrict fp,void *buf,siz
 	debug("start index=%zu",fp->index);
 	while(fp->length<fp->dynamic){
 		void *p;
-		i=align(fp->length+bufsize_initial+EXTEND_FRAC(fp->length));
+		i=align(fp->length+BUFSIZE_INITIAL+EXTEND_FRAC(fp->length));
 		if(unlikely(i>fp->dynamic||i<=fp->length))
 			i=fp->dynamic;
 		p=xrealloc(fp->buf,i);

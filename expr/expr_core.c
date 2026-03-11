@@ -1243,11 +1243,10 @@ static struct expr_resource *expr_newres(struct expr *restrict ep){
 		p->type=EXPR_CONSTANT;
 		p->flag=0;
 		ep->res=p;
+		ep->tail=p;
 		return p;
 	}
-	p=ep->tail?ep->tail:ep->res;
-	while(p->next)
-		p=p->next;
+	p=ep->tail;
 	p->next=xmalloc(sizeof(struct expr_resource));
 	if(unlikely(!p->next))
 		return NULL;

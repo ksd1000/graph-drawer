@@ -518,7 +518,7 @@ void expr_fry(double *restrict v,size_t n){
 }
 
 void expr_contract(void *buf,size_t size){
-	char *p=(char *)buf,*endp=(char *)buf+size-1;
+	volatile char *p=(volatile char *)buf,*endp=(volatile char *)buf+size-1;
 	while(p<=endp){
 		*p=0;
 		p+=PAGE_SIZE;

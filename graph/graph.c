@@ -290,34 +290,34 @@ struct mtarg {
 	int32_t bold;
 	double (*x)(double,void *);
 	double (*y)(double,void *);
-	void *arg;
+	void *arg_x,*arg_y;
 	double from,to,step;
 	volatile double *current;
 };
 static void *graph_drawthread(struct mtarg *mt){
-	graph_draw(mt->gp,mt->color,mt->bold,mt->x,mt->y,mt->arg,mt->from,mt->to,mt->step,mt->current);
+	graph_draw(mt->gp,mt->color,mt->bold,mt->x,mt->y,mt->arg_x,mt->arg_y,mt->from,mt->to,mt->step,mt->current);
 	pthread_exit(NULL);
 }
 #endif
-void graph_draw(struct graph *restrict gp,uint32_t color,int32_t bold,double (*x)(double,void *),double (*y)(double,void *),void *arg,double from,double to,double step,volatile double *current){
+void graph_draw(struct graph *restrict gp,uint32_t color,int32_t bold,double (*x)(double,void *),double (*y)(double,void *),void *arg_x,void *arg_y,double from,double to,double step,volatile double *current){
 	int32_t last[2]={-1,-1};
 	double cur_null,toms=to-step;
 	if(!current)current=&cur_null;
 	for(;from<=toms;from+=step){
-		graph_draw_point6(gp,color,bold,x(from,arg),y(from,arg),last);
+		graph_draw_point6(gp,color,bold,x(from,arg_x),y(from,arg_y),last);
 		*current=from;
 	}
 	*current=to;
-	graph_draw_point6(gp,color,bold,x(to,arg),y(to,arg),last);
+	graph_draw_point6(gp,color,bold,x(to,arg_x),y(to,arg_y),last);
 	*current=DBL_MAX;
 }
-void graph_draw_mt(struct graph *restrict gp,uint32_t color,int32_t bold,double (*x)(double,void *),double (*y)(double,void *),void *arg,double from,double to,double step,volatile double *currents,int thread){
+void graph_draw_mt(struct graph *restrict gp,uint32_t color,int32_t bold,double (*x)(double,void *),double (*y)(double,void *),void *arg_x,size_t axsize,void *arg_y,size_t aysize,double from,double to,double step,volatile double *currents,int thread){
 #ifdef __unix__
 	pthread_t *pts;
 	struct mtarg *mts;
 	double last,gap,lpg;
 	if(thread<2){
-		graph_draw(gp,color,bold,x,y,arg,from,to,step,currents);
+		graph_draw(gp,color,bold,x,y,arg_x,arg_y,from,to,step,currents);
 		return;
 	}
 	pts=alloca(thread*sizeof(pthread_t));
@@ -330,9 +330,13 @@ void graph_draw_mt(struct graph *restrict gp,uint32_t color,int32_t bold,double 
 		mts[i].bold=bold;
 		mts[i].x=x;
 		mts[i].y=y;
-		mts[i].arg=arg;
+		mts[i].arg_x=arg_x;
+		mts[i].arg_y=arg_y;
+		arg_x+=axsize;
+		arg_y+=aysize;
 		lpg=last+gap;
-		if(lpg>to)lpg=to;
+		if(lpg>to)
+			lpg=to;
 		mts[i].from=last;
 		mts[i].to=lpg;
 		last=lpg;

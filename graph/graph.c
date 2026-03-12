@@ -14,6 +14,12 @@
 #endif
 #include "graph.h"
 #include "texts/text.h"
+#ifdef __clang__
+#pragma GCC diagnostic ignored "-Wunknown-warning-option"
+#endif
+
+#pragma GCC diagnostic ignored "-Wsign-compare"
+
 #define muldiv(m1,m2,f) ((uint64_t)(m1)*(m2)/(f))
 #define muldiv_up(m1,m2,f) ({\
 	int64_t _p=(m1)*(m2);\
@@ -302,7 +308,8 @@ static void *graph_drawthread(struct mtarg *mt){
 void graph_draw(struct graph *restrict gp,uint32_t color,int32_t bold,double (*x)(double,void *),double (*y)(double,void *),void *arg_x,void *arg_y,double from,double to,double step,volatile double *current){
 	int32_t last[2]={-1,-1};
 	double cur_null,toms=to-step;
-	if(!current)current=&cur_null;
+	if(!current)
+		current=&cur_null;
 	for(;from<=toms;from+=step){
 		graph_draw_point6(gp,color,bold,x(from,arg_x),y(from,arg_y),last);
 		*current=from;

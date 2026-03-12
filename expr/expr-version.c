@@ -102,7 +102,7 @@ const struct option ops[]={
 	{"table",0,NULL,'T'},
 	{"calc",1,NULL,'c'},
 	{"calc-safe",1,NULL,'C'},
-	{NULL},
+	{NULL,0,NULL,0}
 };
 void show_help(void){
 	fputs("usage:\n"

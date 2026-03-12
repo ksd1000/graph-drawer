@@ -46,6 +46,13 @@ size_t expr_allocate_max=SSIZE_MAX
 #pragma GCC diagnostic ignored "-Wunknown-warning-option"
 #endif
 
+#pragma GCC diagnostic ignored "-Wzero-length-bounds"
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#pragma GCC diagnostic ignored "-Wpointer-arith"
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#pragma GCC diagnostic ignored "-Wcast-function-type-mismatch"
+
 #if (EXPR_DEBUG)
 #include <stdio.h>
 #define debug(fmt,...) ((void)fprintf(stderr,"[DEBUG]%s:%d: " fmt "\n",__func__,__LINE__,##__VA_ARGS__))
@@ -54,9 +61,6 @@ size_t expr_allocate_max=SSIZE_MAX
 #endif
 
 #define warn(fmt,...) fprintf(stderr,fmt "\n",##__VA_ARGS__)
-
-#pragma GCC diagnostic ignored "-Wzero-length-bounds"
-#pragma GCC diagnostic ignored "-Wstrict-aliasing"
 
 #define addo(V,A) __builtin_add_overflow((V),(A),&(V))
 #define mulo(V,A) __builtin_mul_overflow((V),(A),&(V))
@@ -188,8 +192,8 @@ EXPR_END
 #define EXPR_VOID ((void *)-1)
 #define EXPR_VOID_NR ((void *)-2)
 
-#define EXPR_SYMSET_INITIALIZER {NULL,0,0,0,0}
-#define EXPR_MUTEX_INITIALIZER UINT32_C(0]
+#define EXPR_SYMSET_INITIALIZER {NULL,0,0,0,0,0,0,0,0,0,0,0,0,0}
+#define EXPR_MUTEX_INITIALIZER ((uint32_t)(0))
 
 #define EXPR_SYMLEN 64
 
@@ -639,6 +643,16 @@ struct expr_buffered_file {
 	size_t flag;
 };
 typedef intptr_t (*expr_buffered_test)(const void *buf,intptr_t arg,size_t size);
+#define EXPR_BUFFERED_INITIALIZER(_fd,_wrer,_buf,_len) {\
+	.fd=(_fd),\
+	.un={.uaddr=(_wrer)},\
+	.buf=(_buf),\
+	.length=(_buf)?(_len):0,\
+	.dynamic=(_buf)?0:(_len),\
+	.index=0,\
+	.written=0,\
+	.flag=0,\
+}
 #define expr_buffered_init_internal(fp,_fd,_wrer,_buf,_len,_field) \
 	struct expr_buffered_file *__fp=(fp);\
 	__fp->fd=(_fd);\

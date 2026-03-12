@@ -747,7 +747,7 @@ const struct expr_builtin_keyword expr_keywords[]={
 	REGKEY("include",EXPR_DIF0,1,"include(package)"),
 	REGKEY("convert",EXPR_ZA,1,"convert(const string)"),
 	REGKEYS("end",EXPR_MD,1,"end(expression)"),
-	{NULL}
+	{NULL,0,0,0,0}
 };
 const struct expr_builtin_symbol *expr_builtin_symbol_search(const struct expr_builtin_symbol *syms,const char *sym,size_t sz){
 	for(;syms->str;++syms){

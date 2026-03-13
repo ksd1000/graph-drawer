@@ -44,6 +44,8 @@ size_t expr_allocate_max=SSIZE_MAX
 
 #ifdef __clang__
 #pragma GCC diagnostic ignored "-Wunknown-warning-option"
+#else
+#pragma GCC diagnostic ignored "-Wpragmas"
 #endif
 
 #pragma GCC diagnostic ignored "-Wzero-length-bounds"

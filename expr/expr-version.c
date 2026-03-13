@@ -4,6 +4,7 @@
  *This is free software: you are free to change and redistribute it.           *
  *******************************************************************************/
 #define _GNU_SOURCE
+#define EXPR_BLOCKWARNING 1
 #include "expr.h"
 #include <stdio.h>
 #include <stdlib.h>

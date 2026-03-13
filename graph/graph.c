@@ -16,8 +16,11 @@
 #include "texts/text.h"
 #ifdef __clang__
 #pragma GCC diagnostic ignored "-Wunknown-warning-option"
+#else
+#pragma GCC diagnostic ignored "-Wpragmas"
 #endif
 
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 #pragma GCC diagnostic ignored "-Wsign-compare"
 
 #define muldiv(m1,m2,f) ((uint64_t)(m1)*(m2)/(f))
@@ -357,7 +360,7 @@ void graph_draw_mt(struct graph *restrict gp,uint32_t color,int32_t bold,double 
 	return;
 #else
 	if(thread<2){
-		graph_draw(gp,color,bold,x,y,arg,from,to,step,currents);
+		graph_draw(gp,color,bold,x,y,arg_x,arg_y,from,to,step,currents);
 		return;
 	}
 	fprintf(stderr,"multi_thread is not implemented\n");

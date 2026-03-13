@@ -42,19 +42,6 @@ size_t expr_allocate_max=SSIZE_MAX
 #define EXPR_DEBUG 0
 #endif
 
-#ifdef __clang__
-#pragma GCC diagnostic ignored "-Wunknown-warning-option"
-#else
-#pragma GCC diagnostic ignored "-Wpragmas"
-#endif
-
-#pragma GCC diagnostic ignored "-Wzero-length-bounds"
-#pragma GCC diagnostic ignored "-Wstrict-aliasing"
-#pragma GCC diagnostic ignored "-Wpointer-arith"
-#pragma GCC diagnostic ignored "-Wunused-parameter"
-#pragma GCC diagnostic ignored "-Wsign-compare"
-#pragma GCC diagnostic ignored "-Wcast-function-type-mismatch"
-
 #if (EXPR_DEBUG)
 #include <stdio.h>
 #define debug(fmt,...) ((void)fprintf(stderr,"[DEBUG]%s:%d: " fmt "\n",__func__,__LINE__,##__VA_ARGS__))
@@ -102,8 +89,26 @@ size_t expr_allocate_max=SSIZE_MAX
 #define le32(x) expr_le(x,32)
 #define le64(x) expr_le(x,64)
 
+#define EXPR_BLOCKWARNING 1
+
 #endif
 
+#if (defined(EXPR_BLOCKWARNING)&&(EXPR_BLOCKWARNING))
+
+#ifdef __clang__
+#pragma GCC diagnostic ignored "-Wunknown-warning-option"
+#else
+#pragma GCC diagnostic ignored "-Wpragmas"
+#endif
+
+#pragma GCC diagnostic ignored "-Wzero-length-bounds"
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#pragma GCC diagnostic ignored "-Wpointer-arith"
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#pragma GCC diagnostic ignored "-Wcast-function-type-mismatch"
+
+#endif
 
 enum expr_op :int {
 EXPR_COPY=0,

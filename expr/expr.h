@@ -107,6 +107,8 @@ size_t expr_allocate_max=SSIZE_MAX
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #pragma GCC diagnostic ignored "-Wsign-compare"
 #pragma GCC diagnostic ignored "-Wcast-function-type-mismatch"
+#pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
+#pragma GCC diagnostic ignored "-Wclobbered"
 
 #endif
 
@@ -310,7 +312,7 @@ EXPR_END
 			__typeof(x) _x;\
 			__typeof(type) _o;\
 			intmax_t _im;\
-		} register _cast_un;\
+		} _cast_un;\
 		if(sizeof(type)>sizeof(__typeof(x)))\
 	 		_cast_un._im=0;\
 		_cast_un._x=(x);\

@@ -110,6 +110,7 @@ size_t expr_allocate_max=SSIZE_MAX
 #pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
 #pragma GCC diagnostic ignored "-Wclobbered"
 #pragma GCC diagnostic ignored "-Wcast-function-type"
+#pragma GCC diagnostic ignored "-Waddress"
 
 #endif
 

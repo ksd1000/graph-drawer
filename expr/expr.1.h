@@ -900,6 +900,7 @@ struct expr_internal_jmpbuf {
 	} un;
 	jmp_buf jb;
 };
+typedef int (*expr_recursive_callback)(struct expr *restrict ep,void *arg);
 
 extern void *(*expr_allocator)(size_t);
 extern void *(*expr_reallocator)(void *,size_t);

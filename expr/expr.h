@@ -900,6 +900,7 @@ struct expr_internal_jmpbuf {
 	} un;
 	jmp_buf jb;
 };
+typedef int (*expr_recursive_callback)(struct expr *restrict ep,void *arg);
 
 extern void *(*expr_allocator)(size_t);
 extern void *(*expr_reallocator)(void *,size_t);
@@ -1327,7 +1328,9 @@ double expr_calc4(const char *e,int *error,char errinfo[EXPR_SYMLEN],struct expr
 double expr_calc3(const char *e,int *error,char errinfo[EXPR_SYMLEN]);
 double expr_calc2(const char *e,int flag);
 double expr_calc(const char *e);
+int expr_recursive(struct expr *restrict ep,expr_recursive_callback callback,void *arg);
 int expr_optimize(struct expr *restrict ep);
+int expr_optimize_recursive(struct expr *restrict ep);
 double expr_eval(const struct expr *restrict ep,double input);
 int expr_step(const struct expr *restrict ep,double input,double *restrict output,struct expr_inst **restrict saveip);
 double expr_callback(const struct expr *restrict ep,double input,const struct expr_callback *ec);

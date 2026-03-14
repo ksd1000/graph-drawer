@@ -722,7 +722,7 @@ const struct expr_builtin_keyword expr_keywords[]={
 	REGKEYCN("longjmp",EXPR_LJ,2,"longjmp(jmp_buf,val)"),
 	REGKEYCN("eval",EXPR_EVAL,2,"eval(ep,input)"),
 	REGKEYSCN("decl",EXPR_ADD,2,"decl(symbol,[constant_expression flag])"),
-	REGKEYS("static_assert",EXPR_SUB,1,"static_assert(constant_expression cond)"),
+	REGKEYSC("static_assert",EXPR_SUB,1,"static_assert(constant_expression cond,[const string])"),
 	REGKEYSN("ip",EXPR_IP,1,"ip([mode])"),
 	REGKEYN("to",EXPR_TO,1,"to(val)"),
 	REGKEYN("to1",EXPR_TO1,1,"to(val)"),
@@ -2772,17 +2772,50 @@ use_byte:
 				e=p+1;
 				goto vend;
 			case EXPR_SUB:
-				un.v=consteval(e+1,p-e-1,asym,asymlen,ep->sset,ep);
-				if(unlikely(ep->error))
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+				sym.vv=expr_sep(ep,e,p-e+1);
+				if(unlikely(!sym.vv))
 					return NULL;
-				if(unlikely(un.v==0.0)){
-					seterr(ep,EXPR_ESAF);
-					serrinfo(ep->errinfo,e+1,p-e-1);
-					return NULL;
+				for(un.vv1=sym.vv;*un.vv1;++un.vv1);
+				dim=un.vv1-sym.vv;
+				switch(dim){
+					case 2:
+						sv.i=strlen(sym.vv[1]);
+						if(unlikely(sv.i<1||
+							*sym.vv[1]!='\"'||(un.ccp=sym.vv[1]+sv.i,
+							findpair_dmark(sym.vv[1],un.ccp)!=un.ccp-1))){
+							seterr(ep,EXPR_EPT);
+							goto sa_fail;
+						}
+					case 1:
+						break;
+					default:
+						seterr(ep,EXPR_ENEA);
+sa_fail:
+						serrinfoc(ep->errinfo,"static_assert");
+						goto c_fail;
 				}
+				un.v=consteval(sym.vv[0],strlen(sym.vv[0]),asym,asymlen,ep->sset,ep);
+				if(unlikely(ep->error))
+					goto c_fail;
+				if(unlikely(un.v==0.0)){
+					if(dim==1){
+						seterr(ep,EXPR_ESAF);
+						serrinfo(ep->errinfo,e+1,p-e-1);
+						goto c_fail;
+					}
+					seterr(ep,EXPR_EUDE);
+					dim=sv.i-2;
+					if(dim)
+						expr_strscan(sym.vv[1]+1,dim,ep->errinfo,EXPR_SYMLEN);
+					goto c_fail;
+				}
+				vfree2(sym.vv);
 				v0=EXPR_VOID;
 				e=p+1;
 				goto vend;
+#pragma GCC diagnostic pop
 			case EXPR_DIV:
 				if(!ep->sset||!(sym.es=expr_symset_search(ep->sset,e+1,p-e-1))){
 					un.v=0.0;
@@ -7101,6 +7134,55 @@ again:
 	}
 	return ret;
 }
+#define do_recur(_ep) {r0=expr_recursive(_ep,callback,arg);if(unlikely(r0<0))return r0;addo(r,r0);}
+int expr_recursive(struct expr *restrict ep,expr_recursive_callback callback,void *arg){
+	struct expr_inst *ip;
+	int r=0,r0;
+	for(ip=ep->data;;++ip){
+		switch(ip->op){
+			case EXPR_END:
+				r0=callback(ep,arg);
+				if(unlikely(r0<0))
+					return r0;
+				addo(r,r0);
+				return r;
+			case SUMCASES:
+				do_recur(ip->un.es->fromep);
+				do_recur(ip->un.es->toep);
+				do_recur(ip->un.es->stepep);
+				do_recur(ip->un.es->ep);
+				break;
+			case EXPR_VMD:
+				do_recur(ip->un.ev->fromep);
+				do_recur(ip->un.ev->toep);
+				do_recur(ip->un.ev->stepep);
+				do_recur(ip->un.ev->ep);
+				break;
+			case BRANCHCASES:
+				do_recur(ip->un.eb->cond);
+				do_recur(ip->un.eb->body);
+				do_recur(ip->un.eb->value);
+				break;
+			case MDCASES_WITHP:
+				for(size_t i=0;i<ip->un.em->dim;++i){
+					do_recur(ip->un.em->eps+i);
+				}
+				break;
+			case HOTCASES:
+				do_recur(ip->un.hotfunc);
+				break;
+			case EXPR_HMD:
+				for(size_t i=0;i<ip->un.eh->dim;++i){
+					do_recur(ip->un.eh->eps+i);
+				}
+				do_recur(ip->un.eh->hotfunc);
+				break;
+			default:
+				break;
+		}
+	}
+}
+#undef do_recur
 int expr_optimize(struct expr *restrict ep){
 	struct expr_resource *rp;
 	double v;
@@ -7117,6 +7199,12 @@ int expr_optimize(struct expr *restrict ep){
 		addo(r,1);
 	}
 	return r;
+}
+static int expr_optimize_recursive_callback(struct expr *restrict ep,void *arg){
+	return expr_optimize(ep);
+}
+int expr_optimize_recursive(struct expr *restrict ep){
+	return expr_recursive(ep,expr_optimize_recursive_callback,NULL);
 }
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"

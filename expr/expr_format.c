@@ -1793,6 +1793,22 @@ static inline const char *internal_strtos(const char *nptr,const char *endp,cons
 	}
 	return nptr+outlen;
 }
+#define DOUBLE_MAXLEN 1536
+static const char *warped_strtof(const char *nptr,const char *endp,double *restrict outval){
+	char buf[DOUBLE_MAXLEN];
+	size_t len=endp-nptr;
+	char *endptr;
+	double r;
+	if(len>DOUBLE_MAXLEN-1)
+		len=DOUBLE_MAXLEN-1;
+	memcpy(buf,nptr,len);
+	buf[len]=0;
+	r=strtod(buf,&endptr);
+	if(unlikely(endptr==buf))
+		return nptr;
+	*outval=r;
+	return nptr+(endptr-buf);
+}
 size_t expr_sscanf(const char *str,size_t len,const char *fmt,size_t fmtlen,void *const *addr,size_t addrlen){
 	const char *p,*str0=str,*fend=fmt+fmtlen,*end=str+len;
 	void *const *aend=addr+addrlen;
@@ -1800,9 +1816,11 @@ size_t expr_sscanf(const char *str,size_t len,const char *fmt,size_t fmtlen,void
 	size_t r,n=0;
 	union {
 		ssize_t _zi;
+		double _dbl;
 		char _ch;
 	} un;
 #define zi un._zi
+#define dbl un._dbl
 #define ch un._ch
 next:
 	p=memchr(fmt,'%',fmtlen);
@@ -1878,6 +1896,8 @@ next:
 			do_scan(ch=*str;p=str+1,*(char *)a=ch);
 		case 'c':
 			do_scan(zi=(ssize_t)(unsigned char)*str;p=str+1,*(ssize_t *)a=zi);
+		case 'f':
+			do_scan(p=warped_strtof(str,end,&dbl),*(double *)a=dbl);
 		case 'd':
 			do_scan(p=internal_strtoz_oux(str,end,&zi,1),*(ssize_t *)a=zi);
 		case 'u':
@@ -1891,5 +1911,6 @@ next:
 	}
 }
 #undef zi
+#undef dbl
 #undef ch
 

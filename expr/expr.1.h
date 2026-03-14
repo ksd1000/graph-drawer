@@ -253,14 +253,14 @@ EXPR_END
 //depends only by the input value,and no any side effect.for HOTFUNCTION
 //and ALIAS it means a size argument is following the char * argument.
 #define EXPR_SF_WRITEIP 2
-//for MDEPFUNCTION,if it is called,the ->ip first-argument expression will
-//be set to current ip.
+//for MDEPFUNCTION,if it is called,the ->ip will be set to current ip.
 #define EXPR_SF_PACKAGE 4
 //for VARIABLE,means the value of it is an address of a
-//multi-dimension function.for ALIAS it means the target is a package.
+//multi-dimension function.for CONSTANT it means the target is a package.
 #define EXPR_SF_NONBUILTIN 8
 //for VARIABLE,means the value of it is an address of a
-//multi-dimension function with expression argument.for ALIAS with SF_PACKAGE it means the target is a non-builtin package.
+//multi-dimension function with expression argument.
+//for CONSTANT with SF_PACKAGE it means the target is a non-builtin package.
 #define EXPR_SF_UNSAFE 16
 //a non-hot function has the flag means it may allow user to read/write
 //the memory freely or make a system call.they are disabled in protected

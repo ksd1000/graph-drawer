@@ -1764,6 +1764,35 @@ ssize_t expr_vapwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer
 ssize_t expr_apwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,...){
 	ap_common(va_start(a->ap,fd),va_end(a->ap),expr_writefmts_default,expr_writefmts_table_default);
 }
+
+static inline const char *internal_strtos(const char *nptr,const char *endp,const char *c,char *restrict out,size_t *restrict outval){
+	size_t outlen=endp-nptr;
+	if(c){
+		const char *r;
+		r=memchr(nptr,*c,outlen);
+		if(r)
+			outlen=r-nptr;
+
+	}
+	if(!out){
+		if(outval)
+			*outval=outlen;
+		return nptr+outlen;
+	}
+	debug("outlen=%zu",outlen);
+	if(outval){
+		if(outlen>*outval)
+			outlen=*outval;
+		memcpy(out,nptr,outlen);
+		if(outlen<*outval){
+			out[outlen]=0;
+			*outval=outlen;
+		}
+	}else {
+		memcpy(out,nptr,outlen);
+	}
+	return nptr+outlen;
+}
 size_t expr_sscanf(const char *str,size_t len,const char *fmt,size_t fmtlen,void *const *addr,size_t addrlen){
 	const char *p,*str0=str,*fend=fmt+fmtlen,*end=str+len;
 	void *const *aend=addr+addrlen;
@@ -1820,6 +1849,10 @@ next:
 			++str;
 			--len;
 			goto next;
+		case 'i':
+			fmt=p+1;
+			fmtlen=fend-fmt;
+			goto next;
 		case 'n':
 			if(unlikely(addr>=aend))
 				return n;
@@ -1829,6 +1862,16 @@ next:
 			++addr;
 			if(a)
 				*(ssize_t *)a=str-str0;
+			++n;
+			goto next;
+		case 's':
+			if(unlikely(addr+1>=aend))
+				return n;
+			fmt=p+1;
+			fmtlen=fend-fmt;
+			p=(fmtlen?fmt:NULL);
+			str=internal_strtos(str,end,p,*addr,addr[1]);
+			addr+=2;
 			++n;
 			goto next;
 		case 'C':
@@ -1849,3 +1892,4 @@ next:
 }
 #undef zi
 #undef ch
+

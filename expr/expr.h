@@ -607,8 +607,8 @@ union expr_argf {
 	intptr_t sint;
 	uintptr_t uint;
 	double dbl;
-	size_t z;
-	ssize_t t;
+	size_t zint;
+	ssize_t tint;
 	intptr_t *siaddr;
 	uintptr_t *uiaddr;
 	double *daddr;

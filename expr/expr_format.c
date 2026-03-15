@@ -80,7 +80,7 @@ ssize_t expr_converter_common(expr_writer writer,intptr_t fd,const void *buf,siz
 	}while(val)
 static ssize_t converter_d(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	char nbuf[32];
-	intptr_t val=arg->sint;
+	ssize_t val=arg->tint;
 	char *endp=nbuf+32;
 	char *p=endp;
 	ssize_t ext,sum,r,sz;
@@ -118,7 +118,7 @@ static ssize_t converter_size(expr_writer writer,intptr_t fd,const union expr_ar
 	static const char dimC[]={"BKMGTPE"};
 	char nbuf[64];
 	char dbuf[32];
-	int64_t val=(int64_t)arg->sint;
+	int64_t val=(int64_t)arg->tint;
 	char *endp=nbuf+32;
 	char *p=endp;
 	ssize_t ext,sum,r,sz;
@@ -189,7 +189,7 @@ no_digit:
 #define conv_x(name,base,bufsz) \
 static ssize_t converter_##name(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){\
 	char nbuf[bufsz];\
-	uintptr_t val=arg->uint;\
+	size_t val=arg->zint;\
 	char *endp=nbuf+bufsz;\
 	char *p=endp;\
 	ssize_t ext,sum,r,sz;\

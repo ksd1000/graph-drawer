@@ -63,14 +63,14 @@ const char *aflag(int type,int flag,size_t dim){
 			case EXPR_FUNCTION:
 			case EXPR_ZAFUNCTION:
 			case EXPR_HOTFUNCTION:
-				if(flag&EXPR_SF_INJECTION)
+				if(flag&EXPR_SF_PURE)
 					strcat(abuf,"I");
 				if(flag&EXPR_SF_UNSAFE)
 					strcat(abuf,"U");
 				return abuf;
 			case EXPR_MDFUNCTION:
 			case EXPR_MDEPFUNCTION:
-				if(flag&EXPR_SF_INJECTION)
+				if(flag&EXPR_SF_PURE)
 					strcat(abuf,"I");
 				if(flag&EXPR_SF_UNSAFE)
 					strcat(abuf,"U");

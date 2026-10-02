@@ -528,7 +528,7 @@ const struct option ops[]={
 	{"dump",0,NULL,'D'},
 	{"quiet",0,NULL,'q'},
 	{"count",1,NULL,0xff01},
-	{"injection",0,NULL,'i'},
+	{"pure",0,NULL,'i'},
 	{"step",0,NULL,'s'},
 	{"callback",0,NULL,'c'},
 	{"keep",0,NULL,'k'},
@@ -546,7 +546,7 @@ void show_help(const char *a0){
 			"\t--dump, -D\tdump mode(do not evaluate)\n"
 			"\t--quiet, -q\tdo not print the result\n"
 			"\t--count count\tevaluate how many times,default 1\n"
-			"\t--injection, -i\tuse injective function only\n"
+			"\t--pure, -i\tuse pure function only\n"
 			"\t--step, -s\tstep mode\n"
 			"\t--callback, -c\tcallback mode\n"
 			"\t--keep, -k\tkeep symbol sets,use with -d to make symbols visible\n"
@@ -597,7 +597,7 @@ int main(int argc,char **argv){
 				nobt=1;
 				break;
 			case 'i':
-				flag|=EXPR_IF_INJECTION;
+				flag|=EXPR_IF_PURE;
 				break;
 			case 'k':
 				flag|=EXPR_IF_KEEPSYMSET;

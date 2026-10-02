@@ -232,7 +232,7 @@ EXPR_END
 #define EXPR_ESAF 17
 #define EXPR_EVD 18
 #define EXPR_EPM 19
-#define EXPR_EIN 20
+#define EXPR_EPURE 20
 #define EXPR_ETNP 21
 #define EXPR_EVZP 22
 #define EXPR_EANT 23
@@ -248,8 +248,8 @@ EXPR_END
 #define EXPR_ALIAS 7
 
 //expr symbol flag
-#define EXPR_SF_INJECTION 1
-//a non-hot function has the INJECTION flag means the output value of it
+#define EXPR_SF_PURE 1
+//a non-hot function has the PURE flag means the output value of it
 //depends only by the input value,and no any side effect.for HOTFUNCTION
 //and ALIAS it means a size argument is following the char * argument.
 #define EXPR_SF_WRITEIP 2
@@ -277,7 +277,7 @@ EXPR_END
 #define EXPR_IF_NOOPTIMIZE 1
 #define EXPR_IF_INSTANT_FREE 2
 
-#define EXPR_IF_INJECTION 4
+#define EXPR_IF_PURE 4
 #define EXPR_IF_NOKEYWORD 8
 #define EXPR_IF_PROTECT 16
 #define EXPR_IF_KEEPSYMSET 128
@@ -287,7 +287,7 @@ EXPR_END
 #define EXPR_IF_EXTEND_MASK (\
 		EXPR_IF_INSTANT_FREE\
 		)
-#define EXPR_IF_SETABLE (EXPR_IF_INJECTION|EXPR_IF_NOKEYWORD|EXPR_IF_PROTECT)
+#define EXPR_IF_SETABLE (EXPR_IF_PURE|EXPR_IF_NOKEYWORD|EXPR_IF_PROTECT)
 
 //expr keyword flag
 #define EXPR_KF_SUBEXPR 1

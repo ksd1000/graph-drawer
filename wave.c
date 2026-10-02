@@ -708,8 +708,8 @@ void showsym3(int type,const char *extra,const struct expr_builtin_symbol *p){
 		snprintf(buf,32,"%s%s",p->str,extra);
 		buf[31]=0;
 		fprintf(stdout,"%-16s",buf);
-		if(p->flag&EXPR_SF_INJECTION)
-			fputs(" injection",stdout);
+		if(p->flag&EXPR_SF_PURE)
+			fputs(" pure",stdout);
 		if(p->flag&EXPR_SF_UNSAFE)
 			fputs(" unsafe",stdout);
 		fputc('\n',stdout);

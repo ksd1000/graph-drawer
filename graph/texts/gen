@@ -1,0 +1,27 @@
+#! /bin/bash
+function generate {
+	cmd='convert -size "$4x$4" xc:white -gravity center -pointsize "$5" -annotate 0 "$3" "$2.tmp.bmp"'
+	#echo "$6" | grep '^auto$' -v
+	if echo "$6" | grep '^auto$' -v > /dev/null ;then
+		cmd+=' -font "$6"'
+	fi
+	if eval "$cmd" ;then
+		ffmpeg -i "${h}.tmp.bmp" -vf format=gray "$2.bmp" -hide_banner -loglevel error -y
+		rm "${h}.tmp.bmp"
+	else
+		exit 1
+	fi
+}
+
+size=1200
+point_size=1024
+font=auto
+
+for i in {32..126}
+do
+	h=$(echo $i | awk '{printf("0x%x\n",$1)}')
+	line=$(echo $i | awk '{printf("%c\n",$1)}')
+	echo generating bitmap of ascii "$line" "$i" "$h"
+	generate "$i" "$h" "$line" "$size" "$point_size" "$font"
+
+done

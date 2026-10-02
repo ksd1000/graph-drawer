@@ -1,0 +1,4 @@
+#! /bin/bash
+cat graph.1.h > graph.h
+. ./decdump < graph.c >>graph.h
+cat graph.2.h >> graph.h

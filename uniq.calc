@@ -1,0 +1,15 @@
+#! calc -f
+import(common);
+import(memory);
+import(string);
+import(symset);
+expr_setup_nonnull_xmalloc();
+p=:0;
+symset_new()-->set;
+while(readline1(&p)-->r,andl(orl(r>=0,!cmp(r,-0)),p)){
+	printf("%s\n",p);
+};
+symset_free(set);
+endline1();
+expr_setup_nonnull_xmalloc();
+0->calc_show_result;

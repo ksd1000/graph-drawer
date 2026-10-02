@@ -1,0 +1,18 @@
+#! /bin/bash
+function link {
+echo static const char texts[][TEXT_MAXSIZE]={
+for i in *.sbmp
+do
+	echo '{'
+	xxd -i < ${i}
+	echo -n '},'
+done
+echo '};'
+}
+echo ' creating text.h'
+cat text.1.h >text.h
+./bmpass *.bmp >> text.h
+echo ' creating text.c.h'
+echo '#include "text.h"' >text.c.h
+link | sed 's/,\};/};/g' >> text.c.h
+echo '#define TEXT_SIZE (sizeof(texts)/sizeof(texts[0]))' >> text.c.h

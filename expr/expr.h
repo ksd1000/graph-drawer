@@ -328,6 +328,9 @@ EXPR_END
 })
 
 #define expr_bswap(x,N) __builtin_bswap##N((uint##N##_t)(x))
+#define expr_bswap16(x) __builtin_bswap16(x)
+#define expr_bswap32(x) __builtin_bswap32(x)
+#define expr_bswap64(x) __builtin_bswap64(x)
 
 #define expr_cast(x,type) \
 	({\

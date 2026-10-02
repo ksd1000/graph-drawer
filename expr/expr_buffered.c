@@ -35,6 +35,7 @@ expr_globals;
 ssize_t expr_buffered_write(struct expr_buffered_file *restrict fp,const void *buf,size_t size){
 	size_t i,c;
 	ssize_t r,s0,r1;
+	void *p;
 	if(unlikely(!size)){
 		r=expr_buffered_flush(fp);
 		if(unlikely(r<0)){
@@ -57,14 +58,25 @@ size_le_c:
 		memcpy(fp->buf+fp->index,buf,size);
 		if(size==c){
 			FLUSH(fp->length,size,);
+			if(fp->length<fp->dynamic){
+				i=align(fp->length+size+BUFSIZE_INITIAL+EXTEND_FRAC(fp->length));
+				if(unlikely(i>fp->dynamic||i<=fp->length))
+					i=fp->dynamic;
+				p=xrealloc(fp->buf,i);
+				if(likely(p)){
+					debug("buffer_size %zu -> %zu",fp->length,i);
+					fp->buf=p;
+					fp->length=i;
+				}
+			}
 			return size;
 		}else {
 			fp->index+=size;
 			return size;
 		}
 	}
+	debug("len=%zu,dyn=%zu",fp->length,fp->dynamic);
 	if(fp->length<fp->dynamic){
-		void *p;
 		i=align(fp->index+size+BUFSIZE_INITIAL+EXTEND_FRAC(fp->length));
 		if(unlikely(i>fp->dynamic||i<=fp->length))
 			i=fp->dynamic;

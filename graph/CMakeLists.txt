@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(graph C)
-if((NOT DEFINED CMAKE_BUILD_TYPE) OR (CMAKE_BUILD_TYPE STREQUAL ""))
-	set(CMAKE_BUILD_TYPE Release)
+if(NOT DEFINED CMAKE_BUILD_TYPE)
+	set(CMAKE_BUILD_TYPE Release CACHE FORCE)
 	set(CBT_ISDEF " (default)")
 else()
 	set(CBT_ISDEF "")
@@ -12,11 +12,8 @@ set(CMAKE_C_FLAGS_DEBUG "-O0 -g")
 set(CMAKE_C_FLAGS_MINSIZEREL "-Os")
 set(CMAKE_C_FLAGS_RELWITHDEBINFO "-O2 -g")
 add_compile_options(-Wall)
-add_library(graph_object OBJECT
+add_library(graph
 	graph.c
 	texts/sbmp.c
 	texts/text.c
 )
-target_compile_options(graph_object PRIVATE -fPIC)
-add_library(graph STATIC $<TARGET_OBJECTS:graph_object>)
-add_library(graph_shared SHARED $<TARGET_OBJECTS:graph_object>)

@@ -306,6 +306,27 @@ EXPR_END
 #define EXPR_PUSH(_sp) (*(--(_sp)))
 #define EXPR_POP(_sp) (*((_sp)++))
 
+#define EXPR_BLANKS \
+		'\t':\
+		case '\r':\
+		case '\v':\
+		case '\f':\
+		case '\n':\
+		case '\b':\
+		case ' '
+#define expr_blank(c) ({\
+	int _r;\
+	switch(c){\
+		case EXPR_BLANKS:\
+			_r=1;\
+			break;\
+		default:\
+			_r=0;\
+			break;\
+	}\
+	_r;\
+})
+
 #define expr_bswap(x,N) __builtin_bswap##N((uint##N##_t)(x))
 
 #define expr_cast(x,type) \

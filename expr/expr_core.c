@@ -185,26 +185,6 @@ static double expr_eval_static(const struct expr *restrict ep,double input);
 	}\
 	_r;\
 })
-#define EXPR_SPACES \
-		'\t':\
-		case '\r':\
-		case '\v':\
-		case '\f':\
-		case '\n':\
-		case '\b':\
-		case ' '
-#define expr_space(c) ({\
-	int _r;\
-	switch(c){\
-		case EXPR_SPACES:\
-			_r=1;\
-			break;\
-		default:\
-			_r=0;\
-			break;\
-	}\
-	_r;\
-})
 #define EXPR_OPERATORS \
 		'+':\
 		case '-':\
@@ -5259,7 +5239,7 @@ struct expr_symset *expr_symset_clone_s(const struct expr_symset *restrict ep,vo
 	}
 	return es;
 }
-static char *stpcpy_nospace(char *restrict s1,const char *restrict s2,const char *endp,int subexpr){
+static char *stpcpy_noblank(char *restrict s1,const char *restrict s2,const char *endp,int subexpr){
 	const char *s20=(const char *)s2,*p;
 	int instr=0;
 	for(;s2<endp;++s2){
@@ -5273,7 +5253,7 @@ static char *stpcpy_nospace(char *restrict s1,const char *restrict s2,const char
 				s2=p;
 			continue;
 		}
-		if(!instr&&expr_space(*s2))
+		if(!instr&&expr_blank(*s2))
 			continue;
 		*(s1++)=*s2;
 	}
@@ -5320,7 +5300,7 @@ static int expr_init8(struct expr *restrict ep,const char *e,size_t len,const ch
 	}
 	p0=xmalloc(len+1);
 	cknp(ep,p0,return -1);
-	r=stpcpy_nospace(p0,e,e+len,!!parent);
+	r=stpcpy_noblank(p0,e,e+len,!!parent);
 	un.p=scan(ep,p0,r,asym,asym?asymlen:0);
 	xfree(p0);
 	if(ep->sset_shouldfree){

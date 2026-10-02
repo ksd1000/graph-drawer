@@ -20,5 +20,9 @@ add_library(expr
 	expr_builtin.c
 	expr_format.c
 )
+link_libraries(expr m)
 add_executable(expr-version expr-version.c)
-target_link_libraries(expr-version expr m)
+if(EXPR_CHECK)
+	add_link_options(-fsanitize=address)
+	add_executable(expr-check check.c leak.c)
+endif()

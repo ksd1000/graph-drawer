@@ -1,0 +1,34 @@
+#! calc -f
+reset(assert);
+assert=(x,val){
+	if(!x){
+		return(ep,val);
+	};
+};
+PORT=12345;
+BUFSIZE=(128*1024*1024);
+ip(3)-->ep;
+=svc(sys_socket,#AF_INET,#SOCK_STREAM,#IPPROTO_TCP)-->fd;
+assert(fd>=0,fd);
+p=byte(16);
+_w16(p,AF_INET);
+_w16(p#2,htons(PORT));
+bzero(p#4,12);
+r=:0;
+=svc(sys_bind,#fd,p,#16)->r;
+assert(r>=0,r);
+=svc(sys_listen,#fd,#1)->r;
+assert(r>=0,r);
+rfd=:0;
+0-->total;
+while(=svc(sys_accept4,#fd,0,0,0)->rfd>=0){
+	b=byte(BUFSIZE);
+	sz=:0;
+	while(=svc(sys_read,#rfd,b,#BUFSIZE)->sz>0){
+		svc(sys_write,#rfd,b,#sz)-->write_ret;
+		if(write_ret>0){(total+write_ret)->total};
+	};
+	svc(sys_close,#rfd);
+};
+svc(sys_close,#fd);
+total

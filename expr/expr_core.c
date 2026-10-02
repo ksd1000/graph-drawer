@@ -43,8 +43,7 @@
 #define SYMDIM(sp) (*expr_symbol_dim(sp))
 #define HOTLEN(sp) expr_symbol_hotlen(sp)
 
-static double expr_eval_static(const struct expr *restrict ep,double input);
-#define eval(_ep,_input) expr_eval_static(_ep,_input)
+#define eval(_ep,_input) expr_eval(_ep,_input)
 
 #ifndef PAGE_SIZE
 #define PAGE_SIZE 4096
@@ -338,7 +337,7 @@ static const char *eerror[]={
 	[EXPR_ESAF]="Static assertion failed",
 	[EXPR_EVD]="Void value must be dropped",
 	[EXPR_EPM]="In protected mode",
-	[EXPR_EIN]="Injective function only",
+	[EXPR_EPURE]="Pure function only",
 	[EXPR_ETNP]="Target is not a package",
 	[EXPR_EVZP]="Variable-length multi-demension function without a maximal length is not allowed in protected mode",
 	[EXPR_EANT]="Alias is not terminated",
@@ -1208,7 +1207,7 @@ static inline struct expr_inst *expr_addconst(struct expr *restrict ep,double *d
 }
 static inline struct expr_inst *expr_addconst_i(struct expr *restrict ep,double *dst,double val){
 //	the address of a variable may be used so it cannot be optimized out.
-	return expr_addop(ep,dst,cast(val,void *),EXPR_CONST,EXPR_SF_INJECTION);
+	return expr_addop(ep,dst,cast(val,void *),EXPR_CONST,EXPR_SF_PURE);
 }
 static inline struct expr_inst *expr_addalo(struct expr *restrict ep,double *dst,size_t zu){
 	return expr_addop(ep,dst,cast(zu,void *),EXPR_ALO,0);
@@ -1317,7 +1316,7 @@ static double *expr_createvar(struct expr *restrict ep,const char *symbol,size_t
 static int expr_createhot(struct expr *restrict ep,const char *symbol,size_t symlen,const char *hotexpr,size_t hotlen,int type,int flag){
 	cknp(ep,expr_detach(ep)>=0,return -1);
 	debug("%zu --- %s",hotlen,hotexpr);
-	return expr_symset_addl(ep->sset,symbol,symlen,type,flag|EXPR_SF_INJECTION,hotexpr,hotlen)?
+	return expr_symset_addl(ep->sset,symbol,symlen,type,flag|EXPR_SF_PURE,hotexpr,hotlen)?
 	0:-1;
 }
 static inline const char *findpair(const char *c,const char *endp){
@@ -2020,7 +2019,7 @@ static double *gethot(struct expr *restrict ep,const char *e0,size_t sz,const ch
 
 	v1=expr_newvar(ep);
 	cknp(ep,v1,goto err3);
-	cknp(ep,expr_addhmd(ep,v1,eh,flag&~EXPR_SF_INJECTION),goto err3);
+	cknp(ep,expr_addhmd(ep,v1,eh,flag&~EXPR_SF_PURE),goto err3);
 	vfree2(ve);
 	vfree2(v);
 	return v1;
@@ -2172,7 +2171,7 @@ alias_found:
 				setunsafe(ep);
 			}
 		case EXPR_FUNCTION:
-			if(unlikely(!(flag&EXPR_SF_INJECTION)&&(ep->iflag&EXPR_IF_INJECTION)))
+			if(unlikely(!(flag&EXPR_SF_PURE)&&(ep->iflag&EXPR_IF_PURE)))
 				goto ein;
 		default:
 			break;
@@ -2194,7 +2193,7 @@ pm:
 	return NULL;
 ein:
 	serrinfo(ep->errinfo,symbol,symlen);
-	seterr(ep,EXPR_EIN);
+	seterr(ep,EXPR_EPURE);
 	return NULL;
 esymbol:
 	if(symerr){
@@ -3570,7 +3569,7 @@ fok:
 			expr_symset_free(sym.esp);
 			if(unlikely(!un.ep))
 				return NULL;
-			cknp(ep,expr_addhot(ep,v0,un.ep,flag&~EXPR_SF_INJECTION),return NULL);
+			cknp(ep,expr_addhot(ep,v0,un.ep,flag&~EXPR_SF_PURE),return NULL);
 			e=p+1;
 			goto vend;
 		case EXPR_CONSTANT:
@@ -3720,7 +3719,7 @@ number:
 /*
 ein:
 	serrinfo(ep->errinfo,e,p-e);
-	seterr(ep,EXPR_EIN);
+	seterr(ep,EXPR_EPURE);
 	return NULL;
 */
 sym_notfound:
@@ -4754,7 +4753,7 @@ struct expr_symbol *expr_symbol_vcreatel(const char *sym,size_t symlen,int type,
 		case EXPR_HOTFUNCTION:
 		case EXPR_ALIAS:
 			p=(const char *)va_arg(ap,const void *);
-			if(flag&EXPR_SF_INJECTION)
+			if(flag&EXPR_SF_PURE)
 				len_expr=va_arg(ap,size_t);
 			else
 				len_expr=strlen(p);
@@ -5825,7 +5824,7 @@ static int expr_optimize_const(struct expr *restrict ep){
 	int r=0;
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
 		if(ip->op==EXPR_CONST&&!expr_modified(ep,ip->dst.dst)){
-			if(!(ip->flag&EXPR_SF_INJECTION)){
+			if(!(ip->flag&EXPR_SF_PURE)){
 				ip->dst.dst=NULL;
 				r=1;
 			}
@@ -5892,7 +5891,7 @@ static int expr_usesrc(enum expr_op op){
 static int expr_vused(struct expr_inst *ip1,double *v){
 	int ov;
 	for(;;++ip1){
-		if(ip1->op==EXPR_CONST&&(ip1->flag&EXPR_SF_INJECTION)&&cast(ip1->un.value,double *)==v)
+		if(ip1->op==EXPR_CONST&&(ip1->flag&EXPR_SF_PURE)&&cast(ip1->un.value,double *)==v)
 			return 1;
 		ov=expr_override(ip1->op);
 		if((expr_usesrc(ip1->op)&&ip1->un.src==v)
@@ -5917,7 +5916,7 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 			case EXPR_BL:
 			case EXPR_ZA:
 			case EXPR_HOT:
-				if(ip->flag&EXPR_SF_INJECTION)
+				if(ip->flag&EXPR_SF_PURE)
 					break;
 			case EXPR_INPUT:
 			case EXPR_IP:
@@ -5951,7 +5950,7 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 			case EXPR_END:
 				return 1;
 			case EXPR_CONST:
-				if(ip->flag&EXPR_SF_INJECTION){
+				if(ip->flag&EXPR_SF_PURE){
 					return 0;
 				}
 			default:
@@ -6152,7 +6151,7 @@ static int expr_optimize_constexpr(struct expr *restrict ep){
 				r=1;
 				break;
 			case MDCASES:
-				if(!(ip->flag&EXPR_SF_INJECTION))
+				if(!(ip->flag&EXPR_SF_PURE))
 					continue;
 				epp=ip->un.em->eps;
 				endp1=epp+ip->un.em->dim;
@@ -6173,7 +6172,7 @@ static int expr_optimize_constexpr(struct expr *restrict ep){
 				r=1;
 				break;
 			case EXPR_VMD:
-				if(!(ip->flag&EXPR_SF_INJECTION))
+				if(!(ip->flag&EXPR_SF_PURE))
 					continue;
 				if(!(expr_constexpr(ip->un.ev->fromep,NULL)&&
 				expr_constexpr(ip->un.ev->toep,(double *)&ip->un.ev->index)&&
@@ -6189,7 +6188,7 @@ static int expr_optimize_constexpr(struct expr *restrict ep){
 				r=1;
 				break;
 			case EXPR_HMD:
-				if(!(ip->flag&EXPR_SF_INJECTION))
+				if(!(ip->flag&EXPR_SF_PURE))
 					continue;
 				epp=ip->un.eh->eps;
 				endp1=epp+ip->un.eh->dim;
@@ -6516,7 +6515,7 @@ static int expr_optimize_constneg(struct expr *restrict ep){
 	optimize_end;
 }
 
-static int expr_injection_optype(enum expr_op op){
+static int expr_pure_optype(enum expr_op op){
 	switch(op){
 		case EXPR_BL:
 		case EXPR_ZA:
@@ -6526,11 +6525,11 @@ static int expr_injection_optype(enum expr_op op){
 			return 0;
 	}
 }
-static int expr_isinjection(struct expr *restrict ep,struct expr_inst *ip){
-	return expr_injection_optype(ip->op)
-		&&(ip->flag&EXPR_SF_INJECTION);
+static int expr_ispure(struct expr *restrict ep,struct expr_inst *ip){
+	return expr_pure_optype(ip->op)
+		&&(ip->flag&EXPR_SF_PURE);
 }
-static int expr_injective_hotfunction_check(struct expr *restrict ep){
+static int expr_pure_hotfunction_check(struct expr *restrict ep){
 	for(struct expr_inst *ip=ep->data;;++ip){
 		if(!expr_varofep(ep,ip->dst.dst))
 			return 0;
@@ -6544,7 +6543,7 @@ static int expr_injective_hotfunction_check(struct expr *restrict ep){
 			case EXPR_ZA:
 			case MDCASES:
 			case EXPR_HMD:
-				if(!(ip->flag&EXPR_SF_INJECTION))
+				if(!(ip->flag&EXPR_SF_PURE))
 					return 0;
 				break;
 			case SRCCASES:
@@ -6552,7 +6551,7 @@ static int expr_injective_hotfunction_check(struct expr *restrict ep){
 					return 0;
 				break;
 			case EXPR_HOT:
-				if(!expr_injective_hotfunction_check(ip->un.hotfunc))
+				if(!expr_pure_hotfunction_check(ip->un.hotfunc))
 					return 0;
 				break;
 			default:
@@ -6561,7 +6560,7 @@ static int expr_injective_hotfunction_check(struct expr *restrict ep){
 	}
 }
 #define checkeihc(V) (!expr_varofep(ep,V)&&(V<eh->args||V>=eh->args+eh->dim))
-static int expr_injective_hotmdfunction_check(struct expr_hmdinfo *eh){
+static int expr_pure_hotmdfunction_check(struct expr_hmdinfo *eh){
 	struct expr *restrict ep=eh->hotfunc;
 	for(struct expr_inst *ip=ep->data;;++ip){
 		if(checkeihc(ip->dst.dst))
@@ -6576,7 +6575,7 @@ static int expr_injective_hotmdfunction_check(struct expr_hmdinfo *eh){
 			case MDCASES:
 			case EXPR_HOT:
 			case EXPR_HMD:
-				if(!(ip->flag&EXPR_SF_INJECTION))
+				if(!(ip->flag&EXPR_SF_PURE))
 					return 0;
 				break;
 			case SRCCASES:
@@ -6589,24 +6588,24 @@ static int expr_injective_hotmdfunction_check(struct expr_hmdinfo *eh){
 		}
 	}
 }
-static int expr_optimize_injective_hotfunction(struct expr *restrict ep){
+static int expr_optimize_pure_hotfunction(struct expr *restrict ep){
 	int r=0;
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
 		switch(ip->op){
 			case EXPR_HOT:
-				if(ip->flag&EXPR_SF_INJECTION)
+				if(ip->flag&EXPR_SF_PURE)
 					break;
-				if(!expr_injective_hotfunction_check(ip->un.hotfunc))
+				if(!expr_pure_hotfunction_check(ip->un.hotfunc))
 					break;
-				ip->flag|=EXPR_SF_INJECTION;
+				ip->flag|=EXPR_SF_PURE;
 				r=1;
 				break;
 			case EXPR_HMD:
-				if(ip->flag&EXPR_SF_INJECTION)
+				if(ip->flag&EXPR_SF_PURE)
 					break;
-				if(!expr_injective_hotmdfunction_check(ip->un.eh))
+				if(!expr_pure_hotmdfunction_check(ip->un.eh))
 					break;
-				ip->flag|=EXPR_SF_INJECTION;
+				ip->flag|=EXPR_SF_PURE;
 				r=1;
 				break;
 			default:
@@ -6616,10 +6615,10 @@ static int expr_optimize_injective_hotfunction(struct expr *restrict ep){
 	}
 	optimize_end;
 }
-static int expr_optimize_injection(struct expr *restrict ep){
+static int expr_optimize_pure(struct expr *restrict ep){
 	int r=0;
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
-			if(!expr_isinjection(ep,ip))
+			if(!expr_ispure(ep,ip))
 				continue;
 			if(ip->op==EXPR_ZA){
 				ip->un.value=ip->un.zafunc();
@@ -7063,8 +7062,8 @@ static int expr_optimize_once(struct expr *restrict ep){
 	r+=expr_optimize_constneg(ep);
 	r+=expr_optimize_contneg(ep);
 	r+=expr_optimize_strongorder_and_notl(ep);
-	r+=expr_optimize_injection(ep);
-	r+=expr_optimize_injective_hotfunction(ep);
+	r+=expr_optimize_pure(ep);
+	r+=expr_optimize_pure_hotfunction(ep);
 	r+=expr_optimize_contmul(ep,EXPR_POW);
 	r+=expr_optimize_contmul(ep,EXPR_MUL);
 	r+=expr_optimize_contmul(ep,EXPR_DIV);
@@ -7507,10 +7506,6 @@ break2:
 	}
 __attribute__((noinline))
 double expr_eval(const struct expr *restrict ep,double input){
-	EXPR_EVAL_BODY;
-}
-__attribute__((noinline))
-static double expr_eval_static(const struct expr *restrict ep,double input){
 	EXPR_EVAL_BODY;
 }
 

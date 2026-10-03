@@ -211,7 +211,7 @@ struct header_wav {
 	return pipefd[1]
 #else
 #define GETPIPE_BODY(ampl_fmt) \
-	errx(EXIT_FAILURE,"not on unix. use --raw.")
+	errx(EXIT_FAILURE,"not on unix. use --output.")
 #endif
 #ifdef REAL_UNIX
 #define TRY_WAIT \

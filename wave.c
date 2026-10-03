@@ -125,8 +125,13 @@ struct header_wav {
 	}else {\
         	r=expr_buffered_write(&bf,buf,size);\
 	}\
-	if(r<(ssize_t)(size))\
-		(r<0&&r!=PTRDIFF_MIN?err:errx)(EXIT_FAILURE,"write error");\
+	if(r<(ssize_t)(size)){\
+		if(r<0&&r!=PTRDIFF_MIN){\
+			err(EXIT_FAILURE,"write error");\
+		}else {\
+			errx(EXIT_FAILURE,"write error");\
+		}\
+	}\
 })
 #define show(a,b) {if(sndbkn<0.0)out("\033[K\0337%.2lfs cost|%.2lfs written|freq=%.2lf (inaccurate)\0338",a,b,det2freq(det));else out("\033[K\0337%.2lfs cost|%.2lfs written|freq=%.2lf (inaccurate)|sound broken(%.2lfs)\0338",a,b,det2freq(det),sndbkn);}
 /*

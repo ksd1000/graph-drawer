@@ -51,11 +51,11 @@ double text_end=0.0;
 double tfinterval=0.00390625;
 int32_t ratio=128,tinterval=24;
 double freq_lowest=512,freq_functor=4;
-#ifdef REAL_UNIX
-sig_atomic_t sat=0;
 size_t buffer_size=0;
 struct expr_buffered_file bf;
 const char *format="s32le";
+#ifdef REAL_UNIX
+sig_atomic_t sat=0;
 void sig(int s){
 	switch(s){
 		case SIGPIPE:

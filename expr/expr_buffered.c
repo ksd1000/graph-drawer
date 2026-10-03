@@ -96,7 +96,7 @@ size_le_c:
 	if(fp->index){
 		memcpy(fp->buf+fp->index,buf,c);
 		size-=c;
-		FLUSH(fp->length,s0-size,fp->index=fp->length);
+		FLUSH(fp->length,c,fp->index=fp->length);
 		buf+=c;
 	}
 	if(size>=fp->length){

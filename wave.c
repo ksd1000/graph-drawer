@@ -400,7 +400,7 @@ err:
 }
 intptr_t xopen(const char *path){
 	intptr_t r;
-	r=open(path,O_WRONLY_CREAT,S_IRUSR|S_IWUSR);
+	r=open(path,O_WRONLY_CREAT);
 	if(fderr(r)){
 		err(EXIT_FAILURE,"cannot open \"%s\"",path);
 	}

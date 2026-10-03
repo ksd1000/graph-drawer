@@ -24,8 +24,8 @@
 #define FBOLD 1
 #define RATIO 4096
 #define BUFSIZE (1024*1024)
-ssize_t last_write_ret=0;
-#define outstring(str) (last_write_ret=write(STDERR_FILENO,str,sizeof(str)-1))
+#pragma GCC diagnostic ignored "-Wunused-result"
+#define outstring(str) write(STDERR_FILENO,str,sizeof(str)-1)
 void add_common_symbols(struct expr_symset *es);
 //#define free(v)
 void *readall(intptr_t fd,size_t *len);

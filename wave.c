@@ -436,7 +436,7 @@ void bmload(const char *path){
 	bm_end=(bm->width+1)*bminterval;
 }
 double bmfunc(double t0){
-	unsigned long t;
+	uint64_t t;
 	double sum;
 	int32_t dy,w,h,x;
 	if(!bm)

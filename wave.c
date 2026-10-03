@@ -123,10 +123,12 @@ struct header_wav {
 
 #define write_common(buf,size) ({\
 	if(!buffer_size){\
-        	write(outfd,buf,size);\
+        	r=write(outfd,buf,size);\
 	}else {\
-        	expr_buffered_write(&bf,buf,size);\
+        	r=expr_buffered_write(&bf,buf,size);\
 	}\
+	if(r<(ssize_t)(size))\
+		(r<0&&r!=PTRDIFF_MIN?err:errx)(EXIT_FAILURE,"write error");\
 })
 #define show(a,b) {if(sndbkn<0.0)out("\033[K\0337%.2lfs cost|%.2lfs written|freq=%.2lf (inaccurate)\0338",a,b,det2freq(det));else out("\033[K\0337%.2lfs cost|%.2lfs written|freq=%.2lf (inaccurate)|sound broken(%.2lfs)\0338",a,b,det2freq(det),sndbkn);}
 /*
@@ -244,7 +246,7 @@ int getpipe_##ampl_fmt(void){\
 }\
 int generate_##ampl_fmt(ssize_t endt){\
 	double st,lt,ct,x,ovf,sndbkn;\
-	ssize_t t,det,let;\
+	ssize_t t,det,let,r;\
 	ampl_type ampl;\
 	int status;\
 	if(!raw){\
@@ -315,6 +317,8 @@ int generate_##ampl_fmt(ssize_t endt){\
 #define make_u16be(d) (raw?expr_bswap16(UINT16_MAX*0.5*(1+(d))):make_s16le(d))
 #define make_s8(d) ((int8_t)(raw?(int8_t)(INT8_MAX*(d)):make_u8(d)))
 #define make_u8(d) ((uint8_t)(UINT8_MAX*0.5*(1+(d))))
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 def_format(int32_t,s32le,make_s32le)
 def_format(int32_t,s32be,make_s32be)
 def_format(uint32_t,u32le,make_u32le)
@@ -325,6 +329,7 @@ def_format(uint16_t,u16le,make_u16le)
 def_format(uint16_t,u16be,make_u16be)
 def_format(int8_t,s8,make_s8)
 def_format(uint8_t,u8,make_u8)
+#pragma GCC diagnostic pop
 #define generate_s8le generate_s8
 #define generate_s8be generate_s8
 #define generate_u8le generate_u8

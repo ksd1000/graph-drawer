@@ -279,6 +279,8 @@ const char *od(const struct expr *restrict ep,void *addr){
 	static char abuf[64+EXPR_SYMLEN];
 	ssize_t index;
 	const char *p;
+	double val;
+	int r;
 	if(addr==EXPR_VOID||addr==EXPR_VOID_NR){
 		strcpy(abuf,"[void]");
 		return abuf;
@@ -290,14 +292,21 @@ const char *od(const struct expr *restrict ep,void *addr){
 	}
 	index=varindex(ep,addr);
 	if(index>=0){
-		sprintf(abuf,"[%zd]",index);
-		return abuf;
+		r=sprintf(abuf,"[%zd]",index);
+#define print_nonnan \
+		val=*(double *)addr;\
+		if(!expr_isnan(val))\
+			sprintf(abuf+r,"=%.3lg",val);\
+		return abuf
+		print_nonnan;
 	}
 	if((double *)addr>=ep->un.args&&(double *)addr<ep->un.args+EXPR_SYSAM){
-		sprintf(abuf,"r[%zd]",(double *)addr-ep->un.args);
+		r=sprintf(abuf,"r[%zd]",(double *)addr-ep->un.args);
+		print_nonnan;
 		return abuf;
 	}
-	sprintf(abuf,"u[%zd]",indexofu(addr));
+	r=sprintf(abuf,"u[%zd]",indexofu(addr));
+	print_nonnan;
 	return abuf;
 }
 const char *ainst(const struct expr *restrict ep,struct expr_inst *ip){
@@ -308,7 +317,7 @@ const char *ainst(const struct expr *restrict ep,struct expr_inst *ip){
 		case NUL:
 			break;
 		case MEM:
-			sprintf(abuf+r," %-5s=%.3lg",od(ep,ip->un.uaddr),*ip->un.src);
+			sprintf(abuf+r," %-5s",od(ep,ip->un.uaddr));
 			break;
 		case ADDR:
 			sprintf(abuf+r," %-5s",od(ep,ip->un.uaddr));

@@ -24,13 +24,9 @@ find the greatest prime <=555555 (555523)
 
 or
 
-./calc 'sum(n,1,100000,1,print(prime(n))),exit(0)'
+./calc 'for(n,1,100000,1,print(prime(n)))'
 ```
 print the first 100000 primes
-```
-./calc 'sum(n,1,10000,1,kill(n,15)==0)'
-```
-send signal 15 to process with pid from 1 to 10000 and output the number of successes
 ```
 ./calc "\
 syscall(sys_socket,AF_INET,SOCK_STREAM,IPPROTO_TCP)-->fd;\

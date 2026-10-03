@@ -20,8 +20,6 @@
 #include "argscan.c"
 //argscan end
 #define SIZE 16
-#define BOLD 2
-#define FBOLD 1
 #define RATIO 4096
 #define BUFSIZE (1024*1024)
 #pragma GCC diagnostic ignored "-Wunused-result"
@@ -37,6 +35,7 @@ void graph_drawep_mt(struct graph *restrict gp,uint32_t color,int32_t bold,const
 }
 volatile double *currents;
 volatile double n1=1.6;
+int32_t bold=2,fbold=1;
 int thread=1,ioret=0;
 int32_t width=RATIO,height=RATIO;
 unsigned int barlen,textline=0;
@@ -56,8 +55,8 @@ double draw_connect(double *args,size_t n){
 	return NAN;
 }
 void *drawing(void *args){
-	graph_drawep_mt(&g,color,FBOLD,xeps,yeps,from,to,step,currents,thread);
-	//graph_drawep(&g,color,FBOLD,xep,yep,from,to,step,currents);
+	graph_drawep_mt(&g,color,fbold,xeps,yeps,from,to,step,currents,thread);
+	//graph_drawep(&g,color,fbold,xep,yep,from,to,step,currents);
 	return NULL;
 }
 int protect=0;
@@ -187,6 +186,8 @@ const struct argtype ats[]={
 	ARG("frombmp",NULL,&frombmp,AT_STR,0,"file -- use a bitmap as background"),
 	ARG(NULL,"x",&ex,AT_STR,1,"expression -- set the expression for x,default:x(t)=t"),
 	ARG("no-connect",NULL,&no_connect,AT_BOOLX,0,"do not connect discontinuities"),
+	ARG("bold","b",&bold,AT_INT,0,"bold -- bold of the axis"),
+	ARG("fbold","B",&fbold,AT_INT,1,"fbold -- bold of the function"),
 	ARG("minx",NULL,&minx,AT_DOUBLE,0,"x -- minimal x of the graph"),
 	ARG("maxx",NULL,&maxx,AT_DOUBLE,0,"x -- maximal x of the graph"),
 	ARG("miny",NULL,&miny,AT_DOUBLE,0,"y -- minimal y of the graph"),
@@ -262,10 +263,10 @@ int main(int argc,char **argv){
 		graph_fill(&g,0xffffff);
 	outstring("drawing axis...");
 	//graph_fill(&g,0xffffff);
-	graph_draw_grid(&g,0xbfbfbf,0*BOLD,gapx/4.0,gapy/4.0);
-	graph_draw_grid(&g,0x7f7f7f,1*BOLD,gapx,gapy);
+	graph_draw_grid(&g,0xbfbfbf,0,gapx/4.0,gapy/4.0);
+	graph_draw_grid(&g,0x7f7f7f,bold,gapx,gapy);
 	//g.draw_value=0;
-	graph_draw_axis(&g,0x000000,1*BOLD,gapx,gapy,32*(width+height)/8192);
+	graph_draw_axis(&g,0x000000,bold,gapx,gapy,32*(width+height)/8192);
 	outstring("ok\n");
 	currents=malloc(thread*sizeof(double));
 

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(graph C)
 if(NOT DEFINED CMAKE_BUILD_TYPE)
-	set(CMAKE_BUILD_TYPE Release CACHE FORCE)
+	set(CMAKE_BUILD_TYPE Release)
 	set(CBT_ISDEF " (default)")
 else()
 	set(CBT_ISDEF "")

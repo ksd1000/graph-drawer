@@ -382,18 +382,19 @@ static size_t extint_div(uint64_t *buf,size_t size,uint32_t divisor,uint32_t *mo
 	else
 		return 0;
 }
-static void extint_mirror(char *buf,size_t size){
-	char *out=buf+size-1;
-	register char swapbuf;
-	while(out>buf){
-		//printf("swap %c,%c\n",*buf,*out);
-		swapbuf=*out;
-		*out=*buf;
-		*buf=swapbuf;
-		--out;
-		++buf;
-	}
-}
+#define extint_mirror(buf,size) ({\
+	volatile char *_buf=(buf);\
+	volatile char *_out=_buf+(size)-1;\
+	char _swapbuf;\
+	while(_out>_buf){\
+		_swapbuf=*_out;\
+		*_out=*_buf;\
+		*_buf=_swapbuf;\
+		--_out;\
+		++_buf;\
+	}\
+})
+// warning on gcc 13.3.0 if no volatile
 #define write_ascii(_op,_sz) \
 	uint32_t mod,ds=base,dsn,n;\
 	char *out=outbuf;\
@@ -676,8 +677,11 @@ onzero:\
 		*(++endp)=_conv_str[r2%10];\
 		++sz;\
 	}while((r2/=10));\
-	if(endp>ebuf+2)\
-		extint_mirror(ebuf+2,endp-(ebuf+1));\
+	if(ebuf+2<endp){\
+		r2=endp-(ebuf+1);\
+		assume(r2<=6);\
+		extint_mirror(ebuf+2,r2);\
+	};\
 	esz=sz;\
 	sz+=ds+(f58?fsz+!!digit:digit+!!digit);\
 	if(!fsz)\
@@ -795,6 +799,7 @@ conv_f(expr_combine(pref,d),13,ival_mul13p;r=extint_right(ival,r,ext),nbuf_size(
 conv_f(expr_combine(pref,e),14,ival_mul7p;r=extint_left(ival,r,ext),nbuf_size(268));\
 conv_f(expr_combine(pref,f),15,ival_mul15p;r=extint_right(ival,r,ext),nbuf_size(262))
 fconvs(xa);
+
 conv_fe(fe,10,ival_mul5p,nbuf_size(308),flag->cap?'E':'e');
 //5-441,396,364,8,323,10,296,285,276,268,262;
 #undef nbuf

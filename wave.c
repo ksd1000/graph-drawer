@@ -9,7 +9,6 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdint.h>
-#include <arpa/inet.h>
 #include <math.h>
 #include <err.h>
 #include <errno.h>

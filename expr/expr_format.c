@@ -44,7 +44,7 @@ ssize_t expr_writec(expr_writer writer,intptr_t fd,size_t count,int c){
 }
 #define writeext expr_writec
 
-#define flag_plusorspace(_f) (*(_f)->bit&(UINT64_C(3)<<62))
+#define flag_plusorspace(_f) ((_f)->bit&(UINT64_C(3)<<62))
 #define flag_width(_f,_dflt) ((_f)->width_set?(_f)->width:(_dflt))
 #define flag_digit(_f,_dflt) ((_f)->digit_set?(size_t)(_f)->digit:(_dflt))
 
@@ -875,14 +875,35 @@ static ssize_t faction_c(expr_writer writer,intptr_t fd,const union expr_argf *a
 	return writer(fd,(const uint8_t *)arg+(sizeof(void *)-1),1);
 #endif
 }
+static double dbl_abs(double x){
+	*(uint64_t *)&x=UINT64_C(0x8000000000000000);
+	return x;
+}
+static ssize_t log10_floor_inaccurate(double x){
+	uint64_t ix;
+	ssize_t r;
+	if(x<1.0/10000)
+		return -5;
+	if(x<1.0)
+		return -1;
+	ix=(uint64_t)x;
+	r=0;
+#define check_div(v,e) if(ix>=UINT64_C(v)){ix/=UINT64_C(v);r+=(e);}
+	check_div(10000000000,10);
+	check_div(100000,5);
+	check_div(1000,3);
+	check_div(100,2);
+	return ix>=10?r+1:r;
+}
 static ssize_t faction_g(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
-	double val=fabs(arg->dbl),vl;
-	return ((val==0.0||((vl=log(val)/log(10))>=-4&&vl<flag_digit(flag,6)))?
+	double val=dbl_abs(arg->dbl);
+	ssize_t vl;
+	return ((val==0.0||((vl=log10_floor_inaccurate(val))>=-4&&vl<flag_digit(flag,6)))?
 	converter_xaa:converter_fe)(writer,fd,arg,(flag->eq=1,flag));
 }
 static ssize_t faction_G(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	double val=fabs(arg->dbl),vl;
-	return ((val==0.0||((vl=log(val)/log(10))>=-4&&vl<flag_digit(flag,6)))?
+	return ((val==0.0||((vl=log10_floor_inaccurate(val))>=-4&&vl<flag_digit(flag,6)))?
 	converter_xaa:converter_fe)(writer,fd,arg,(flag->eq=1,flag));
 }
 static ssize_t faction_p(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
@@ -1236,7 +1257,7 @@ next:
 	if(unlikely(fmt>=endp))\
 		goto end
 	fmt_inc_check;
-	*flag->bit=0;
+	flag->bit=0;
 #define fmt_setflag(_field) \
 	flag->_field=1;\
 	fmt_inc_check;\

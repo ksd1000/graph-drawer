@@ -643,7 +643,7 @@ void setexpr(struct expr **p,const char *c){
 }
 extern double sample_freq_d;
 __attribute__((constructor)) void atstart(void){
-	es=expr_builtin_symbol_converts(expr_symbols_all);
+	es=expr_builtin_symbol_converts_r(expr_defmtl,expr_symbols_all);
 	if(!es)
 		err(EXIT_FAILURE,"expr_builtin_symbol_convert");
 	if(!expr_symset_add(es,"y",EXPR_VARIABLE,0,&vf))
@@ -1025,7 +1025,7 @@ break2:
 		signal(SIGINT,sig);
 #endif
 	if(buffer_size){
-		expr_buffered_init(&bf,outfd,(expr_writer)write,NULL,buffer_size);
+		expr_buffered_init(&bf,(expr_writer)write,outfd,NULL,buffer_size);
 	}
 	if(ept)
 		endt=expr_eval(ept,0.0)*sample_freq;

@@ -8,6 +8,10 @@
 #define _EXPR_LIB 1
 #include "expr.h"
 
+#if defined(EXPR_ISOLATED)&&(EXPR_ISOLATED)
+expr_globals;
+#endif
+
 ssize_t expr_buffered_write(struct expr_buffered_file *restrict fp,const void *buf,size_t size){
 	return expr_buffered_write_r(fp,buf,size,expr_defmtl);
 }

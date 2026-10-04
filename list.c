@@ -13,35 +13,6 @@
 #define REAL_UNIX
 #endif
 #include "fake_unix.h"
-int allocated=0;
-int freed=0;
-static void *xmalloc(size_t size){
-	void *r;
-	r=malloc(size);
-	if(expr_unlikely(!r)){
-		warn("IN xmalloc(size=%zu)\n"
-			"CANNOT ALLOCATE MEMORY",size);
-		warnx("ABORTING");
-		abort();
-	}
-	++allocated;
-	return r;
-}
-static void *xrealloc(void *old,size_t size){
-	void *r;
-	r=realloc(old,size);
-	if(expr_unlikely(!r)){
-		warn("IN xrealloc(old=%p,size=%zu)\n"
-			"CANNOT REALLOCATE MEMORY",old,size);
-		warnx("ABORTING");
-		abort();
-	}
-	return r;
-}
-void free_hook(void *p){
-	free(p);
-	++freed;
-}
 #define psize(s) printf("sizeof(" #s ")=%zu\n",sizeof(s))
 const char *t2s[]={
 	[EXPR_CONSTANT]="Constant",
@@ -178,9 +149,7 @@ int main(int argc,char **argv){
 	if(argc<2){
 		list();
 	}else {
-		expr_allocator=xmalloc;
-		expr_reallocator=xrealloc;
-		expr_deallocator=free_hook;
+		expr_setup_mtl(2);
 		if(!strcmp(argv[1],"b"))
 			adbt=1;
 		list_common();

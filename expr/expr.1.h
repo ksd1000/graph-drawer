@@ -26,17 +26,37 @@ expr_static_assert(sizeof(size_t)==sizeof(ptrdiff_t));
 expr_static_assert(sizeof(void *)==sizeof(ptrdiff_t));
 expr_static_assert(sizeof(void *)>=sizeof(double));
 
-typedef void *(*expr_allocator_type)(size_t);
-typedef void *(*expr_reallocator_type)(void *,size_t);
-typedef void (*expr_deallocator_type)(void *);
+struct expr_memtool {
+	void *(*allocate)(size_t,void *);
+	void *(*reallocate)(void *,size_t,void *);
+	void (*deallocate)(void *,void *);
+	void *arg;
+};
+
+void *expr_allocator_default(size_t size,void *arg);
+void *expr_reallocator_default(void *old,size_t size,void *arg);
+void expr_deallocator_default(void *old,void *arg);
+extern struct expr_memtool expr_defmtl[1];
 
 #if defined(_EXPR_LIB)&&(_EXPR_LIB)
 #include <stdlib.h>
 #define expr_globals \
-expr_allocator_type expr_allocator=malloc;\
-expr_reallocator_type expr_reallocator=realloc;\
-expr_deallocator_type expr_deallocator=free;\
-size_t expr_allocate_max=SSIZE_MAX
+size_t expr_allocate_max=SSIZE_MAX;\
+void *expr_allocator_default(size_t size,void *arg){\
+	return size>=expr_allocate_max?NULL:malloc(size);\
+}\
+void *expr_reallocator_default(void *old,size_t size,void *arg){\
+	return size>=expr_allocate_max?NULL:realloc(old,size);\
+}\
+void expr_deallocator_default(void *old,void *arg){\
+	return free(old);\
+}\
+struct expr_memtool expr_defmtl[1]={{\
+	.allocate=expr_allocator_default,\
+	.reallocate=expr_reallocator_default,\
+	.deallocate=expr_deallocator_default,\
+	.arg=NULL,\
+}}
 
 #ifndef EXPR_DEBUG
 #define EXPR_DEBUG 0
@@ -114,7 +134,7 @@ size_t expr_allocate_max=SSIZE_MAX
 
 #endif
 
-enum expr_op :int {
+enum expr_op {
 EXPR_COPY=0,
 EXPR_INPUT,
 EXPR_CONST,
@@ -203,7 +223,7 @@ EXPR_END
 #define EXPR_VOID ((void *)-1)
 #define EXPR_VOID_NR ((void *)-2)
 
-#define EXPR_SYMSET_INITIALIZER {NULL,0,0,0,0,0,0,0,0,0,0,0,0,0}
+#define EXPR_SYMSET_INITIALIZER {NULL,0,0,0,0,0,0,0,0,0,0,0,NULL,0,0}
 #define EXPR_MUTEX_INITIALIZER ((uint32_t)(0))
 
 #define EXPR_SYMLEN 64
@@ -362,19 +382,13 @@ EXPR_END
 })
 
 #define expr_xmalloc(size) ({\
-	size_t __sz=(size);\
-	unlikely(__sz>expr_allocate_max)?\
-		NULL:\
-		expr_allocator(__sz);\
+	expr_allocator(size);\
 })
 #define expr_xrealloc(old,size) ({\
 	void *__old=(old);\
-	size_t __sz=(size);\
-	unlikely(__sz>expr_allocate_max)?\
-		NULL:\
-		(__old?\
-			 expr_reallocator(__old,__sz):\
-			 expr_allocator(__sz));\
+	__old?\
+		 expr_reallocator(__old,(size)):\
+		 expr_allocator(size);\
 })
 #define expr_xfree(old) ({\
 	expr_deallocator(old);\
@@ -549,7 +563,6 @@ EXPR_END
 	}\
 	__c;\
 })
-#define expr_free(ep) expr_free2((ep),0)
 struct expr_libinfo {
 	const char *version;
 	const char *compiler_version;
@@ -565,40 +578,44 @@ struct expr_libinfo {
 struct expr_writeflag {
 	size_t width;
 	ssize_t digit;
-	uint64_t bit[0];
+	union {
+		uint64_t bit;
+		struct {
 #if (!defined(__BIG_ENDIAN__)||!(__BIG_ENDIAN__))
-	uint64_t unused:35,
-		 op:8,
-		 argsize:8,
-		 type:2,
-		 addr:1,
-		 width_set:1,
-		 digit_set:1,
-		 saved:1,
-		 cap:1,
-		 eq:1,
-		 sharp:1,
-		 minus:1,
-		 zero:1,
-		 space:1,
-		 plus:1;
+			uint64_t unused:35,
+				 op:8,
+				 argsize:8,
+				 type:2,
+				 addr:1,
+				 width_set:1,
+				 digit_set:1,
+				 saved:1,
+				 cap:1,
+				 eq:1,
+				 sharp:1,
+				 minus:1,
+				 zero:1,
+				 space:1,
+				 plus:1;
 #else
-	uint64_t plus:1,
-		 space:1,
-		 zero:1,
-		 minus:1,
-		 sharp:1,
-		 eq:1,
-		 cap:1,
-		 saved:1,
-		 digit_set:1,
-		 width_set:1,
-		 addr:1,
-		 type:2,
-		 argsize:8,
-		 op:8,
-		 unused:35;
+			uint64_t plus:1,
+				 space:1,
+				 zero:1,
+				 minus:1,
+				 sharp:1,
+				 eq:1,
+				 cap:1,
+				 saved:1,
+				 digit_set:1,
+				 width_set:1,
+				 addr:1,
+				 type:2,
+				 argsize:8,
+				 op:8,
+				 unused:35;
 #endif
+		};
+	};
 };
 #define EXPR_FMTC_EXIT 0
 #define EXPR_FMTC_WRITESIZE 255
@@ -660,6 +677,7 @@ struct expr_writefmt {
 	uint8_t type:2,no_arg:1,digit_check:1,setcap:1,unused:3;
 };
 typedef const union expr_argf *(*expr_argffetch)(ptrdiff_t index,const struct expr_writeflag *flag,void *addr);
+
 #define EXPR_BF_ZERO 1
 #define EXPR_BF_TRUNC 2
 #define EXPR_BF_EMPTY 4
@@ -667,20 +685,20 @@ typedef const union expr_argf *(*expr_argffetch)(ptrdiff_t index,const struct ex
 
 #define EXPR_BUFSIZE_INITIAL 512
 struct expr_buffered_file {
-	intptr_t fd;
 	union {
 		expr_reader reader;
 		expr_writer writer;
 		const void *uaddr;
-	} un;
+	};
+	intptr_t fd;
 	void *buf;
 	size_t index,length,dynamic,written;
 	size_t flag;
 };
 typedef intptr_t (*expr_buffered_test)(const void *buf,intptr_t arg,size_t size);
-#define EXPR_BUFFERED_INITIALIZER(_fd,_wrer,_buf,_len) {\
+#define EXPR_BUFFERED_INITIALIZER(_wrer,_fd,_buf,_len) {\
+	.uaddr=(_wrer),\
 	.fd=(_fd),\
-	.un={.uaddr=(_wrer)},\
 	.buf=(_buf),\
 	.length=(_buf)?(_len):0,\
 	.dynamic=(_buf)?0:(_len),\
@@ -688,10 +706,10 @@ typedef intptr_t (*expr_buffered_test)(const void *buf,intptr_t arg,size_t size)
 	.written=0,\
 	.flag=0,\
 }
-#define expr_buffered_init_internal(fp,_fd,_wrer,_buf,_len,_field) \
+#define expr_buffered_init_internal(fp,_wrer,_fd,_buf,_len,_field) \
 	struct expr_buffered_file *__fp=(fp);\
+	__fp->_field=(_wrer);\
 	__fp->fd=(_fd);\
-	__fp->un._field=(_wrer);\
 	__fp->buf=(_buf);\
 	if(__fp->buf){\
 		__fp->length=(_len);\
@@ -704,12 +722,16 @@ typedef intptr_t (*expr_buffered_test)(const void *buf,intptr_t arg,size_t size)
 	__fp->written=0;\
 	__fp->flag=0
 
-#define expr_buffered_init(fp,_fd,_writer,_buf,_len) ({\
-	expr_buffered_init_internal(fp,_fd,_writer,_buf,_len,writer);\
+#define expr_buffered_init(fp,_writer,_fd,_buf,_len) ({\
+	expr_buffered_init_internal(fp,_writer,_fd,_buf,_len,writer);\
 })
 
-#define expr_buffered_rinit(fp,_fd,_reader,_buf,_len) ({\
-	expr_buffered_init_internal(fp,_fd,_reader,_buf,_len,reader);\
+#define expr_buffered_rinit(fp,_reader,_fd,_buf,_len) ({\
+	expr_buffered_init_internal(fp,_reader,_fd,_buf,_len,reader);\
+})
+
+#define expr_buffered_uinit(fp,_uaddr,_fd,_buf,_len) ({\
+	expr_buffered_init_internal(fp,_uaddr,_fd,_buf,_len,uaddr);\
 })
 
 #define expr_buffered_drop(fp) ((fp)->index=0)
@@ -718,6 +740,7 @@ typedef intptr_t (*expr_buffered_test)(const void *buf,intptr_t arg,size_t size)
 	__fp->index=0;\
 	__fp->written=0;\
 })
+
 struct expr;
 struct expr_symset;
 struct expr_suminfo {
@@ -882,6 +905,7 @@ struct expr_symset {
 	//real depth. but it is not suggested,for it will cost a lot of cpu
 	//time to travel through every symbol to get the real depth.
 	//this will be set to 0 when an expr_symset_wipe(this) is called.
+	const struct expr_memtool *mtl;
 	uint32_t freeable,mutex;
 };
 struct expr_symset_infile {
@@ -926,9 +950,6 @@ struct expr_internal_jmpbuf {
 };
 typedef int (*expr_recursive_callback)(struct expr *restrict ep,void *arg);
 
-extern void *(*expr_allocator)(size_t);
-extern void *(*expr_reallocator)(void *,size_t);
-extern void (*expr_deallocator)(void *);
 extern size_t expr_allocate_max;
 extern size_t expr_bufsize_initial;
 
@@ -1167,6 +1188,7 @@ struct expr {
 	struct expr_symset *sset;
 	struct expr_resource *res,*tail;
 	size_t length,vsize,vlength;
+	const struct expr_memtool *mtl;
 	union {
 		double args[EXPR_SYSAM];
 		struct {
@@ -1178,6 +1200,5 @@ struct expr {
 	short iflag;
 	uint8_t freeable:2,sset_shouldfree:1,isconst:1,unused:4;
 	char errinfo[EXPR_SYMLEN];
-	char extra_data[];
 };
 typedef struct expr expr_t[1];

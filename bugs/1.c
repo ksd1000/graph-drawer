@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <stdint.h>
+#include <string.h>
 #include <float.h>
 #include <math.h>
 #define SIGN(p) (*(uint64_t *)(p)&(1ul<<63))
@@ -39,6 +40,7 @@ static ssize_t writeext(ssize_t (*writer)(intptr_t fd,const void *buf,size_t siz
 	return sum;
 }
 //WARNING:the converter is not accurated as libc printf.I have not find a way to fix it now.
+//	-- on 2026-1-25
 static ssize_t converter_f(ssize_t (*writer)(intptr_t fd,const void *buf,size_t size),intptr_t fd,void *const *arg,uint64_t flag){
 	double val=*(const double *)arg;
 	char nbuf[320];

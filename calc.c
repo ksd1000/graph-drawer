@@ -31,9 +31,13 @@ static ssize_t linebuf(intptr_t fd,const void *buf,size_t size){
 	return expr_buffered_write_sflushat((struct expr_buffered_file *)fd,buf,size,"\n",1);
 }
 char printfbuf[BUFSIZ];
-struct expr_buffered_file printff=EXPR_BUFFERED_INITIALIZER(0,(expr_writer)write,printfbuf,BUFSIZ);
+struct expr_buffered_file printff=EXPR_BUFFERED_INITIALIZER((expr_writer)write,0,printfbuf,BUFSIZ);
+static void __attribute__((constructor)) ffstart(void){
+	expr_setup_mtl(3);
+}
 static void __attribute__((destructor)) ffend(void){
 	expr_buffered_close(&printff);
+	expr_setup_mtl(0);
 }
 double d_printf(double *args,size_t n){
 	const char *fmt=expr_cast(*args,const char *);
@@ -65,7 +69,7 @@ double d_sscanf(double *args,size_t n){
 	return (double)expr_sscanf(s,slen,fmt,flen,(void **)(args+2),n-2);
 }
 char scanfbuf[BUFSIZ];
-struct expr_buffered_file scanff=EXPR_BUFFERED_INITIALIZER(0,read,scanfbuf,BUFSIZ);
+struct expr_buffered_file scanff=EXPR_BUFFERED_INITIALIZER(read,0,scanfbuf,BUFSIZ);
 double d_scanf(double *args,size_t n){
 	const char *s,*fmt;
 	size_t slen,flen;
@@ -474,7 +478,7 @@ void atend(void){
 	if(es)
 		expr_symset_free(es);
 	if(rbuf)
-		expr_deallocator(rbuf);
+		free(rbuf);
 }
 #define STACK_SIZE (128*1024)
 size_t sstack[STACK_SIZE]={0};

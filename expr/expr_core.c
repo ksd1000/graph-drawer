@@ -333,9 +333,6 @@ const char *expr_error(int error){
 			return eerror[error];
 	}
 }
-#if defined(EXPR_ISOLATED)&&(EXPR_ISOLATED)
-expr_globals;
-#endif
 
 #define free (use xfree() instead!)
 #define malloc (use xmalloc() instead!)

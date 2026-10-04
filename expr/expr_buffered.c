@@ -8,15 +8,16 @@
 #define _EXPR_LIB 1
 #include "expr.h"
 
-#if defined(EXPR_ISOLATED)&&(EXPR_ISOLATED)
-expr_globals;
-#endif
-
 #define EXTEND_FRAC(x) (((x)/8)*3)
+
+#define expr_allocator(size) (xmtl->allocate((size),xmtl->arg))
+#define expr_reallocator(old,size) (xmtl->reallocate((old),(size),xmtl->arg))
+#define expr_deallocator(old) (xmtl->deallocate((old),xmtl->arg))
+#define xmtl mtl
 
 #define reterr(V) {r=(V);goto err;}
 #define FLUSH(size,trunc,onerr) \
-	r=fp->un.writer(fp->fd,fp->buf,size);\
+	r=fp->writer(fp->fd,fp->buf,size);\
 	if(unlikely(r<0)){\
 		onerr;\
 		return r;\
@@ -32,7 +33,7 @@ expr_globals;
 		return trunc;\
 	}else\
 		fp->index=0
-ssize_t expr_buffered_write(struct expr_buffered_file *restrict fp,const void *buf,size_t size){
+ssize_t expr_buffered_write_r(struct expr_buffered_file *restrict fp,const void *buf,size_t size,const struct expr_memtool *restrict mtl){
 	size_t i,c;
 	ssize_t r,s0,r1;
 	void *p;
@@ -101,7 +102,7 @@ size_le_c:
 	}
 	if(size>=fp->length){
 		fp->index=0;
-		r=fp->un.writer(fp->fd,buf,size);
+		r=fp->writer(fp->fd,buf,size);
 		if(unlikely(r<0)){
 			fp->flag|=EXPR_BF_EMPTY;
 			return PTRDIFF_MIN;
@@ -119,10 +120,10 @@ size_le_c:
 	debug("%zd bytes written",s0);
 	return s0;
 }
-ssize_t expr_buffered_read(struct expr_buffered_file *restrict fp,void *buf,size_t size){
-	return expr_buffered_read5(fp,buf,size,NULL,0);
+ssize_t expr_buffered_read_r(struct expr_buffered_file *restrict fp,void *buf,size_t size,const struct expr_memtool *restrict mtl){
+	return expr_buffered_read5_r(fp,buf,size,NULL,0,mtl);
 }
-ssize_t expr_buffered_read5(struct expr_buffered_file *restrict fp,void *buf,size_t size,expr_buffered_test test,intptr_t arg){
+ssize_t expr_buffered_read5_r(struct expr_buffered_file *restrict fp,void *buf,size_t size,expr_buffered_test test,intptr_t arg,const struct expr_memtool *restrict mtl){
 	size_t i;
 	ssize_t r;
 	if(unlikely(size>SSIZE_MAX)){
@@ -156,7 +157,7 @@ try_read_again:
 		debug("index=%zu length=%zu",fp->index,fp->length);
 		if(likely(r)){
 			p=fp->buf+fp->index;
-			r=fp->un.reader(fp->fd,p,r);
+			r=fp->reader(fp->fd,p,r);
 			if(unlikely(r<0))
 				goto err;
 			if(test&&test(p,arg,r)){
@@ -181,7 +182,7 @@ try_read_again:
 	if(!size){
 		i=fp->length-fp->index;
 		if(i){
-			r=fp->un.reader(fp->fd,fp->buf+fp->index,i);
+			r=fp->reader(fp->fd,fp->buf+fp->index,i);
 			if(unlikely(r<0))
 				goto err;
 			fp->index+=r;
@@ -214,9 +215,9 @@ size_ok:
 	}
 	if(unlikely(fp->length<=size)){
 		debug("end index=%zu",fp->index);
-		return fp->un.reader(fp->fd,buf,size);
+		return fp->reader(fp->fd,buf,size);
 	}
-	r=fp->un.reader(fp->fd,fp->buf,fp->length);
+	r=fp->reader(fp->fd,fp->buf,fp->length);
 	if(unlikely(r<0))
 		goto err;
 	if(!r){
@@ -254,26 +255,26 @@ err:
 	ssize_t n;\
 	uintptr_t rc=(uintptr_t)(rcfetch);\
 	if(!rc)\
-		return expr_buffered_write(fp,buf,size);\
+		return expr_buffered_write_r(fp,buf,size,mtl);\
 	rcinc;\
 	n=rc-(uintptr_t)buf;\
 	ret=0;\
-	rcheckadd(expr_buffered_write(fp,buf,n));\
+	rcheckadd(expr_buffered_write_r(fp,buf,n,mtl));\
 	r=expr_buffered_flush(fp);\
 	if(unlikely(r<0))\
 		return r;\
 	n=size-n;\
 	if(n){\
-		rcheckadd(expr_buffered_write(fp,(const void *)rc,n));\
+		rcheckadd(expr_buffered_write_r(fp,(const void *)rc,n,mtl));\
 	}\
 	return ret
-ssize_t expr_buffered_write_flushatc(struct expr_buffered_file *restrict fp,const void *buf,size_t size,int c){
+ssize_t expr_buffered_write_flushatc_r(struct expr_buffered_file *restrict fp,const void *buf,size_t size,int c,const struct expr_memtool *restrict mtl){
 	flushat_common(memrchr(buf,size,c),++rc);
 }
-ssize_t expr_buffered_write_flushatt(struct expr_buffered_file *restrict fp,const void *buf,size_t size,expr_buffered_test test,intptr_t arg){
+ssize_t expr_buffered_write_flushatt_r(struct expr_buffered_file *restrict fp,const void *buf,size_t size,expr_buffered_test test,intptr_t arg,const struct expr_memtool *restrict mtl){
 	flushat_common(test(buf,arg,size),rc+=(uintptr_t)buf);
 }
-ssize_t expr_buffered_write_flushat(struct expr_buffered_file *restrict fp,const void *buf,size_t size,const void *c,size_t c_size){
+ssize_t expr_buffered_write_flushat_r(struct expr_buffered_file *restrict fp,const void *buf,size_t size,const void *c,size_t c_size,const struct expr_memtool *restrict mtl){
 	flushat_common(memrmem(buf,size,c,c_size),rc+=c_size);
 }
 #define sflushat_common(rcfetch,rcinc) \
@@ -283,12 +284,12 @@ ssize_t expr_buffered_write_flushat(struct expr_buffered_file *restrict fp,const
 	do {\
 		rc=(uintptr_t)(rcfetch);\
 		if(!rc){\
-			rcheckadd(expr_buffered_write(fp,buf,size));\
+			rcheckadd(expr_buffered_write_r(fp,buf,size,mtl));\
 			return ret;\
 		}\
 		rcinc;\
 		n=rc-(uintptr_t)buf;\
-		rcheckadd(expr_buffered_write(fp,buf,n));\
+		rcheckadd(expr_buffered_write_r(fp,buf,n,mtl));\
 		debug("flash point found at %zd",n);\
 		r=expr_buffered_flush(fp);\
 		if(unlikely(r<0))\
@@ -298,17 +299,17 @@ ssize_t expr_buffered_write_flushat(struct expr_buffered_file *restrict fp,const
 		size-=n;\
 	}while(size);\
 	return ret
-ssize_t expr_buffered_write_sflushatc(struct expr_buffered_file *restrict fp,const void *buf,size_t size,int c){
+ssize_t expr_buffered_write_sflushatc_r(struct expr_buffered_file *restrict fp,const void *buf,size_t size,int c,const struct expr_memtool *restrict mtl){
 	sflushat_common(memchr(buf,size,c),++rc);
 }
-ssize_t expr_buffered_write_sflushatt(struct expr_buffered_file *restrict fp,const void *buf,size_t size,expr_buffered_test test,intptr_t arg){
+ssize_t expr_buffered_write_sflushatt_r(struct expr_buffered_file *restrict fp,const void *buf,size_t size,expr_buffered_test test,intptr_t arg,const struct expr_memtool *restrict mtl){
 	sflushat_common(test(buf,arg,size),rc+=(uintptr_t)buf);
 }
-ssize_t expr_buffered_write_sflushat(struct expr_buffered_file *restrict fp,const void *buf,size_t size,const void *c,size_t c_size){
+ssize_t expr_buffered_write_sflushat_r(struct expr_buffered_file *restrict fp,const void *buf,size_t size,const void *c,size_t c_size,const struct expr_memtool *restrict mtl){
 	sflushat_common(memmem(buf,size,c,c_size),rc+=c_size);
 }
-ssize_t expr_buffered_write_sync(struct expr_buffered_file *restrict fp,const void *buf,size_t size){
-	ssize_t r1,r=expr_buffered_write(fp,buf,size);
+ssize_t expr_buffered_write_sync_r(struct expr_buffered_file *restrict fp,const void *buf,size_t size,const struct expr_memtool *restrict mtl){
+	ssize_t r1,r=expr_buffered_write_r(fp,buf,size,mtl);
 	if(unlikely(r<0))
 		return r;
 	r1=expr_buffered_flush(fp);
@@ -339,7 +340,7 @@ ssize_t expr_buffered_rdropall(struct expr_buffered_file *restrict fp){
 		trashlen=TRASHLEN;
 	}
 	for(;;){
-		r=fp->un.reader(fp->fd,trash,trashlen);
+		r=fp->reader(fp->fd,trash,trashlen);
 		if(unlikely(r<0))
 			goto err;
 		if(!r)
@@ -354,10 +355,10 @@ err:
 	debug("%zu bytes dropped,error code:%zd",ret,r);
 	return r;
 }
-ssize_t expr_buffered_close(struct expr_buffered_file *restrict fp){
+ssize_t expr_buffered_close_r(struct expr_buffered_file *restrict fp,const struct expr_memtool *restrict mtl){
 	ssize_t r;
-	if(fp->index&&fp->un.writer)
-		r=fp->un.writer(fp->fd,fp->buf,fp->index);
+	if(fp->index&&fp->writer)
+		r=fp->writer(fp->fd,fp->buf,fp->index);
 	else
 		r=0;
 	debug("%zd bytes written",r);
@@ -365,7 +366,7 @@ ssize_t expr_buffered_close(struct expr_buffered_file *restrict fp){
 		xfree(fp->buf);
 	return r;
 }
-void expr_buffered_rclose(struct expr_buffered_file *restrict fp){
+void expr_buffered_rclose_r(struct expr_buffered_file *restrict fp,const struct expr_memtool *restrict mtl){
 	debug("close");
 	if(fp->dynamic&&fp->buf)
 		xfree(fp->buf);
@@ -376,10 +377,10 @@ static ssize_t zero_reader(intptr_t fd,void *buf,size_t size){
 }
 #define checkr(_fp) \
 	if(unlikely(r<0)){\
-		expr_buffered_rclose(_fp);\
+		expr_buffered_rclose_r(_fp,mtl);\
 		return r;\
 	}
-ssize_t expr_buffered_readline(struct expr_buffered_file *restrict fp,int c,void *savep){
+ssize_t expr_buffered_readline_r(struct expr_buffered_file *restrict fp,int c,void *savep,const struct expr_memtool *restrict mtl){
 	ssize_t r;
 	size_t in;
 	char *p,*end,*cp;
@@ -403,7 +404,7 @@ ssize_t expr_buffered_readline(struct expr_buffered_file *restrict fp,int c,void
 		fp->written=0;
 	}
 	in=fp->index;
-	r=expr_buffered_read5(fp,NULL,0,(expr_buffered_test)memchr,c);
+	r=expr_buffered_read5_r(fp,NULL,0,(expr_buffered_test)memchr,c,mtl);
 	if(unlikely(r<0)){
 		debug("read fail %zd",r);
 		return r;
@@ -446,16 +447,16 @@ ssize_t expr_buffered_readline(struct expr_buffered_file *restrict fp,int c,void
 	*(void **)savep=fp->buf;
 	return in;
 }
-ssize_t expr_file_readfd(expr_reader reader,intptr_t fd,size_t tail,void *savep){
+ssize_t expr_file_readfd_r(expr_reader reader,intptr_t fd,size_t tail,void *savep,const struct expr_memtool *restrict mtl){
 	struct expr_buffered_file vf[1];
 	ssize_t r;
 	ssize_t ret;
-	expr_buffered_rinit(vf,fd,reader,NULL,SIZE_MAX);
-	r=expr_buffered_read(vf,NULL,0);
+	expr_buffered_rinit(vf,reader,fd,NULL,SIZE_MAX);
+	r=expr_buffered_read_r(vf,NULL,0,mtl);
 	checkr(vf);
-	vf->un.reader=zero_reader;
+	vf->reader=zero_reader;
 	vf->dynamic=vf->index+tail;
-	r=expr_buffered_read(vf,NULL,0);
+	r=expr_buffered_read_r(vf,NULL,0,mtl);
 	checkr(vf);
 	ret=(ssize_t)vf->index;
 	debug("savep=%p,r=%zu",vf->buf,vf->index);

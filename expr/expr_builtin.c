@@ -20,61 +20,12 @@
 expr_globals;
 #endif
 
-#define r_fail \
-	{\
-		warn("cannot allocate memory,size=%zu",size);\
-		warn("ABORTING");\
-		abort();\
-	}
-static void *xmalloc_nonnull(size_t size){
-	void *r;
-	r=malloc(size);
-	if(unlikely(!r))
-		r_fail;
-	return r;
-}
-static void *xrealloc_nonnull(void *old,size_t size){
-	void *r;
-	r=realloc(old,size);
-	if(unlikely(!r))
-		r_fail;
-	return r;
-}
-static expr_allocator_type a_old;
-static expr_reallocator_type r_old;
-static expr_deallocator_type d_old;
-static size_t m_old;
-static expr_allocator_type a_old;
-static double expr_setup_nonnull_xmalloc(void){
-	if(expr_allocator==xmalloc_nonnull){
-		expr_allocator=a_old;
-		expr_reallocator=r_old;
-		expr_deallocator=d_old;
-		expr_allocate_max=m_old;
-		return 1.0;
-	}else {
-		a_old=expr_allocator;
-		r_old=expr_reallocator;
-		d_old=expr_deallocator;
-		m_old=expr_allocate_max;
-		expr_allocator=xmalloc_nonnull;
-		expr_reallocator=xrealloc_nonnull;
-		expr_deallocator=free;
-		expr_allocate_max=SIZE_MAX;
-		return 0.0;
-	}
-}
-static volatile double expr_allow_alloc_return_null=0.0;
-static void *warped_xmalloc(size_t size){
-	return xmalloc(size);
-}
-/*
-static void *warped_xrealloc(void *old,size_t size){
-	return xrealloc(old,size);
-}
-*/
-static void warped_xfree(void *old){
-	return xfree(old);
+#define expr_allocator(size) (xmtl->allocate((size),xmtl->arg))
+#define expr_reallocator(old,size) (xmtl->reallocate((old),(size),xmtl->arg))
+#define expr_deallocator(old) (xmtl->deallocate((old),xmtl->arg))
+#define xmtl expr_defmtl
+static double expr_setup_mtl_b(double x){
+	return (double)expr_setup_mtl((int)x);
 }
 uint64_t expr_gcd64(uint64_t x,uint64_t y){
 	uint64_t r;
@@ -95,7 +46,7 @@ uint64_t expr_gcd64(uint64_t x,uint64_t y){
 	return (x|y)<<r;
 }
 __attribute__((noinline))
-int expr_sort4(double *restrict v,size_t n,expr_allocator_type allocator,expr_deallocator_type deallocator){
+int expr_sort4_r(double *restrict v,size_t n,const struct expr_memtool *restrict mtl){
 	struct dnode {
 		struct dnode *lt,*gt;
 		size_t eq;
@@ -104,8 +55,8 @@ int expr_sort4(double *restrict v,size_t n,expr_allocator_type allocator,expr_de
 	double *restrict p;
 	double *endp=v+n;
 	size_t depth,dep;
-	if(allocator){
-		dnp=allocator(n*sizeof(struct dnode));
+	if(mtl){
+		dnp=mtl->allocate(n*sizeof(struct dnode),mtl->arg);
 		if(!dnp)
 			return -1;
 		expr_fry(v,n);
@@ -153,10 +104,10 @@ create:
 		if(dep>depth)
 			depth=dep;
 	}
-	if(allocator){
-		sp=allocator(depth*sizeof(struct dnode *));
+	if(mtl){
+		sp=mtl->allocate(depth*sizeof(struct dnode *),mtl->arg);
 		if(!sp){
-			deallocator(dnp);
+			mtl->deallocate(dnp,mtl->arg);
 			return -2;
 		}
 	}else {
@@ -193,9 +144,9 @@ no_gt:
 			continue;
 		}
 	}
-	if(allocator){
-		deallocator(d0);
-		deallocator(sp0);
+	if(mtl){
+		mtl->deallocate(d0,mtl->arg);
+		mtl->deallocate(sp0,mtl->arg);
 	}
 	return 0;
 }
@@ -226,7 +177,7 @@ void expr_sort(double *v,size_t n){
 			expr_sort_old(v,n);
 			return;
 		default:
-			expr_sort4(v,n,NULL,NULL);
+			expr_sort4_r(v,n,NULL);
 			return;
 	}
 }
@@ -419,7 +370,7 @@ static double expr_med(double *args,size_t n){
 	return n&1?args[n>>1]:(n>>=1,(args[n]+args[n-1])/2);
 }
 static double expr_hmed(double *args,size_t n){
-	expr_sort4(args,n,warped_xmalloc,warped_xfree);
+	expr_sort4_r(args,n,expr_defmtl);
 	return n&1?args[n>>1]:(n>>=1,(args[n]+args[n-1])/2);
 }
 static double expr_med_old(double *args,size_t n){
@@ -435,7 +386,7 @@ static double expr_gmed(double *args,size_t n){
 	return n&1?args[n>>1]:(n>>=1,sqrt(args[n]*args[n-1]));
 }
 static double expr_hgmed(double *args,size_t n){
-	expr_sort4(args,n,warped_xmalloc,warped_xfree);
+	expr_sort4_r(args,n,expr_defmtl);
 	return n&1?args[n>>1]:(n>>=1,sqrt(args[n]*args[n-1]));
 }
 static double expr_gmed_old(double *args,size_t n){
@@ -457,7 +408,7 @@ static double expr_mode0(size_t n,double *args,int heap){
 			expr_sort_old(args,n);
 			break;
 		default:
-			expr_sort4(args,n,warped_xmalloc,warped_xfree);
+			expr_sort4_r(args,n,expr_defmtl);
 			break;
 	}
 	cnt=max=*(args++);
@@ -515,7 +466,7 @@ static double bsort(const struct expr *args,size_t n,double input){
 }
 static double bhsort(const struct expr *args,size_t n,double input){
 	int r;
-	r=expr_sort4(cast(eval(args,input),double *),(size_t)fabs(eval(args+1,input)),warped_xmalloc,warped_xfree);
+	r=expr_sort4_r(cast(eval(args,input),double *),(size_t)fabs(eval(args+1,input)),expr_defmtl);
 	if(!r){
 		return 0.0;
 	}else {
@@ -523,7 +474,7 @@ static double bhsort(const struct expr *args,size_t n,double input){
 	}
 }
 static double bxsort(const struct expr *args,size_t n,double input){
-	expr_sort4(cast(eval(args,input),double *),(size_t)fabs(eval(args+1,input)),warped_xmalloc,warped_xfree);
+	expr_sort4_r(cast(eval(args,input),double *),(size_t)fabs(eval(args+1,input)),expr_defmtl);
 	return 0.0;
 }
 static double bsort_old(const struct expr *args,size_t n,double input){
@@ -596,7 +547,7 @@ static double expr_destruct(double *args,size_t n){
 	if(n>1){
 		memcpy(a,args+1,(n-1)*sizeof(double));
 	}
-	expr_free(ep);
+	expr_free_r(ep,expr_defmtl);
 	switch(n){
 		case 1:
 			break;
@@ -1392,7 +1343,6 @@ const struct expr_builtin_symbol expr_symbols_common[]={
 	REGZASYM2_U("abort",(double (*)(void))abort),
 	REGZASYM2_U("explode",(double (*)(void))expr_explode),
 	REGZASYM2_U("frame",expr_frame),
-	REGZASYM_U(expr_setup_nonnull_xmalloc),
 	REGZASYM2_U("trap",(double (*)(void))expr_trap),
 	REGZASYM2_U("ubehavior",(double (*)(void))expr_ubehavior),
 
@@ -1403,6 +1353,7 @@ const struct expr_builtin_symbol expr_symbols_common[]={
 	REGFSYM2_NI("new",expr_new_b),
 	REGFSYM2_NI("free",expr_bxfree),
 	REGFSYM2_NI("system",expr_system),
+	REGFSYM2_U("expr_setup_mtl",expr_setup_mtl_b),
 
 	REGMDSYM2_U("hgmed",expr_hgmed,0),
 	REGMDSYM2_U("hmed",expr_hmed,0),
@@ -1415,7 +1366,6 @@ const struct expr_builtin_symbol expr_symbols_common[]={
 	REGMDSYM2_U("qmode",expr_qmode,0),
 	REGMDSYM2_NIU("strtol",expr_strtol,2),
 	REGMDSYM2_NIU("strtod",expr_strtod_b,0),
-	REGVSYM(expr_allow_alloc_return_null),
 #if PHYSICAL_CONSTANT
 	REGCSYM2("c",299792458.0),
 	REGCSYM2("e0",8.8541878128e-12),

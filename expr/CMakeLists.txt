@@ -11,7 +11,7 @@ set(CMAKE_C_FLAGS_RELEASE "-O3")
 set(CMAKE_C_FLAGS_DEBUG "-O0 -g -DEXPR_DEBUG=1")
 set(CMAKE_C_FLAGS_MINSIZEREL "-Os")
 set(CMAKE_C_FLAGS_RELWITHDEBINFO "-O2 -g")
-add_compile_options(-Wall -Werror)
+add_compile_options(-Wall -Wextra -Werror)
 #set(LIBRARY_OUTPUT_PATH .)
 add_library(expr
 	expr_global.c
@@ -19,6 +19,7 @@ add_library(expr
 	expr_buffered.c
 	expr_builtin.c
 	expr_format.c
+	expr_default.c
 )
 link_libraries(expr m)
 add_executable(expr-version expr-version.c)

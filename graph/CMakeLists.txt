@@ -11,7 +11,7 @@ set(CMAKE_C_FLAGS_RELEASE "-O3")
 set(CMAKE_C_FLAGS_DEBUG "-O0 -g")
 set(CMAKE_C_FLAGS_MINSIZEREL "-Os")
 set(CMAKE_C_FLAGS_RELWITHDEBINFO "-O2 -g")
-add_compile_options(-Wall)
+add_compile_options(-Wall -Wextra)
 add_library(graph
 	graph.c
 	texts/sbmp.c

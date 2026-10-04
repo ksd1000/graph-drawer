@@ -1,0 +1,4 @@
+#! /bin/bash
+grep 'const struct expr_memtool \*restrict mtl' expr.h |grep '_r(' |sed -f rudump.sed
+#|sed 's/\(r=.*\)\.\.\.\(.*\)/va_list ap;\n\t\1ap\2/'
+

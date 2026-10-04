@@ -68,24 +68,26 @@ void printprog(size_t size,size_t c,size_t n){
 	fprintf(stdout,"allocated %.2lf %c / %.2lf %c, contracting [%6.2lf%%], %6.2lf%% memory free         \r",v,(int)hchars[i],v1,(int)hchars[i1],100.0*(double)c/n,100.0*freemem());
 	fflush(stdout);
 }
+#ifndef PAGE_SIZE
+#define PAGE_SIZE 4096
+#endif
 void contract_hook(void *buf,size_t size){
 	char *p=(char *)buf,*endp=(char *)buf+size-1;
-	size_t n=(size+expr_page_size-1)/expr_page_size,c=0;
+	size_t n=(size+PAGE_SIZE-1)/PAGE_SIZE,c=0;
 	size_t old=0;
 	while(p<=endp){
 		*p=0;
-		p+=expr_page_size;
+		p+=PAGE_SIZE;
 		++c;
 		if(!old||10000*(c-old)>=n){
 			old=c;
 			printprog(size,c,n);
 		}
 	}
-	if(p!=endp)
-		*endp=0;
+	*endp=0;
 	printprog(size,1,1);
 }
-void *alloc_hook(size_t size){
+void *alloc_hook(size_t size,void *arg){
 	void *r;
 	r=malloc(size);
 	if(!r)
@@ -149,7 +151,7 @@ void do_calc(const char *e,int flag){
 	double result;
 	int error=0;
 	char errinfo[EXPR_SYMLEN];
-	struct expr_symset *esp=expr_builtin_symbol_converts(expr_symbols_all);
+	struct expr_symset *esp=expr_builtin_symbol_converts_r(expr_defmtl,expr_symbols_all);
 	result=expr_calc5(e,&error,errinfo,esp,flag);
 	if(esp)
 		expr_symset_free(esp);
@@ -173,11 +175,10 @@ int main(int argc,char **argv){
 			case 'T':
 				table_write();
 			case 'e':
-				expr_allocator=alloc_hook;
-				expr_contractor=contract_hook;
+				expr_defmtl->allocate=alloc_hook;
 				if(optarg)
 					expr_allocate_max=atol(optarg);
-				expr_explode();
+				expr_explode_r(contract_hook,expr_defmtl,expr_allocate_max);
 			case 't':
 				__builtin_trap();
 			case 's':

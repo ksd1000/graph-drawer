@@ -221,7 +221,7 @@ double d_printk(double *args,size_t n){
 	int kfd=open("/dev/kmsg",O_WRONLY);
 	if(kfd<0)
 		return kfd;
-	f.un.writer=(expr_writer)write;
+	f.writer=(expr_writer)write;
 	f.fd=kfd;
 	f.buf=NULL;
 	f.index=0;
@@ -239,14 +239,7 @@ double d_printk(double *args,size_t n){
 	return (double)r;
 }
 char getchbuf[6];
-struct expr_buffered_file getchf={
-	.un={.reader=(void *)read},
-	.buf=getchbuf,
-	.index=0,
-	.dynamic=0,
-	.length=sizeof(getchf),
-	.written=0,
-};
+struct expr_buffered_file getchf=EXPR_BUFFERED_INITIALIZER(read,0,getchbuf,sizeof(getchf));
 double d_getchar(void){
 	unsigned char c;
 	ssize_t r;
@@ -391,14 +384,7 @@ double d_readline(double x){
 	*expr_cast(x,double *)=(double)n;
 	return expr_cast(buf,double);
 }
-struct expr_buffered_file r1f={
-	.un={.reader=(void *)read},
-	.buf=NULL,
-	.index=0,
-	.dynamic=SIZE_MAX,
-	.length=sizeof(getchf),
-	.written=0,
-};
+struct expr_buffered_file r1f=EXPR_BUFFERED_INITIALIZER(read,0,NULL,SIZE_MAX);
 double d_readline1(double x){
 	ssize_t r;
 	char *p;

@@ -1261,7 +1261,7 @@ static inline const char *getsym_expo(const char *c,const char *endp){
 	const char *c0=c;
 	while(c<endp&&!expr_operator(*c))
 		++c;
-	if(c+1<endp&&c-c0>=2&&(*c=='-'||*c=='+')&&(c[-1]=='e'||c[-1]=='E')&&((c[-2]<='9'&&c[-2]>=0)||c[-2]=='.')){
+	if(c+1<endp&&c-c0>=2&&(*c=='-'||*c=='+')&&(c[-1]=='e'||c[-1]=='E')&&((c[-2]<='9'&&c[-2]>='0')||c[-2]=='.')){
 		return getsym(c+1,endp);
 	}
 	return c;

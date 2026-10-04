@@ -122,7 +122,7 @@ void add_all_common_symbols(struct expr_symset *);
 int adbt=0;
 void list_common(void){
 	size_t n=0;
-	struct expr_symset es[1]={EXPR_SYMSET_INITIALIZER};
+	struct expr_symset es[1]={EXPR_SYMSET_INITIALIZER(expr_defmtl)};
 	add_all_common_symbols(es);
 	if(adbt)
 		expr_builtin_symbol_addalls(es,expr_symbols_all);
@@ -153,6 +153,7 @@ int main(int argc,char **argv){
 		if(!strcmp(argv[1],"b"))
 			adbt=1;
 		list_common();
+		expr_setup_mtl(0);
 	}
 	//printf("allocated:%d,freed:%d\n",allocated,freed);
 	return EXIT_SUCCESS;

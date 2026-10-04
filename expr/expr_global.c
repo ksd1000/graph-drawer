@@ -178,7 +178,8 @@ intptr_t expr_warped_syscall7(int num,intptr_t a0,intptr_t a1,intptr_t a2,intptr
 #endif
 
 #if EXPR_SETUP_ENABLED
-
+#include <stdio.h>
+#include <string.h>
 #define r_fail \
 	{\
 		fprintf(stderr,"cannot allocate memory,size=%zu\n",size);\

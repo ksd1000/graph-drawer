@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include "expr.h"
 #include <time.h>
 #include <assert.h>
 #ifdef __unix__
@@ -11,6 +10,8 @@
 #else
 #define err(v,fmt,...) ({fprintf(stderr,fmt,##__VA_ARGS__);exit(v)})
 #endif
+#define EXPR_BLOCKWARNING 1
+#include "expr.h"
 struct expr_symset *es;
 const struct proj {
 	const char *e;
@@ -83,7 +84,7 @@ const struct proj {
 	{"f=(u,v){u+v**2},f(7,4)",23},
 	{"undef(defined_symbol){1},defined_symbol",2304.0},
 	{"alias(x,defined_symbol);x",2304.0},
-	{NULL}
+	{NULL,0.0}
 
 };
 const struct eproj {
@@ -128,7 +129,7 @@ const struct eproj {
 	{"alias(x,y);alias(y,z);alias(z,y);x",EXPR_EANT},
 	{"error()",EXPR_EUDE},
 	{"error(\"errname\")",EXPR_EUDE},
-	{NULL}
+	{NULL,0}
 };
 void errcheck(const char *e,int expect){
 	int error;
@@ -172,9 +173,11 @@ ab:
 	printf("ABORTING\n");
 	abort();
 }
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 int main(int argc,char **argv){
 	double x0=expr_cast(expr_seed48(time(NULL)),double);
-	es=expr_builtin_symbol_converts(expr_symbols_all);
+	expr_setup_mtl(3);
+	es=expr_builtin_symbol_converts_r(expr_defmtl,expr_symbols_all);
 	assert(es);
 	expr_symset_add(es,"x0",EXPR_VARIABLE,0,&x0);
 	expr_symset_add(es,"defined_symbol",EXPR_CONSTANT,0,2304.0);
@@ -195,5 +198,6 @@ int main(int argc,char **argv){
 		}
 	}
 	expr_symset_free(es);
+	expr_setup_mtl(0);
 	return 0;
 }

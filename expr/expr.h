@@ -47,10 +47,9 @@ void *expr_allocator_default(size_t size,void *arg);
 void *expr_reallocator_default(void *old,size_t size,void *arg);
 void expr_deallocator_default(void *old,void *arg);
 extern struct expr_memtool expr_defmtl[1];
+extern size_t expr_allocate_max;
 
-#if defined(EXPR_INLIB)&&(EXPR_INLIB)
-#include <stdlib.h>
-#define expr_globals \
+#define expr_globals_define() \
 size_t expr_allocate_max=SSIZE_MAX;\
 void *expr_allocator_default(size_t size,void *arg){\
 	return size>=expr_allocate_max?NULL:malloc(size);\
@@ -69,6 +68,9 @@ struct expr_memtool expr_defmtl[1]={{\
 	.arg=NULL,\
 }}
 
+#if defined(EXPR_INLIB)&&(EXPR_INLIB)
+#include <stdlib.h>
+#define expr_globals expr_globals_define()
 #ifndef EXPR_DEBUG
 #define EXPR_DEBUG 0
 #endif
@@ -953,9 +955,6 @@ struct expr_internal_jmpbuf {
 };
 typedef int (*expr_recursive_callback)(struct expr *restrict ep,void *arg);
 
-extern size_t expr_allocate_max;
-extern size_t expr_bufsize_initial;
-
 #define expr_symbols_all \
 	expr_symbols_default,\
 	expr_symbols_expr,\
@@ -1237,7 +1236,7 @@ ssize_t expr_buffered_rdropall(struct expr_buffered_file *restrict fp);
 ssize_t expr_buffered_close(struct expr_buffered_file *restrict fp);
 void expr_buffered_rclose(struct expr_buffered_file *restrict fp);
 ssize_t expr_buffered_readline(struct expr_buffered_file *restrict fp,int c,void *savep);
-ssize_t expr_file_readfd(expr_reader reader,intptr_t fd,size_t tail,void *savep);
+ssize_t expr_file_readfd_r(expr_reader reader,intptr_t fd,size_t tail,void *savep,const struct expr_memtool *restrict mtl);
 //global externs of expr_buffered.c :
 //global functions of expr_builtin.c :
 uint64_t expr_gcd64(uint64_t x,uint64_t y);
@@ -1393,6 +1392,7 @@ int expr_setup_mtl(int flag);
 //global externs of expr_global.c :
 extern int expr_mtl_setup;
 #if !(defined(EXPR_INLIB)&&(EXPR_INLIB))
+#define expr_file_readfd(reader,fd,tail,savep) expr_file_readfd_r(reader,fd,tail,savep,expr_defmtl)
 #define expr_sort4(v,n) expr_sort4_r(v,n,expr_defmtl)
 #define expr_builtin_symbol_converts(syms,...) expr_builtin_symbol_converts_r(expr_defmtl,syms,__VA_ARGS__)
 #define expr_builtin_symbol_convert(syms) expr_builtin_symbol_convert_r(syms,expr_defmtl)

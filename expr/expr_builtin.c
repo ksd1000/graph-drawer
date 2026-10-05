@@ -547,7 +547,7 @@ static double expr_destruct(double *args,size_t n){
 	if(n>1){
 		memcpy(a,args+1,(n-1)*sizeof(double));
 	}
-	expr_free_r(ep,expr_defmtl);
+	expr_free(ep);
 	switch(n){
 		case 1:
 			break;

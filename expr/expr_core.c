@@ -808,30 +808,30 @@ static inline const char *findpair_dmark(const char *c,const char *endp){
 	_buf;\
 })
 static inline void freesuminfo(struct expr_suminfo *p,int flag,const struct expr_memtool *restrict mtl){
-	expr_free2_r(p->ep,flag,mtl);
-	expr_free2_r(p->fromep,flag,mtl);
-	expr_free2_r(p->toep,flag,mtl);
-	expr_free2_r(p->stepep,flag,mtl);
+	expr_free2mtl_r(p->ep,flag,mtl);
+	expr_free2mtl_r(p->fromep,flag,mtl);
+	expr_free2mtl_r(p->toep,flag,mtl);
+	expr_free2mtl_r(p->stepep,flag,mtl);
 	xfree(p);
 }
 static inline void freevmdinfo(struct expr_vmdinfo *p,int flag,const struct expr_memtool *restrict mtl){
-	expr_free2_r(p->ep,flag,mtl);
-	expr_free2_r(p->fromep,flag,mtl);
-	expr_free2_r(p->toep,flag,mtl);
-	expr_free2_r(p->stepep,flag,mtl);
+	expr_free2mtl_r(p->ep,flag,mtl);
+	expr_free2mtl_r(p->fromep,flag,mtl);
+	expr_free2mtl_r(p->toep,flag,mtl);
+	expr_free2mtl_r(p->stepep,flag,mtl);
 	if(p->args)
 		xfree(p->args);
 	xfree(p);
 }
 static inline void freebranchinfo(struct expr_branchinfo *p,int flag,const struct expr_memtool *restrict mtl){
-	expr_free2_r(p->cond,flag,mtl);
-	expr_free2_r(p->body,flag,mtl);
-	expr_free2_r(p->value,flag,mtl);
+	expr_free2mtl_r(p->cond,flag,mtl);
+	expr_free2mtl_r(p->body,flag,mtl);
+	expr_free2mtl_r(p->value,flag,mtl);
 	xfree(p);
 }
 static inline void freemdinfo(struct expr_mdinfo *p,int flag,const struct expr_memtool *restrict mtl){
 	for(size_t i=0;i<p->dim;++i)
-		expr_free2_r(p->eps+i,flag,mtl);
+		expr_free2mtl_r(p->eps+i,flag,mtl);
 	xfree(p->eps);
 	if(p->args)
 		xfree(p->args);
@@ -841,9 +841,9 @@ static inline void freemdinfo(struct expr_mdinfo *p,int flag,const struct expr_m
 }
 static inline void freehmdinfo(struct expr_hmdinfo *p,int flag,const struct expr_memtool *restrict mtl){
 	for(size_t i=0;i<p->dim;++i)
-		expr_free2_r(p->eps+i,flag,mtl);
+		expr_free2mtl_r(p->eps+i,flag,mtl);
 	xfree(p->eps);
-	expr_free2_r(p->hotfunc,flag,mtl);
+	expr_free2mtl_r(p->hotfunc,flag,mtl);
 	xfree(p->args);
 	xfree(p);
 }
@@ -864,7 +864,7 @@ static inline void expr_freedata(struct expr_inst *restrict data,size_t size,int
 				freebranchinfo(ip->un.eb,flag,mtl);
 				break;
 			case HOTCASES:
-				expr_free2_r(ip->un.hotfunc,flag,mtl);
+				expr_free2mtl_r(ip->un.hotfunc,flag,mtl);
 				break;
 			case EXPR_HMD:
 				freehmdinfo(ip->un.eh,flag,mtl);
@@ -906,7 +906,7 @@ static inline void expr_freeres(struct expr *restrict ep,int flag,const struct e
 	for(erp=ep->res;erp;){
 		if(erp->un.uaddr)switch(erp->type){
 			case EXPR_HOTFUNCTION:
-				expr_free2_r(erp->un.ep,flag,mtl);
+				expr_free2mtl_r(erp->un.ep,flag,mtl);
 				break;
 			default:
 				xfree(erp->un.uaddr);
@@ -917,7 +917,7 @@ static inline void expr_freeres(struct expr *restrict ep,int flag,const struct e
 		xfree(erp1);
 	}
 }
-void expr_free2_r(struct expr *restrict ep,int flag,const struct expr_memtool *restrict mtl){
+void expr_free2mtl_r(struct expr *restrict ep,int flag,const struct expr_memtool *restrict mtl){
 	struct expr *ep0=(struct expr *)ep;
 start:
 	expr_free_keepres(ep,flag,mtl);
@@ -933,8 +933,11 @@ start:
 			break;
 	}
 }
-void expr_free_r(struct expr *restrict ep,const struct expr_memtool *restrict mtl){
-	expr_free2_r(ep,0,mtl);
+void expr_free2(struct expr *restrict ep,int flag){
+	expr_free2mtl_r(ep,flag,ep->mtl);
+}
+void expr_free(struct expr *restrict ep){
+	expr_free2mtl_r(ep,0,ep->mtl);
 }
 static inline void setunsafe(struct expr *restrict ep){
 	struct expr *p;
@@ -1405,7 +1408,7 @@ static struct expr_mdinfo *getmdinfo(struct expr *restrict ep,const char *e0,siz
 		case 1:
 		break;
 	}
-#define expr_free_r(ep) expr_free2_r((ep),0,xmtl)
+#define expr_free_r(ep) expr_free2mtl_r((ep),0,xmtl)
 	for(i=0;i<em->dim;++i){
 		if(unlikely(expr_init8(em->eps+i,v[i],strlen(v[i]),asym,asymlen,ep->sset,ep->iflag,ep,xmtl)<0)){
 			for(ssize_t k=i-1;k>=0;--k)
@@ -4212,36 +4215,54 @@ err:
 	return NULL;
 }
 #undef xmtl
-#define xmtl esp->mtl
-static void expr_symset_freesymbol_s(struct expr_symset *restrict esp,void *stack){
-	expr_symset_foreach4(sp,esp,stack,EXPR_SYMNEXT){
-		if(!sp->saved){
-			xfree(sp);
-		}
+#define xmtl mtl
+
+#define WIPE_SYMBOLS\
+	expr_symset_foreach4(sp,esp,stack,EXPR_SYMNEXT){\
+		if(!sp->saved){\
+			xfree(sp);\
+		}\
 	}
-}
-void expr_symset_free(struct expr_symset *restrict esp){
+void expr_symset_freemtl(struct expr_symset *restrict esp,const struct expr_memtool *restrict mtl){
 	STACK_DEFAULT(stack,esp);
-	expr_symset_free_s(esp,stack);
-}
-void expr_symset_free_s(struct expr_symset *restrict esp,void *stack){
-	expr_symset_freesymbol_s(esp,stack);
+	WIPE_SYMBOLS;
 	if(esp->freeable)
 		xfree(esp);
 }
+void expr_symset_freemtl_s(struct expr_symset *restrict esp,void *stack,const struct expr_memtool *restrict mtl){
+	WIPE_SYMBOLS;
+	if(esp->freeable)
+		xfree(esp);
+}
+#undef xmtl
+#define xmtl esp->mtl
+void expr_symset_free(struct expr_symset *restrict esp){
+	STACK_DEFAULT(stack,esp);
+	WIPE_SYMBOLS;
+	if(esp->freeable)
+		xfree(esp);
+}
+void expr_symset_free_s(struct expr_symset *restrict esp,void *stack){
+	WIPE_SYMBOLS;
+	if(esp->freeable)
+		xfree(esp);
+}
+
+#define WIPE_SYMSET \
+	WIPE_SYMBOLS;\
+	esp->syms=NULL;\
+	esp->size=0;\
+	esp->removed=0;\
+	esp->depth=0;\
+	esp->depth_n=0;\
+	esp->length=0;\
+	esp->alength=0
 void expr_symset_wipe(struct expr_symset *restrict esp){
 	STACK_DEFAULT(stack,esp);
-	expr_symset_wipe_s(esp,stack);
+	WIPE_SYMSET;
 }
 void expr_symset_wipe_s(struct expr_symset *restrict esp,void *stack){
-	expr_symset_freesymbol_s(esp,stack);
-	esp->syms=NULL;
-	esp->size=0;
-	esp->removed=0;
-	esp->depth=0;
-	esp->depth_n=0;
-	esp->length=0;
-	esp->alength=0;
+	WIPE_SYMSET;
 }
 void expr_symset_save(struct expr_symset *restrict esp,void *buf){
 	STACK_DEFAULT(stack,esp);

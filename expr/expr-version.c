@@ -87,7 +87,7 @@ void contract_hook(void *buf,size_t size){
 	*endp=0;
 	printprog(size,1,1);
 }
-void *alloc_hook(size_t size,void *arg){
+void *alloc_hook(size_t size,intptr_t arg){
 	void *r;
 	r=malloc(size);
 	if(!r)

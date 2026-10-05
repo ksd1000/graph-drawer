@@ -28,36 +28,33 @@ expr_static_assert(sizeof(void *)>=sizeof(double));
 
 typedef ssize_t (*expr_writer)(intptr_t fd,const void *buf,size_t size);
 typedef ssize_t (*expr_reader)(intptr_t fd,void *buf,size_t size);
-typedef void *(*expr_allocate_t)(size_t,void *);
-typedef void *(*expr_reallocate_t)(void *,size_t,void *);
-typedef void (*expr_deallocate_t)(void *,void *);
+typedef void *(*expr_allocate_t)(size_t,intptr_t);
+typedef void *(*expr_reallocate_t)(void *,size_t,intptr_t);
+typedef void (*expr_deallocate_t)(void *,intptr_t);
 typedef intptr_t (*expr_test_t)(const void *buf,intptr_t arg,size_t size);
 struct expr_memtool {
 	expr_allocate_t allocate;
 	expr_reallocate_t reallocate;
 	expr_deallocate_t deallocate;
 	expr_test_t test;
-	union {
-		void *arg;
-		intptr_t iarg;
-	};
+	intptr_t arg;
 };
 
-void *expr_allocator_default(size_t size,void *arg);
-void *expr_reallocator_default(void *old,size_t size,void *arg);
-void expr_deallocator_default(void *old,void *arg);
+void *expr_allocator_default(size_t size,intptr_t arg);
+void *expr_reallocator_default(void *old,size_t size,intptr_t arg);
+void expr_deallocator_default(void *old,intptr_t arg);
 extern struct expr_memtool expr_defmtl[1];
 extern size_t expr_allocate_max;
 
 #define expr_globals_define() \
 size_t expr_allocate_max=SSIZE_MAX;\
-void *expr_allocator_default(size_t size,void *arg){\
+void *expr_allocator_default(size_t size,intptr_t arg){\
 	return size>=expr_allocate_max?NULL:malloc(size);\
 }\
-void *expr_reallocator_default(void *old,size_t size,void *arg){\
+void *expr_reallocator_default(void *old,size_t size,intptr_t arg){\
 	return size>=expr_allocate_max?NULL:realloc(old,size);\
 }\
-void expr_deallocator_default(void *old,void *arg){\
+void expr_deallocator_default(void *old,intptr_t arg){\
 	return free(old);\
 }\
 struct expr_memtool expr_defmtl[1]={{\
@@ -65,7 +62,7 @@ struct expr_memtool expr_defmtl[1]={{\
 	.reallocate=expr_reallocator_default,\
 	.deallocate=expr_deallocator_default,\
 	.test=NULL,\
-	.arg=NULL,\
+	.arg=0,\
 }}
 
 #if defined(EXPR_INLIB)&&(EXPR_INLIB)

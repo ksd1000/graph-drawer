@@ -190,7 +190,7 @@ static int nonnull=0,ckleak=0;
 int expr_mtl_setup=0;
 static uint32_t mutex[1]={0};
 ssize_t count=0;
-static void *xmalloc_setup(size_t size,void *arg){
+static void *xmalloc_setup(size_t size,intptr_t arg){
 	void *r;
 	r=size>expr_allocate_max?NULL:malloc(size);
 	if(unlikely(!r&&nonnull))
@@ -202,7 +202,7 @@ static void *xmalloc_setup(size_t size,void *arg){
 	}
 	return r;
 }
-static void *xrealloc_setup(void *old,size_t size,void *arg){
+static void *xrealloc_setup(void *old,size_t size,intptr_t arg){
 	void *r;
 	r=size>expr_allocate_max?NULL:realloc(old,size);
 	if(unlikely(!r&&nonnull))
@@ -214,7 +214,7 @@ static void *xrealloc_setup(void *old,size_t size,void *arg){
 	}
 	return r;
 }
-static void xfree_setup(void *old,void *arg){
+static void xfree_setup(void *old,intptr_t arg){
 	free(old);
 	expr_mutex_lock(mutex);
 	--count;
@@ -224,7 +224,7 @@ static const struct expr_memtool expr_setupmtl[1]={{
 	.allocate=xmalloc_setup,
 	.reallocate=xrealloc_setup,
 	.deallocate=xfree_setup,
-	.arg=NULL,
+	.arg=0,
 }};
 static struct expr_memtool expr_oldmtl[1];
 int expr_setup_mtl(int flag){

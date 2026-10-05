@@ -70,7 +70,6 @@ struct expr_memtool expr_defmtl[1]={{\
 
 #if defined(EXPR_INLIB)&&(EXPR_INLIB)
 #include <stdlib.h>
-#define expr_globals expr_globals_define()
 #ifndef EXPR_DEBUG
 #define EXPR_DEBUG 0
 #endif

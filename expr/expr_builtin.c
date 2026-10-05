@@ -17,7 +17,7 @@
 #define eval(_ep,_input) expr_eval(_ep,_input)
 
 #if defined(EXPR_ISOLATED)&&(EXPR_ISOLATED)
-expr_globals;
+expr_globals_define();
 #endif
 
 #define expr_allocator(size) (xmtl->allocate((size),xmtl->arg))

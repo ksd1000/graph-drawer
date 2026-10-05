@@ -8,7 +8,7 @@
 #define EXPR_INLIB 1
 #include "expr.h"
 
-expr_globals;
+expr_globals_define();
 
 #ifndef PAGE_SIZE
 #define PAGE_SIZE 4096

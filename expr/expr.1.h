@@ -704,9 +704,11 @@ struct expr_buffered_file {
 	intptr_t fd;
 	void *buf;
 	size_t index,length,dynamic,written;
-	size_t flag;
+	const struct expr_memtool *restrict mtl;
+	int flag;
+	int unused;
 };
-#define EXPR_BUFFERED_INITIALIZER(_wrer,_fd,_buf,_len) {\
+#define EXPR_BUFFERED_INITIALIZER_R(_wrer,_fd,_buf,_len,_mtl) {\
 	.uaddr=(_wrer),\
 	.fd=(_fd),\
 	.buf=(_buf),\
@@ -714,43 +716,34 @@ struct expr_buffered_file {
 	.dynamic=(_buf)?0:(_len),\
 	.index=0,\
 	.written=0,\
+	.mtl=(_mtl),\
 	.flag=0,\
+	.unused=0,\
 }
-#define expr_buffered_init_internal(fp,_wrer,_fd,_buf,_len,_field) \
+#define EXPR_BUFFERED_INITIALIZER(_wrer,_fd,_buf,_len) EXPR_BUFFERED_INITIALIZER_R(_wrer,_fd,_buf,_len,expr_defmtl)
+#define expr_buffered_init_r(fp,_wrer,_fd,_buf,_len,_mtl) ({\
 	struct expr_buffered_file *__fp=(fp);\
-	__fp->_field=(_wrer);\
+	__fp->uaddr=(_wrer);\
 	__fp->fd=(_fd);\
-	__fp->buf=(_buf);\
-	if(__fp->buf){\
+	if((__fp->buf=(_buf))){\
 		__fp->length=(_len);\
 		__fp->dynamic=0;\
 	}else {\
 		__fp->length=0;\
 		__fp->dynamic=(_len);\
 	}\
+	__fp->mtl=(_mtl);\
 	__fp->index=0;\
 	__fp->written=0;\
-	__fp->flag=0
-
-#define expr_buffered_init(fp,_writer,_fd,_buf,_len) ({\
-	expr_buffered_init_internal(fp,_writer,_fd,_buf,_len,writer);\
+	__fp->flag=0;\
 })
-
-#define expr_buffered_rinit(fp,_reader,_fd,_buf,_len) ({\
-	expr_buffered_init_internal(fp,_reader,_fd,_buf,_len,reader);\
-})
-
-#define expr_buffered_uinit(fp,_uaddr,_fd,_buf,_len) ({\
-	expr_buffered_init_internal(fp,_uaddr,_fd,_buf,_len,uaddr);\
-})
-
+#define expr_buffered_init(fp,_wrer,_fd,_buf,_len) expr_buffered_init_r(fp,_wrer,_fd,_buf,_len,expr_defmtl)
 #define expr_buffered_drop(fp) ((fp)->index=0)
 #define expr_buffered_rdrop(fp) ({\
 	struct expr_buffered_file *__fp=(fp);\
 	__fp->index=0;\
 	__fp->written=0;\
 })
-
 struct expr;
 struct expr_symset;
 struct expr_suminfo {
@@ -915,7 +908,7 @@ struct expr_symset {
 	//real depth. but it is not suggested,for it will cost a lot of cpu
 	//time to travel through every symbol to get the real depth.
 	//this will be set to 0 when an expr_symset_wipe(this) is called.
-	const struct expr_memtool *mtl;
+	const struct expr_memtool *restrict mtl;
 	uint32_t freeable,mutex;
 };
 struct expr_symset_infile {
@@ -1198,7 +1191,8 @@ struct expr {
 	struct expr_symset *sset;
 	struct expr_resource *res,*tail;
 	size_t length,vsize,vlength;
-	const struct expr_memtool *mtl;
+	const struct expr_memtool *restrict mtl;
+	// the restrict in field may be ignored, might work in the feture
 	union {
 		double args[EXPR_SYSAM];
 		struct {

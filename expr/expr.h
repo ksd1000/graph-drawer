@@ -1285,8 +1285,11 @@ ssize_t expr_builtin_symbol_xaddall(struct expr_symset *restrict esp,const struc
 struct expr_symset *expr_builtin_symbol_converts_r(const struct expr_memtool *restrict mtl,const struct expr_builtin_symbol *syms,...);
 struct expr_symset *expr_builtin_symbol_convert_r(const struct expr_builtin_symbol *syms,const struct expr_memtool *restrict mtl);
 size_t expr_strscan(const char *restrict s,size_t sz,char *restrict buf,size_t outsz);
-void expr_free2_r(struct expr *restrict ep,int flag,const struct expr_memtool *restrict mtl);
-void expr_free_r(struct expr *restrict ep,const struct expr_memtool *restrict mtl);
+void expr_free2mtl_r(struct expr *restrict ep,int flag,const struct expr_memtool *restrict mtl);
+void expr_free2(struct expr *restrict ep,int flag);
+void expr_free(struct expr *restrict ep);
+void expr_symset_freemtl(struct expr_symset *restrict esp,const struct expr_memtool *restrict mtl);
+void expr_symset_freemtl_s(struct expr_symset *restrict esp,void *stack,const struct expr_memtool *restrict mtl);
 void expr_symset_free(struct expr_symset *restrict esp);
 void expr_symset_free_s(struct expr_symset *restrict esp,void *stack);
 void expr_symset_wipe(struct expr_symset *restrict esp);
@@ -1412,8 +1415,7 @@ extern int expr_mtl_setup;
 #define expr_sort4(v,n) expr_sort4_r(v,n,expr_defmtl)
 #define expr_builtin_symbol_converts(syms,...) expr_builtin_symbol_converts_r(expr_defmtl,syms,__VA_ARGS__)
 #define expr_builtin_symbol_convert(syms) expr_builtin_symbol_convert_r(syms,expr_defmtl)
-#define expr_free2(ep,flag) expr_free2_r(ep,flag,expr_defmtl)
-#define expr_free(ep) expr_free_r(ep,expr_defmtl)
+#define expr_free2mtl(ep,flag) expr_free2mtl_r(ep,flag,expr_defmtl)
 #define expr_symbol_create(sym,type,flag,...) expr_symbol_create_r(sym,type,flag,expr_defmtl,__VA_ARGS__)
 #define expr_symbol_createl(sym,symlen,type,flag,...) expr_symbol_createl_r(sym,symlen,type,flag,expr_defmtl,__VA_ARGS__)
 #define expr_symbol_vcreate(sym,type,flag,ap) expr_symbol_vcreate_r(sym,type,flag,ap,expr_defmtl)

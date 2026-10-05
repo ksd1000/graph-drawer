@@ -18,9 +18,6 @@ ssize_t expr_buffered_write(struct expr_buffered_file *restrict fp,const void *b
 ssize_t expr_buffered_read(struct expr_buffered_file *restrict fp,void *buf,size_t size){
 	return expr_buffered_read_r(fp,buf,size,expr_defmtl);
 }
-ssize_t expr_buffered_read5(struct expr_buffered_file *restrict fp,void *buf,size_t size,expr_buffered_test test,intptr_t arg){
-	return expr_buffered_read5_r(fp,buf,size,test,arg,expr_defmtl);
-}
 ssize_t expr_buffered_write_flushatc(struct expr_buffered_file *restrict fp,const void *buf,size_t size,int c){
 	return expr_buffered_write_flushatc_r(fp,buf,size,c,expr_defmtl);
 }

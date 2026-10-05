@@ -15,11 +15,15 @@
 #define expr_deallocator(old) (xmtl->deallocate((old),xmtl->arg))
 #define xmtl mtl
 
+#define CKPDM(v) if(unlikely((v)=PTRDIFF_MIN))fp->flag|=EXPR_BF_CALLBACK_PDMIN
+
 #define reterr(V) {r=(V);goto err;}
+
 #define FLUSH(size,trunc,onerr) \
 	r=fp->writer(fp->fd,fp->buf,size);\
 	if(unlikely(r<0)){\
 		onerr;\
+		CKPDM(r);\
 		return r;\
 	}\
 	if(unlikely(!r))\
@@ -31,6 +35,7 @@
 				for(;;){\
 					r2=fp->writer(fp->fd,fp->buf+r,r1);\
 					if(unlikely(r2<0)){\
+						CKPDM(r2);\
 						onerr;\
 						return r2;\
 					}\
@@ -63,7 +68,8 @@ ssize_t expr_buffered_write_r(struct expr_buffered_file *restrict fp,const void 
 	if(unlikely(!size)){
 		r=expr_buffered_flush(fp);
 		if(unlikely(r<0)){
-			return PTRDIFF_MIN;
+			CKPDM(r);
+			return r;
 		}
 		fp->written+=r;
 		return 0;
@@ -128,7 +134,8 @@ size_le_c:
 		r=fp->writer(fp->fd,buf,size);
 		if(unlikely(r<0)){
 			fp->flag|=EXPR_BF_EMPTY;
-			return PTRDIFF_MIN;
+			CKPDM(r);
+			return r;
 		}
 		if(unlikely(!r))
 			fp->flag|=EXPR_BF_ZERO;
@@ -256,6 +263,7 @@ size_ok:
 	return size;
 err:
 	debug("error code:%zd",r);
+	CKPDM(r);
 	return r;
 }
 #undef reterr
@@ -267,8 +275,9 @@ err:
 #define memrmem expr_fake_memrmem
 
 #define rcheckadd(V) r=(V);\
-	if(unlikely(r<0))\
+	if(unlikely(r<0)){\
 		return r;\
+	}\
 	ret+=r
 #define flushat_common(rcfetch,rcinc) \
 	ssize_t r,ret;\
@@ -281,8 +290,9 @@ err:
 	ret=0;\
 	rcheckadd(expr_buffered_write_r(fp,buf,n,mtl));\
 	r=expr_buffered_flush(fp);\
-	if(unlikely(r<0))\
+	if(unlikely(r<0)){\
 		return r;\
+	}\
 	n=size-n;\
 	if(n){\
 		rcheckadd(expr_buffered_write_r(fp,(const void *)rc,n,mtl));\
@@ -312,8 +322,9 @@ ssize_t expr_buffered_write_flushat_r(struct expr_buffered_file *restrict fp,con
 		rcheckadd(expr_buffered_write_r(fp,buf,n,mtl));\
 		debug("flash point found at %zd",n);\
 		r=expr_buffered_flush(fp);\
-		if(unlikely(r<0))\
+		if(unlikely(r<0)){\
 			return r;\
+		}\
 		debug("flash ok %zd",r);\
 		buf=(const void *)rc;\
 		size-=n;\
@@ -361,8 +372,10 @@ ssize_t expr_buffered_rdropall(struct expr_buffered_file *restrict fp){
 	}
 	for(;;){
 		r=fp->reader(fp->fd,trash,trashlen);
-		if(unlikely(r<0))
+		if(unlikely(r<0)){
+			CKPDM(r);
 			goto err;
+		}
 		if(!r)
 			break;
 		ret+=r;

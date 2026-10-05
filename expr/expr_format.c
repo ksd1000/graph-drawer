@@ -6,7 +6,7 @@
 #include <math.h>
 #include <string.h>
 
-#define _EXPR_LIB 1
+#define EXPR_INLIB 1
 #include "expr.h"
 
 #define c_trywrite(buf,sz) if(likely((r=(sz))>0)){\

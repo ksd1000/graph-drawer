@@ -1,15 +1,18 @@
 #! /bin/bash
 dump() {
 	echo "//global functions" of "$1" ":" >>expr.h
-	. ./decdump < "$1" >>expr.h
+	./decdump < "$1" >>expr.h
 	echo "//global externs of" "$1" ":" >>expr.h
-	. ./extdump < "$1" >>expr.h
+	./extdump < "$1" >>expr.h
 }
 cat expr.1.h > expr.h
 dump expr_format.c
 dump expr_buffered.c
 dump expr_builtin.c
 dump expr_core.c
-dump expr_default.c
+#dump expr_default.c
 dump expr_global.c
+echo "#if !(defined(EXPR_INLIB)&&(EXPR_INLIB))" >>expr.h
+./rudump-mf >>expr.h
+echo "#endif" >>expr.h
 cat expr.2.h >> expr.h

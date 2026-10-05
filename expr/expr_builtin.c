@@ -9,7 +9,7 @@
 #include <float.h>
 #include <setjmp.h>
 
-#define _EXPR_LIB 1
+#define EXPR_INLIB 1
 #include "expr.h"
 
 #define PHYSICAL_CONSTANT 0
@@ -1459,7 +1459,7 @@ static double expr_##name##_b(double *args,size_t n){\
 #define REGWARPZA(name) REGZASYM2_U(#name,(double (*)(void))expr_##name##_b)
 #define REGWARPF(name) REGFSYM2_U(#name,expr_##name##_b)
 static double expr_symset_new_b(void){
-	struct expr_symset *r=expr_symset_new();
+	struct expr_symset *r=expr_symset_new_r(expr_defmtl);
 	return cast(r,double);
 }
 static double expr_symset_free_b(double x){

@@ -48,7 +48,7 @@ void *expr_reallocator_default(void *old,size_t size,void *arg);
 void expr_deallocator_default(void *old,void *arg);
 extern struct expr_memtool expr_defmtl[1];
 
-#if defined(_EXPR_LIB)&&(_EXPR_LIB)
+#if defined(EXPR_INLIB)&&(EXPR_INLIB)
 #include <stdlib.h>
 #define expr_globals \
 size_t expr_allocate_max=SSIZE_MAX;\

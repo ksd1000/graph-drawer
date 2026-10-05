@@ -5,7 +5,7 @@
 #define _GNU_SOURCE
 #include <string.h>
 
-#define _EXPR_LIB 1
+#define EXPR_INLIB 1
 #include "expr.h"
 
 #define EXTEND_FRAC(x) (((x)/8)*3)

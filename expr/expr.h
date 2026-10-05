@@ -48,7 +48,7 @@ void *expr_reallocator_default(void *old,size_t size,void *arg);
 void expr_deallocator_default(void *old,void *arg);
 extern struct expr_memtool expr_defmtl[1];
 
-#if defined(_EXPR_LIB)&&(_EXPR_LIB)
+#if defined(EXPR_INLIB)&&(EXPR_INLIB)
 #include <stdlib.h>
 #define expr_globals \
 size_t expr_allocate_max=SSIZE_MAX;\
@@ -1373,49 +1373,6 @@ double expr_callback(const struct expr *restrict ep,double input,const struct ex
 //global externs of expr_core.c :
 extern const struct expr_builtin_keyword expr_keywords[];
 extern const uint8_t expr_number_table[256];
-//global functions of expr_default.c :
-ssize_t expr_buffered_write(struct expr_buffered_file *restrict fp,const void *buf,size_t size);
-ssize_t expr_buffered_read(struct expr_buffered_file *restrict fp,void *buf,size_t size);
-ssize_t expr_buffered_write_flushatc(struct expr_buffered_file *restrict fp,const void *buf,size_t size,int c);
-ssize_t expr_buffered_write_flushatt(struct expr_buffered_file *restrict fp,const void *buf,size_t size,expr_test_t test,intptr_t arg);
-ssize_t expr_buffered_write_flushat(struct expr_buffered_file *restrict fp,const void *buf,size_t size,const void *c,size_t c_size);
-ssize_t expr_buffered_write_sflushatc(struct expr_buffered_file *restrict fp,const void *buf,size_t size,int c);
-ssize_t expr_buffered_write_sflushatt(struct expr_buffered_file *restrict fp,const void *buf,size_t size,expr_test_t test,intptr_t arg);
-ssize_t expr_buffered_write_sflushat(struct expr_buffered_file *restrict fp,const void *buf,size_t size,const void *c,size_t c_size);
-ssize_t expr_buffered_write_sync(struct expr_buffered_file *restrict fp,const void *buf,size_t size);
-ssize_t expr_buffered_close(struct expr_buffered_file *restrict fp);
-void expr_buffered_rclose(struct expr_buffered_file *restrict fp);
-ssize_t expr_buffered_readline(struct expr_buffered_file *restrict fp,int c,void *savep);
-ssize_t expr_file_readfd(expr_reader reader,intptr_t fd,size_t tail,void *savep);
-int expr_sort4(double *restrict v,size_t n);
-struct expr_symset *expr_builtin_symbol_convert(const struct expr_builtin_symbol *syms);
-void expr_free2(struct expr *restrict ep,int flag);
-void expr_free(struct expr *restrict ep);
-struct expr_symbol *expr_symbol_create(const char *sym,int type,int flag,...);
-struct expr_symbol *expr_symbol_createl(const char *sym,size_t symlen,int type,int flag,...);
-struct expr_symbol *expr_symbol_vcreate(const char *sym,int type,int flag,va_list ap);
-struct expr_symbol *expr_symbol_vcreatel(const char *sym,size_t symlen,int type,int flag,va_list ap);
-void expr_symset_init(struct expr_symset *restrict esp);
-struct expr_symset *expr_symset_new(void);
-void expr_init_const(struct expr *restrict ep,double val);
-struct expr *expr_new_const(double val);
-int expr_init7(struct expr *restrict ep,const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag);
-int expr_init(struct expr *restrict ep,const char *e,const char *asym,struct expr_symset *esp,int flag);
-int expr_init4(struct expr *restrict ep,const char *e,const char *asym,int flag);
-int expr_init3(struct expr *restrict ep,const char *e,const char *asym);
-struct expr *expr_new9(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,int n,int *error,char errinfo[EXPR_SYMLEN]);
-struct expr *expr_new8(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,int *error,char errinfo[EXPR_SYMLEN]);
-struct expr *expr_new7(const char *e,const char *asym,struct expr_symset *esp,int flag,int n,int *error,char errinfo[EXPR_SYMLEN]);
-struct expr *expr_new(const char *e,const char *asym,struct expr_symset *esp,int flag,int *error,char errinfo[EXPR_SYMLEN]);
-struct expr *expr_new4(const char *e,const char *asym,struct expr_symset *esp,int flag);
-struct expr *expr_new3(const char *e,const char *asym,int flag);
-struct expr *expr_new2(const char *e,const char *asym);
-double expr_calc5(const char *e,int *error,char errinfo[EXPR_SYMLEN],struct expr_symset *esp,int flag);
-double expr_calc4(const char *e,int *error,char errinfo[EXPR_SYMLEN],struct expr_symset *esp);
-double expr_calc3(const char *e,int *error,char errinfo[EXPR_SYMLEN]);
-double expr_calc2(const char *e,int flag);
-double expr_calc(const char *e);
-//global externs of expr_default.c :
 //global functions of expr_global.c :
 void expr_contract(void *buf,size_t size);
 __attribute__((noreturn)) void expr_explode_r(void (*contractor)(void *,size_t),const struct expr_memtool *restrict mtl,size_t max);
@@ -1438,4 +1395,50 @@ intptr_t expr_warped_syscall7(int num,intptr_t a0,intptr_t a1,intptr_t a2,intptr
 int expr_setup_mtl(int flag);
 //global externs of expr_global.c :
 extern int expr_mtl_setup;
+#if !(defined(EXPR_INLIB)&&(EXPR_INLIB))
+#define expr_buffered_write(fp,buf,size) expr_buffered_write_r(fp,buf,size,expr_defmtl)
+#define expr_buffered_read(fp,buf,size) expr_buffered_read_r(fp,buf,size,expr_defmtl)
+#define expr_buffered_write_flushatc(fp,buf,size,c) expr_buffered_write_flushatc_r(fp,buf,size,c,expr_defmtl)
+#define expr_buffered_write_flushatt(fp,buf,size,test,arg) expr_buffered_write_flushatt_r(fp,buf,size,test,arg,expr_defmtl)
+#define expr_buffered_write_flushat(fp,buf,size,c,c_size) expr_buffered_write_flushat_r(fp,buf,size,c,c_size,expr_defmtl)
+#define expr_buffered_write_sflushatc(fp,buf,size,c) expr_buffered_write_sflushatc_r(fp,buf,size,c,expr_defmtl)
+#define expr_buffered_write_sflushatt(fp,buf,size,test,arg) expr_buffered_write_sflushatt_r(fp,buf,size,test,arg,expr_defmtl)
+#define expr_buffered_write_sflushat(fp,buf,size,c,c_size) expr_buffered_write_sflushat_r(fp,buf,size,c,c_size,expr_defmtl)
+#define expr_buffered_write_sync(fp,buf,size) expr_buffered_write_sync_r(fp,buf,size,expr_defmtl)
+#define expr_buffered_close(fp) expr_buffered_close_r(fp,expr_defmtl)
+#define expr_buffered_rclose(fp) expr_buffered_rclose_r(fp,expr_defmtl)
+#define expr_buffered_readline(fp,c,savep) expr_buffered_readline_r(fp,c,savep,expr_defmtl)
+#define expr_file_readfd(reader,fd,tail,savep) expr_file_readfd_r(reader,fd,tail,savep,expr_defmtl)
+#define expr_sort4(v,n) expr_sort4_r(v,n,expr_defmtl)
+#define expr_builtin_symbol_converts(syms,...) expr_builtin_symbol_converts_r(expr_defmtl,syms,__VA_ARGS__)
+#define expr_builtin_symbol_convert(syms) expr_builtin_symbol_convert_r(syms,expr_defmtl)
+#define expr_free2(ep,flag) expr_free2_r(ep,flag,expr_defmtl)
+#define expr_free(ep) expr_free_r(ep,expr_defmtl)
+#define expr_symbol_create(sym,type,flag,...) expr_symbol_create_r(sym,type,flag,expr_defmtl,__VA_ARGS__)
+#define expr_symbol_createl(sym,symlen,type,flag,...) expr_symbol_createl_r(sym,symlen,type,flag,expr_defmtl,__VA_ARGS__)
+#define expr_symbol_vcreate(sym,type,flag,ap) expr_symbol_vcreate_r(sym,type,flag,ap,expr_defmtl)
+#define expr_symbol_vcreatel(sym,symlen,type,flag,ap) expr_symbol_vcreatel_r(sym,symlen,type,flag,ap,expr_defmtl)
+#define expr_symset_init(esp) expr_symset_init_r(esp,expr_defmtl)
+#define expr_symset_new() expr_symset_new_r(expr_defmtl)
+#define expr_init_const(ep,val) expr_init_const_r(ep,val,expr_defmtl)
+#define expr_new_const(val) expr_new_const_r(val,expr_defmtl)
+#define expr_init7(ep,e,len,asym,asymlen,esp,flag) expr_init7_r(ep,e,len,asym,asymlen,esp,flag,expr_defmtl)
+#define expr_init(ep,e,asym,esp,flag) expr_init_r(ep,e,asym,esp,flag,expr_defmtl)
+#define expr_init4(ep,e,asym,flag) expr_init4_r(ep,e,asym,flag,expr_defmtl)
+#define expr_init3(ep,e,asym) expr_init3_r(ep,e,asym,expr_defmtl)
+#define expr_new9(e,len,asym,asymlen,esp,flag,n,error,errinfo) expr_new9_r(e,len,asym,asymlen,esp,flag,n,error,errinfo,expr_defmtl)
+#define expr_new8(e,len,asym,asymlen,esp,flag,error,errinfo) expr_new8_r(e,len,asym,asymlen,esp,flag,error,errinfo,expr_defmtl)
+#define expr_new7(e,asym,esp,flag,n,error,errinfo) expr_new7_r(e,asym,esp,flag,n,error,errinfo,expr_defmtl)
+#define expr_new(e,asym,esp,flag,error,errinfo) expr_new_r(e,asym,esp,flag,error,errinfo,expr_defmtl)
+#define expr_new4(e,asym,esp,flag) expr_new4_r(e,asym,esp,flag,expr_defmtl)
+#define expr_new3(e,asym,flag) expr_new3_r(e,asym,flag,expr_defmtl)
+#define expr_new2(e,asym) expr_new2_r(e,asym,expr_defmtl)
+#define expr_calc5(e,error,errinfo,esp,flag) expr_calc5_r(e,error,errinfo,esp,flag,expr_defmtl)
+#define expr_calc4(e,error,errinfo,esp) expr_calc4_r(e,error,errinfo,esp,expr_defmtl)
+#define expr_calc3(e,error,errinfo) expr_calc3_r(e,error,errinfo,expr_defmtl)
+#define expr_calc2(e,flag) expr_calc2_r(e,flag,expr_defmtl)
+#define expr_calc(e) expr_calc_r(e,expr_defmtl)
 #endif
+
+#endif
+

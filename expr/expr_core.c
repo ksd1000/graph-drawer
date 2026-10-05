@@ -8,7 +8,7 @@
 #include <float.h>
 #include <setjmp.h>
 
-#define _EXPR_LIB 1
+#define EXPR_INLIB 1
 #include "expr.h"
 
 #define UNABLE_GETADDR_IN_PROTECTED_MODE 1

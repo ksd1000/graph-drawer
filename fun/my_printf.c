@@ -11,17 +11,11 @@
 #include <float.h>
 #include "expr.h"
 ssize_t linebuf(intptr_t fd,const void *buf,size_t size){
-	return expr_buffered_write_flushat_r((struct expr_buffered_file *)fd,buf,size,"\n",1,expr_defmtl);
+	return expr_buffered_write_flushat((struct expr_buffered_file *)fd,buf,size,"\n",1);
 }
 char wbuf[BUFSIZ];
-struct expr_buffered_file printf_buf[1]={{
-	.writer=(expr_writer)write,
-	.fd=STDOUT_FILENO,
-	.buf=wbuf,
-	.index=0,
-	.dynamic=0,
-	.length=sizeof(wbuf),
-}};
+expr_globals_define();
+struct expr_buffered_file printf_buf[1]={EXPR_BUFFERED_INITIALIZER((expr_writer)write,STDOUT_FILENO,NULL,100000)};
 struct mapl2e {
 	const char *libc;
 	const char *expr;

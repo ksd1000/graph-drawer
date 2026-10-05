@@ -489,11 +489,11 @@ ssize_t expr_buffered_readline(struct expr_buffered_file *restrict fp,int c,void
 	*(void **)savep=fp->buf;
 	return in;
 }
-ssize_t expr_file_readfd(expr_reader reader,intptr_t fd,size_t tail,void *savep){
+ssize_t expr_file_readfd_r(expr_reader reader,intptr_t fd,size_t tail,void *savep,const struct expr_memtool *restrict mtl){
 	struct expr_buffered_file vf[1];
 	ssize_t r;
 	ssize_t ret;
-	expr_buffered_init(vf,reader,fd,NULL,SIZE_MAX);
+	expr_buffered_init_r(vf,reader,fd,NULL,SIZE_MAX,mtl);
 	r=expr_buffered_read(vf,NULL,0);
 	checkr(vf);
 	vf->reader=zero_reader;

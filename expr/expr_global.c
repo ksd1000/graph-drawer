@@ -5,7 +5,7 @@
  *******************************************************************************/
 #define _GNU_SOURCE
 
-#define _EXPR_LIB 1
+#define EXPR_INLIB 1
 #include "expr.h"
 
 expr_globals;

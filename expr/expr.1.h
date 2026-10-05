@@ -47,10 +47,9 @@ void *expr_allocator_default(size_t size,void *arg);
 void *expr_reallocator_default(void *old,size_t size,void *arg);
 void expr_deallocator_default(void *old,void *arg);
 extern struct expr_memtool expr_defmtl[1];
+extern size_t expr_allocate_max;
 
-#if defined(EXPR_INLIB)&&(EXPR_INLIB)
-#include <stdlib.h>
-#define expr_globals \
+#define expr_globals_define() \
 size_t expr_allocate_max=SSIZE_MAX;\
 void *expr_allocator_default(size_t size,void *arg){\
 	return size>=expr_allocate_max?NULL:malloc(size);\
@@ -69,6 +68,9 @@ struct expr_memtool expr_defmtl[1]={{\
 	.arg=NULL,\
 }}
 
+#if defined(EXPR_INLIB)&&(EXPR_INLIB)
+#include <stdlib.h>
+#define expr_globals expr_globals_define()
 #ifndef EXPR_DEBUG
 #define EXPR_DEBUG 0
 #endif
@@ -952,9 +954,6 @@ struct expr_internal_jmpbuf {
 	jmp_buf jb;
 };
 typedef int (*expr_recursive_callback)(struct expr *restrict ep,void *arg);
-
-extern size_t expr_allocate_max;
-extern size_t expr_bufsize_initial;
 
 #define expr_symbols_all \
 	expr_symbols_default,\

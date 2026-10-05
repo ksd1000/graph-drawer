@@ -26,12 +26,17 @@ expr_static_assert(sizeof(size_t)==sizeof(ptrdiff_t));
 expr_static_assert(sizeof(void *)==sizeof(ptrdiff_t));
 expr_static_assert(sizeof(void *)>=sizeof(double));
 
-typedef intptr_t (*expr_buffered_test)(const void *buf,intptr_t arg,size_t size);
+typedef ssize_t (*expr_writer)(intptr_t fd,const void *buf,size_t size);
+typedef ssize_t (*expr_reader)(intptr_t fd,void *buf,size_t size);
+typedef void *(*expr_allocate_t)(size_t,void *);
+typedef void *(*expr_reallocate_t)(void *,size_t,void *);
+typedef void (*expr_deallocate_t)(void *,void *);
+typedef intptr_t (*expr_test_t)(const void *buf,intptr_t arg,size_t size);
 struct expr_memtool {
-	void *(*allocate)(size_t,void *);
-	void *(*reallocate)(void *,size_t,void *);
-	void (*deallocate)(void *,void *);
-	expr_buffered_test test;
+	expr_allocate_t allocate;
+	expr_reallocate_t reallocate;
+	expr_deallocate_t deallocate;
+	expr_test_t test;
 	union {
 		void *arg;
 		intptr_t iarg;
@@ -647,8 +652,6 @@ struct expr_writeflag {
 #define EXPR_FMTC_MAX 255
 #define EXPR_FMTC_MIN 237
 expr_static_assert(offsetof(struct expr_writeflag,bit)+sizeof(uint64_t)==sizeof(struct expr_writeflag));
-typedef ssize_t (*expr_writer)(intptr_t fd,const void *buf,size_t size);
-typedef ssize_t (*expr_reader)(intptr_t fd,void *buf,size_t size);
 union expr_argf {
 	void *addr;
 	intptr_t sint;
@@ -703,7 +706,6 @@ struct expr_buffered_file {
 	size_t index,length,dynamic,written;
 	size_t flag;
 };
-typedef intptr_t (*expr_buffered_test)(const void *buf,intptr_t arg,size_t size);
 #define EXPR_BUFFERED_INITIALIZER(_wrer,_fd,_buf,_len) {\
 	.uaddr=(_wrer),\
 	.fd=(_fd),\

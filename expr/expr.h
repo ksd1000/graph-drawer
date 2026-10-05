@@ -704,9 +704,11 @@ struct expr_buffered_file {
 	intptr_t fd;
 	void *buf;
 	size_t index,length,dynamic,written;
-	size_t flag;
+	const struct expr_memtool *restrict mtl;
+	int flag;
+	int unused;
 };
-#define EXPR_BUFFERED_INITIALIZER(_wrer,_fd,_buf,_len) {\
+#define EXPR_BUFFERED_INITIALIZER_R(_wrer,_fd,_buf,_len,_mtl) {\
 	.uaddr=(_wrer),\
 	.fd=(_fd),\
 	.buf=(_buf),\
@@ -714,43 +716,34 @@ struct expr_buffered_file {
 	.dynamic=(_buf)?0:(_len),\
 	.index=0,\
 	.written=0,\
+	.mtl=(_mtl),\
 	.flag=0,\
+	.unused=0,\
 }
-#define expr_buffered_init_internal(fp,_wrer,_fd,_buf,_len,_field) \
+#define EXPR_BUFFERED_INITIALIZER(_wrer,_fd,_buf,_len) EXPR_BUFFERED_INITIALIZER_R(_wrer,_fd,_buf,_len,expr_defmtl)
+#define expr_buffered_init_r(fp,_wrer,_fd,_buf,_len,_mtl) ({\
 	struct expr_buffered_file *__fp=(fp);\
-	__fp->_field=(_wrer);\
+	__fp->uaddr=(_wrer);\
 	__fp->fd=(_fd);\
-	__fp->buf=(_buf);\
-	if(__fp->buf){\
+	if((__fp->buf=(_buf))){\
 		__fp->length=(_len);\
 		__fp->dynamic=0;\
 	}else {\
 		__fp->length=0;\
 		__fp->dynamic=(_len);\
 	}\
+	__fp->mtl=(_mtl);\
 	__fp->index=0;\
 	__fp->written=0;\
-	__fp->flag=0
-
-#define expr_buffered_init(fp,_writer,_fd,_buf,_len) ({\
-	expr_buffered_init_internal(fp,_writer,_fd,_buf,_len,writer);\
+	__fp->flag=0;\
 })
-
-#define expr_buffered_rinit(fp,_reader,_fd,_buf,_len) ({\
-	expr_buffered_init_internal(fp,_reader,_fd,_buf,_len,reader);\
-})
-
-#define expr_buffered_uinit(fp,_uaddr,_fd,_buf,_len) ({\
-	expr_buffered_init_internal(fp,_uaddr,_fd,_buf,_len,uaddr);\
-})
-
+#define expr_buffered_init(fp,_wrer,_fd,_buf,_len) expr_buffered_init_r(fp,_wrer,_fd,_buf,_len,expr_defmtl)
 #define expr_buffered_drop(fp) ((fp)->index=0)
 #define expr_buffered_rdrop(fp) ({\
 	struct expr_buffered_file *__fp=(fp);\
 	__fp->index=0;\
 	__fp->written=0;\
 })
-
 struct expr;
 struct expr_symset;
 struct expr_suminfo {
@@ -915,7 +908,7 @@ struct expr_symset {
 	//real depth. but it is not suggested,for it will cost a lot of cpu
 	//time to travel through every symbol to get the real depth.
 	//this will be set to 0 when an expr_symset_wipe(this) is called.
-	const struct expr_memtool *mtl;
+	const struct expr_memtool *restrict mtl;
 	uint32_t freeable,mutex;
 };
 struct expr_symset_infile {
@@ -1198,7 +1191,8 @@ struct expr {
 	struct expr_symset *sset;
 	struct expr_resource *res,*tail;
 	size_t length,vsize,vlength;
-	const struct expr_memtool *mtl;
+	const struct expr_memtool *restrict mtl;
+	// the restrict in field may be ignored, might work in the feture
 	union {
 		double args[EXPR_SYSAM];
 		struct {
@@ -1229,21 +1223,21 @@ extern const struct expr_writefmt expr_writefmts_default[];
 extern const uint8_t expr_writefmts_default_size;
 extern const uint8_t expr_writefmts_table_default[256];
 //global functions of expr_buffered.c :
-ssize_t expr_buffered_write_r(struct expr_buffered_file *restrict fp,const void *buf,size_t size,const struct expr_memtool *restrict mtl);
-ssize_t expr_buffered_read_r(struct expr_buffered_file *restrict fp,void *buf,size_t size,const struct expr_memtool *restrict mtl);
-ssize_t expr_buffered_write_flushatc_r(struct expr_buffered_file *restrict fp,const void *buf,size_t size,int c,const struct expr_memtool *restrict mtl);
-ssize_t expr_buffered_write_flushatt_r(struct expr_buffered_file *restrict fp,const void *buf,size_t size,expr_test_t test,intptr_t arg,const struct expr_memtool *restrict mtl);
-ssize_t expr_buffered_write_flushat_r(struct expr_buffered_file *restrict fp,const void *buf,size_t size,const void *c,size_t c_size,const struct expr_memtool *restrict mtl);
-ssize_t expr_buffered_write_sflushatc_r(struct expr_buffered_file *restrict fp,const void *buf,size_t size,int c,const struct expr_memtool *restrict mtl);
-ssize_t expr_buffered_write_sflushatt_r(struct expr_buffered_file *restrict fp,const void *buf,size_t size,expr_test_t test,intptr_t arg,const struct expr_memtool *restrict mtl);
-ssize_t expr_buffered_write_sflushat_r(struct expr_buffered_file *restrict fp,const void *buf,size_t size,const void *c,size_t c_size,const struct expr_memtool *restrict mtl);
-ssize_t expr_buffered_write_sync_r(struct expr_buffered_file *restrict fp,const void *buf,size_t size,const struct expr_memtool *restrict mtl);
+ssize_t expr_buffered_write(struct expr_buffered_file *restrict fp,const void *buf,size_t size);
+ssize_t expr_buffered_read(struct expr_buffered_file *restrict fp,void *buf,size_t size);
+ssize_t expr_buffered_write_flushatc(struct expr_buffered_file *restrict fp,const void *buf,size_t size,int c);
+ssize_t expr_buffered_write_flushatt(struct expr_buffered_file *restrict fp,const void *buf,size_t size,expr_test_t test,intptr_t arg);
+ssize_t expr_buffered_write_flushat(struct expr_buffered_file *restrict fp,const void *buf,size_t size,const void *c,size_t c_size);
+ssize_t expr_buffered_write_sflushatc(struct expr_buffered_file *restrict fp,const void *buf,size_t size,int c);
+ssize_t expr_buffered_write_sflushatt(struct expr_buffered_file *restrict fp,const void *buf,size_t size,expr_test_t test,intptr_t arg);
+ssize_t expr_buffered_write_sflushat(struct expr_buffered_file *restrict fp,const void *buf,size_t size,const void *c,size_t c_size);
+ssize_t expr_buffered_write_sync(struct expr_buffered_file *restrict fp,const void *buf,size_t size);
 ssize_t expr_buffered_flush(struct expr_buffered_file *restrict fp);
 ssize_t expr_buffered_rdropall(struct expr_buffered_file *restrict fp);
-ssize_t expr_buffered_close_r(struct expr_buffered_file *restrict fp,const struct expr_memtool *restrict mtl);
-void expr_buffered_rclose_r(struct expr_buffered_file *restrict fp,const struct expr_memtool *restrict mtl);
-ssize_t expr_buffered_readline_r(struct expr_buffered_file *restrict fp,int c,void *savep,const struct expr_memtool *restrict mtl);
-ssize_t expr_file_readfd_r(expr_reader reader,intptr_t fd,size_t tail,void *savep,const struct expr_memtool *restrict mtl);
+ssize_t expr_buffered_close(struct expr_buffered_file *restrict fp);
+void expr_buffered_rclose(struct expr_buffered_file *restrict fp);
+ssize_t expr_buffered_readline(struct expr_buffered_file *restrict fp,int c,void *savep);
+ssize_t expr_file_readfd(expr_reader reader,intptr_t fd,size_t tail,void *savep);
 //global externs of expr_buffered.c :
 //global functions of expr_builtin.c :
 uint64_t expr_gcd64(uint64_t x,uint64_t y);
@@ -1399,19 +1393,6 @@ int expr_setup_mtl(int flag);
 //global externs of expr_global.c :
 extern int expr_mtl_setup;
 #if !(defined(EXPR_INLIB)&&(EXPR_INLIB))
-#define expr_buffered_write(fp,buf,size) expr_buffered_write_r(fp,buf,size,expr_defmtl)
-#define expr_buffered_read(fp,buf,size) expr_buffered_read_r(fp,buf,size,expr_defmtl)
-#define expr_buffered_write_flushatc(fp,buf,size,c) expr_buffered_write_flushatc_r(fp,buf,size,c,expr_defmtl)
-#define expr_buffered_write_flushatt(fp,buf,size,test,arg) expr_buffered_write_flushatt_r(fp,buf,size,test,arg,expr_defmtl)
-#define expr_buffered_write_flushat(fp,buf,size,c,c_size) expr_buffered_write_flushat_r(fp,buf,size,c,c_size,expr_defmtl)
-#define expr_buffered_write_sflushatc(fp,buf,size,c) expr_buffered_write_sflushatc_r(fp,buf,size,c,expr_defmtl)
-#define expr_buffered_write_sflushatt(fp,buf,size,test,arg) expr_buffered_write_sflushatt_r(fp,buf,size,test,arg,expr_defmtl)
-#define expr_buffered_write_sflushat(fp,buf,size,c,c_size) expr_buffered_write_sflushat_r(fp,buf,size,c,c_size,expr_defmtl)
-#define expr_buffered_write_sync(fp,buf,size) expr_buffered_write_sync_r(fp,buf,size,expr_defmtl)
-#define expr_buffered_close(fp) expr_buffered_close_r(fp,expr_defmtl)
-#define expr_buffered_rclose(fp) expr_buffered_rclose_r(fp,expr_defmtl)
-#define expr_buffered_readline(fp,c,savep) expr_buffered_readline_r(fp,c,savep,expr_defmtl)
-#define expr_file_readfd(reader,fd,tail,savep) expr_file_readfd_r(reader,fd,tail,savep,expr_defmtl)
 #define expr_sort4(v,n) expr_sort4_r(v,n,expr_defmtl)
 #define expr_builtin_symbol_converts(syms,...) expr_builtin_symbol_converts_r(expr_defmtl,syms,__VA_ARGS__)
 #define expr_builtin_symbol_convert(syms) expr_builtin_symbol_convert_r(syms,expr_defmtl)

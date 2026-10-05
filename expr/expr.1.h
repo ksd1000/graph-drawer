@@ -26,11 +26,16 @@ expr_static_assert(sizeof(size_t)==sizeof(ptrdiff_t));
 expr_static_assert(sizeof(void *)==sizeof(ptrdiff_t));
 expr_static_assert(sizeof(void *)>=sizeof(double));
 
+typedef intptr_t (*expr_buffered_test)(const void *buf,intptr_t arg,size_t size);
 struct expr_memtool {
 	void *(*allocate)(size_t,void *);
 	void *(*reallocate)(void *,size_t,void *);
 	void (*deallocate)(void *,void *);
-	void *arg;
+	expr_buffered_test test;
+	union {
+		void *arg;
+		intptr_t iarg;
+	};
 };
 
 void *expr_allocator_default(size_t size,void *arg);
@@ -682,6 +687,7 @@ typedef const union expr_argf *(*expr_argffetch)(ptrdiff_t index,const struct ex
 #define EXPR_BF_TRUNC 2
 #define EXPR_BF_EMPTY 4
 #define EXPR_BF_EMEM 8
+#define EXPR_BF_TRUNC_NOREWRITE 16
 
 #define EXPR_BUFSIZE_INITIAL 512
 struct expr_buffered_file {

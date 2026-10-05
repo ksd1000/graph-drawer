@@ -26,11 +26,16 @@ expr_static_assert(sizeof(size_t)==sizeof(ptrdiff_t));
 expr_static_assert(sizeof(void *)==sizeof(ptrdiff_t));
 expr_static_assert(sizeof(void *)>=sizeof(double));
 
+typedef intptr_t (*expr_buffered_test)(const void *buf,intptr_t arg,size_t size);
 struct expr_memtool {
 	void *(*allocate)(size_t,void *);
 	void *(*reallocate)(void *,size_t,void *);
 	void (*deallocate)(void *,void *);
-	void *arg;
+	expr_buffered_test test;
+	union {
+		void *arg;
+		intptr_t iarg;
+	};
 };
 
 void *expr_allocator_default(size_t size,void *arg);
@@ -682,6 +687,7 @@ typedef const union expr_argf *(*expr_argffetch)(ptrdiff_t index,const struct ex
 #define EXPR_BF_TRUNC 2
 #define EXPR_BF_EMPTY 4
 #define EXPR_BF_EMEM 8
+#define EXPR_BF_TRUNC_NOREWRITE 16
 
 #define EXPR_BUFSIZE_INITIAL 512
 struct expr_buffered_file {
@@ -1221,7 +1227,6 @@ extern const uint8_t expr_writefmts_table_default[256];
 //global functions of expr_buffered.c :
 ssize_t expr_buffered_write_r(struct expr_buffered_file *restrict fp,const void *buf,size_t size,const struct expr_memtool *restrict mtl);
 ssize_t expr_buffered_read_r(struct expr_buffered_file *restrict fp,void *buf,size_t size,const struct expr_memtool *restrict mtl);
-ssize_t expr_buffered_read5_r(struct expr_buffered_file *restrict fp,void *buf,size_t size,expr_buffered_test test,intptr_t arg,const struct expr_memtool *restrict mtl);
 ssize_t expr_buffered_write_flushatc_r(struct expr_buffered_file *restrict fp,const void *buf,size_t size,int c,const struct expr_memtool *restrict mtl);
 ssize_t expr_buffered_write_flushatt_r(struct expr_buffered_file *restrict fp,const void *buf,size_t size,expr_buffered_test test,intptr_t arg,const struct expr_memtool *restrict mtl);
 ssize_t expr_buffered_write_flushat_r(struct expr_buffered_file *restrict fp,const void *buf,size_t size,const void *c,size_t c_size,const struct expr_memtool *restrict mtl);
@@ -1367,7 +1372,6 @@ extern const uint8_t expr_number_table[256];
 //global functions of expr_default.c :
 ssize_t expr_buffered_write(struct expr_buffered_file *restrict fp,const void *buf,size_t size);
 ssize_t expr_buffered_read(struct expr_buffered_file *restrict fp,void *buf,size_t size);
-ssize_t expr_buffered_read5(struct expr_buffered_file *restrict fp,void *buf,size_t size,expr_buffered_test test,intptr_t arg);
 ssize_t expr_buffered_write_flushatc(struct expr_buffered_file *restrict fp,const void *buf,size_t size,int c);
 ssize_t expr_buffered_write_flushatt(struct expr_buffered_file *restrict fp,const void *buf,size_t size,expr_buffered_test test,intptr_t arg);
 ssize_t expr_buffered_write_flushat(struct expr_buffered_file *restrict fp,const void *buf,size_t size,const void *c,size_t c_size);

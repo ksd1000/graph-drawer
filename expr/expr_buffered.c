@@ -242,7 +242,9 @@ size_ok:
 	}
 	if(unlikely(fp->length<=size)){
 		debug("end index=%zu",fp->index);
-		return fp->reader(fp->fd,buf,size);
+		r=fp->reader(fp->fd,buf,size);
+		if(unlikely(r<0))
+			goto err;
 	}
 	r=fp->reader(fp->fd,fp->buf,fp->length);
 	if(unlikely(r<0))
@@ -390,9 +392,10 @@ err:
 }
 ssize_t expr_buffered_close_r(struct expr_buffered_file *restrict fp,const struct expr_memtool *restrict mtl){
 	ssize_t r;
-	if(fp->index&&fp->writer)
+	if(fp->index&&fp->writer){
 		r=fp->writer(fp->fd,fp->buf,fp->index);
-	else
+		CKPDM(r);
+	}else
 		r=0;
 	debug("%zd bytes written",r);
 	if(fp->dynamic&&fp->buf)

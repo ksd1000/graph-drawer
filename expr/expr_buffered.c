@@ -187,7 +187,7 @@ try_read_again:
 			r=fp->reader(fp->fd,p,r);
 			if(unlikely(r<0))
 				goto err;
-			if(unlikely(xmtl->test&&xmtl->test(p,xmtl->iarg,r))){
+			if(unlikely(xmtl->test&&xmtl->test(p,xmtl->arg,r))){
 				fp->index+=r;
 				debug("end index=%zu",fp->index);
 				return 0;
@@ -445,7 +445,7 @@ ssize_t expr_buffered_readline(struct expr_buffered_file *restrict fp,int c,void
 	tempmtl->reallocate=xmtl->reallocate;
 	tempmtl->deallocate=xmtl->deallocate;
 	tempmtl->test=(expr_test_t)memchr;
-	tempmtl->iarg=(intptr_t)c;
+	tempmtl->arg=(intptr_t)c;
 	r=expr_buffered_read(fp,NULL,0);
 	if(unlikely(r<0)){
 		debug("read fail %zd",r);

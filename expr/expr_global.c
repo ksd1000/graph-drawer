@@ -192,7 +192,7 @@ static uint32_t mutex[1]={0};
 ssize_t count=0;
 static void *xmalloc_setup(size_t size,void *arg){
 	void *r;
-	r=malloc(size);
+	r=size>expr_allocate_max?NULL:malloc(size);
 	if(unlikely(!r&&nonnull))
 		r_fail;
 	if(likely(r)){
@@ -204,7 +204,7 @@ static void *xmalloc_setup(size_t size,void *arg){
 }
 static void *xrealloc_setup(void *old,size_t size,void *arg){
 	void *r;
-	r=realloc(old,size);
+	r=size>expr_allocate_max?NULL:realloc(old,size);
 	if(unlikely(!r&&nonnull))
 		r_fail;
 	if(unlikely(r&&!old)){

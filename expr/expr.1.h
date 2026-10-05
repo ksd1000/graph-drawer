@@ -60,6 +60,7 @@ struct expr_memtool expr_defmtl[1]={{\
 	.allocate=expr_allocator_default,\
 	.reallocate=expr_reallocator_default,\
 	.deallocate=expr_deallocator_default,\
+	.test=NULL,\
 	.arg=NULL,\
 }}
 
@@ -687,7 +688,8 @@ typedef const union expr_argf *(*expr_argffetch)(ptrdiff_t index,const struct ex
 #define EXPR_BF_TRUNC 2
 #define EXPR_BF_EMPTY 4
 #define EXPR_BF_EMEM 8
-#define EXPR_BF_TRUNC_NOREWRITE 16
+#define EXPR_BF_CALLBACK_PDMIN 8
+#define EXPR_BF_TRUNC_NOREWRITE 1024
 
 #define EXPR_BUFSIZE_INITIAL 512
 struct expr_buffered_file {

@@ -303,7 +303,7 @@ err:
 ssize_t expr_buffered_write_flushatc_r(struct expr_buffered_file *restrict fp,const void *buf,size_t size,int c,const struct expr_memtool *restrict mtl){
 	flushat_common(memrchr(buf,size,c),++rc);
 }
-ssize_t expr_buffered_write_flushatt_r(struct expr_buffered_file *restrict fp,const void *buf,size_t size,expr_buffered_test test,intptr_t arg,const struct expr_memtool *restrict mtl){
+ssize_t expr_buffered_write_flushatt_r(struct expr_buffered_file *restrict fp,const void *buf,size_t size,expr_test_t test,intptr_t arg,const struct expr_memtool *restrict mtl){
 	flushat_common(test(buf,arg,size),rc+=(uintptr_t)buf);
 }
 ssize_t expr_buffered_write_flushat_r(struct expr_buffered_file *restrict fp,const void *buf,size_t size,const void *c,size_t c_size,const struct expr_memtool *restrict mtl){
@@ -335,7 +335,7 @@ ssize_t expr_buffered_write_flushat_r(struct expr_buffered_file *restrict fp,con
 ssize_t expr_buffered_write_sflushatc_r(struct expr_buffered_file *restrict fp,const void *buf,size_t size,int c,const struct expr_memtool *restrict mtl){
 	sflushat_common(memchr(buf,size,c),++rc);
 }
-ssize_t expr_buffered_write_sflushatt_r(struct expr_buffered_file *restrict fp,const void *buf,size_t size,expr_buffered_test test,intptr_t arg,const struct expr_memtool *restrict mtl){
+ssize_t expr_buffered_write_sflushatt_r(struct expr_buffered_file *restrict fp,const void *buf,size_t size,expr_test_t test,intptr_t arg,const struct expr_memtool *restrict mtl){
 	sflushat_common(test(buf,arg,size),rc+=(uintptr_t)buf);
 }
 ssize_t expr_buffered_write_sflushat_r(struct expr_buffered_file *restrict fp,const void *buf,size_t size,const void *c,size_t c_size,const struct expr_memtool *restrict mtl){
@@ -444,7 +444,7 @@ ssize_t expr_buffered_readline_r(struct expr_buffered_file *restrict fp,int c,vo
 	tempmtl->allocate=mtl->allocate;
 	tempmtl->reallocate=mtl->reallocate;
 	tempmtl->deallocate=mtl->deallocate;
-	tempmtl->test=(expr_buffered_test)memchr;
+	tempmtl->test=(expr_test_t)memchr;
 	tempmtl->iarg=(intptr_t)c;
 	r=expr_buffered_read_r(fp,NULL,0,mtl);
 	if(unlikely(r<0)){

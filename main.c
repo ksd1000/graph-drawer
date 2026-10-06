@@ -65,7 +65,7 @@ int drawat(char *ey){
 	pthread_t pt;
 	double gap=(to-from)/thread;
 	char *wbuf0,ei[EXPR_SYMLEN];
-	int flag=protect?EXPR_IF_PROTECT:0;
+	int flag=protect?EXPR_IPROTECT:0;
 	xeps=expr_new7(ex,para,es,flag,thread,&pc,ei);
 	if(!xeps)
 		errx(EXIT_FAILURE,"x expression error:%s (%s)",expr_error(pc),ei);

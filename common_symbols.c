@@ -413,11 +413,11 @@ struct expr_symbol *symset_add(struct expr_symset *restrict esp,const char *sym,
 	if(!(expr_symset_add(esp,sym,type,flag,##__VA_ARGS__)))\
 		errx(EXIT_FAILURE,"cannot add symbol %s",sym);\
 })
-#define setza(c) symset_add(es,#c,EXPR_ZAFUNCTION,EXPR_SF_UNSAFE,d_##c)
-#define setzau(c) symset_add(es,#c,EXPR_ZAFUNCTION,EXPR_SF_UNSAFE,d_##c)
-#define setfunc(c) symset_add(es,#c,EXPR_FUNCTION,EXPR_SF_UNSAFE,d_##c,EXPR_SF_UNSAFE)
-#define setfunci(c) symset_add(es,#c,EXPR_FUNCTION,EXPR_SF_UNSAFE,d_##c,EXPR_SF_PURE)
-#define setmd(c,dim) symset_add(es,#c,EXPR_MDFUNCTION,EXPR_SF_UNSAFE,d_##c,(size_t)dim)
+#define setza(c) symset_add(es,#c,EXPR_ZAFUNCTION,EXPR_SUNSAFE,d_##c)
+#define setzau(c) symset_add(es,#c,EXPR_ZAFUNCTION,EXPR_SUNSAFE,d_##c)
+#define setfunc(c) symset_add(es,#c,EXPR_FUNCTION,EXPR_SUNSAFE,d_##c,EXPR_SUNSAFE)
+#define setfunci(c) symset_add(es,#c,EXPR_FUNCTION,EXPR_SUNSAFE,d_##c,EXPR_SPURE)
+#define setmd(c,dim) symset_add(es,#c,EXPR_MDFUNCTION,EXPR_SUNSAFE,d_##c,(size_t)dim)
 #define setconst(c) symset_add(es,#c,EXPR_CONSTANT,0,(double)(c))
 const struct expr_builtin_symbol systable[];
 void add_common_symbols(struct expr_symset *es){
@@ -427,7 +427,7 @@ void add_common_symbols(struct expr_symset *es){
 		symset_add(es,buf,EXPR_VARIABLE,0,vx+i);
 	}
 	symset_add(es,"errno",EXPR_VARIABLE,0,&errno);
-	symset_add(es,"geterrno",EXPR_ZAFUNCTION,EXPR_SF_UNSAFE,geterrno);
+	symset_add(es,"geterrno",EXPR_ZAFUNCTION,EXPR_SUNSAFE,geterrno);
 	setza(getchar);
 	setfunc(readline);
 	setfunc(readline1);
@@ -439,9 +439,9 @@ void add_common_symbols(struct expr_symset *es){
 	setfunc(strerror);
 	setconst(EXIT_FAILURE);
 	setconst(EXIT_SUCCESS);
-	symset_add(es,"systable",EXPR_CONSTANT,EXPR_SF_PACKAGE,systable);
+	symset_add(es,"systable",EXPR_CONSTANT,EXPR_SPACKAGE,systable);
 #ifdef REAL_UNIX
-	symset_add(es,"time",EXPR_ZAFUNCTION,EXPR_SF_UNSAFE,dtime);
+	symset_add(es,"time",EXPR_ZAFUNCTION,EXPR_SUNSAFE,dtime);
 	symset_add(es,"sig",EXPR_VARIABLE,0,&last_sig);
 	symset_add(es,"sigepv",EXPR_VARIABLE,0,&sigep);
 	setza(getpid);

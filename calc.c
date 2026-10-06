@@ -469,7 +469,7 @@ double atod2(const char *str){
 	double r;
 	int error=0;
 	char err[EXPR_SYMLEN];
-	r=expr_calc5(str,&error,err,NULL,EXPR_IF_PROTECT|EXPR_IF_NOKEYWORD);
+	r=expr_calc5(str,&error,err,NULL,EXPR_IPROTECT|EXPR_INOKEYWORD);
 	if(error)
 		errx(EXIT_FAILURE,"invaild expression: %s (%s:%s)",str,expr_error(error),err);
 	return r;
@@ -601,22 +601,22 @@ int main(int argc,char **argv){
 	for(;;){
 		switch(getopt_long(argc,argv,"pnDt::Nisckdgf:hq",ops,NULL)){
 			case 'p':
-				flag|=EXPR_IF_PROTECT;
+				flag|=EXPR_IPROTECT;
 				break;
 			case 'n':
-				flag|=EXPR_IF_NOOPTIMIZE;
+				flag|=EXPR_INOOPTIMIZE;
 				break;
 			case 'N':
 				nobt=1;
 				break;
 			case 'i':
-				flag|=EXPR_IF_PURE;
+				flag|=EXPR_IPURE;
 				break;
 			case 'k':
-				flag|=EXPR_IF_KEEPSYMSET;
+				flag|=EXPR_IKEEPSYMSET;
 				break;
 			case 'd':
-				flag|=EXPR_IF_DETACHSYMSET;
+				flag|=EXPR_IDETACHSYMSET;
 				break;
 			case 'g':
 				gchr=1;
@@ -682,11 +682,11 @@ break3:
 	expr_symset_add(es,"outbuf",EXPR_VARIABLE,0,jb);
 	expr_symset_add(es,"argc",EXPR_CONSTANT,0,(double)(argc-optind));
 	expr_symset_add(es,"argv",EXPR_CONSTANT,0,expr_cast(argv+optind,double));
-	expr_symset_add(es,"scanf",EXPR_MDFUNCTION,EXPR_SF_UNSAFE,d_scanf,(size_t)0);
-	expr_symset_add(es,"sscanf",EXPR_MDFUNCTION,EXPR_SF_UNSAFE,d_sscanf,(size_t)0);
-	expr_symset_add(es,"printf",EXPR_MDFUNCTION,EXPR_SF_UNSAFE,d_printf,(size_t)0);
-	expr_symset_add(es,"printl",EXPR_MDFUNCTION,EXPR_SF_UNSAFE,d_printl,(size_t)2);
-	expr_symset_add(es,"printc",EXPR_MDFUNCTION,EXPR_SF_UNSAFE,d_printc,(size_t)2);
+	expr_symset_add(es,"scanf",EXPR_MDFUNCTION,EXPR_SUNSAFE,d_scanf,(size_t)0);
+	expr_symset_add(es,"sscanf",EXPR_MDFUNCTION,EXPR_SUNSAFE,d_sscanf,(size_t)0);
+	expr_symset_add(es,"printf",EXPR_MDFUNCTION,EXPR_SUNSAFE,d_printf,(size_t)0);
+	expr_symset_add(es,"printl",EXPR_MDFUNCTION,EXPR_SUNSAFE,d_printl,(size_t)2);
+	expr_symset_add(es,"printc",EXPR_MDFUNCTION,EXPR_SUNSAFE,d_printc,(size_t)2);
 	if(adbt||!nobt)
 		expr_builtin_symbol_addalls(es,expr_symbols_ess);
 	if(expr_init(ep,e,"t",es,flag)<0){

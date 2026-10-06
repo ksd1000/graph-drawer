@@ -19,6 +19,7 @@ add_library(expr
 	expr_buffered.c
 	expr_builtin.c
 	expr_format.c
+	expr_alloc.c
 )
 link_libraries(expr m)
 add_executable(expr-version expr-version.c)

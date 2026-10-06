@@ -637,7 +637,7 @@ void text_init(){
 void setexpr(struct expr **p,const char *c){
 	int e;
 	char ei[EXPR_SYMLEN];
-	*p=expr_new(c,"t",es,unsafe?0:EXPR_IF_PROTECT,&e,ei);
+	*p=expr_new(c,"t",es,unsafe?0:EXPR_IPROTECT,&e,ei);
 	if(!*p)
 		errx(EXIT_FAILURE,"%s:%s",expr_error(e),ei);
 }
@@ -680,7 +680,7 @@ double atod2(const char *str){
 	double r;
 	int error=0;
 	char err[EXPR_SYMLEN];
-	r=expr_calc5(str,&error,err,NULL,EXPR_IF_PROTECT|EXPR_IF_NOKEYWORD);
+	r=expr_calc5(str,&error,err,NULL,EXPR_IPROTECT|EXPR_INOKEYWORD);
 	if(error)
 		errx(EXIT_FAILURE,"invaild expression: %s (%s:%s)",str,expr_error(error),err);
 	return r;
@@ -716,9 +716,9 @@ void showsym3(int type,const char *extra,const struct expr_builtin_symbol *p){
 		snprintf(buf,32,"%s%s",p->str,extra);
 		buf[31]=0;
 		fprintf(stdout,"%-16s",buf);
-		if(p->flag&EXPR_SF_PURE)
+		if(p->flag&EXPR_SPURE)
 			fputs(" pure",stdout);
-		if(p->flag&EXPR_SF_UNSAFE)
+		if(p->flag&EXPR_SUNSAFE)
 			fputs(" unsafe",stdout);
 		fputc('\n',stdout);
 	}

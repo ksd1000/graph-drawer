@@ -11,16 +11,27 @@
 #include <limits.h>
 #include <setjmp.h>
 
+#define expr_static_assert(cond) _Static_assert((cond),"static assertion " #cond " failed")
+
 #ifndef _SSIZE_T_DEFINED_
 #define _SSIZE_T_DEFINED_
 typedef ptrdiff_t ssize_t;
+#else
+expr_static_assert(sizeof(ssize_t)==sizeof(ptrdiff_t));
 #endif
 
 #ifndef SSIZE_MAX
 #define SSIZE_MAX PTRDIFF_MAX
+#else
+expr_static_assert(SSIZE_MAX==PTRDIFF_MAX);
 #endif
 
-#define expr_static_assert(cond) _Static_assert((cond),"static assertion " #cond " failed")
+#ifndef SSIZE_MIN
+#define SSIZE_MIN PTRDIFF_MIN
+#else
+expr_static_assert(SSIZE_MIN==PTRDIFF_MIN);
+#endif
+
 expr_static_assert(sizeof(ssize_t)==sizeof(ptrdiff_t));
 expr_static_assert(sizeof(size_t)==sizeof(ptrdiff_t));
 expr_static_assert(sizeof(void *)==sizeof(ptrdiff_t));
@@ -277,46 +288,46 @@ EXPR_END
 #define EXPR_ALIAS 7
 
 //expr symbol flag
-#define EXPR_SF_PURE 1
+#define EXPR_SPURE 1
 //a non-hot function has the PURE flag means the output value of it
 //depends only by the input value,and no any side effect.for HOTFUNCTION
 //and ALIAS it means a size argument is following the char * argument.
-#define EXPR_SF_WRITEIP 2
+#define EXPR_SWRITEIP 2
 //for MDEPFUNCTION,if it is called,the ->ip will be set to current ip.
-#define EXPR_SF_PACKAGE 4
+#define EXPR_SPACKAGE 4
 //for VARIABLE,means the value of it is an address of a
 //multi-dimension function.for CONSTANT it means the target is a package.
-#define EXPR_SF_NONBUILTIN 8
+#define EXPR_SNONBUILTIN 8
 //for VARIABLE,means the value of it is an address of a
 //multi-dimension function with expression argument.
 //for CONSTANT with SF_PACKAGE it means the target is a non-builtin package.
-#define EXPR_SF_UNSAFE 16
+#define EXPR_SUNSAFE 16
 //a non-hot function has the flag means it may allow user to read/write
 //the memory freely or make a system call.they are disabled in protected
 //mode.
-#define EXPR_SF_ALLOWADDR 32
+#define EXPR_SALLOWADDR 32
 //only for a unsafe function,it means it is able and only able to accept
 //a address of a VARIABLE as its argument in protected mode.
 
-#define EXPR_SF_PMD EXPR_SF_PACKAGE
-#define EXPR_SF_PME EXPR_SF_NONBUILTIN
-#define EXPR_SF_PFUNC 12
-#define EXPR_SF_PMASK (~12)
+#define EXPR_SPMD EXPR_SPACKAGE
+#define EXPR_SPME EXPR_SNONBUILTIN
+#define EXPR_SPFUNC 12
+#define EXPR_SPMASK (~12)
 //expr initial flag
-#define EXPR_IF_NOOPTIMIZE 1
-#define EXPR_IF_INSTANT_FREE 2
+#define EXPR_INOOPTIMIZE 1
+#define EXPR_IINSTANT_FREE 2
 
-#define EXPR_IF_PURE 4
-#define EXPR_IF_NOKEYWORD 8
-#define EXPR_IF_PROTECT 16
-#define EXPR_IF_KEEPSYMSET 128
-#define EXPR_IF_DETACHSYMSET 256
-#define EXPR_IF_UNSAFE 512
+#define EXPR_IPURE 4
+#define EXPR_INOKEYWORD 8
+#define EXPR_IPROTECT 16
+#define EXPR_IKEEPSYMSET 128
+#define EXPR_IDETACHSYMSET 256
+#define EXPR_IUNSAFE 512
 
-#define EXPR_IF_EXTEND_MASK (\
-		EXPR_IF_INSTANT_FREE\
+#define EXPR_IEXTEND_MASK (\
+		EXPR_IINSTANT_FREE\
 		)
-#define EXPR_IF_SETABLE (EXPR_IF_PURE|EXPR_IF_NOKEYWORD|EXPR_IF_PROTECT)
+#define EXPR_ISETABLE (EXPR_IPURE|EXPR_INOKEYWORD|EXPR_IPROTECT)
 
 //expr keyword flag
 #define EXPR_KF_SUBEXPR 1
@@ -950,6 +961,44 @@ struct expr_internal_jmpbuf {
 	jmp_buf jb;
 };
 typedef int (*expr_recursive_callback)(struct expr *restrict ep,void *arg);
+
+struct expr_areaunit {
+#if (!defined(__BIG_ENDIAN__)||!(__BIG_ENDIAN__))
+	union {
+		struct {
+			size_t prev:sizeof(size_t)*8-1,tail:1;
+		};
+		size_t unprev;
+	};
+	union {
+		struct {
+			size_t size:sizeof(size_t)*8-1,deallocated:1;
+		};
+		size_t unsize;
+	};
+#else
+		struct {
+			size_t tail:1,prev:sizeof(size_t)*8-1;
+		};
+		size_t unprev;
+	};
+	union {
+		struct {
+			size_t deallocated:1,size:sizeof(size_t)*8-1;
+		};
+		size_t unsize;
+	};
+#endif
+};
+struct expr_area {
+	struct expr_areaunit *data;
+	struct expr_areaunit *tail;
+	int flag,unused;
+};
+#define EXPR_AZERO 1
+#define EXPR_ANOALIGN 2
+#define EXPR_ALAZY 4
+#define EXPR_ANAIL 8
 
 #define expr_symbols_all \
 	expr_symbols_default,\

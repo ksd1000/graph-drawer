@@ -38,51 +38,55 @@ int expr_area_init4(struct expr_area *restrict area,void *zone,size_t size,int f
 #define _ip _p.i
 #define _zp1 _p1.z
 #define _ip1 _p1.i
-static int findbest(struct expr_area *restrict area,size_t size,uintptr_t *dest,int flag){
-	union {
-		struct expr_areaunit *z;
-		uintptr_t i;
-	} p;
-	uintptr_t prev=0;
-	size_t prev_extra=0;
-	zp=area->data;
-	if(flag&EXPR_ALAZY){
-		if(likely(size+UNIT_SIZE<=area->tail->size)){
-			*dest=(uintptr_t)area->tail;
-			return 0;
-		}
-	}
-	for(;;){
-		if(zp->tail){
-			if(prev){
-				*dest=prev;
-				return prev_extra<UNIT_SIZE?1:2;
-			}
-			if(unlikely((flag&EXPR_ALAZY)||size+UNIT_SIZE>zp->size))
-				return 3;
-			*dest=ip;
-			return 0;
-		}
-		if(zp->deallocated){
-			size_t old,extra;
-			old=zp->size;
-			if(size<=old){
-				if(prev){
-					if(prev_extra>=UNIT_SIZE){
-						extra=old-size;
-						if((extra>=UNIT_SIZE&&extra<prev_extra)){
-							prev=ip;
-							prev_extra=extra;
-						}
-					}
-				}else {
-					prev=ip;
-					prev_extra=old-size;
-				}
-			}
-		}
-		ip+=zp->size+UNIT_SIZE;
-	}
+#define __zp __p.z
+#define __ip __p.i
+#define findbest(dest,_flag) {\
+	union {\
+		struct expr_areaunit *z;\
+		uintptr_t i;\
+	} __p;\
+	uintptr_t __prev=0;\
+	size_t __prev_extra=0,__extra;\
+	__zp=area->data;\
+	if(_flag&EXPR_ALAZY){\
+		if(likely(size+UNIT_SIZE<=area->tail->size)){\
+			dest=(uintptr_t)area->tail;\
+			goto case_0;\
+		}\
+	}\
+	for(;;){\
+		if(__zp->tail){\
+			if(__prev){\
+				dest=__prev;\
+				if(__prev_extra<UNIT_SIZE)\
+					goto case_1;\
+				else\
+					goto case_2;\
+			}\
+			if(unlikely((_flag&EXPR_ALAZY)||size+UNIT_SIZE>__zp->size))\
+				return NULL;\
+			dest=__ip;\
+			goto case_0;\
+		}\
+		if(__zp->deallocated){\
+			_old=__zp->size;\
+			if(size<=_old){\
+				if(__prev){\
+					if(__prev_extra>=UNIT_SIZE){\
+						__extra=_old-size;\
+						if((__extra>=UNIT_SIZE&&__extra<__prev_extra)){\
+							__prev=__ip;\
+							__prev_extra=__extra;\
+						}\
+					}\
+				}else {\
+					__prev=__ip;\
+					__prev_extra=_old-size;\
+				}\
+			}\
+		}\
+		__ip+=__zp->size+UNIT_SIZE;\
+	}\
 }
 #define alloc_internal(_flag) ({\
 	union {\
@@ -91,8 +95,8 @@ static int findbest(struct expr_area *restrict area,size_t size,uintptr_t *dest,
 	} _p,_p1;\
 	uintptr_t _ret;\
 	size_t _old;\
-	switch(findbest(area,size,&_ip,_flag)){\
-		case 0:\
+	findbest(_ip,_flag){\
+case_0:\
 			_old=_zp->unsize;\
 			_zp->unsize=size;\
 			_zp->tail=0;\
@@ -102,13 +106,13 @@ static int findbest(struct expr_area *restrict area,size_t size,uintptr_t *dest,
 			_zp->unsize=_old-(size+UNIT_SIZE);\
 			_zp->tail=1;\
 			area->tail=_zp;\
-			break;\
-		case 1:\
+			goto end;\
+case_1:\
 			_zp->deallocated=0;\
 			_ret=_ip+UNIT_SIZE;\
 			size=_zp->unsize;\
-			break;\
-		case 2:\
+			goto end;\
+case_2:\
 			_old=_zp->size;\
 			_zp->unsize=size;\
 			_ip+=UNIT_SIZE;\
@@ -133,12 +137,9 @@ static int findbest(struct expr_area *restrict area,size_t size,uintptr_t *dest,
 				_zp->tail=0;\
 			}\
 			_zp->size=_old;\
-			break;\
-		case 3:\
-			return NULL;\
-		default:\
-			__builtin_unreachable();\
+			goto end;\
 	}\
+end:\
 	(void *)_ret;\
 })
 #define ALLOC_BODY(_flag) \
@@ -274,4 +275,46 @@ void *expr_area_realloc(struct expr_area *restrict area,void *old,size_t size){
 }
 void *expr_area_realloc4(struct expr_area *restrict area,void *old,size_t size,int flag){
 	REALLOC_BODY(flag);
+}
+int expr_area_summary(const struct expr_area *restrict area,struct expr_areainfo *restrict info){
+	union {
+		struct expr_areaunit *z;
+		uintptr_t i;
+	} p;
+	struct expr_areaunit *prev=NULL;
+	zp=area->data;
+	info->size=zp->prev;
+	memset((void *)((uintptr_t)info+offsetof(struct expr_areainfo,unit_count)),0,sizeof(struct expr_areainfo)-offsetof(struct expr_areainfo,unit_count));
+	for(;;){
+		if(prev){
+			if(unlikely(prev->size!=zp->prev))
+				return -1;
+			if(unlikely(prev->deallocated&&!zp->tail&&zp->deallocated))
+				return -2;
+		}
+		if(unlikely(zp->tail)){
+			break;
+		}
+		++info->unit_count;
+		if(zp->deallocated){
+			info->free+=zp->size;
+			if(zp->size>info->free_max)
+				info->free_max=zp->size;
+			++info->free_count;
+		}else {
+			info->leak+=zp->size;
+			if(zp->size>info->leak_max)
+				info->leak_max=zp->size;
+			++info->leak_count;
+		}
+		prev=zp;
+		ip+=zp->size+UNIT_SIZE;
+	}
+	info->max=(info->leak_max>info->free_max?info->leak_max:info->free_max);
+	info->tail_index=ip-(uintptr_t)area->data;
+	info->tail_size=zp->size;
+	if(unlikely(info->tail_size+info->tail_index+UNIT_SIZE!=info->size))
+		return -3;
+	++info->unit_count;
+	return 0;
 }

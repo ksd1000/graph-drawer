@@ -7,6 +7,7 @@
 
 #define EXPR_INLIB 1
 #include "expr.h"
+#include <string.h>
 
 expr_globals_define();
 
@@ -47,6 +48,66 @@ __attribute__((noreturn)) void expr_trap(void){
 }
 __attribute__((noreturn)) void expr_ubehavior(void){
 	__builtin_unreachable();
+}
+static ssize_t zero_reader(intptr_t fd,void *buf,size_t size){
+	memset(buf,0,size);
+	debug("write %zu zeros on %p",size,buf);
+	return size;
+}
+#define checkr(_fp) \
+	if(unlikely(r<0)){\
+		expr_buffered_rclose(_fp);\
+		return r;\
+	}
+ssize_t expr_file_readfd_r(expr_reader reader,intptr_t fd,size_t tail,void *savep,const struct expr_memtool *restrict mtl){
+	struct expr_buffered_file vf[1];
+	ssize_t r;
+	ssize_t ret;
+	expr_buffered_init_r(vf,reader,fd,NULL,SIZE_MAX,mtl);
+	r=expr_buffered_read(vf,NULL,0);
+	checkr(vf);
+	if(tail){
+		size_t total;
+		total=vf->index+tail;
+		if(vf->length<total){
+			vf->reader=zero_reader;
+			vf->dynamic=total;
+			debug("before add %zu zeros",tail);
+			r=expr_buffered_read(vf,NULL,0);
+			debug("add %zu zeros,r=%zd",tail,r);
+			checkr(vf);
+		}else {
+			memset(vf->buf+vf->index,0,tail);
+		}
+	}
+	ret=(ssize_t)vf->index;
+	debug("savep=%p,r=%zu",vf->buf,vf->index);
+	*(void **)savep=vf->buf;
+	return ret;
+}
+static void *malloc_heap(size_t size,intptr_t arg){
+	void *r;
+	r=expr_area_alloc((struct expr_area *)arg,size);
+	return r;
+}
+static void *realloc_heap(void *old,size_t size,intptr_t arg){
+	void *r;
+	r=expr_area_realloc((struct expr_area *)arg,old,size);
+	return r;
+}
+static void free_heap(void *old,intptr_t arg){
+	expr_area_dealloc((struct expr_area *)arg,old);
+
+}
+void expr_setup_heapmtl(struct expr_memtool *restrict mtl,struct expr_area *area){
+	mtl->allocate=malloc_heap;
+	mtl->reallocate=realloc_heap;
+	mtl->deallocate=free_heap;
+	mtl->arg=(intptr_t)area;
+}
+void expr_setup_heapmtl5(struct expr_memtool *restrict mtl,struct expr_area *area,void *zone,size_t size,int flag){
+	expr_area_init4(area,zone,size,flag);
+	expr_setup_heapmtl(mtl,area);
 }
 #ifdef EXPR_SYSIN
 #define SYSCALL_DEFINED 1
@@ -190,7 +251,7 @@ static int nonnull=0,ckleak=0;
 int expr_mtl_setup=0;
 static uint32_t mutex[1]={0};
 ssize_t count=0;
-static void *xmalloc_setup(size_t size,intptr_t arg){
+static void *malloc_setup(size_t size,intptr_t arg){
 	void *r;
 	r=size>expr_allocate_max?NULL:malloc(size);
 	if(unlikely(!r&&nonnull))
@@ -202,7 +263,7 @@ static void *xmalloc_setup(size_t size,intptr_t arg){
 	}
 	return r;
 }
-static void *xrealloc_setup(void *old,size_t size,intptr_t arg){
+static void *realloc_setup(void *old,size_t size,intptr_t arg){
 	void *r;
 	r=size>expr_allocate_max?NULL:realloc(old,size);
 	if(unlikely(!r&&nonnull))
@@ -214,16 +275,16 @@ static void *xrealloc_setup(void *old,size_t size,intptr_t arg){
 	}
 	return r;
 }
-static void xfree_setup(void *old,intptr_t arg){
+static void free_setup(void *old,intptr_t arg){
 	free(old);
 	expr_mutex_lock(mutex);
 	--count;
 	expr_mutex_unlock(mutex);
 }
 static const struct expr_memtool expr_setupmtl[1]={{
-	.allocate=xmalloc_setup,
-	.reallocate=xrealloc_setup,
-	.deallocate=xfree_setup,
+	.allocate=malloc_setup,
+	.reallocate=realloc_setup,
+	.deallocate=free_setup,
 	.arg=0,
 }};
 static struct expr_memtool expr_oldmtl[1];

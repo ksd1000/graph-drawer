@@ -330,9 +330,9 @@ EXPR_END
 #define EXPR_ISETABLE (EXPR_IPURE|EXPR_INOKEYWORD|EXPR_IPROTECT)
 
 //expr keyword flag
-#define EXPR_KF_SUBEXPR 1
-#define EXPR_KF_SEPCOMMA 2
-#define EXPR_KF_NOPROTECT 4
+#define EXPR_KSUBEXPR 1
+#define EXPR_KSEPCOMMA 2
+#define EXPR_KNOPROTECT 4
 
 #define EXPR_EDBASE(d) (((union expr_double *)(d))->rd.base)
 #define EXPR_EDEXP(d) (((union expr_double *)(d))->rd.exp)
@@ -696,12 +696,12 @@ struct expr_writefmt {
 };
 typedef const union expr_argf *(*expr_argffetch)(ptrdiff_t index,const struct expr_writeflag *flag,void *addr);
 
-#define EXPR_BF_ZERO 1
-#define EXPR_BF_TRUNC 2
-#define EXPR_BF_EMPTY 4
-#define EXPR_BF_EMEM 8
-#define EXPR_BF_CALLBACK_PDMIN 8
-#define EXPR_BF_TRUNC_NOREWRITE 1024
+#define EXPR_BZERO 1
+#define EXPR_BTRUNC 2
+#define EXPR_BEMPTY 4
+#define EXPR_BEMEM 8
+#define EXPR_BCALLBACK_PDMIN 8
+#define EXPR_BTRUNC_NOREWRITE 1024
 
 #define EXPR_BUFSIZE_INITIAL 512
 struct expr_buffered_file {
@@ -925,7 +925,7 @@ struct expr_symset_infile {
 	uint32_t maxlen;
 	char data[];
 }__attribute__((packed));
-#define EXPR_RF_DESTRUCTOR 1
+#define EXPR_RDESTRUCTOR 1
 struct expr_resource {
 	struct expr_resource *next;
 	union {
@@ -994,6 +994,19 @@ struct expr_area {
 	struct expr_areaunit *data;
 	struct expr_areaunit *tail;
 	int flag,unused;
+};
+struct expr_areainfo {
+	size_t size;
+	size_t unit_count;
+	size_t leak;
+	size_t leak_count;
+	size_t leak_max;
+	size_t free;
+	size_t free_count;
+	size_t free_max;
+	uintptr_t tail_index;
+	size_t tail_size;
+	size_t max;
 };
 #define EXPR_AZERO 1
 #define EXPR_ANOALIGN 2
@@ -1281,7 +1294,6 @@ ssize_t expr_buffered_rdropall(struct expr_buffered_file *restrict fp);
 ssize_t expr_buffered_close(struct expr_buffered_file *restrict fp);
 void expr_buffered_rclose(struct expr_buffered_file *restrict fp);
 ssize_t expr_buffered_readline(struct expr_buffered_file *restrict fp,int c,void *savep);
-ssize_t expr_file_readfd_r(expr_reader reader,intptr_t fd,size_t tail,void *savep,const struct expr_memtool *restrict mtl);
 //global externs of expr_buffered.c :
 //global functions of expr_builtin.c :
 uint64_t expr_gcd64(uint64_t x,uint64_t y);
@@ -1422,6 +1434,7 @@ void *expr_area_alloc3(struct expr_area *restrict area,size_t size,int flag);
 void expr_area_dealloc(struct expr_area *restrict area,void *old);
 void *expr_area_realloc(struct expr_area *restrict area,void *old,size_t size);
 void *expr_area_realloc4(struct expr_area *restrict area,void *old,size_t size,int flag);
+int expr_area_summary(const struct expr_area *restrict area,struct expr_areainfo *restrict info);
 //global externs of expr_alloc.c :
 //global functions of expr_global.c :
 void expr_contract(void *buf,size_t size);
@@ -1429,6 +1442,9 @@ __attribute__((noreturn)) void expr_explode_r(void (*contractor)(void *,size_t),
 __attribute__((noreturn)) void expr_explode(void);
 __attribute__((noreturn)) void expr_trap(void);
 __attribute__((noreturn)) void expr_ubehavior(void);
+ssize_t expr_file_readfd_r(expr_reader reader,intptr_t fd,size_t tail,void *savep,const struct expr_memtool *restrict mtl);
+void expr_setup_heapmtl(struct expr_memtool *restrict mtl,struct expr_area *area);
+void expr_setup_heapmtl5(struct expr_memtool *restrict mtl,struct expr_area *area,void *zone,size_t size,int flag);
 void expr_mutex_lock(uint32_t *lock);
 int expr_mutex_trylock(uint32_t *lock);
 void expr_mutex_unlock(uint32_t *lock);
@@ -1446,7 +1462,6 @@ int expr_setup_mtl(int flag);
 //global externs of expr_global.c :
 extern int expr_mtl_setup;
 #if !(defined(EXPR_INLIB)&&(EXPR_INLIB))
-#define expr_file_readfd(reader,fd,tail,savep) expr_file_readfd_r(reader,fd,tail,savep,expr_defmtl)
 #define expr_sort4(v,n) expr_sort4_r(v,n,expr_defmtl)
 #define expr_builtin_symbol_converts(syms,...) expr_builtin_symbol_converts_r(expr_defmtl,syms,__VA_ARGS__)
 #define expr_builtin_symbol_convert(syms) expr_builtin_symbol_convert_r(syms,expr_defmtl)
@@ -1475,6 +1490,7 @@ extern int expr_mtl_setup;
 #define expr_calc3(e,error,errinfo) expr_calc3_r(e,error,errinfo,expr_defmtl)
 #define expr_calc2(e,flag) expr_calc2_r(e,flag,expr_defmtl)
 #define expr_calc(e) expr_calc_r(e,expr_defmtl)
+#define expr_file_readfd(reader,fd,tail,savep) expr_file_readfd_r(reader,fd,tail,savep,expr_defmtl)
 #endif
 
 #endif

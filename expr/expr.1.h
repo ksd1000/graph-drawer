@@ -330,9 +330,9 @@ EXPR_END
 #define EXPR_ISETABLE (EXPR_IPURE|EXPR_INOKEYWORD|EXPR_IPROTECT)
 
 //expr keyword flag
-#define EXPR_KF_SUBEXPR 1
-#define EXPR_KF_SEPCOMMA 2
-#define EXPR_KF_NOPROTECT 4
+#define EXPR_KSUBEXPR 1
+#define EXPR_KSEPCOMMA 2
+#define EXPR_KNOPROTECT 4
 
 #define EXPR_EDBASE(d) (((union expr_double *)(d))->rd.base)
 #define EXPR_EDEXP(d) (((union expr_double *)(d))->rd.exp)
@@ -696,12 +696,12 @@ struct expr_writefmt {
 };
 typedef const union expr_argf *(*expr_argffetch)(ptrdiff_t index,const struct expr_writeflag *flag,void *addr);
 
-#define EXPR_BF_ZERO 1
-#define EXPR_BF_TRUNC 2
-#define EXPR_BF_EMPTY 4
-#define EXPR_BF_EMEM 8
-#define EXPR_BF_CALLBACK_PDMIN 8
-#define EXPR_BF_TRUNC_NOREWRITE 1024
+#define EXPR_BZERO 1
+#define EXPR_BTRUNC 2
+#define EXPR_BEMPTY 4
+#define EXPR_BEMEM 8
+#define EXPR_BCALLBACK_PDMIN 8
+#define EXPR_BTRUNC_NOREWRITE 1024
 
 #define EXPR_BUFSIZE_INITIAL 512
 struct expr_buffered_file {
@@ -925,7 +925,7 @@ struct expr_symset_infile {
 	uint32_t maxlen;
 	char data[];
 }__attribute__((packed));
-#define EXPR_RF_DESTRUCTOR 1
+#define EXPR_RDESTRUCTOR 1
 struct expr_resource {
 	struct expr_resource *next;
 	union {
@@ -994,6 +994,19 @@ struct expr_area {
 	struct expr_areaunit *data;
 	struct expr_areaunit *tail;
 	int flag,unused;
+};
+struct expr_areainfo {
+	size_t size;
+	size_t unit_count;
+	size_t leak;
+	size_t leak_count;
+	size_t leak_max;
+	size_t free;
+	size_t free_count;
+	size_t free_max;
+	uintptr_t tail_index;
+	size_t tail_size;
+	size_t max;
 };
 #define EXPR_AZERO 1
 #define EXPR_ANOALIGN 2

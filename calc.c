@@ -33,11 +33,11 @@ static ssize_t linebuf(intptr_t fd,const void *buf,size_t size){
 char printfbuf[BUFSIZ];
 struct expr_buffered_file printff=EXPR_BUFFERED_INITIALIZER((expr_writer)write,0,printfbuf,BUFSIZ);
 static void __attribute__((constructor)) ffstart(void){
-	expr_setup_mtl(3);
+	//expr_setup_mtl(3);
 }
 static void __attribute__((destructor)) ffend(void){
 	expr_buffered_close(&printff);
-	expr_setup_mtl(0);
+	//expr_setup_mtl(0);
 }
 double d_printf(double *args,size_t n){
 	const char *fmt=expr_cast(*args,const char *);
@@ -102,9 +102,10 @@ static void *xrealloc(void *old,size_t size){
 	}
 	return r;
 }
-char prefix[PREFIX_SIZE]={[0 ... (PREFIX_SIZE-1)]=' '};
+//char prefix[PREFIX_SIZE]={[0 ... (PREFIX_SIZE-1)]=' '};
 unsigned long level=0;
 void writeprefix(void){
+	/*
 	unsigned long n;
 	n=level*4;
 	while(n>=PREFIX_SIZE){
@@ -113,6 +114,8 @@ void writeprefix(void){
 	}
 	if(n)
 		fwrite(prefix,1,n,stdout);
+	*/
+	fprintf(stdout,"%-6ld",level);
 }
 int xprintf(const char *fmt,...){
 	va_list ap;
@@ -543,6 +546,7 @@ const struct option ops[]={
 	{"count",1,NULL,0xff01},
 	{"pure",0,NULL,'i'},
 	{"step",0,NULL,'s'},
+	{"summary",0,NULL,'S'},
 	{"callback",0,NULL,'c'},
 	{"keep",0,NULL,'k'},
 	{"detach",0,NULL,'d'},
@@ -561,6 +565,7 @@ void show_help(const char *a0){
 			"\t--count count\tevaluate how many times,default 1\n"
 			"\t--pure, -i\tuse pure function only\n"
 			"\t--step, -s\tstep mode\n"
+			"\t--summary, -S\tprint a summary of memory\n"
 			"\t--callback, -c\tcallback mode\n"
 			"\t--keep, -k\tkeep symbol sets,use with -d to make symbols visible\n"
 			"\t--detach, -d\tdetach each symbol sets,use with -k to make symbols visible\n"
@@ -585,6 +590,7 @@ int main(int argc,char **argv){
 	int dump=0;
 	int adbt=0;
 	int nobt=0;
+	int summary=0;
 	int r0;
 	intptr_t fd;
 	enum {NORMAL,STEP,CALLBACK} mode=NORMAL;
@@ -593,13 +599,18 @@ int main(int argc,char **argv){
 	struct expr ep[1];
 	jmp_buf jb;
 	volatile double show_result=1.0;
+	static char buf[1024*1024*1024];
+	struct expr_area ea;
+	struct expr_areainfo ai;
+	struct expr_memtool mtl;
+	const struct expr_memtool *defmtl=expr_defmtl;
 	atexit(atend);
 	setvbuf(stdout,NULL,_IONBF,0);
 	if(argc<2)
 		show_help(*argv);
 	opterr=1;
 	for(;;){
-		switch(getopt_long(argc,argv,"pnDt::Nisckdgf:hq",ops,NULL)){
+		switch(getopt_long(argc,argv,"pnDt::Nisckdgf:hqS",ops,NULL)){
 			case 'p':
 				flag|=EXPR_IPROTECT;
 				break;
@@ -626,6 +637,9 @@ int main(int argc,char **argv){
 				break;
 			case 'q':
 				show_result=0.0;
+				break;
+			case 'S':
+				summary=1;
 				break;
 			case 's':
 				mode=STEP;
@@ -664,7 +678,7 @@ break2:
 	if(!e)
 		e=argv[optind];
 	if(!strcmp(e,"-")){
-		rbuf=readall((intptr_t)stdin,NULL);
+		rbuf=readall(STDIN_FILENO,NULL);
 		if(!rbuf)
 			err(EXIT_FAILURE,"cannot read expression from stdin");
 		e=rbuf;
@@ -689,7 +703,11 @@ break3:
 	expr_symset_add(es,"printc",EXPR_MDFUNCTION,EXPR_SUNSAFE,d_printc,(size_t)2);
 	if(adbt||!nobt)
 		expr_builtin_symbol_addalls(es,expr_symbols_ess);
-	if(expr_init(ep,e,"t",es,flag)<0){
+	if(summary){
+		expr_setup_heapmtl5(&mtl,&ea,buf,sizeof(buf),0);
+		defmtl=&mtl;
+	}
+	if(expr_init_r(ep,e,"t",es,flag,defmtl)<0){
 		if(*ep->errinfo)
 			errx(EXIT_FAILURE,"expression error:%s \"%s\"",expr_error(ep->error),ep->errinfo);
 		else
@@ -718,6 +736,29 @@ break3:
 		if(show_result!=0.0)
 			printdouble(r);
 	}
+#define printi(V) printf(#V "=%zd\n",(ssize_t)(V))
+#define printz(V) printf(#V "=%zu\n",(size_t)(V))
+#define pall() \
+	printi(expr_area_summary(&ea,&ai));\
+	printz(ai.size);\
+	printz(ai.unit_count);\
+	printz(ai.free);\
+	printz(ai.free_count);\
+	printz(ai.free_max);\
+	printz(ai.leak);\
+	printz(ai.leak_count);\
+	printz(ai.leak_max);\
+	printz(ai.tail_size);\
+	printz(ai.tail_index);\
+	printz(ai.max)
+	if(summary){
+		printf("before expr_free()\n");
+		pall();
+	}
 	expr_free(ep);
+	if(summary){
+		printf("after expr_free()\n");
+		pall();
+	}
 	return EXIT_SUCCESS;
 }

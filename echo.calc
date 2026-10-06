@@ -1,4 +1,7 @@
 #! calc -f
+import(systable);
+import(memory);
+import(common);
 reset(assert);
 assert=(x,val){
 	if(!x){

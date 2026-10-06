@@ -483,13 +483,13 @@ double expr_not(double x){
 }
 
 #define REGKEY(s,op,dim,desc) {s,op,0,sizeof(s)-1,desc}
-#define REGKEYS(s,op,dim,desc) {s,op,EXPR_KF_SUBEXPR,sizeof(s)-1,desc}
-#define REGKEYC(s,op,dim,desc) {s,op,EXPR_KF_SEPCOMMA,sizeof(s)-1,desc}
-#define REGKEYSC(s,op,dim,desc) {s,op,EXPR_KF_SUBEXPR|EXPR_KF_SEPCOMMA,sizeof(s)-1,desc}
-#define REGKEYN(s,op,dim,desc) {s,op,EXPR_KF_NOPROTECT,sizeof(s)-1,desc}
-#define REGKEYCN(s,op,dim,desc) {s,op,EXPR_KF_SEPCOMMA|EXPR_KF_NOPROTECT,sizeof(s)-1,desc}
-#define REGKEYSN(s,op,dim,desc) {s,op,EXPR_KF_SUBEXPR|EXPR_KF_NOPROTECT,sizeof(s)-1,desc}
-#define REGKEYSCN(s,op,dim,desc) {s,op,EXPR_KF_SUBEXPR|EXPR_KF_SEPCOMMA|EXPR_KF_NOPROTECT,sizeof(s)-1,desc}
+#define REGKEYS(s,op,dim,desc) {s,op,EXPR_KSUBEXPR,sizeof(s)-1,desc}
+#define REGKEYC(s,op,dim,desc) {s,op,EXPR_KSEPCOMMA,sizeof(s)-1,desc}
+#define REGKEYSC(s,op,dim,desc) {s,op,EXPR_KSUBEXPR|EXPR_KSEPCOMMA,sizeof(s)-1,desc}
+#define REGKEYN(s,op,dim,desc) {s,op,EXPR_KNOPROTECT,sizeof(s)-1,desc}
+#define REGKEYCN(s,op,dim,desc) {s,op,EXPR_KSEPCOMMA|EXPR_KNOPROTECT,sizeof(s)-1,desc}
+#define REGKEYSN(s,op,dim,desc) {s,op,EXPR_KSUBEXPR|EXPR_KNOPROTECT,sizeof(s)-1,desc}
+#define REGKEYSCN(s,op,dim,desc) {s,op,EXPR_KSUBEXPR|EXPR_KSEPCOMMA|EXPR_KNOPROTECT,sizeof(s)-1,desc}
 const struct expr_builtin_keyword expr_keywords[]={
 	REGKEYSC("sum",EXPR_SUM,5,"sum(index_name,start_index,end_index,index_step,addend)"),
 	REGKEYSC("int",EXPR_INT,5,"int(integral_var_name,upper_limit,lower_limit,epsilon,integrand)"),
@@ -897,7 +897,7 @@ static inline void expr_freeres(struct expr *restrict ep,int flag,const struct e
 		for(erp=ep->res;erp;){
 			if(erp->un.uaddr&&
 				erp->type==EXPR_HOTFUNCTION&&
-				(erp->flag&EXPR_RF_DESTRUCTOR)
+				(erp->flag&EXPR_RDESTRUCTOR)
 				)
 					ep->un.end->val=eval(erp->un.ep,ep->un.end->val);
 			erp=erp->next;
@@ -2356,7 +2356,7 @@ keyword:
 			kp->str;++kp){
 		if(likely(p-e!=kp->strlen||memcmp(e,kp->str,p-e)))
 			continue;
-		if(kp->flag&EXPR_KF_NOPROTECT){
+		if(kp->flag&EXPR_KNOPROTECT){
 			if(unlikely(ep->iflag&EXPR_IPROTECT)){
 				seterr(ep,EXPR_EPM);
 				serrinfo(ep->errinfo,kp->str,kp->strlen);
@@ -2960,7 +2960,7 @@ convert_error:
 				cknp(ep,sym.er,expr_free_r(un.ep);return NULL);
 				sym.er->un.ep=un.ep;
 				sym.er->type=EXPR_HOTFUNCTION;
-				sym.er->flag=EXPR_RF_DESTRUCTOR;
+				sym.er->flag=EXPR_RDESTRUCTOR;
 				v0=EXPR_VOID;
 				e=p+1;
 				goto vend;

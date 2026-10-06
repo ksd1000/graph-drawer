@@ -7,7 +7,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <float.h>
-#include <setjmp.h>
 
 #define EXPR_INLIB 1
 #include "expr.h"

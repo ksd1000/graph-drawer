@@ -15,7 +15,7 @@
 #define expr_deallocator(old) (xmtl->deallocate((old),xmtl->arg))
 #define xmtl fp->mtl
 
-#define CKPDM(v) if(unlikely((v)=PTRDIFF_MIN))fp->flag|=EXPR_BF_CALLBACK_PDMIN
+#define CKPDM(v) if(unlikely((v)=PTRDIFF_MIN))fp->flag|=EXPR_BCALLBACK_PDMIN
 
 #define reterr(V) {r=(V);goto err;}
 
@@ -27,11 +27,11 @@
 		return r;\
 	}\
 	if(unlikely(!r))\
-		fp->flag|=EXPR_BF_ZERO;\
+		fp->flag|=EXPR_BZERO;\
 	else{\
 		fp->written+=r;\
 		if(unlikely((ssize_t)(r1=size-r)>0)){\
-			if(!(fp->flag&EXPR_BF_TRUNC_NOREWRITE)){\
+			if(!(fp->flag&EXPR_BTRUNC_NOREWRITE)){\
 				for(;;){\
 					r2=fp->writer(fp->fd,fp->buf+r,r1);\
 					if(unlikely(r2<0)){\
@@ -40,7 +40,7 @@
 						return r2;\
 					}\
 					if(unlikely(!r2)){\
-						fp->flag|=EXPR_BF_ZERO|EXPR_BF_TRUNC;\
+						fp->flag|=EXPR_BZERO|EXPR_BTRUNC;\
 						memmove(fp->buf,fp->buf+r,r1);\
 						fp->index=r1;\
 						return trunc;\
@@ -53,7 +53,7 @@
 					}\
 				}\
 			}else {\
-				fp->flag|=EXPR_BF_TRUNC;\
+				fp->flag|=EXPR_BTRUNC;\
 				memmove(fp->buf,fp->buf+r,r1);\
 				fp->index=r1;\
 				return trunc;\
@@ -112,7 +112,7 @@ size_le_c:
 			i=fp->dynamic;
 		p=xrealloc(fp->buf,i);
 		if(unlikely(!p)){
-			fp->flag|=EXPR_BF_EMEM;
+			fp->flag|=EXPR_BEMEM;
 			return PTRDIFF_MIN;
 		}
 		debug("buffer_size %zu -> %zu",fp->length,i);
@@ -133,12 +133,12 @@ size_le_c:
 		fp->index=0;
 		r=fp->writer(fp->fd,buf,size);
 		if(unlikely(r<0)){
-			fp->flag|=EXPR_BF_EMPTY;
+			fp->flag|=EXPR_BEMPTY;
 			CKPDM(r);
 			return r;
 		}
 		if(unlikely(!r))
-			fp->flag|=EXPR_BF_ZERO;
+			fp->flag|=EXPR_BZERO;
 		else {
 			size-=r;
 			fp->written+=r;
@@ -162,7 +162,8 @@ ssize_t expr_buffered_read(struct expr_buffered_file *restrict fp,void *buf,size
 			return expr_buffered_rdropall(fp);
 		}
 	}
-	if(unlikely(fp->flag&EXPR_BF_ZERO)){
+	fp->flag&=~EXPR_BZERO;
+	if(unlikely(fp->flag&EXPR_BZERO)){
 		debug("end index=%zu",fp->index);
 		return 0;
 	}
@@ -174,7 +175,7 @@ ssize_t expr_buffered_read(struct expr_buffered_file *restrict fp,void *buf,size
 			i=fp->dynamic;
 		p=xrealloc(fp->buf,i);
 		if(unlikely(!p)){
-			fp->flag|=EXPR_BF_EMEM;
+			fp->flag|=EXPR_BEMEM;
 			reterr(PTRDIFF_MIN);
 		}
 		fp->buf=p;
@@ -194,7 +195,7 @@ try_read_again:
 			}
 		}
 		if(!r){
-			fp->flag|=EXPR_BF_ZERO;
+			fp->flag|=EXPR_BZERO;
 			if(!size){
 				debug("end index=%zu",fp->index);
 				return 0;
@@ -221,11 +222,13 @@ size_ok:
 	i=fp->index-fp->written;
 	if(i){
 		if(i>size){
+			debug("memcpy buf=%p",buf);
 			memcpy(buf,fp->buf+fp->written,size);
 			fp->written+=size;
 			debug("end index=%zu",fp->index);
 			return size;
 		}
+		debug("memcpy");
 		memcpy(buf,fp->buf+fp->written,i);
 		fp->written=0;
 		fp->index=0;
@@ -236,7 +239,7 @@ size_ok:
 		buf+=i;
 		size-=i;
 	}
-	if(unlikely(fp->flag&EXPR_BF_ZERO)){
+	if(unlikely(fp->flag&EXPR_BZERO)){
 		debug("end index=%zu",fp->index);
 		return 0;
 	}
@@ -254,10 +257,12 @@ size_ok:
 		return 0;
 	}
 	if(r<=size){
+		debug("memcpy");
 		memcpy(buf,fp->buf,r);
 		debug("end index=%zu",fp->index);
 		return r;
 	}
+	debug("memcpy");
 	memcpy(buf,fp->buf,size);
 	fp->index=r;
 	fp->written=size;
@@ -407,15 +412,6 @@ void expr_buffered_rclose(struct expr_buffered_file *restrict fp){
 	if(fp->dynamic&&fp->buf)
 		xfree(fp->buf);
 }
-static ssize_t zero_reader(intptr_t fd,void *buf,size_t size){
-	memset(buf,0,size);
-	return size;
-}
-#define checkr(_fp) \
-	if(unlikely(r<0)){\
-		expr_buffered_rclose(_fp);\
-		return r;\
-	}
 ssize_t expr_buffered_readline(struct expr_buffered_file *restrict fp,int c,void *savep){
 	ssize_t r;
 	size_t in;
@@ -488,21 +484,5 @@ ssize_t expr_buffered_readline(struct expr_buffered_file *restrict fp,int c,void
 	*(char *)(fp->buf+in)=0;
 	*(void **)savep=fp->buf;
 	return in;
-}
-ssize_t expr_file_readfd_r(expr_reader reader,intptr_t fd,size_t tail,void *savep,const struct expr_memtool *restrict mtl){
-	struct expr_buffered_file vf[1];
-	ssize_t r;
-	ssize_t ret;
-	expr_buffered_init_r(vf,reader,fd,NULL,SIZE_MAX,mtl);
-	r=expr_buffered_read(vf,NULL,0);
-	checkr(vf);
-	vf->reader=zero_reader;
-	vf->dynamic=vf->index+tail;
-	r=expr_buffered_read(vf,NULL,0);
-	checkr(vf);
-	ret=(ssize_t)vf->index;
-	debug("savep=%p,r=%zu",vf->buf,vf->index);
-	*(void **)savep=vf->buf;
-	return ret;
 }
 

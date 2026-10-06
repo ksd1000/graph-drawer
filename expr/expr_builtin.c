@@ -1104,26 +1104,26 @@ static double expr_hypot(double *args,size_t n){
 
 //#define REGSYM(s) {#s,s}
 #define REGZASYM(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.zafunc=s},.type=EXPR_ZAFUNCTION,.flag=0}
-#define REGZASYM_U(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.zafunc=s},.type=EXPR_ZAFUNCTION,.flag=EXPR_SF_UNSAFE}
-#define REGFSYM(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.func=s},.type=EXPR_FUNCTION,.flag=EXPR_SF_PURE}
-#define REGFSYM_U(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.func=s},.type=EXPR_FUNCTION,.flag=EXPR_SF_PURE|EXPR_SF_UNSAFE}
+#define REGZASYM_U(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.zafunc=s},.type=EXPR_ZAFUNCTION,.flag=EXPR_SUNSAFE}
+#define REGFSYM(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.func=s},.type=EXPR_FUNCTION,.flag=EXPR_SPURE}
+#define REGFSYM_U(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.func=s},.type=EXPR_FUNCTION,.flag=EXPR_SPURE|EXPR_SUNSAFE}
 #define REGCSYM(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.value=(double)(s)},.type=EXPR_CONSTANT}
 #define REGCSYM_E(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.value=(double)(EXPR_##s)},.type=EXPR_CONSTANT}
-#define REGFSYM2(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SF_PURE}
-#define REGFSYM2_NI(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SF_UNSAFE}
-#define REGFSYM2_U(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SF_PURE|EXPR_SF_UNSAFE}
-#define REGFSYM2_NIU(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SF_UNSAFE}
-#define REGFSYM2_UA(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SF_ALLOWADDR|EXPR_SF_UNSAFE}
+#define REGFSYM2(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SPURE}
+#define REGFSYM2_NI(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SUNSAFE}
+#define REGFSYM2_U(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SPURE|EXPR_SUNSAFE}
+#define REGFSYM2_NIU(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SUNSAFE}
+#define REGFSYM2_UA(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SALLOWADDR|EXPR_SUNSAFE}
 #define REGZASYM2(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.zafunc=sym},.type=EXPR_ZAFUNCTION,.flag=0}
-#define REGZASYM2_U(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.zafunc=sym},.type=EXPR_ZAFUNCTION,.flag=EXPR_SF_UNSAFE}
-#define REGMDSYM2(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdfunc=sym},.dim=d,.type=EXPR_MDFUNCTION,.flag=EXPR_SF_PURE}
-#define REGMDSYM2_U(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdfunc=sym},.dim=d,.type=EXPR_MDFUNCTION,.flag=EXPR_SF_PURE|EXPR_SF_UNSAFE}
-#define REGMDSYM2_NIU(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdfunc=sym},.dim=d,.type=EXPR_MDFUNCTION,.flag=EXPR_SF_UNSAFE}
+#define REGZASYM2_U(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.zafunc=sym},.type=EXPR_ZAFUNCTION,.flag=EXPR_SUNSAFE}
+#define REGMDSYM2(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdfunc=sym},.dim=d,.type=EXPR_MDFUNCTION,.flag=EXPR_SPURE}
+#define REGMDSYM2_U(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdfunc=sym},.dim=d,.type=EXPR_MDFUNCTION,.flag=EXPR_SPURE|EXPR_SUNSAFE}
+#define REGMDSYM2_NIU(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdfunc=sym},.dim=d,.type=EXPR_MDFUNCTION,.flag=EXPR_SUNSAFE}
 //#define REGMDSYM2_NI(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdfunc=sym},.dim=d,.type=EXPR_MDFUNCTION,.flag=0}
-#define REGMDEPSYM2(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdepfunc=sym},.dim=d,.type=EXPR_MDEPFUNCTION,.flag=EXPR_SF_PURE}
-#define REGMDEPSYM2_NI(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdepfunc=sym},.dim=d,.type=EXPR_MDEPFUNCTION,.flag=EXPR_SF_UNSAFE}
-#define REGMDEPSYM2_U(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdepfunc=sym},.dim=d,.type=EXPR_MDEPFUNCTION,.flag=EXPR_SF_PURE|EXPR_SF_UNSAFE}
-#define REGMDEPSYM2_NIW(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdepfunc=sym},.dim=d,.type=EXPR_MDEPFUNCTION,.flag=EXPR_SF_WRITEIP|EXPR_SF_UNSAFE}
+#define REGMDEPSYM2(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdepfunc=sym},.dim=d,.type=EXPR_MDEPFUNCTION,.flag=EXPR_SPURE}
+#define REGMDEPSYM2_NI(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdepfunc=sym},.dim=d,.type=EXPR_MDEPFUNCTION,.flag=EXPR_SUNSAFE}
+#define REGMDEPSYM2_U(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdepfunc=sym},.dim=d,.type=EXPR_MDEPFUNCTION,.flag=EXPR_SPURE|EXPR_SUNSAFE}
+#define REGMDEPSYM2_NIW(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdepfunc=sym},.dim=d,.type=EXPR_MDEPFUNCTION,.flag=EXPR_SWRITEIP|EXPR_SUNSAFE}
 #define REGCSYM2(s,val) {.strlen=sizeof(s)-1,.str=s,.un={.value=(double)(val)},.type=EXPR_CONSTANT}
 const struct expr_builtin_symbol expr_symbols_default[]={
 	REGCSYM(DBL_MAX),
@@ -1269,7 +1269,7 @@ const struct expr_builtin_symbol expr_symbols_default[]={
 	REGMDEPSYM2("rooti",expr_rooti,0),
 	{.str=NULL}
 };
-#define REGPACK(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.bsyms=expr_symbols_##s},.type=EXPR_CONSTANT,.flag=EXPR_SF_PACKAGE}
+#define REGPACK(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.bsyms=expr_symbols_##s},.type=EXPR_CONSTANT,.flag=EXPR_SPACKAGE}
 const struct expr_builtin_symbol expr_symbols_packages[]={
 	REGPACK(default),
 	REGPACK(expr),
@@ -1282,16 +1282,16 @@ const struct expr_builtin_symbol expr_symbols_packages[]={
 	{.str=NULL}
 };
 const struct expr_builtin_symbol expr_symbols_expr[]={
-	REGCSYM_E(IF_NOOPTIMIZE),
-	REGCSYM_E(IF_INSTANT_FREE),
-	REGCSYM_E(IF_PURE),
-	REGCSYM_E(IF_NOKEYWORD),
-	REGCSYM_E(IF_PROTECT),
-	REGCSYM_E(IF_KEEPSYMSET),
-	REGCSYM_E(IF_DETACHSYMSET),
-	REGCSYM_E(IF_UNSAFE),
-	REGCSYM_E(IF_EXTEND_MASK),
-	REGCSYM_E(IF_SETABLE),
+	REGCSYM_E(INOOPTIMIZE),
+	REGCSYM_E(IINSTANT_FREE),
+	REGCSYM_E(IPURE),
+	REGCSYM_E(INOKEYWORD),
+	REGCSYM_E(IPROTECT),
+	REGCSYM_E(IKEEPSYMSET),
+	REGCSYM_E(IDETACHSYMSET),
+	REGCSYM_E(IUNSAFE),
+	REGCSYM_E(IEXTEND_MASK),
+	REGCSYM_E(ISETABLE),
 
 	REGCSYM_E(ESYMBOL),
 	REGCSYM_E(EPT),
@@ -1483,15 +1483,15 @@ const struct expr_builtin_symbol expr_symbols_symset[]={
 	REGCSYM_E(ZAFUNCTION),
 	REGCSYM_E(ALIAS),
 
-	REGCSYM_E(SF_PURE),
-	REGCSYM_E(SF_WRITEIP),
-	REGCSYM_E(SF_PACKAGE),
-	REGCSYM_E(SF_NONBUILTIN),
-	REGCSYM_E(SF_PFUNC),
-	REGCSYM_E(SF_UNSAFE),
-	REGCSYM_E(SF_ALLOWADDR),
-	REGCSYM_E(SF_PMD),
-	REGCSYM_E(SF_PME),
+	REGCSYM_E(SPURE),
+	REGCSYM_E(SWRITEIP),
+	REGCSYM_E(SPACKAGE),
+	REGCSYM_E(SNONBUILTIN),
+	REGCSYM_E(SPFUNC),
+	REGCSYM_E(SUNSAFE),
+	REGCSYM_E(SALLOWADDR),
+	REGCSYM_E(SPMD),
+	REGCSYM_E(SPME),
 	{.str=NULL}
 };
 const struct expr_builtin_symbol expr_symbols_string[]={

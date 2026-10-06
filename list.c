@@ -34,16 +34,16 @@ const char *aflag(int type,int flag,size_t dim){
 			case EXPR_FUNCTION:
 			case EXPR_ZAFUNCTION:
 			case EXPR_HOTFUNCTION:
-				if(flag&EXPR_SF_PURE)
+				if(flag&EXPR_SPURE)
 					strcat(abuf,"I");
-				if(flag&EXPR_SF_UNSAFE)
+				if(flag&EXPR_SUNSAFE)
 					strcat(abuf,"U");
 				return abuf;
 			case EXPR_MDFUNCTION:
 			case EXPR_MDEPFUNCTION:
-				if(flag&EXPR_SF_PURE)
+				if(flag&EXPR_SPURE)
 					strcat(abuf,"I");
-				if(flag&EXPR_SF_UNSAFE)
+				if(flag&EXPR_SUNSAFE)
 					strcat(abuf,"U");
 				if(dim)
 					sprintf(abuf1,"%-2s %zu",abuf,dim);

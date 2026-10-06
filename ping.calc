@@ -1,4 +1,7 @@
 #! calc -f
+import(expr);
+import(systable);
+import(memory);
 static_if(argc<2){
 	error("./ping.calc destination");
 };

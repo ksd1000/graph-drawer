@@ -94,7 +94,7 @@ void list(void){
 			printf("%zu keywords\n",p-expr_keywords);
 			break;
 		}
-		printf("%-12s\tKeyword %s%s%s\t%s\n",p->str,p->flag&EXPR_KF_SUBEXPR?"S":" ",p->flag&EXPR_KF_SEPCOMMA?"C":" ",p->flag&EXPR_KF_NOPROTECT?"N":" ",p->desc);
+		printf("%-12s\tKeyword %s%s%s\t%s\n",p->str,p->flag&EXPR_KSUBEXPR?"S":" ",p->flag&EXPR_KSEPCOMMA?"C":" ",p->flag&EXPR_KNOPROTECT?"N":" ",p->desc);
 	}
 	printf("\n");
 	return;

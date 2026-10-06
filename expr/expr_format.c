@@ -1222,10 +1222,10 @@ out:
 		onfalse;\
 	}\
 })
-ssize_t expr_vwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,expr_argffetch arg,void *addr){
+ssize_t expr_vwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,expr_argfetch arg,void *addr){
 	return expr_vwritef_r(fmt,fmtlen,writer,fd,arg,addr,expr_writefmts_default,expr_writefmts_table_default);
 }
-ssize_t expr_vwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,expr_argffetch arg,void *addr,const struct expr_writefmt *restrict fmts,const uint8_t *restrict table){
+ssize_t expr_vwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,expr_argfetch arg,void *addr,const struct expr_writefmt *restrict fmts,const uint8_t *restrict table){
 	const char *endp=fmt+fmtlen,*fmt_old=fmt,*fmt0=fmt;
 	ssize_t ret=0;
 	ssize_t v;
@@ -1791,6 +1791,53 @@ ssize_t expr_apwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer,
 	ap_common(va_start(a->ap,fd),va_end(a->ap),expr_writefmts_default,expr_writefmts_table_default);
 }
 
+static inline const char *internal_strtom_10(const char *restrict nptr,const char *endp,ssize_t *restrict outval){
+	size_t r=0;
+	int neg=0;
+	unsigned int get;
+	if(likely(nptr<endp)){
+		if(*nptr=='-'){
+			++nptr;
+			neg=1;
+		}
+		switch(*nptr){
+			case '0' ... '9':
+				break;
+			default:
+				return neg?nptr-1:nptr;
+		}
+	}
+	scannum(10);
+out:
+	debug("result:%zd",(ssize_t)(neg?-r:r));
+	if(nptr<endp){
+		switch(*nptr){
+			case 'B':
+			case 'b':
+				++nptr;
+				break;
+#define setdim(d,n) \
+			case (d):\
+			case (d)^32:\
+				++nptr;\
+				if(likely(r<=(SIZE_MAX>>(n))))\
+					r<<=(n);\
+				else{\
+					*outval=PTRDIFF_MIN;\
+					return nptr;\
+				}\
+				break
+			setdim('K',10);
+			setdim('M',20);
+			setdim('G',30);
+			setdim('T',40);
+			setdim('P',50);
+			setdim('E',60);
+		}
+	}
+	*outval=(ssize_t)(neg?-r:r);
+	return nptr;
+}
 static inline const char *internal_strtos(const char *nptr,const char *endp,const char *c,char *restrict out,size_t *restrict outval){
 	size_t outlen=endp-nptr;
 	if(c){
@@ -1932,6 +1979,8 @@ next:
 			do_scan(p=internal_strtoz_x(str,end,&zi),*(ssize_t *)a=zi);
 		case 'o':
 			do_scan(p=internal_strtoz_o(str,end,&zi),*(ssize_t *)a=zi);
+		case 'm':
+			do_scan(p=internal_strtom_10(str,end,&zi),*(ssize_t *)a=zi);
 		default:
 			return n;
 	}

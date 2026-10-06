@@ -694,7 +694,10 @@ struct expr_writefmt {
 	uint8_t op[7];
 	uint8_t type:2,no_arg:1,digit_check:1,setcap:1,unused:3;
 };
-typedef const union expr_argf *(*expr_argffetch)(ptrdiff_t index,const struct expr_writeflag *flag,void *addr);
+typedef const union expr_argf *(*expr_argfetch)(ptrdiff_t index,const struct expr_writeflag *flag,void *addr);
+
+#define expr_iprintf(fmt,...) expr_apwritef(fmt,sizeof(fmt)-1,(expr_writer)write,STDOUT_FILENO,##__VA_ARGS__)
+#define expr_idprintf(fd,fmt,...) expr_apwritef(fmt,sizeof(fmt)-1,(expr_writer)write,fd,##__VA_ARGS__)
 
 #define EXPR_BZERO 1
 #define EXPR_BTRUNC 2

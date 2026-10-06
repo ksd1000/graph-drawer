@@ -736,28 +736,29 @@ break3:
 		if(show_result!=0.0)
 			printdouble(r);
 	}
-#define printi(V) printf(#V "=%zd\n",(ssize_t)(V))
-#define printz(V) printf(#V "=%zu\n",(size_t)(V))
+#define printi(V) expr_idprintf(STDERR_FILENO,#V "=%d\n",(ssize_t)(V))
+#define printz(V) expr_idprintf(STDERR_FILENO,#V "=%=.2M,",(size_t)(ai.V))
+#define printn(V) expr_idprintf(STDERR_FILENO,#V "=%u,",(size_t)(ai.V))
 #define pall() \
 	printi(expr_area_summary(&ea,&ai));\
-	printz(ai.size);\
-	printz(ai.unit_count);\
-	printz(ai.free);\
-	printz(ai.free_count);\
-	printz(ai.free_max);\
-	printz(ai.leak);\
-	printz(ai.leak_count);\
-	printz(ai.leak_max);\
-	printz(ai.tail_size);\
-	printz(ai.tail_index);\
-	printz(ai.max)
+	printz(size);\
+	printn(unit_count);\
+	printz(free);\
+	printn(free_count);\
+	printz(free_max);\
+	printz(leak);\
+	printn(leak_count);\
+	printz(leak_max);\
+	printz(tail_size);\
+	printz(tail_index);\
+	printz(max);\
+	expr_idprintf(STDERR_FILENO,"\n")
 	if(summary){
-		printf("before expr_free()\n");
 		pall();
+		expr_idprintf(STDERR_FILENO,"expr_free()\n");
 	}
 	expr_free(ep);
 	if(summary){
-		printf("after expr_free()\n");
 		pall();
 	}
 	return EXIT_SUCCESS;

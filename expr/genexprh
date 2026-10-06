@@ -10,6 +10,7 @@ dump expr_format.c
 dump expr_buffered.c
 dump expr_builtin.c
 dump expr_core.c
+dump expr_alloc.c
 dump expr_global.c
 echo "#if !(defined(EXPR_INLIB)&&(EXPR_INLIB))" >>expr.h
 ./rudump-mf >>expr.h

@@ -563,7 +563,7 @@ const struct expr_builtin_symbol *expr_builtin_symbol_rsearch(const struct expr_
 struct expr_symbol *expr_builtin_symbol_add(struct expr_symset *restrict esp,const struct expr_builtin_symbol *p){
 	switch(p->type){
 		case EXPR_CONSTANT:
-			if(p->flag&EXPR_SF_PACKAGE)
+			if(p->flag&EXPR_SPACKAGE)
 				return expr_symset_addl(esp,p->str,p->strlen,EXPR_CONSTANT,p->flag,p->un.uaddr);
 			else
 				return expr_symset_addl(esp,p->str,p->strlen,EXPR_CONSTANT,p->flag,p->un.value);
@@ -892,7 +892,7 @@ static inline void expr_free_keepres(struct expr *restrict ep,int flag,const str
 }
 static inline void expr_freeres(struct expr *restrict ep,int flag,const struct expr_memtool *restrict mtl){
 	struct expr_resource *erp,*erp1;
-	if(!(flag&EXPR_IF_INSTANT_FREE)){
+	if(!(flag&EXPR_IINSTANT_FREE)){
 		ep->un.end->val=0.0;
 		for(erp=ep->res;erp;){
 			if(erp->un.uaddr&&
@@ -944,10 +944,10 @@ static inline void setunsafe(struct expr *restrict ep){
 	if(ep->parent){
 		p=ep->parent;
 		do {
-			p->iflag|=EXPR_IF_UNSAFE;
+			p->iflag|=EXPR_IUNSAFE;
 		}while((p=p->parent));
 	}
-	ep->iflag|=EXPR_IF_UNSAFE;
+	ep->iflag|=EXPR_IUNSAFE;
 }
 #define EXTEND_SIZE 16
 static inline struct expr_inst *expr_addop(struct expr *restrict ep,void *dst,void *src,enum expr_op op,int flag){
@@ -1029,7 +1029,7 @@ static inline struct expr_inst *expr_addconst(struct expr *restrict ep,double *d
 }
 static inline struct expr_inst *expr_addconst_i(struct expr *restrict ep,double *dst,double val){
 //	the address of a variable may be used so it cannot be optimized out.
-	return expr_addop(ep,dst,cast(val,void *),EXPR_CONST,EXPR_SF_PURE);
+	return expr_addop(ep,dst,cast(val,void *),EXPR_CONST,EXPR_SPURE);
 }
 static inline struct expr_inst *expr_addalo(struct expr *restrict ep,double *dst,size_t zu){
 	return expr_addop(ep,dst,cast(zu,void *),EXPR_ALO,0);
@@ -1147,7 +1147,7 @@ static double *expr_createvar(struct expr *restrict ep,const char *symbol,size_t
 static int expr_createhot(struct expr *restrict ep,const char *symbol,size_t symlen,const char *hotexpr,size_t hotlen,int type,int flag){
 	cknp(ep,expr_detach(ep)>=0,return -1);
 	debug("%zu --- %s",hotlen,hotexpr);
-	return expr_symset_addl(ep->sset,symbol,symlen,type,flag|EXPR_SF_PURE,hotexpr,hotlen)?
+	return expr_symset_addl(ep->sset,symbol,symlen,type,flag|EXPR_SPURE,hotexpr,hotlen)?
 	0:-1;
 }
 static inline const char *findpair(const char *c,const char *endp){
@@ -1453,7 +1453,7 @@ static struct expr *expr_new10(const char *e,size_t len,const char *asym,size_t 
 static double consteval(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *sset,struct expr *restrict parent){
 	struct expr *ep;
 	double r;
-	ep=expr_new10(e,len,asym,asymlen,sset,parent->iflag&~EXPR_IF_NOOPTIMIZE,1,&parent->error,parent->errinfo,parent,parent->mtl);
+	ep=expr_new10(e,len,asym,asymlen,sset,parent->iflag&~EXPR_INOOPTIMIZE,1,&parent->error,parent->errinfo,parent,parent->mtl);
 	if(unlikely(!ep))
 		return NAN;
 	if(unlikely(!expr_isconst(ep))){
@@ -1470,7 +1470,7 @@ static double consteval(const char *e,size_t len,const char *asym,size_t asymlen
 static double nonconsteval(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *sset,struct expr *restrict parent){
 	struct expr *ep;
 	double r;
-	ep=expr_new10(e,len,asym,asymlen,sset,parent->iflag&~EXPR_IF_NOOPTIMIZE,1,&parent->error,parent->errinfo,parent,parent->mtl);
+	ep=expr_new10(e,len,asym,asymlen,sset,parent->iflag&~EXPR_INOOPTIMIZE,1,&parent->error,parent->errinfo,parent,parent->mtl);
 	if(unlikely(!ep))
 		return NAN;
 	r=eval(ep,0.0);
@@ -1481,7 +1481,7 @@ static double nonconsteval(const char *e,size_t len,const char *asym,size_t asym
 static double constcheck(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *sset,struct expr *restrict parent){
 	struct expr *ep;
 	double r;
-	ep=expr_new10(e,len,asym,asymlen,sset,parent->iflag&~EXPR_IF_NOOPTIMIZE,1,&parent->error,parent->errinfo,parent,parent->mtl);
+	ep=expr_new10(e,len,asym,asymlen,sset,parent->iflag&~EXPR_INOOPTIMIZE,1,&parent->error,parent->errinfo,parent,parent->mtl);
 	if(unlikely(!ep))
 		return NAN;
 	r=expr_isconst(ep)?1.0:0.0;;
@@ -1536,8 +1536,8 @@ static struct expr_vmdinfo *getvmdinfo(struct expr *restrict ep,const char *e0,s
 		seterr(ep,EXPR_ESYMBOL);
 		goto err0;
 	}
-	if(ep->iflag&EXPR_IF_PROTECT){
-		if(*flag&EXPR_SF_UNSAFE){
+	if(ep->iflag&EXPR_IPROTECT){
+		if(*flag&EXPR_SUNSAFE){
 			seterr(ep,EXPR_EPM);
 			serrinfo(ep->errinfo,v[5],ssz);
 			goto err0;
@@ -1553,7 +1553,7 @@ static struct expr_vmdinfo *getvmdinfo(struct expr *restrict ep,const char *e0,s
 		cknp(ep,ev->args,goto err05);
 		ev->max=max;
 	}else {
-		if(*flag&EXPR_SF_UNSAFE){
+		if(*flag&EXPR_SUNSAFE){
 			setunsafe(ep);
 		}
 		ev=xmalloc(sizeof(struct expr_vmdinfo));
@@ -1843,7 +1843,7 @@ static double *gethot(struct expr *restrict ep,const char *e0,size_t sz,const ch
 
 	v1=expr_newvar(ep);
 	cknp(ep,v1,goto err3);
-	cknp(ep,expr_addhmd(ep,v1,eh,flag&~EXPR_SF_PURE),goto err3);
+	cknp(ep,expr_addhmd(ep,v1,eh,flag&~EXPR_SPURE),goto err3);
 	vfree2(ve);
 	vfree2(v);
 	return v1;
@@ -1989,13 +1989,13 @@ alias_found:
 		case EXPR_MDFUNCTION:
 		case EXPR_MDEPFUNCTION:
 		case EXPR_ZAFUNCTION:
-			if(flag&EXPR_SF_UNSAFE){
-				if(unlikely(ep->iflag&EXPR_IF_PROTECT))
+			if(flag&EXPR_SUNSAFE){
+				if(unlikely(ep->iflag&EXPR_IPROTECT))
 					goto pm;
 				setunsafe(ep);
 			}
 		case EXPR_FUNCTION:
-			if(unlikely(!(flag&EXPR_SF_PURE)&&(ep->iflag&EXPR_IF_PURE)))
+			if(unlikely(!(flag&EXPR_SPURE)&&(ep->iflag&EXPR_IPURE)))
 				goto ein;
 		default:
 			break;
@@ -2044,12 +2044,12 @@ err:
 		serrinfo(ep->errinfo,symbol,symlen);
 		return -1;
 	}
-	if(unlikely(p->type!=EXPR_CONSTANT||!(p->flag&EXPR_SF_PACKAGE))){
+	if(unlikely(p->type!=EXPR_CONSTANT||!(p->flag&EXPR_SPACKAGE))){
 		seterr(ep,EXPR_ETNP);
 		goto err;
 	}
 	cknp(ep,expr_detach(ep)>=0,goto err);
-	if(p->flag&EXPR_SF_NONBUILTIN){
+	if(p->flag&EXPR_SNONBUILTIN){
 		const struct expr_symset *esp=expr_symbol_un(p)->sset;
 		STACK_DEFAULT(stack,esp);
 		debug("import %p",esp);
@@ -2145,7 +2145,7 @@ envp:
 			goto vend;
 		case ':':
 			if(e+1>=endp||e[1]!=':'){
-				if(ep->iflag&EXPR_IF_NOKEYWORD)
+				if(ep->iflag&EXPR_INOKEYWORD)
 					goto dflt;
 				e+=1;
 #define try_getsym \
@@ -2194,7 +2194,7 @@ block:
 			p=findpair_bracket(e,endp);
 			if(unlikely(!p))
 				goto pterr;
-			if(unlikely(ep->iflag&EXPR_IF_PROTECT)){
+			if(unlikely(ep->iflag&EXPR_IPROTECT)){
 				seterr(ep,EXPR_EPM);
 				serrinfo(ep->errinfo,e,p-e+1);
 				return NULL;
@@ -2223,7 +2223,7 @@ block:
 			if(unlikely(!p))
 				goto pterr;
 #if UNABLE_GETADDR_IN_PROTECTED_MODE
-			if(unlikely(ep->iflag&EXPR_IF_PROTECT)){
+			if(unlikely(ep->iflag&EXPR_IPROTECT)){
 				seterr(ep,EXPR_EPM);
 				serrinfo(ep->errinfo,e,p-e+1);
 				return NULL;
@@ -2243,7 +2243,7 @@ block:
 			goto vend;
 		case '&':
 #if UNABLE_GETADDR_IN_PROTECTED_MODE
-			if(unlikely(ep->iflag&EXPR_IF_PROTECT)){
+			if(unlikely(ep->iflag&EXPR_IPROTECT)){
 				seterr(ep,EXPR_EPM);
 				*ep->errinfo='&';
 				return NULL;
@@ -2275,7 +2275,7 @@ block:
 					++e;
 					goto block;
 /*				case ':':
-					if(ep->iflag&EXPR_IF_NOBUILTIN){
+					if(ep->iflag&EXPR_INOBUILTIN){
 						++e;
 						break;
 					}
@@ -2350,14 +2350,14 @@ symget:
 		goto found;
 	}
 keyword:
-	if(ep->iflag&EXPR_IF_NOKEYWORD)
+	if(ep->iflag&EXPR_INOKEYWORD)
 		goto number;
 	for(const struct expr_builtin_keyword *kp=expr_keywords;
 			kp->str;++kp){
 		if(likely(p-e!=kp->strlen||memcmp(e,kp->str,p-e)))
 			continue;
 		if(kp->flag&EXPR_KF_NOPROTECT){
-			if(unlikely(ep->iflag&EXPR_IF_PROTECT)){
+			if(unlikely(ep->iflag&EXPR_IPROTECT)){
 				seterr(ep,EXPR_EPM);
 				serrinfo(ep->errinfo,kp->str,kp->strlen);
 				return NULL;
@@ -2487,7 +2487,7 @@ alias_found_decl:
 				}
 				vfree2(sym.vv);
 				flag=sv.es->flag;
-				sv.es->flag=((int)un.v&~EXPR_SF_PMASK)|(flag&EXPR_SF_PMASK);
+				sv.es->flag=((int)un.v&~EXPR_SPMASK)|(flag&EXPR_SPMASK);
 				v0=EXPR_VOID;
 				e=p+1;
 				goto vend;
@@ -2742,20 +2742,20 @@ found2:
 				if(unlikely(ep->error))
 					return NULL;
 				flag=(int)un.v;
-				if(flag&EXPR_IF_UNSAFE)
+				if(flag&EXPR_IUNSAFE)
 					setunsafe(ep);
-				flag&=EXPR_IF_SETABLE;
+				flag&=EXPR_ISETABLE;
 				type=ep->iflag;
 				un.flag=type;
-				if(type&EXPR_IF_PROTECT){
-					if(flag==(type&~EXPR_IF_PROTECT)){
-						if(likely(type&EXPR_IF_UNSAFE)){
-							type&=~EXPR_IF_PROTECT;
+				if(type&EXPR_IPROTECT){
+					if(flag==(type&~EXPR_IPROTECT)){
+						if(likely(type&EXPR_IUNSAFE)){
+							type&=~EXPR_IPROTECT;
 						}else {
 							goto flpm;
 						}
 					}else {
-						if(unlikely(type&EXPR_IF_SETABLE&~flag)){
+						if(unlikely(type&EXPR_ISETABLE&~flag)){
 flpm:
 							seterr(ep,EXPR_EPM);
 							serrinfoc(ep->errinfo,"flag");
@@ -2763,7 +2763,7 @@ flpm:
 						}
 					}
 				}
-				ep->iflag=(type&~EXPR_IF_SETABLE)|flag;
+				ep->iflag=(type&~EXPR_ISETABLE)|flag;
 				++p;
 				if(p<endp&&*p=='{'&&likely(p2=findpair_brace(p,endp))){
 					v0=scan(ep,p+1,p2,asym,asymlen);
@@ -3288,8 +3288,8 @@ vzero:
 found:
 	switch(type){
 		case EXPR_FUNCTION:
-			if(flag&EXPR_SF_UNSAFE){
-				if(!(flag&EXPR_SF_ALLOWADDR))
+			if(flag&EXPR_SUNSAFE){
+				if(!(flag&EXPR_SALLOWADDR))
 					goto fpm;
 				if(p+2>=endp||p[1]!='&')
 					goto fpm;
@@ -3311,7 +3311,7 @@ found:
 			type=0;
 			goto fok;
 fpm:
-			if(unlikely(ep->iflag&EXPR_IF_PROTECT))
+			if(unlikely(ep->iflag&EXPR_IPROTECT))
 				goto pm;
 			type=0;
 			setunsafe(ep);
@@ -3354,7 +3354,7 @@ fok:
 			e=p+2;
 			goto vend;
 		case EXPR_HOTFUNCTION:
-			if(!(flag&EXPR_SF_WRITEIP)){
+			if(!(flag&EXPR_SWRITEIP)){
 #define sset_push(_start,_end) \
 				cknp(ep,expr_detach(ep)>=0,return NULL);\
 				sym.esp=expr_symset_clone(ep->sset);\
@@ -3393,12 +3393,12 @@ fok:
 			expr_symset_free(sym.esp);
 			if(unlikely(!un.ep))
 				return NULL;
-			cknp(ep,expr_addhot(ep,v0,un.ep,flag&~EXPR_SF_PURE),return NULL);
+			cknp(ep,expr_addhot(ep,v0,un.ep,flag&~EXPR_SPURE),return NULL);
 			e=p+1;
 			goto vend;
 		case EXPR_CONSTANT:
 #if UNABLE_GETADDR_IN_PROTECTED_MODE
-			if(unlikely((flag&EXPR_SF_PACKAGE)&&(ep->iflag&EXPR_IF_PROTECT))){
+			if(unlikely((flag&EXPR_SPACKAGE)&&(ep->iflag&EXPR_IPROTECT))){
 				seterr(ep,EXPR_EPM);
 				serrinfo(ep->errinfo,e,p-e);
 				return NULL;
@@ -3416,7 +3416,7 @@ fok:
 			p2=e;
 			e=p;
 			if(e<endp&&*e=='('){
-				if(unlikely(ep->iflag&EXPR_IF_PROTECT)){
+				if(unlikely(ep->iflag&EXPR_IPROTECT)){
 					p=findpair(e,endp);
 					if(unlikely(!p))
 						goto pterr;
@@ -3425,8 +3425,8 @@ fok:
 					return NULL;
 				}
 				setunsafe(ep);
-				switch(flag&~EXPR_SF_PMASK){
-					case EXPR_SF_PMD:
+				switch(flag&~EXPR_SPMASK){
+					case EXPR_SPMD:
 						p=findpair(e,endp);
 						if(unlikely(!p))
 							goto pterr;
@@ -3437,18 +3437,18 @@ fok:
 						cknp(ep,expr_addop(ep,v0,un.em,EXPR_PMD,0),return NULL);
 						e=p+1;
 						goto vend;*/
-					case EXPR_SF_PME:
+					case EXPR_SPME:
 						p=findpair(e,endp);
 						if(unlikely(!p))
 							goto pterr;
-						un.em=getmdinfo(ep,p2,e-p2,e,p-e+1,asym,asymlen,NULL,0,1+!!(flag&EXPR_SF_WRITEIP));
-						addinfo((flag&EXPR_SF_WRITEIP)?EXPR_PMEP:EXPR_PME,freemdinfo);
+						un.em=getmdinfo(ep,p2,e-p2,e,p-e+1,asym,asymlen,NULL,0,1+!!(flag&EXPR_SWRITEIP));
+						addinfo((flag&EXPR_SWRITEIP)?EXPR_PMEP:EXPR_PME,freemdinfo);
 						/*if(unlikely(!un.em))
 							return NULL;
-						cknp(ep,expr_addop(ep,v0,un.em,(flag&EXPR_SF_WRITEIP)?EXPR_PMEP:EXPR_PME,0),return NULL);
+						cknp(ep,expr_addop(ep,v0,un.em,(flag&EXPR_SWRITEIP)?EXPR_PMEP:EXPR_PME,0),return NULL);
 						e=p+1;
 						goto vend;*/
-					case EXPR_SF_PFUNC:
+					case EXPR_SPFUNC:
 						break;
 						/*
 						p=findpair(e,endp);
@@ -3501,7 +3501,7 @@ fok:
 					un.em=getmdinfo(ep,p2,e-p2,e,p-e+1,asym,asymlen,expr_symbol_un(sym.es)->mdfunc,dim,0);
 				break;
 				case EXPR_MDEPFUNCTION:
-					un.em=getmdinfo(ep,p2,e-p2,e,p-e+1,asym,asymlen,expr_symbol_un(sym.es)->mdepfunc,dim,1+!!(flag&EXPR_SF_WRITEIP));
+					un.em=getmdinfo(ep,p2,e-p2,e,p-e+1,asym,asymlen,expr_symbol_un(sym.es)->mdepfunc,dim,1+!!(flag&EXPR_SWRITEIP));
 				break;
 			}
 			if(unlikely(!un.em)){
@@ -3514,7 +3514,7 @@ fok:
 					cknp(ep,expr_addmd(ep,v0,un.em,flag),freemdinfo(un.em,0,xmtl);return NULL);
 					break;
 				case EXPR_MDEPFUNCTION:
-					cknp(ep,(flag&EXPR_SF_WRITEIP?expr_addmep:expr_addme)
+					cknp(ep,(flag&EXPR_SWRITEIP?expr_addmep:expr_addme)
 					(ep,v0,un.em,flag),freemdinfo(un.em,0,xmtl);return NULL);
 					break;
 			}
@@ -3582,7 +3582,7 @@ sym_notfound:
 //				return NULL;
 //			}
 			if(asym&&p-e-1==asymlen&&!memcmp(e+1,asym,asymlen)){
-				flag=EXPR_SF_WRITEIP;
+				flag=EXPR_SWRITEIP;
 				e=p+2;
 			}else
 				flag=0;
@@ -3623,7 +3623,7 @@ pm:
 	return NULL;
 vend:
 	if(e<endp&&*e=='['){
-		if(unlikely(ep->iflag&EXPR_IF_PROTECT)){
+		if(unlikely(ep->iflag&EXPR_IPROTECT)){
 			p=findpair_bracket(e,endp);
 			if(unlikely(!p))
 				goto pterr;
@@ -3909,7 +3909,7 @@ rescan:
 							p1=findpair_bracket(e,endp);
 							if(unlikely(!p1))
 								goto pterr;
-							if(unlikely(ep->iflag&EXPR_IF_PROTECT)){
+							if(unlikely(ep->iflag&EXPR_IPROTECT)){
 								seterr(ep,EXPR_EPM);
 								serrinfo(ep->errinfo,e,p1-e+1);
 								goto err;
@@ -3935,7 +3935,7 @@ envp:
 							p1=findpair(e,endp);
 							if(p1+1>=endp||p1[1]!='[')
 								break;
-							if(unlikely(ep->iflag&EXPR_IF_PROTECT)){
+							if(unlikely(ep->iflag&EXPR_IPROTECT)){
 								p1=findpair_bracket(p1+1,endp);
 								if(unlikely(!p1))
 									goto pterr;
@@ -3975,7 +3975,7 @@ envp:
 					p1=findpair_bracket(e,endp);
 					if(unlikely(!p1))
 						goto pterr;
-					if(unlikely(ep->iflag&EXPR_IF_PROTECT)){
+					if(unlikely(ep->iflag&EXPR_IPROTECT)){
 						seterr(ep,EXPR_EPM);
 						serrinfo(ep->errinfo,e1,p1-e1+1);
 						goto err;
@@ -5044,7 +5044,7 @@ struct expr_symbol *expr_symbol_vcreatel_r(const char *sym,size_t symlen,int typ
 		case EXPR_HOTFUNCTION:
 		case EXPR_ALIAS:
 			p=(const char *)va_arg(ap,const void *);
-			if(flag&EXPR_SF_PURE)
+			if(flag&EXPR_SPURE)
 				len_expr=va_arg(ap,size_t);
 			else
 				len_expr=strlen(p);
@@ -5063,7 +5063,7 @@ struct expr_symbol *expr_symbol_vcreatel_r(const char *sym,size_t symlen,int typ
 	esp->strlen=symlen;
 	switch(type){
 		case EXPR_CONSTANT:
-			if(flag&EXPR_SF_PACKAGE)
+			if(flag&EXPR_SPACKAGE)
 				expr_symbol_un(esp)->uaddr=va_arg(ap,void *);
 			else
 				expr_symbol_un(esp)->value=va_arg(ap,double);
@@ -5142,8 +5142,8 @@ static int expr_init8(struct expr *restrict ep,const char *e,size_t len,const ch
 	ep->sset=esp;
 	ep->parent=(struct expr *)parent;
 	ep->mtl=mtl;
-	ep->iflag=flag&~EXPR_IF_EXTEND_MASK;
-	if(ep->iflag&EXPR_IF_DETACHSYMSET){
+	ep->iflag=flag&~EXPR_IEXTEND_MASK;
+	if(ep->iflag&EXPR_IDETACHSYMSET){
 		cknp(ep,expr_detach(ep)>=0,return -1);
 	}
 	p0=xmalloc(len+1);
@@ -5152,7 +5152,7 @@ static int expr_init8(struct expr *restrict ep,const char *e,size_t len,const ch
 	un.p=scan(ep,p0,r,asym,asym?asymlen:0);
 	xfree(p0);
 	if(ep->sset_shouldfree){
-		if(!(ep->iflag&EXPR_IF_KEEPSYMSET)){
+		if(!(ep->iflag&EXPR_IKEEPSYMSET)){
 			expr_symset_free(ep->sset);
 			ep->sset_shouldfree=0;
 			ep->sset=NULL;
@@ -5173,10 +5173,10 @@ err:
 		ep->errinfo[EXPR_SYMLEN-1]=0;
 		return -1;
 	}
-	if(!(flag&EXPR_IF_NOOPTIMIZE)){
+	if(!(flag&EXPR_INOOPTIMIZE)){
 		expr_optimize(ep);
 	}
-	if(flag&EXPR_IF_INSTANT_FREE){
+	if(flag&EXPR_IINSTANT_FREE){
 		expr_free_r(ep);
 	}
 	return 0;
@@ -5194,7 +5194,7 @@ int expr_init4_r(struct expr *restrict ep,const char *e,const char *asym,int fla
 	return expr_init8(ep,e,len,asym,asymlen,NULL,flag,NULL,mtl);
 }
 int expr_init3_r(struct expr *restrict ep,const char *e,const char *asym,const struct expr_memtool *restrict mtl){
-	return expr_init8(ep,e,len,asym,asymlen,NULL,EXPR_IF_PROTECT,NULL,mtl);
+	return expr_init8(ep,e,len,asym,asymlen,NULL,EXPR_IPROTECT,NULL,mtl);
 }
 #undef len
 #undef asymlen
@@ -5215,7 +5215,7 @@ static struct expr *expr_new10(const char *e,size_t len,const char *asym,size_t 
 			*error=ep->error;
 		if(errinfo)
 			memcpy(errinfo,ep->errinfo,EXPR_SYMLEN);
-		if(!(flag&EXPR_IF_INSTANT_FREE))while(--ep>=ep0){
+		if(!(flag&EXPR_IINSTANT_FREE))while(--ep>=ep0){
 			expr_free_r(ep);
 		}
 		xfree(ep0);
@@ -5225,7 +5225,7 @@ static struct expr *expr_new10(const char *e,size_t len,const char *asym,size_t 
 		++ep;
 	}while(--n);
 	ep[-1].freeable=1;
-	if(flag&EXPR_IF_INSTANT_FREE)
+	if(flag&EXPR_IINSTANT_FREE)
 		xfree(ep0);
 	return ep0;
 }
@@ -5251,14 +5251,14 @@ struct expr *expr_new3_r(const char *e,const char *asym,int flag,const struct ex
 	return expr_new10(e,len,asym,asymlen,NULL,flag,1,NULL,NULL,NULL,mtl);
 }
 struct expr *expr_new2_r(const char *e,const char *asym,const struct expr_memtool *restrict mtl){
-	return expr_new10(e,len,asym,asymlen,NULL,EXPR_IF_PROTECT,1,NULL,NULL,NULL,mtl);
+	return expr_new10(e,len,asym,asymlen,NULL,EXPR_IPROTECT,1,NULL,NULL,NULL,mtl);
 }
 #undef len
 #undef asymlen
 double expr_calc5_r(const char *e,int *error,char errinfo[EXPR_SYMLEN],struct expr_symset *esp,int flag,const struct expr_memtool *restrict mtl){
 	struct expr ep[1];
 	double r;
-	flag&=~EXPR_IF_INSTANT_FREE;
+	flag&=~EXPR_IINSTANT_FREE;
 	if(unlikely(expr_init_r(ep,e,NULL,esp,flag,mtl)<0)){
 		if(error)
 			*error=ep->error;
@@ -5673,7 +5673,7 @@ static int expr_optimize_const(struct expr *restrict ep){
 	int r=0;
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
 		if(ip->op==EXPR_CONST&&!expr_modified(ep,ip->dst.dst)){
-			if(!(ip->flag&EXPR_SF_PURE)){
+			if(!(ip->flag&EXPR_SPURE)){
 				ip->dst.dst=NULL;
 				r=1;
 			}
@@ -5740,7 +5740,7 @@ static int expr_usesrc(enum expr_op op){
 static int expr_vused(struct expr_inst *ip1,double *v){
 	int ov;
 	for(;;++ip1){
-		if(ip1->op==EXPR_CONST&&(ip1->flag&EXPR_SF_PURE)&&cast(ip1->un.value,double *)==v)
+		if(ip1->op==EXPR_CONST&&(ip1->flag&EXPR_SPURE)&&cast(ip1->un.value,double *)==v)
 			return 1;
 		ov=expr_override(ip1->op);
 		if((expr_usesrc(ip1->op)&&ip1->un.src==v)
@@ -5765,7 +5765,7 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 			case EXPR_BL:
 			case EXPR_ZA:
 			case EXPR_HOT:
-				if(ip->flag&EXPR_SF_PURE)
+				if(ip->flag&EXPR_SPURE)
 					break;
 			case EXPR_INPUT:
 			case EXPR_IP:
@@ -5799,7 +5799,7 @@ static int expr_constexpr(const struct expr *restrict ep,double *except){
 			case EXPR_END:
 				return 1;
 			case EXPR_CONST:
-				if(ip->flag&EXPR_SF_PURE){
+				if(ip->flag&EXPR_SPURE){
 					return 0;
 				}
 			default:
@@ -6002,7 +6002,7 @@ static int expr_optimize_constexpr(struct expr *restrict ep){
 				r=1;
 				break;
 			case MDCASES:
-				if(!(ip->flag&EXPR_SF_PURE))
+				if(!(ip->flag&EXPR_SPURE))
 					continue;
 				epp=ip->un.em->eps;
 				endp1=epp+ip->un.em->dim;
@@ -6023,7 +6023,7 @@ static int expr_optimize_constexpr(struct expr *restrict ep){
 				r=1;
 				break;
 			case EXPR_VMD:
-				if(!(ip->flag&EXPR_SF_PURE))
+				if(!(ip->flag&EXPR_SPURE))
 					continue;
 				if(!(expr_constexpr(ip->un.ev->fromep,NULL)&&
 				expr_constexpr(ip->un.ev->toep,(double *)&ip->un.ev->index)&&
@@ -6039,7 +6039,7 @@ static int expr_optimize_constexpr(struct expr *restrict ep){
 				r=1;
 				break;
 			case EXPR_HMD:
-				if(!(ip->flag&EXPR_SF_PURE))
+				if(!(ip->flag&EXPR_SPURE))
 					continue;
 				epp=ip->un.eh->eps;
 				endp1=epp+ip->un.eh->dim;
@@ -6378,7 +6378,7 @@ static int expr_pure_optype(enum expr_op op){
 }
 static int expr_ispure(struct expr *restrict ep,struct expr_inst *ip){
 	return expr_pure_optype(ip->op)
-		&&(ip->flag&EXPR_SF_PURE);
+		&&(ip->flag&EXPR_SPURE);
 }
 static int expr_pure_hotfunction_check(struct expr *restrict ep){
 	for(struct expr_inst *ip=ep->data;;++ip){
@@ -6394,7 +6394,7 @@ static int expr_pure_hotfunction_check(struct expr *restrict ep){
 			case EXPR_ZA:
 			case MDCASES:
 			case EXPR_HMD:
-				if(!(ip->flag&EXPR_SF_PURE))
+				if(!(ip->flag&EXPR_SPURE))
 					return 0;
 				break;
 			case SRCCASES:
@@ -6426,7 +6426,7 @@ static int expr_pure_hotmdfunction_check(struct expr_hmdinfo *eh){
 			case MDCASES:
 			case EXPR_HOT:
 			case EXPR_HMD:
-				if(!(ip->flag&EXPR_SF_PURE))
+				if(!(ip->flag&EXPR_SPURE))
 					return 0;
 				break;
 			case SRCCASES:
@@ -6444,19 +6444,19 @@ static int expr_optimize_pure_hotfunction(struct expr *restrict ep){
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
 		switch(ip->op){
 			case EXPR_HOT:
-				if(ip->flag&EXPR_SF_PURE)
+				if(ip->flag&EXPR_SPURE)
 					break;
 				if(!expr_pure_hotfunction_check(ip->un.hotfunc))
 					break;
-				ip->flag|=EXPR_SF_PURE;
+				ip->flag|=EXPR_SPURE;
 				r=1;
 				break;
 			case EXPR_HMD:
-				if(ip->flag&EXPR_SF_PURE)
+				if(ip->flag&EXPR_SPURE)
 					break;
 				if(!expr_pure_hotmdfunction_check(ip->un.eh))
 					break;
-				ip->flag|=EXPR_SF_PURE;
+				ip->flag|=EXPR_SPURE;
 				r=1;
 				break;
 			default:

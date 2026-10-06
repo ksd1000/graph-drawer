@@ -169,7 +169,7 @@ int main(int argc,char **argv){
 			case 'c':
 				do_calc(optarg,0);
 			case 'C':
-				do_calc(optarg,EXPR_IF_PROTECT);
+				do_calc(optarg,EXPR_IPROTECT);
 			case 'h':
 				show_help();
 			case 'T':

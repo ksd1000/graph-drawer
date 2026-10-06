@@ -44,14 +44,14 @@
 						memmove(fp->buf,fp->buf+r,r1);\
 						fp->index=r1;\
 						return trunc;\
-					}else\
-						fp->written+=r2;\
-						r+=r2;\
-						if(!(r1-=r2)){\
-							fp->index=0;\
-							break;\
-						}\
 					}\
+					fp->written+=r2;\
+					r+=r2;\
+					if(!(r1-=r2)){\
+						fp->index=0;\
+						break;\
+					}\
+				}\
 			}else {\
 				fp->flag|=EXPR_BF_TRUNC;\
 				memmove(fp->buf,fp->buf+r,r1);\

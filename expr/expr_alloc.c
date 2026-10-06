@@ -34,6 +34,10 @@ int expr_area_init4(struct expr_area *restrict area,void *zone,size_t size,int f
 #define ip p.i
 #define zp1 p1.z
 #define ip1 p1.i
+#define _zp _p.z
+#define _ip _p.i
+#define _zp1 _p1.z
+#define _ip1 _p1.i
 static int findbest(struct expr_area *restrict area,size_t size,uintptr_t *dest,int flag){
 	union {
 		struct expr_areaunit *z;
@@ -80,63 +84,63 @@ static int findbest(struct expr_area *restrict area,size_t size,uintptr_t *dest,
 		ip+=zp->size+UNIT_SIZE;
 	}
 }
-static void *alloc_internal(struct expr_area *restrict area,size_t size,size_t *real_size,int flag){
-	union {
-		struct expr_areaunit *z;
-		uintptr_t i;
-	} p,p1;
-	uintptr_t ret;
-	size_t old;
-	switch(findbest(area,size,&ip,flag)){
-		case 0:
-			old=zp->unsize;
-			zp->unsize=size;
-			zp->tail=0;
-			ret=ip+UNIT_SIZE;
-			ip+=zp->unsize+UNIT_SIZE;
-			zp->prev=size;
-			zp->unsize=old-(size+UNIT_SIZE);
-			zp->tail=1;
-			area->tail=zp;
-			break;
-		case 1:
-			zp->deallocated=0;
-			ret=ip+UNIT_SIZE;
-			size=zp->unsize;
-			break;
-		case 2:
-			old=zp->size;
-			zp->unsize=size;
-			ip+=UNIT_SIZE;
-			ret=ip;
-			ip+=size;
-			zp->prev=size;
-			old=old-(size+UNIT_SIZE);
-			ip1=ip+old+UNIT_SIZE;
-			if(zp1->tail){
-				old+=zp1->size+UNIT_SIZE;
-				//zp->deallocated=0;
-				zp->tail=1;
-				area->tail=zp;
-			}else if(zp1->deallocated){
-				old+=zp1->size+UNIT_SIZE;
-				ip1+=zp1->size+UNIT_SIZE;
-				zp1->prev=old;
-				zp->deallocated=1;
-				zp->tail=0;
-			}else {
-				zp1->prev=old;
-				zp->deallocated=1;
-				zp->tail=0;
-			}
-			zp->size=old;
-			break;
-		case 3:
-			return NULL;
-	}
-	*real_size=size;
-	return (void *)ret;
-}
+#define alloc_internal(_flag) ({\
+	union {\
+		struct expr_areaunit *z;\
+		uintptr_t i;\
+	} _p,_p1;\
+	uintptr_t _ret;\
+	size_t _old;\
+	switch(findbest(area,size,&_ip,_flag)){\
+		case 0:\
+			_old=_zp->unsize;\
+			_zp->unsize=size;\
+			_zp->tail=0;\
+			_ret=_ip+UNIT_SIZE;\
+			_ip+=_zp->unsize+UNIT_SIZE;\
+			_zp->prev=size;\
+			_zp->unsize=_old-(size+UNIT_SIZE);\
+			_zp->tail=1;\
+			area->tail=_zp;\
+			break;\
+		case 1:\
+			_zp->deallocated=0;\
+			_ret=_ip+UNIT_SIZE;\
+			size=_zp->unsize;\
+			break;\
+		case 2:\
+			_old=_zp->size;\
+			_zp->unsize=size;\
+			_ip+=UNIT_SIZE;\
+			_ret=_ip;\
+			_ip+=size;\
+			_zp->prev=size;\
+			_old=_old-(size+UNIT_SIZE);\
+			_ip1=_ip+_old+UNIT_SIZE;\
+			if(_zp1->tail){\
+				_old+=_zp1->size+UNIT_SIZE;\
+				_zp->tail=1;\
+				area->tail=_zp;\
+			}else if(_zp1->deallocated){\
+				_old+=_zp1->size+UNIT_SIZE;\
+				_ip1+=_zp1->size+UNIT_SIZE;\
+				_zp1->prev=_old;\
+				_zp->deallocated=1;\
+				_zp->tail=0;\
+			}else {\
+				_zp1->prev=_old;\
+				_zp->deallocated=1;\
+				_zp->tail=0;\
+			}\
+			_zp->size=_old;\
+			break;\
+		case 3:\
+			return NULL;\
+		default:\
+			__builtin_unreachable();\
+	}\
+	(void *)_ret;\
+})
 #define ALLOC_BODY(_flag) \
 	void *ret;\
 	if(unlikely(size>PTRDIFF_MAX)){\
@@ -144,9 +148,7 @@ static void *alloc_internal(struct expr_area *restrict area,size_t size,size_t *
 	}\
 	if(!(_flag&EXPR_ANOALIGN))\
 		size=zalign(size);\
-	ret=alloc_internal(area,size,&size,_flag);\
-	if(unlikely(!ret))\
-		return NULL;\
+	ret=alloc_internal(_flag);\
 	if(_flag&EXPR_AZERO)\
 		memset(ret,0,size);\
 	return ret
@@ -256,9 +258,7 @@ void expr_area_dealloc(struct expr_area *restrict area,void *old){
 	if(_flag&EXPR_ANAIL){\
 		return NULL;\
 	}\
-	ip1=(uintptr_t)alloc_internal(area,size,&size,_flag);\
-	if(unlikely(!ip1))\
-		return NULL;\
+	ip1=(uintptr_t)alloc_internal(_flag);\
 	memcpy((void *)ip1,old,zp->unsize);\
 	if(_flag&EXPR_AZERO)\
 		memset((void *)(ip1+zp->unsize),0,size-zp->unsize);\

@@ -283,6 +283,7 @@ err:
 
 #define rcheckadd(V) r=(V);\
 	if(unlikely(r<0)){\
+		debug("write fail,r=%zd",r);\
 		return r;\
 	}\
 	ret+=r
@@ -290,12 +291,16 @@ err:
 	ssize_t r,ret;\
 	ssize_t n;\
 	uintptr_t rc=(uintptr_t)(rcfetch);\
-	if(!rc)\
+	if(!rc){\
+		debug("no flush point found");\
 		return expr_buffered_write(fp,buf,size);\
+	}\
 	rcinc;\
 	n=rc-(uintptr_t)buf;\
 	ret=0;\
+	debug("flush point found, write");\
 	rcheckadd(expr_buffered_write(fp,buf,n));\
+	debug("flush point found, flush");\
 	r=expr_buffered_flush(fp);\
 	if(unlikely(r<0)){\
 		return r;\
@@ -306,7 +311,8 @@ err:
 	}\
 	return ret
 ssize_t expr_buffered_write_flushatc(struct expr_buffered_file *restrict fp,const void *buf,size_t size,int c){
-	flushat_common(memrchr(buf,size,c),++rc);
+	debug("memrchr \"%d\",%d,%zu",*(const char *)buf,c,size);
+	flushat_common(memrchr(buf,c,size),++rc);
 }
 ssize_t expr_buffered_write_flushatt(struct expr_buffered_file *restrict fp,const void *buf,size_t size,expr_test_t test,intptr_t arg){
 	flushat_common(test(buf,arg,size),rc+=(uintptr_t)buf);
@@ -338,7 +344,7 @@ ssize_t expr_buffered_write_flushat(struct expr_buffered_file *restrict fp,const
 	}while(size);\
 	return ret
 ssize_t expr_buffered_write_sflushatc(struct expr_buffered_file *restrict fp,const void *buf,size_t size,int c){
-	sflushat_common(memchr(buf,size,c),++rc);
+	sflushat_common(memchr(buf,c,size),++rc);
 }
 ssize_t expr_buffered_write_sflushatt(struct expr_buffered_file *restrict fp,const void *buf,size_t size,expr_test_t test,intptr_t arg){
 	sflushat_common(test(buf,arg,size),rc+=(uintptr_t)buf);
@@ -485,4 +491,7 @@ ssize_t expr_buffered_readline(struct expr_buffered_file *restrict fp,int c,void
 	*(void **)savep=fp->buf;
 	return in;
 }
-
+ssize_t expr_buffered_write_iolbf(struct expr_buffered_file *restrict fp,const void *buf,size_t size){
+	debug("iolbf size=%zu",size);
+	return expr_buffered_write_sflushatc(fp,buf,size,'\n');
+}

@@ -315,6 +315,8 @@ int expr_area_summary(const struct expr_area *restrict area,struct expr_areainfo
 	info->tail_size=zp->size;
 	if(unlikely(info->tail_size+info->tail_index+UNIT_SIZE!=info->size))
 		return -3;
+	if(unlikely(zp!=area->tail))
+		return -4;
 	++info->unit_count;
 	return 0;
 }

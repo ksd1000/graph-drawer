@@ -31,12 +31,15 @@ static ssize_t linebuf(intptr_t fd,const void *buf,size_t size){
 	return expr_buffered_write_sflushat((struct expr_buffered_file *)fd,buf,size,"\n",1);
 }
 char printfbuf[BUFSIZ];
+char eprintfbuf[BUFSIZ];
 struct expr_buffered_file printff=EXPR_BUFFERED_INITIALIZER((expr_writer)write,0,printfbuf,BUFSIZ);
+struct expr_buffered_file eprintff=EXPR_BUFFERED_INITIALIZER((expr_writer)write,0,eprintfbuf,BUFSIZ);
 static void __attribute__((constructor)) ffstart(void){
 	//expr_setup_mtl(3);
 }
 static void __attribute__((destructor)) ffend(void){
 	expr_buffered_close(&printff);
+	expr_buffered_close(&eprintff);
 	//expr_setup_mtl(0);
 }
 double d_printf(double *args,size_t n){
@@ -689,6 +692,7 @@ break3:
 		err(EXIT_FAILURE,"cannot allocate memory");
 	add_common_symbols(es);
 	printff.fd=STDOUT_FILENO;
+	eprintff.fd=STDERR_FILENO;
 	scanff.fd=STDIN_FILENO;
 	expr_symset_add(es,"ret",EXPR_HOTFUNCTION,0,"(ep,val){reset(end);([ep]#([ep#SIZE_OFF]##(0#1))*INSTLEN)-->end;(end#-INSTLEN)->[[ep#IPP_OFF]];val->[[end]]}");
 	expr_symset_add(es,"destructor",EXPR_HOTFUNCTION,0,"(val){destruct(&#,&longjmp_out,&outbuf,val)}");
@@ -736,9 +740,9 @@ break3:
 		if(show_result!=0.0)
 			printdouble(r);
 	}
-#define printi(V) expr_idprintf(STDERR_FILENO,#V "=%d\n",(ssize_t)(V))
-#define printz(V) expr_idprintf(STDERR_FILENO,#V "=%=.2M,",(size_t)(ai.V))
-#define printn(V) expr_idprintf(STDERR_FILENO,#V "=%u,",(size_t)(ai.V))
+#define printi(V) expr_ilprintf(&eprintff,#V "=%d\n",(ssize_t)(V))
+#define printz(V) expr_ilprintf(&eprintff,#V "=%=.2M,",(size_t)(ai.V))
+#define printn(V) expr_ilprintf(&eprintff,#V "=%u,",(size_t)(ai.V))
 #define pall() \
 	printi(expr_area_summary(&ea,&ai));\
 	printz(size);\
@@ -752,7 +756,7 @@ break3:
 	printz(tail_size);\
 	printz(tail_index);\
 	printz(max);\
-	expr_idprintf(STDERR_FILENO,"\n")
+	expr_ilprintf(&eprintff,"\n")
 	if(summary){
 		pall();
 		expr_idprintf(STDERR_FILENO,"expr_free()\n");

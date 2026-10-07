@@ -696,8 +696,12 @@ struct expr_writefmt {
 };
 typedef const union expr_argf *(*expr_argfetch)(ptrdiff_t index,const struct expr_writeflag *flag,void *addr);
 
-#define expr_iprintf(fmt,...) expr_apwritef(fmt,sizeof(fmt)-1,(expr_writer)write,STDOUT_FILENO,##__VA_ARGS__)
-#define expr_idprintf(fd,fmt,...) expr_apwritef(fmt,sizeof(fmt)-1,(expr_writer)write,fd,##__VA_ARGS__)
+#define expr_iprintf(fmt,...) expr_idprintf(STDOUT_FILENO,fmt,##__VA_ARGS__)
+#define expr_ieprintf(fmt,...) expr_idprintf(STDERR_FILENO,fmt,##__VA_ARGS__)
+#define expr_idprintf(fd,fmt,...) expr_idwprintf(fd,write,fmt,##__VA_ARGS__)
+#define expr_ibprintf(fd,fmt,...) expr_idwprintf(fd,expr_buffered_write,fmt,##__VA_ARGS__)
+#define expr_ilprintf(fd,fmt,...) expr_idwprintf(fd,expr_buffered_write_iolbf,fmt,##__VA_ARGS__)
+#define expr_idwprintf(fd,writer,fmt,...) expr_apwritef(fmt,sizeof(fmt)-1,(expr_writer)(writer),(intptr_t)(fd),##__VA_ARGS__)
 
 #define EXPR_BZERO 1
 #define EXPR_BTRUNC 2
@@ -1297,6 +1301,7 @@ ssize_t expr_buffered_rdropall(struct expr_buffered_file *restrict fp);
 ssize_t expr_buffered_close(struct expr_buffered_file *restrict fp);
 void expr_buffered_rclose(struct expr_buffered_file *restrict fp);
 ssize_t expr_buffered_readline(struct expr_buffered_file *restrict fp,int c,void *savep);
+ssize_t expr_buffered_write_iolbf(struct expr_buffered_file *restrict fp,const void *buf,size_t size);
 //global externs of expr_buffered.c :
 //global functions of expr_builtin.c :
 uint64_t expr_gcd64(uint64_t x,uint64_t y);

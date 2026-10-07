@@ -342,14 +342,14 @@ const char *expr_error(int error){
 #define expr_reallocator(old,size) (xmtl->reallocate((old),(size),xmtl->arg))
 #define expr_deallocator(old) (xmtl->deallocate((old),xmtl->arg))
 #define xmtl mtl
-static inline void *xautoadd(void **restrict old,size_t *restrict size,size_t *restrict length,size_t n,size_t extend,const struct expr_memtool *restrict mtl){
+static inline void *xautoadd(void **restrict old,size_t *restrict size,size_t *restrict length,size_t n,size_t expand,const struct expr_memtool *restrict mtl){
 	void *r;
 	size_t old_size=*size,new_length;
 	if(old_size<*length){
 		++(*size);
 		return (uint8_t *)*old+old_size*n;
 	}
-	new_length=*length+*length/4+extend;
+	new_length=*length+*length/4+expand;
 	r=xrealloc(*old,new_length*n);
 	if(unlikely(!r)){
 		return NULL;
@@ -949,10 +949,10 @@ static inline void setunsafe(struct expr *restrict ep){
 	}
 	ep->iflag|=EXPR_IUNSAFE;
 }
-#define EXTEND_SIZE 16
+#define EXPAND_SIZE 16
 static inline struct expr_inst *expr_addop(struct expr *restrict ep,void *dst,void *src,enum expr_op op,int flag){
 	struct expr_inst *ip;
-	ip=xautoadd((void **)&ep->data,&ep->size,&ep->length,sizeof(struct expr_inst),EXTEND_SIZE*sizeof(struct expr_inst),ep->mtl);
+	ip=xautoadd((void **)&ep->data,&ep->size,&ep->length,sizeof(struct expr_inst),EXPAND_SIZE*sizeof(struct expr_inst),ep->mtl);
 	if(unlikely(!ip))
 		return NULL;
 	ip->op=op;
@@ -1071,7 +1071,7 @@ static double *expr_newvar(struct expr *restrict ep){
 	double *r=xmalloc(sizeof(double)),**p;
 	if(unlikely(!r))
 		return NULL;
-	p=xautoadd((void **)&ep->vars,&ep->vsize,&ep->vlength,sizeof(double *),EXTEND_SIZE*sizeof(double *),ep->mtl);
+	p=xautoadd((void **)&ep->vars,&ep->vsize,&ep->vlength,sizeof(double *),EXPAND_SIZE*sizeof(double *),ep->mtl);
 	if(unlikely(!p))
 		return NULL;
 	*p=r;

@@ -603,7 +603,6 @@ int main(int argc,char **argv){
 	jmp_buf jb;
 	volatile double show_result=1.0;
 	static char buf[1024*1024*1024];
-	struct expr_area ea;
 	struct expr_areainfo ai;
 	struct expr_memtool mtl;
 	const struct expr_memtool *defmtl=expr_defmtl;
@@ -708,7 +707,8 @@ break3:
 	if(adbt||!nobt)
 		expr_builtin_symbol_addalls(es,expr_symbols_ess);
 	if(summary){
-		expr_setup_heapmtl5(&mtl,&ea,buf,sizeof(buf),0);
+		if(expr_setup_heapmtl(&mtl,buf,sizeof(buf),0)<0)
+			errx(EXIT_FAILURE,"buffer too small");
 		defmtl=&mtl;
 	}
 	if(expr_init_r(ep,e,"t",es,flag,defmtl)<0){
@@ -743,8 +743,21 @@ break3:
 #define printi(V) expr_ilprintf(&eprintff,#V "=%d\n",(ssize_t)(V))
 #define printz(V) expr_ilprintf(&eprintff,#V "=%=.2M,",(size_t)(ai.V))
 #define printn(V) expr_ilprintf(&eprintff,#V "=%u,",(size_t)(ai.V))
+#define printm(V) expr_ilprintf(&eprintff,#V "=%u,",(size_t)(((struct expr_area *)buf)->monotonic_##V))
 #define pall() \
-	printi(expr_area_summary(&ea,&ai));\
+	printm(allocate);\
+	printm(allocate_fail);\
+	printm(deallocate);\
+	printm(expand_nail);\
+	printm(expand_move);\
+	printm(expand_fail);\
+	printm(shrink);\
+	printm(create);\
+	printm(combine);\
+	printm(retail_up);\
+	printm(retail_down);\
+	expr_ilprintf(&eprintff,"\b \n");\
+	if((r0=expr_area_summary((struct expr_area *)buf,&ai))<0)errx(EXIT_FAILURE,"summary error code=%d,count=%zu",r0,ai.unit_count);\
 	printz(size);\
 	printn(unit_count);\
 	printz(free);\
@@ -756,7 +769,7 @@ break3:
 	printz(tail_size);\
 	printz(tail_index);\
 	printz(max);\
-	expr_ilprintf(&eprintff,"\n")
+	expr_ilprintf(&eprintff,"\b \n")
 	if(summary){
 		pall();
 		expr_idprintf(STDERR_FILENO,"expr_free()\n");

@@ -1000,8 +1000,20 @@ struct expr_areaunit {
 struct expr_area {
 	struct expr_areaunit *data;
 	struct expr_areaunit *tail;
-	int flag,unused;
+	unsigned int monotonic_allocate,
+		     monotonic_allocate_fail,
+		     monotonic_deallocate,
+		     monotonic_expand_nail,
+		     monotonic_expand_move,
+		     monotonic_expand_fail,
+		     monotonic_shrink,
+		     monotonic_create,
+		     monotonic_combine,
+		     monotonic_retail_up,
+		     monotonic_retail_down;
+	int flag;
 };
+expr_static_assert(!(sizeof(struct expr_area)%sizeof(struct expr_areaunit)));
 struct expr_areainfo {
 	size_t size;
 	size_t unit_count;
@@ -1019,6 +1031,15 @@ struct expr_areainfo {
 #define EXPR_ANOALIGN 2
 #define EXPR_ALAZY 4
 #define EXPR_ANAIL 8
+#define EXPR_ADYNAMICALIGN 16
+
+#define EXPR_AALIGN_SHIFT 5
+// if the EXPR_ADYNAMICALIGN is set:
+// (flag>>EXPR_AALIGN_SHIFT) must be nonzero, or the undefined behaviour(divide by 0) will occur.
+// if (flag>>EXPR_AALIGN_SHIFT) cannot be divided by sizeof(struct expr_areaunit), the align of memory may be broken.
+
+#define expr_zoneof(heap) ((void *)((uintptr_t)(heap)+sizeof(struct expr_area)))
+#define expr_memlen(p) ({expr_static_castable((p),const void *);((const struct expr_areaunit *)((uintptr_t)(p)-sizeof(struct expr_areaunit)))->size;})
 
 #define expr_symbols_all \
 	expr_symbols_default,\
@@ -1437,12 +1458,17 @@ extern const uint8_t expr_number_table[256];
 //global functions of expr_alloc.c :
 int expr_area_init(struct expr_area *restrict area,void *zone,size_t size);
 int expr_area_init4(struct expr_area *restrict area,void *zone,size_t size,int flag);
-void *expr_area_alloc(struct expr_area *restrict area,size_t size);
-void *expr_area_alloc3(struct expr_area *restrict area,size_t size,int flag);
+void expr_area_wipe(struct expr_area *restrict area);
+void expr_area_wipe_monotonic(struct expr_area *restrict area);
+int expr_area_resize(struct expr_area *restrict area,size_t size);
+void *expr_area_malloc(struct expr_area *restrict area,size_t size);
+void *expr_area_malloc3(struct expr_area *restrict area,size_t size,int flag);
 void expr_area_dealloc(struct expr_area *restrict area,void *old);
 void *expr_area_realloc(struct expr_area *restrict area,void *old,size_t size);
 void *expr_area_realloc4(struct expr_area *restrict area,void *old,size_t size,int flag);
+void *expr_area_calloc(struct expr_area *restrict area,size_t size);
 int expr_area_summary(const struct expr_area *restrict area,struct expr_areainfo *restrict info);
+int expr_setup_heapmtl(struct expr_memtool *restrict mtl,void *heap,size_t size,int flag);
 //global externs of expr_alloc.c :
 //global functions of expr_global.c :
 void expr_contract(void *buf,size_t size);
@@ -1451,8 +1477,6 @@ __attribute__((noreturn)) void expr_explode(void);
 __attribute__((noreturn)) void expr_trap(void);
 __attribute__((noreturn)) void expr_ubehavior(void);
 ssize_t expr_file_readfd_r(expr_reader reader,intptr_t fd,size_t tail,void *savep,const struct expr_memtool *restrict mtl);
-void expr_setup_heapmtl(struct expr_memtool *restrict mtl,struct expr_area *area);
-void expr_setup_heapmtl5(struct expr_memtool *restrict mtl,struct expr_area *area,void *zone,size_t size,int flag);
 void expr_mutex_lock(uint32_t *lock);
 int expr_mutex_trylock(uint32_t *lock);
 void expr_mutex_unlock(uint32_t *lock);

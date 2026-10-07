@@ -85,30 +85,6 @@ ssize_t expr_file_readfd_r(expr_reader reader,intptr_t fd,size_t tail,void *save
 	*(void **)savep=vf->buf;
 	return ret;
 }
-static void *malloc_heap(size_t size,intptr_t arg){
-	void *r;
-	r=expr_area_alloc((struct expr_area *)arg,size);
-	return r;
-}
-static void *realloc_heap(void *old,size_t size,intptr_t arg){
-	void *r;
-	r=expr_area_realloc((struct expr_area *)arg,old,size);
-	return r;
-}
-static void free_heap(void *old,intptr_t arg){
-	expr_area_dealloc((struct expr_area *)arg,old);
-
-}
-void expr_setup_heapmtl(struct expr_memtool *restrict mtl,struct expr_area *area){
-	mtl->allocate=malloc_heap;
-	mtl->reallocate=realloc_heap;
-	mtl->deallocate=free_heap;
-	mtl->arg=(intptr_t)area;
-}
-void expr_setup_heapmtl5(struct expr_memtool *restrict mtl,struct expr_area *area,void *zone,size_t size,int flag){
-	expr_area_init4(area,zone,size,flag);
-	expr_setup_heapmtl(mtl,area);
-}
 #ifdef EXPR_SYSIN
 #define SYSCALL_DEFINED 1
 #else

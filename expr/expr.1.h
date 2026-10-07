@@ -1000,8 +1000,20 @@ struct expr_areaunit {
 struct expr_area {
 	struct expr_areaunit *data;
 	struct expr_areaunit *tail;
-	int flag,unused;
+	unsigned int monotonic_allocate,
+		     monotonic_allocate_fail,
+		     monotonic_deallocate,
+		     monotonic_expand_nail,
+		     monotonic_expand_move,
+		     monotonic_expand_fail,
+		     monotonic_shrink,
+		     monotonic_create,
+		     monotonic_combine,
+		     monotonic_retail_up,
+		     monotonic_retail_down;
+	int flag;
 };
+expr_static_assert(!(sizeof(struct expr_area)%sizeof(struct expr_areaunit)));
 struct expr_areainfo {
 	size_t size;
 	size_t unit_count;
@@ -1019,6 +1031,15 @@ struct expr_areainfo {
 #define EXPR_ANOALIGN 2
 #define EXPR_ALAZY 4
 #define EXPR_ANAIL 8
+#define EXPR_ADYNAMICALIGN 16
+
+#define EXPR_AALIGN_SHIFT 5
+// if the EXPR_ADYNAMICALIGN is set:
+// (flag>>EXPR_AALIGN_SHIFT) must be nonzero, or the undefined behaviour(divide by 0) will occur.
+// if (flag>>EXPR_AALIGN_SHIFT) cannot be divided by sizeof(struct expr_areaunit), the align of memory may be broken.
+
+#define expr_zoneof(heap) ((void *)((uintptr_t)(heap)+sizeof(struct expr_area)))
+#define expr_memlen(p) ({expr_static_castable((p),const void *);((const struct expr_areaunit *)((uintptr_t)(p)-sizeof(struct expr_areaunit)))->size;})
 
 #define expr_symbols_all \
 	expr_symbols_default,\

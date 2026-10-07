@@ -8,17 +8,18 @@
 #include "expr.h"
 #include <string.h>
 
-//NOT COMPLETED
 #define HBITZ ((size_t)PTRDIFF_MIN)
 #define UNIT_SIZE (sizeof(struct expr_areaunit))
+#define zero_from_field(buf,type,field) memset((void *)((uintptr_t)(buf)+offsetof(type,field)),0,sizeof(type)-offsetof(type,field))
+#define zero_fromto_field(buf,type,field,endfield) memset((void *)((uintptr_t)(buf)+offsetof(type,field)),0,offsetof(type,endfield)-offsetof(type,field))
 #define INIT_COMMON \
 	if(unlikely(size<UNIT_SIZE))\
 		return -1;\
 	area->data=zone;\
-	area->data->prev=size;\
+	area->data->unprev=size|HBITZ;\
 	area->data->unsize=size-UNIT_SIZE;\
-	area->data->tail=1;\
-	area->tail=area->data
+	area->tail=area->data;\
+	zero_fromto_field(area,struct expr_area,monotonic_allocate,flag)
 int expr_area_init(struct expr_area *restrict area,void *zone,size_t size){
 	INIT_COMMON;
 	area->flag=0;
@@ -29,7 +30,42 @@ int expr_area_init4(struct expr_area *restrict area,void *zone,size_t size,int f
 	area->flag=flag;
 	return 0;
 }
-#define zalign(size) (((size)+(UNIT_SIZE-1))/UNIT_SIZE)*UNIT_SIZE
+#define WIPE_COMMON \
+	area->data->unsize=area->data->prev-UNIT_SIZE;\
+	area->data->tail=1;\
+	area->tail=area->data
+void expr_area_wipe(struct expr_area *restrict area){
+	WIPE_COMMON;
+}
+void expr_area_wipe_monotonic(struct expr_area *restrict area){
+	WIPE_COMMON;
+	zero_fromto_field(area,struct expr_area,monotonic_allocate,flag);
+}
+int expr_area_resize(struct expr_area *restrict area,size_t size){
+	size_t old_size;
+	if(unlikely(size>(size_t)PTRDIFF_MAX)){
+		return -1;
+	}
+	old_size=area->data->prev;
+	if(size>=old_size){
+		area->data->prev=size;
+		area->tail->unsize+=size-old_size;
+		return 0;
+	}
+	old_size=area->tail->size-(old_size-size);
+	if(unlikely((ssize_t)old_size<0)){
+		return -1;
+	}
+	area->data->prev=size;
+	area->tail->unsize=old_size;
+	return 0;
+}
+#define monoinc(__type) {if(area->monotonic_##__type!=UINT_MAX)++area->monotonic_##__type;}
+
+#define zalign(size,_flag) ((!(_flag&EXPR_ADYNAMICALIGN))?(((size)+(UNIT_SIZE-1))/UNIT_SIZE)*UNIT_SIZE:({\
+	unsigned int _r=(unsigned int)_flag>>EXPR_AALIGN_SHIFT;\
+	(((size)+(_r-1))/_r)*_r;\
+}))
 #define zp p.z
 #define ip p.i
 #define zp1 p1.z
@@ -40,7 +76,7 @@ int expr_area_init4(struct expr_area *restrict area,void *zone,size_t size,int f
 #define _ip1 _p1.i
 #define __zp __p.z
 #define __ip __p.i
-#define findbest(dest,_flag) {\
+#define findbest(dest,_flag,_type) {\
 	union {\
 		struct expr_areaunit *z;\
 		uintptr_t i;\
@@ -63,8 +99,10 @@ int expr_area_init4(struct expr_area *restrict area,void *zone,size_t size,int f
 				else\
 					goto case_2;\
 			}\
-			if(unlikely((_flag&EXPR_ALAZY)||size+UNIT_SIZE>__zp->size))\
+			if(unlikely((_flag&EXPR_ALAZY)||size+UNIT_SIZE>__zp->size)){\
+				monoinc(_type##_fail);\
 				return NULL;\
+			}\
 			dest=__ip;\
 			goto case_0;\
 		}\
@@ -88,14 +126,14 @@ int expr_area_init4(struct expr_area *restrict area,void *zone,size_t size,int f
 		__ip+=__zp->size+UNIT_SIZE;\
 	}\
 }
-#define alloc_internal(_flag) ({\
+#define alloc_internal(_flag,_type) ({\
 	union {\
 		struct expr_areaunit *z;\
 		uintptr_t i;\
 	} _p,_p1;\
 	uintptr_t _ret;\
 	size_t _old;\
-	findbest(_ip,_flag){\
+	findbest(_ip,_flag,_type){\
 case_0:\
 			_old=_zp->unsize;\
 			_zp->unsize=size;\
@@ -106,6 +144,8 @@ case_0:\
 			_zp->unsize=_old-(size+UNIT_SIZE);\
 			_zp->tail=1;\
 			area->tail=_zp;\
+			monoinc(retail_up);\
+			monoinc(create);\
 			goto end;\
 case_1:\
 			_zp->deallocated=0;\
@@ -121,22 +161,11 @@ case_2:\
 			_zp->prev=size;\
 			_old=_old-(size+UNIT_SIZE);\
 			_ip1=_ip+_old+UNIT_SIZE;\
-			if(_zp1->tail){\
-				_old+=_zp1->size+UNIT_SIZE;\
-				_zp->tail=1;\
-				area->tail=_zp;\
-			}else if(_zp1->deallocated){\
-				_old+=_zp1->size+UNIT_SIZE;\
-				_ip1+=_zp1->size+UNIT_SIZE;\
-				_zp1->prev=_old;\
-				_zp->deallocated=1;\
-				_zp->tail=0;\
-			}else {\
-				_zp1->prev=_old;\
-				_zp->deallocated=1;\
-				_zp->tail=0;\
-			}\
+			_zp1->prev=_old;\
+			_zp->deallocated=1;\
+			_zp->tail=0;\
 			_zp->size=_old;\
+			monoinc(create);\
 			goto end;\
 	}\
 end:\
@@ -144,61 +173,77 @@ end:\
 })
 #define ALLOC_BODY(_flag) \
 	void *ret;\
-	if(unlikely(size>PTRDIFF_MAX)){\
+	if(unlikely(size>(size_t)PTRDIFF_MAX)){\
+		monoinc(allocate_fail);\
 		return NULL;\
 	}\
 	if(!(_flag&EXPR_ANOALIGN))\
-		size=zalign(size);\
-	ret=alloc_internal(_flag);\
+		size=zalign(size,_flag);\
+	ret=alloc_internal(_flag,allocate);\
+	monoinc(allocate);\
 	if(_flag&EXPR_AZERO)\
 		memset(ret,0,size);\
 	return ret
-void *expr_area_alloc(struct expr_area *restrict area,size_t size){
+void *expr_area_malloc(struct expr_area *restrict area,size_t size){
 	ALLOC_BODY(area->flag);
 }
-void *expr_area_alloc3(struct expr_area *restrict area,size_t size,int flag){
+void *expr_area_malloc3(struct expr_area *restrict area,size_t size,int flag){
 	ALLOC_BODY(flag);
 }
+#define DEALLOC_BODY(_old) \
+	ip=((uintptr_t)(_old)-UNIT_SIZE);\
+	if(zp!=area->data){\
+		ip1=ip-zp->prev-UNIT_SIZE;\
+		if(zp1->deallocated){\
+			zp1->size+=zp->size+UNIT_SIZE;\
+			zp=zp1;\
+			monoinc(combine);\
+		}else\
+			zp->deallocated=1;\
+	}else\
+			zp->deallocated=1;\
+	ip1=ip+zp->size+UNIT_SIZE;\
+	if(zp1->tail){\
+		zp->size+=zp1->size+UNIT_SIZE;\
+		zp->tail=1;\
+		area->tail=zp;\
+		monoinc(retail_down);\
+		monoinc(combine);\
+	}else {\
+		if(zp1->deallocated){\
+			zp->size+=zp1->size+UNIT_SIZE;\
+			monoinc(combine);\
+		}\
+		ip1=ip+zp->size+UNIT_SIZE;\
+		zp1->prev=zp->size;\
+	}
 void expr_area_dealloc(struct expr_area *restrict area,void *old){
 	union {
 		struct expr_areaunit *z;
 		uintptr_t i;
 	} p,p1;
-	ip=((uintptr_t)old-UNIT_SIZE);
-	if(zp!=area->data){
-		ip1=ip-zp->prev-UNIT_SIZE;
-		if(zp1->deallocated){
-			zp1->size+=zp->size+UNIT_SIZE;
-			zp=zp1;
-		}else
-			zp->deallocated=1;
-	}else
-			zp->deallocated=1;
-	ip1=ip+zp->size+UNIT_SIZE;
-	if(zp1->tail){
-		zp->size+=zp1->size+UNIT_SIZE;
-		zp->tail=1;
-		area->tail=zp;
-	}else {
-		if(zp1->deallocated){
-			zp->size+=zp1->size+UNIT_SIZE;
-		}
-		ip1=ip+zp->size+UNIT_SIZE;
-		zp1->prev=zp->size;
-	}
+	DEALLOC_BODY(old);
+	monoinc(deallocate);
 }
+#define extra un._extra
+#define new un._new
 #define REALLOC_BODY(_flag) \
 	union {\
 		struct expr_areaunit *z;\
 		uintptr_t i;\
 	} p,p1;\
-	size_t extra,temp_size,temp_prev;\
-	if(unlikely(size>PTRDIFF_MAX)){\
+	union {\
+		void *_new;\
+		size_t _extra;\
+	} un;\
+	size_t temp_size,temp_prev;\
+	if(unlikely(size>(size_t)PTRDIFF_MAX)){\
+		monoinc(expand_fail);\
 		return NULL;\
 	}\
 	ip=((uintptr_t)old-UNIT_SIZE);\
 	if(!(_flag&EXPR_ANOALIGN))\
-		size=zalign(size);\
+		size=zalign(size,_flag);\
 	if(size<=zp->unsize){\
 		extra=zp->unsize-size;\
 		if(extra<UNIT_SIZE)\
@@ -212,6 +257,7 @@ void expr_area_dealloc(struct expr_area *restrict area,void *old){
 			extra+=zp1->size+UNIT_SIZE;\
 			zp->tail=1;\
 			area->tail=zp;\
+			monoinc(retail_down);\
 		}else if(zp1->deallocated){\
 			extra+=zp1->size+UNIT_SIZE;\
 			ip1+=zp1->size+UNIT_SIZE;\
@@ -222,8 +268,10 @@ void expr_area_dealloc(struct expr_area *restrict area,void *old){
 			zp1->prev=extra;\
 			zp->deallocated=1;\
 			zp->tail=0;\
+			monoinc(create);\
 		}\
 		zp->size=extra;\
+		monoinc(shrink);\
 		return old;\
 	}\
 	ip1=ip+zp->unsize+UNIT_SIZE;\
@@ -236,7 +284,8 @@ void expr_area_dealloc(struct expr_area *restrict area,void *old){
 			zp1->unsize=temp_size;\
 			zp1->unprev=temp_prev|HBITZ;\
 			area->tail=zp1;\
-			goto old_extend;\
+			monoinc(retail_up);\
+			goto old_expand;\
 		}else if(zp1->deallocated){\
 			temp_size=zp1->size-extra;\
 			temp_prev=zp1->prev+extra;\
@@ -245,7 +294,7 @@ void expr_area_dealloc(struct expr_area *restrict area,void *old){
 			zp1->unprev=temp_prev;\
 			ip1+=temp_size+UNIT_SIZE;\
 			zp1->prev=temp_size;\
-			goto old_extend;\
+			goto old_expand;\
 		}\
 	}else {\
 		temp_prev=zp1->size+UNIT_SIZE;\
@@ -253,28 +302,37 @@ void expr_area_dealloc(struct expr_area *restrict area,void *old){
 			ip1+=temp_prev;\
 			size=zp->unsize+temp_prev;\
 			zp1->prev=size;\
-			goto old_extend;\
+			monoinc(combine);\
+			goto old_expand;\
 		}\
 	}\
 	if(_flag&EXPR_ANAIL){\
+		monoinc(expand_fail);\
 		return NULL;\
 	}\
-	ip1=(uintptr_t)alloc_internal(_flag);\
-	memcpy((void *)ip1,old,zp->unsize);\
+	new=alloc_internal(_flag,expand);\
+	memcpy(new,old,zp->unsize);\
 	if(_flag&EXPR_AZERO)\
-		memset((void *)(ip1+zp->unsize),0,size-zp->unsize);\
-	expr_area_dealloc(area,old);\
-	return (void *)ip1;\
-old_extend:\
+		memset((void *)((uintptr_t)new+zp->unsize),0,size-zp->unsize);\
+	{\
+		DEALLOC_BODY(old)\
+	}\
+	monoinc(expand_move);\
+	return new;\
+old_expand:\
 	if(_flag&EXPR_AZERO)\
 		memset((void *)((uintptr_t)old+zp->unsize),0,size-zp->unsize);\
 	zp->unsize=size;\
+	monoinc(expand_nail);\
 	return old
 void *expr_area_realloc(struct expr_area *restrict area,void *old,size_t size){
 	REALLOC_BODY(area->flag);
 }
 void *expr_area_realloc4(struct expr_area *restrict area,void *old,size_t size,int flag){
 	REALLOC_BODY(flag);
+}
+void *expr_area_calloc(struct expr_area *restrict area,size_t size){
+	return expr_area_malloc3(area,size,area->flag|EXPR_AZERO);
 }
 int expr_area_summary(const struct expr_area *restrict area,struct expr_areainfo *restrict info){
 	union {
@@ -284,7 +342,7 @@ int expr_area_summary(const struct expr_area *restrict area,struct expr_areainfo
 	struct expr_areaunit *prev=NULL;
 	zp=area->data;
 	info->size=zp->prev;
-	memset((void *)((uintptr_t)info+offsetof(struct expr_areainfo,unit_count)),0,sizeof(struct expr_areainfo)-offsetof(struct expr_areainfo,unit_count));
+	zero_from_field(info,struct expr_areainfo,unit_count);
 	for(;;){
 		if(prev){
 			if(unlikely(prev->size!=zp->prev))
@@ -318,5 +376,26 @@ int expr_area_summary(const struct expr_area *restrict area,struct expr_areainfo
 	if(unlikely(zp!=area->tail))
 		return -4;
 	++info->unit_count;
+	return 0;
+}
+static void *static_area_malloc(size_t size,intptr_t arg){
+	return expr_area_malloc((struct expr_area *)arg,size);
+}
+static void *static_area_realloc(void *old,size_t size,intptr_t arg){
+	return expr_area_realloc((struct expr_area *)arg,old,size);
+}
+static void static_area_dealloc(void *old,intptr_t arg){
+	expr_area_dealloc((struct expr_area *)arg,old);
+
+}
+int expr_setup_heapmtl(struct expr_memtool *restrict mtl,void *heap,size_t size,int flag){
+	if(unlikely(size<sizeof(struct expr_area)))
+		return -1;
+	if(unlikely(expr_area_init4((struct expr_area *)heap,expr_zoneof(heap),size-sizeof(struct expr_area),flag))<0)
+		return -1;
+	mtl->allocate=static_area_malloc;
+	mtl->reallocate=static_area_realloc;
+	mtl->deallocate=static_area_dealloc;
+	mtl->arg=(intptr_t)heap;
 	return 0;
 }

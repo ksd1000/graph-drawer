@@ -641,7 +641,7 @@ int main(int argc,char **argv){
 				show_result=0.0;
 				break;
 			case 'S':
-				summary=1;
+				++summary;
 				break;
 			case 's':
 				mode=STEP;
@@ -707,7 +707,7 @@ break3:
 	if(adbt||!nobt)
 		expr_builtin_symbol_addalls(es,expr_symbols_ess);
 	if(summary){
-		if(expr_setup_heapmtl(&mtl,buf,sizeof(buf),0)<0)
+		if(expr_setup_heapmtl(&mtl,buf,sizeof(buf),summary>1?EXPR_ALAZY:0)<0)
 			errx(EXIT_FAILURE,"buffer too small");
 		defmtl=&mtl;
 	}

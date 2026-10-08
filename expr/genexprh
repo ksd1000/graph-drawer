@@ -6,12 +6,13 @@ dump() {
 	./extdump < "$1" >>expr.h
 }
 cat expr.1.h > expr.h
-dump expr_format.c
-dump expr_buffered.c
-dump expr_builtin.c
-dump expr_core.c
-dump expr_alloc.c
-dump expr_global.c
+dump expr-alloc.c
+dump expr-buffered.c
+dump expr-builtin.c
+dump expr-core.c
+dump expr-format.c
+dump expr-global.c
+dump expr-internal.c
 echo "#if !(defined(EXPR_INLIB)&&(EXPR_INLIB))" >>expr.h
 ./rudump-mf >>expr.h
 echo "#endif" >>expr.h

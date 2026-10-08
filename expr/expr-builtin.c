@@ -44,6 +44,52 @@ uint64_t expr_gcd64(uint64_t x,uint64_t y){
 	assume(!x||!y);
 	return (x|y)<<r;
 }
+void expr_mirror(double *buf,size_t size){
+	double *out=buf+size-1,swapbuf;
+	while(likely(out>buf)){
+		swapbuf=*out;
+		*out=*buf;
+		*buf=swapbuf;
+		--out;
+		++buf;
+	}
+}
+void expr_memfry48(void *restrict buf,size_t size,size_t n,int64_t seed){
+	size_t r;
+	seed=expr_seed48(seed);
+	for(size_t i=0;i<n;++i){
+		r=expr_ltol48(expr_next48(&seed))%n;
+		if(likely(r!=i))
+			expr_memswap((char *)buf+i*size,(char *)buf+r*size,size);
+		else if(i<n-1){
+			expr_memswap((char *)buf+i*size,(char *)buf+(i+1)*size,size);
+		}
+	}
+}
+void expr_fry(double *restrict v,size_t n){
+	size_t r;
+	double swapbuf;
+	double *endp;
+	switch(n){
+		case 0:
+		case 1:
+			return;
+		default:
+			r=n>>1;
+			expr_fry(v,r);
+			expr_fry(v+r,r);
+			break;
+	}
+	r=((uintptr_t)v+(uintptr_t)__builtin_frame_address(0))&511;
+	for(endp=v+n-1;likely(v<endp);++v,--endp){
+		r=(r*121+37)&1023;
+		if(__builtin_parity(r)){
+			swapbuf=*v;
+			*v=*endp;
+			*endp=swapbuf;
+		}
+	}
+}
 __attribute__((noinline))
 int expr_sort4_r(double *restrict v,size_t n,const struct expr_memtool *restrict mtl){
 	struct dnode {

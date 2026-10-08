@@ -569,16 +569,16 @@ EXPR_END
 	unsigned char __c=(unsigned char)(c);\
 	switch(__c){\
 		case '0' ... '9':\
-			__c-='0';\
+			__c-=(unsigned char)'0';\
 			break;\
 		case 'A' ... 'Z':\
-			__c-='A';\
+			__c-=(unsigned char)('A'-10);\
 			break;\
 		case 'a' ... 'z':\
-			__c-='a';\
+			__c-=(unsigned char)('a'-10);\
 			break;\
 		default:\
-			__c=127;\
+			__c=(unsigned char)127;\
 			break;\
 	}\
 	__c;\
@@ -1489,6 +1489,8 @@ size_t expr_extint_mul(uint64_t *buf,size_t size,uint32_t factor,uint64_t *works
 size_t expr_extint_div(uint64_t *buf,size_t size,uint32_t divisor,uint32_t *mod);
 size_t expr_extint_ascii(uint64_t *buf,size_t size,const char *chars,uint32_t base,char *outbuf);
 size_t expr_extint_ascii_rev(uint64_t *buf,size_t size,const char *chars,uint32_t base,char *outbuf);
+ssize_t expr_internal_strtoz(const char *restrict nptr,size_t nsize,size_t *restrict end_index,int base);
+double expr_internal_strtod(const char *restrict nptr,size_t nsize,size_t *restrict end_index);
 //global externs of expr-internal.c :
 extern const uint8_t expr_number_table[256];
 #if !(defined(EXPR_INLIB)&&(EXPR_INLIB))

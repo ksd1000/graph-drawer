@@ -569,16 +569,16 @@ EXPR_END
 	unsigned char __c=(unsigned char)(c);\
 	switch(__c){\
 		case '0' ... '9':\
-			__c-='0';\
+			__c-=(unsigned char)'0';\
 			break;\
 		case 'A' ... 'Z':\
-			__c-='A';\
+			__c-=(unsigned char)('A'-10);\
 			break;\
 		case 'a' ... 'z':\
-			__c-='a';\
+			__c-=(unsigned char)('a'-10);\
 			break;\
 		default:\
-			__c=127;\
+			__c=(unsigned char)127;\
 			break;\
 	}\
 	__c;\

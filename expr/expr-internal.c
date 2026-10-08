@@ -260,7 +260,7 @@ size_t expr_extint_add(uint64_t *buf,uint64_t addend){
 	}while(addend);
 	return p-buf;
 }
-// WARNING: the expr_extint_mul is O(N^2)
+// WARNING: the expr_extint_mul is old
 size_t expr_extint_mul(uint64_t *buf,size_t size,uint32_t factor,uint64_t *workspace){
 	uint32_t *restrict p;
 	uint32_t *restrict wp;
@@ -271,7 +271,7 @@ size_t expr_extint_mul(uint64_t *buf,size_t size,uint32_t factor,uint64_t *works
 	buf[size]=0;
 	size_t size32=size<<1,csize32;
 	for(p=(uint32_t *)buf,wp=(uint32_t *)workspace;
-			(p-(uint32_t *)buf)<size32;
+			(size_t)(p-(uint32_t *)buf)<size32;
 			++p,++wp){
 		un.v=((uint64_t)*p)*factor;
 		*p=un.v&0xfffffffful;
@@ -360,4 +360,242 @@ size_t expr_extint_ascii(uint64_t *buf,size_t size,const char *chars,uint32_t ba
 }
 size_t expr_extint_ascii_rev(uint64_t *buf,size_t size,const char *chars,uint32_t base,char *outbuf){
 	write_ascii(--out,outbuf-out);
+}
+ssize_t expr_internal_strtoz(const char *restrict nptr,size_t nsize,size_t *restrict end_index,int base){
+	ssize_t r=0;
+	int neg=0;
+	unsigned int get;
+	const char *startp,*endp;
+	startp=(const char *)nptr;
+	endp=startp+nsize;
+	if(nsize>=2){
+		switch(*nptr){
+			case '-':
+				neg=1;
+			case '+':
+				++nptr;
+				break;
+		}
+	}
+	if(!base){
+		if(nptr+1<endp&&*nptr=='0'){
+			++nptr;
+			if(nptr+1<endp&&*nptr=='x'){
+				++nptr;
+				get=expr_ntable(*nptr);
+				if(unlikely(get>=16)){
+					--nptr;
+					goto out;
+				}
+				base=16;
+				goto got;
+			}else {
+				get=expr_ntable(*nptr);
+				if(unlikely(get>=8)){
+					goto out;
+				}
+				base=8;
+				goto got;
+			}
+		}else {
+			base=10;
+		}
+	}
+	if(unlikely(nptr>=endp)){
+		goto atend;
+	}
+	// base cannot be >36
+	get=expr_ntable(*nptr);
+	if(unlikely(get>=base)){
+atend:
+		if(nptr==startp+1){
+			--nptr;
+		}
+		goto out;
+	}
+got:
+	if(unlikely(mulo(r,base)))
+		goto overflow;
+	if(unlikely(addo(r,get)))
+		goto overflow;
+	++nptr;
+	while(nptr<endp){
+		get=expr_ntable(*nptr);
+		if(unlikely(get>=base))
+			goto out;
+		if(unlikely(mulo(r,base)))
+			goto overflow;
+		if(unlikely(addo(r,get)))
+			goto overflow;
+		++nptr;
+	}
+out:
+	*end_index=(size_t)(nptr-startp);
+	debug("result:%zd",(ssize_t)(neg?-r:r));
+	return (ssize_t)(neg?-r:r);
+overflow:
+	++nptr;
+	while(nptr<endp){
+		get=expr_ntable(*nptr);
+		if(unlikely(get>=base))
+			break;
+		++nptr;
+	}
+	*end_index=(size_t)(nptr-startp);
+	debug("overflow result:%zd",(ssize_t)(neg?PTRDIFF_MIN:PTRDIFF_MAX));
+	return (ssize_t)(neg?PTRDIFF_MIN:PTRDIFF_MAX);
+}
+#define special_case(c0,c1,c2,val) \
+		case c0:\
+			if(nptr+2>=endp)\
+				goto fail0;\
+			if(likely((nptr[1]|32)==c1&&(nptr[2]|32)==c2)){\
+				*end_index=(size_t)(nptr-nptr0)+3;\
+				return negative?-(val):(val);\
+			}\
+			goto fail0
+#define DDMAXBIT 1076
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
+double expr_internal_strtod(const char *restrict nptr,size_t nsize,size_t *restrict end_index){
+	char nbuf[DDMAXBIT];
+	char *np,*np1;
+	const char *endp,*point,*nptr0;
+	ssize_t expo,trunc;
+	size_t npsize;
+	union expr_double val;
+	int trunc_nonzero,negative=0,umbrella;
+	//treat the special cases.
+	if(unlikely(!nsize)){
+fail0:
+		*end_index=0;
+		return 0.0;
+	}
+	nptr0=(const char *)nptr;
+	endp=(const char *)nptr+nsize;
+	//the caller should ensure no blank at the start of nptr.
+	if(nsize>=2){
+		switch(*nptr){
+			case '-':
+				negative=1;
+			case '+':
+				++nptr;
+				break;
+		}
+	}
+	switch(*nptr){
+		special_case('I','n','f',INFINITY);
+		special_case('i','n','f',INFINITY);
+		case 'N':
+		case 'n':
+			if(unlikely(nptr+2>=endp||(nptr[1]|32)!='a'||(nptr[2]|32)!='n'))
+				goto fail0;
+			nptr+=3;
+			if(nptr==endp){
+no_payload:
+				*end_index=(size_t)(nptr-nptr0);
+				return negative?-NAN:NAN;
+			}
+			if(*nptr!='(')
+				goto no_payload;
+			++nptr;
+			np=memchr(nptr,')',endp-nptr);
+			if(unlikely(!np)){
+				--nptr;
+				goto no_payload;
+			}
+			trunc=(ssize_t)(np-nptr);
+			expo=expr_internal_strtoz(nptr,(size_t)trunc,&npsize,0);
+			//npsize not used here, avoid SIGSEGV.
+			val.uval=((uint64_t)negative<<63)|(UINT64_C(4095)<<51)|(expo&((UINT64_C(1)<<52)-1));
+			*end_index=(size_t)(np-nptr0)+1;
+			return val.val;
+		default:
+			break;
+	}
+	//jump all zeros on the head.
+	point=NULL;
+	umbrella=0;
+#define RZSU() if(umbrella)goto zero;else return 0.0
+	//return zero with sign when umbrella is set.
+	while(nptr<endp){
+		switch(*nptr){
+			case '.':
+				if(unlikely(point)){
+					*end_index=umbrella?(size_t)(nptr-nptr0):0;
+					RZSU();
+				}
+				point=nptr;
+				++nptr;
+				continue;
+			case '0':
+				umbrella=1;
+				++nptr;
+				continue;
+			default:
+				break;
+		}
+		break;
+	}
+	if(unlikely(nptr==endp)){
+		*end_index=umbrella?nsize:0;
+		RZSU();
+	}
+	np=nbuf;
+	np1=nbuf+DDMAXBIT;
+	trunc=0;
+	trunc_nonzero=0;
+	for(;nptr<endp;++nptr){
+		switch(*nptr){
+			case '0' ... '9':
+				if(likely(np<np1))
+					*(np++)=*nptr-(char)'0';
+				else {
+					++trunc;
+					if(*nptr!='0')
+						trunc_nonzero=1;
+				}
+				continue;
+			case '.':
+				if(unlikely(point)){
+					expo=0;
+					goto no_expo;
+				}
+				point=(const char *)nptr;
+				continue;
+			default:
+				break;
+		}
+		break;
+	}
+	if(unlikely(!umbrella&&np==nbuf)){
+		*end_index=0;
+		RZSU();
+	}
+	if(nptr+1<endp&&(*nptr|32)=='e'){
+		++nptr;
+		expo=expr_internal_strtoz(nptr,endp-nptr,&npsize,10);
+		if(unlikely(!npsize)){
+			--nptr;
+			goto no_expo;
+		}
+		*end_index=(size_t)((nptr-nptr0)+npsize);
+		--nptr;
+	}else {
+		expo=0;
+no_expo:
+		//strtoz returns 0 on fail. need not set again.
+		*end_index=(size_t)(nptr-nptr0);
+	}
+	npsize=np-nbuf;
+	if(!point)
+		expo+=trunc;
+	else
+		expo+=trunc-((ssize_t)(nptr-point)-1);
+	if(np==nbuf){
+zero:
+		val.uval=((uint64_t)negative<<63);
+		return val.val;
+	}
+	//do D=nbuf with npsize,E=expo?
+	return 0;//incompleted
 }

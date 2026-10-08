@@ -1482,6 +1482,13 @@ extern int expr_mtl_setup;
 //global functions of expr-internal.c :
 size_t expr_strscan(const char *restrict s,size_t sz,char *restrict buf,size_t outsz);
 void expr_memswap(void *restrict s1,void *restrict s2,size_t size);
+size_t expr_extint_left(uint64_t *buf,size_t size,uint64_t bits);
+size_t expr_extint_right(uint64_t *buf,size_t size,uint64_t bits);
+size_t expr_extint_add(uint64_t *buf,uint64_t addend);
+size_t expr_extint_mul(uint64_t *buf,size_t size,uint32_t factor,uint64_t *workspace);
+size_t expr_extint_div(uint64_t *buf,size_t size,uint32_t divisor,uint32_t *mod);
+size_t expr_extint_ascii(uint64_t *buf,size_t size,const char *chars,uint32_t base,char *outbuf);
+size_t expr_extint_ascii_rev(uint64_t *buf,size_t size,const char *chars,uint32_t base,char *outbuf);
 //global externs of expr-internal.c :
 extern const uint8_t expr_number_table[256];
 #if !(defined(EXPR_INLIB)&&(EXPR_INLIB))

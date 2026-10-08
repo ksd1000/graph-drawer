@@ -13,8 +13,8 @@
 #define zero_from_field(buf,type,field) memset((void *)((uintptr_t)(buf)+offsetof(type,field)),0,sizeof(type)-offsetof(type,field))
 #define zero_fromto_field(buf,type,field,endfield) memset((void *)((uintptr_t)(buf)+offsetof(type,field)),0,offsetof(type,endfield)-offsetof(type,field))
 #define align_size(val,const_size) (((val)+((const_size)-1))/(const_size))*(const_size)
-#define zalign(size,_flag) ((!(_flag&EXPR_ADYNAMICALIGN))?(((size)+(UNIT_SIZE-1))/UNIT_SIZE)*UNIT_SIZE:({\
-	unsigned int _r=(unsigned int)_flag>>EXPR_AALIGN_SHIFT;\
+#define zalign(size,_flag) ((!((_flag)&EXPR_ADYNAMICALIGN))?(((size)+(UNIT_SIZE-1))/UNIT_SIZE)*UNIT_SIZE:({\
+	unsigned int _r=(unsigned int)(_flag)>>EXPR_AALIGN_SHIFT;\
 	(((size)+(_r-1))/_r)*_r;\
 }))
 #define INIT_COMMON(_flag) \
@@ -99,7 +99,7 @@ int expr_area_resize(struct expr_area *restrict area,size_t size){
 	uintptr_t __prev=0;\
 	size_t __prev_extra=0,__extra;\
 	__zp=area->data;\
-	if(_flag&EXPR_ALAZY){\
+	if((_flag)&EXPR_ALAZY){\
 		if(likely(size+UNIT_SIZE<=area->tail->size)){\
 			dest=(uintptr_t)area->tail;\
 			goto case_0;\
@@ -114,7 +114,7 @@ int expr_area_resize(struct expr_area *restrict area,size_t size){
 				else\
 					goto case_2;\
 			}\
-			if(unlikely((_flag&EXPR_ALAZY)||size+UNIT_SIZE>__zp->size)){\
+			if(unlikely(((_flag)&EXPR_ALAZY)||size+UNIT_SIZE>__zp->size)){\
 				monoinc(_type##_fail);\
 				return NULL;\
 			}\
@@ -124,7 +124,7 @@ int expr_area_resize(struct expr_area *restrict area,size_t size){
 		if(__zp->deallocated){\
 			_old=__zp->size;\
 			if(size<=_old){\
-				if(_flag&EXPR_ALAZYEX){\
+				if((_flag)&EXPR_ALAZYEX){\
 					__extra=_old-size;\
 					dest=__ip;\
 					if(__extra<UNIT_SIZE)\
@@ -200,11 +200,11 @@ end:\
 		monoinc(allocate_fail);\
 		return NULL;\
 	}\
-	if(!(_flag&EXPR_ANOALIGN))\
+	if(!((_flag)&EXPR_ANOALIGN))\
 		size=zalign(size,_flag);\
 	ret=alloc_internal(_flag,allocate);\
 	monoinc(allocate);\
-	if(_flag&EXPR_AZERO)\
+	if((_flag)&EXPR_AZERO)\
 		memset(ret,0,size);\
 	return ret
 void *expr_area_malloc(struct expr_area *restrict area,size_t size){
@@ -265,7 +265,7 @@ void expr_area_dealloc(struct expr_area *restrict area,void *old){
 		return NULL;\
 	}\
 	ip=((uintptr_t)old-UNIT_SIZE);\
-	if(!(_flag&EXPR_ANOALIGN))\
+	if(!((_flag)&EXPR_ANOALIGN))\
 		size=zalign(size,_flag);\
 	if(size<=zp->unsize){\
 		extra=zp->unsize-size;\
@@ -329,13 +329,13 @@ void expr_area_dealloc(struct expr_area *restrict area,void *old){
 			goto old_expand;\
 		}\
 	}\
-	if(_flag&EXPR_ANAIL){\
+	if((_flag)&EXPR_ANAIL){\
 		monoinc(expand_fail);\
 		return NULL;\
 	}\
-	new=alloc_internal(_flag,expand);\
+	new=alloc_internal((_flag),expand);\
 	memcpy(new,old,zp->unsize);\
-	if(_flag&EXPR_AZERO)\
+	if((_flag)&EXPR_AZERO)\
 		memset((void *)((uintptr_t)new+zp->unsize),0,size-zp->unsize);\
 	{\
 		DEALLOC_BODY(old)\
@@ -343,7 +343,7 @@ void expr_area_dealloc(struct expr_area *restrict area,void *old){
 	monoinc(expand_move);\
 	return new;\
 old_expand:\
-	if(_flag&EXPR_AZERO)\
+	if((_flag)&EXPR_AZERO)\
 		memset((void *)((uintptr_t)old+zp->unsize),0,size-zp->unsize);\
 	zp->unsize=size;\
 	monoinc(expand_nail);\

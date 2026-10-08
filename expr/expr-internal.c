@@ -185,3 +185,179 @@ void expr_memswap(void *restrict s1,void *restrict s2,size_t size){
 		*(int8_t *)s2=un.swapbuf8;
 	}
 }
+size_t expr_extint_left(uint64_t *buf,size_t size,uint64_t bits){
+	uint64_t b64=bits/64;
+	size_t rsize=size;
+	uint64_t *p,*p0;
+	bits%=64;
+	if(b64){
+		rsize+=b64;
+		p0=buf+size-1;
+		p=p0+b64;
+		do{
+			*p=*p0;
+			--p0;
+			--p;
+		}while(p0>=buf);
+		do{
+			*p=0;
+			--p;
+		}while(p>=buf);
+	}
+	if(bits){
+		p=buf+rsize;
+		p0=p;
+		*p=0;
+		do {
+			*p=(p[-1]>>(64-bits))|(*p<<bits);
+			--p;
+		}while(p>buf);
+		*buf<<=bits;
+		if(*p0)
+			++rsize;
+	}
+	return rsize;
+}
+size_t expr_extint_right(uint64_t *buf,size_t size,uint64_t bits){
+	uint64_t b64=bits/64;
+	size_t rsize=size;
+	uint64_t *p,*p0,*end;
+	if(b64){
+		if(rsize<=b64){
+			*buf=0;
+			return 1;
+		}
+		rsize-=b64;
+		p=buf;
+		p0=p+b64;
+		end=buf+rsize;
+		do{
+			*p=*p0;
+			++p;
+			if(p0>=end)
+				break;
+			++p0;
+		}while(p0<end);
+	}
+	bits%=64;
+	if(bits){
+		p=buf;
+		end=buf+rsize-1;
+		while(p<end){
+			*p=(p[1]<<(64-bits))|(*p>>bits);
+			++p;
+		}
+		*end>>=bits;
+		if(rsize>1&&!*end)
+			--rsize;
+	}
+	return rsize;
+}
+size_t expr_extint_add(uint64_t *buf,uint64_t addend){
+	uint64_t *restrict p=buf;
+	do {
+		addend=((*(p++)+=addend)<addend);
+	}while(addend);
+	return p-buf;
+}
+// WARNING: the expr_extint_mul is O(N^2)
+size_t expr_extint_mul(uint64_t *buf,size_t size,uint32_t factor,uint64_t *workspace){
+	uint32_t *restrict p;
+	uint32_t *restrict wp;
+	union {
+		uint64_t v;
+		size_t size;
+	} un;
+	buf[size]=0;
+	size_t size32=size<<1,csize32;
+	for(p=(uint32_t *)buf,wp=(uint32_t *)workspace;
+			(p-(uint32_t *)buf)<size32;
+			++p,++wp){
+		un.v=((uint64_t)*p)*factor;
+		*p=un.v&0xfffffffful;
+		*wp=(un.v>>32);
+	}
+	csize32=size32;
+	for(p=(uint32_t *)buf,wp=(uint32_t *)workspace;
+			(wp-(uint32_t *)workspace)<csize32;
+			++p,++wp){
+		if(!*wp)continue;
+		un.size=p-(uint32_t *)buf;
+		if(((uintptr_t)p)&7)
+			un.size=(un.size>>1)+1+
+				expr_extint_add((uint64_t *)(p+1),*wp);
+		else {
+			*wp=((p[1]+=*wp)<*wp);
+			if(*wp){
+			un.size=(un.size>>1)+1+
+				expr_extint_add((uint64_t *)(p+2),*wp);
+			}else continue;
+		}
+		if(un.size>size){
+			size=un.size;
+			size32=size<<1;
+		}
+	}
+	return size;
+}
+size_t expr_extint_div(uint64_t *buf,size_t size,uint32_t divisor,uint32_t *mod){
+	uint32_t *p=(uint32_t *)(buf+size);
+	uint64_t v;
+	size_t rsize=0;
+	uint32_t backup=0;
+	*(uint32_t *)p=0;
+	do {
+		--p;
+		v=*(uint64_t *)p/divisor;
+		*(uint64_t *)p%=divisor;
+		((uint32_t *)p)[1]=backup;
+		backup=v;
+		if(!v)
+			continue;
+		if(!rsize)
+			rsize=(p-(uint32_t *)buf)+1;
+	}while(p>(uint32_t *)buf);
+	if(mod)
+		*mod=*(uint32_t *)buf;
+	*(uint32_t *)buf=backup;
+	if(rsize)
+		return (rsize+1)>>1;
+	else
+		return 0;
+}
+#define write_ascii(_op,_sz) \
+	uint32_t mod,ds=base,dsn,n;\
+	char *out=outbuf;\
+	for(n=1;;){\
+		dsn=ds*base;\
+		if(dsn>ds&&!(dsn%ds)){\
+			ds=dsn;\
+			++n;\
+		}else\
+			break;\
+	}\
+	for(;;){\
+		size=expr_extint_div(buf,size,ds,&mod);\
+		if(size){\
+			for(dsn=n;dsn;--dsn){\
+				*(_op)=chars[mod%base];\
+				mod/=base;\
+			}\
+		}else {\
+			while(mod){\
+				*(_op)=chars[mod%base];\
+				mod/=base;\
+			}\
+			break;\
+		}\
+	}\
+	if(out==outbuf)\
+		*(_op)=chars[0];\
+	size=(_sz);\
+	return size
+size_t expr_extint_ascii(uint64_t *buf,size_t size,const char *chars,uint32_t base,char *outbuf){
+	write_ascii(out++,out-outbuf);
+}
+size_t expr_extint_ascii_rev(uint64_t *buf,size_t size,const char *chars,uint32_t base,char *outbuf){
+	write_ascii(--out,outbuf-out);
+}

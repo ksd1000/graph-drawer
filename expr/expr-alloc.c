@@ -13,11 +13,12 @@
 #define zero_from_field(buf,type,field) memset((void *)((uintptr_t)(buf)+offsetof(type,field)),0,sizeof(type)-offsetof(type,field))
 #define zero_fromto_field(buf,type,field,endfield) memset((void *)((uintptr_t)(buf)+offsetof(type,field)),0,offsetof(type,endfield)-offsetof(type,field))
 #define INIT_COMMON \
-	if(unlikely(size<UNIT_SIZE))\
+	size_t sizemu=size-UNIT_SIZE;\
+	if(unlikely(sizemu>((size_t)PTRDIFF_MAX-UNIT_SIZE)))\
 		return -1;\
 	area->data=zone;\
 	area->data->unprev=size|HBITZ;\
-	area->data->unsize=size-UNIT_SIZE;\
+	area->data->unsize=sizemu;\
 	area->tail=area->data;\
 	zero_fromto_field(area,struct expr_area,monotonic_allocate,flag)
 int expr_area_init(struct expr_area *restrict area,void *zone,size_t size){
@@ -109,6 +110,14 @@ int expr_area_resize(struct expr_area *restrict area,size_t size){
 		if(__zp->deallocated){\
 			_old=__zp->size;\
 			if(size<=_old){\
+				if(_flag&EXPR_ALAZYEX){\
+					__extra=_old-size;\
+					dest=__ip;\
+					if(__extra<UNIT_SIZE)\
+						goto case_1;\
+					else\
+						goto case_2;\
+				}\
 				if(__prev){\
 					if(__prev_extra>=UNIT_SIZE){\
 						__extra=_old-size;\
@@ -396,6 +405,7 @@ int expr_setup_heapmtl(struct expr_memtool *restrict mtl,void *heap,size_t size,
 	mtl->allocate=static_area_malloc;
 	mtl->reallocate=static_area_realloc;
 	mtl->deallocate=static_area_dealloc;
+	mtl->test=NULL;
 	mtl->arg=(intptr_t)heap;
 	return 0;
 }

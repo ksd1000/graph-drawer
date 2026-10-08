@@ -968,34 +968,20 @@ struct expr_internal_jmpbuf {
 	jmp_buf jb;
 };
 typedef int (*expr_recursive_callback)(struct expr *restrict ep,void *arg);
-
-struct expr_areaunit {
 #if (!defined(__BIG_ENDIAN__)||!(__BIG_ENDIAN__))
-	union {
-		struct {
-			size_t prev:sizeof(size_t)*8-1,tail:1;
-		};
-		size_t unprev;
-	};
-	union {
-		struct {
-			size_t size:sizeof(size_t)*8-1,deallocated:1;
-		};
-		size_t unsize;
-	};
+#define expr_areaunit_bitfield(master,minor) struct {size_t master:sizeof(size_t)*8-1,minor:1;}
 #else
-		struct {
-			size_t tail:1,prev:sizeof(size_t)*8-1;
-		};
+#define expr_areaunit_bitfield(master,minor) struct {size_t minor:1,master:sizeof(size_t)*8-1;}
+#endif
+struct expr_areaunit {
+	union {
+		expr_areaunit_bitfield(prev,tail);
 		size_t unprev;
 	};
 	union {
-		struct {
-			size_t deallocated:1,size:sizeof(size_t)*8-1;
-		};
+		expr_areaunit_bitfield(size,deallocated);
 		size_t unsize;
 	};
-#endif
 };
 struct expr_area {
 	struct expr_areaunit *data;
@@ -1032,8 +1018,10 @@ struct expr_areainfo {
 #define EXPR_ALAZY 4
 #define EXPR_ANAIL 8
 #define EXPR_ADYNAMICALIGN 16
+#define EXPR_ALAZYEX 32
 
-#define EXPR_AALIGN_SHIFT 5
+#define EXPR_ALAZY_ALL (EXPR_ALAZY|EXPR_ALAZYEX)
+#define EXPR_AALIGN_SHIFT 6
 // if the EXPR_ADYNAMICALIGN is set:
 // (flag>>EXPR_AALIGN_SHIFT) must be nonzero, or the undefined behaviour(divide by 0) will occur.
 // if (flag>>EXPR_AALIGN_SHIFT) cannot be divided by sizeof(struct expr_areaunit), the align of memory may be broken.

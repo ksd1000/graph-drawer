@@ -19,7 +19,7 @@
 }))
 #define INIT_COMMON(_flag) \
 	size_t sizemu;\
-	if((_flag)&EXPR_AADDRALIGN){\
+	if((_flag)&EXPR_ASTARTADDRALIGN){\
 		uintptr_t alp;\
 		size_t dif;\
 		if(unlikely(size>(size_t)PTRDIFF_MAX)){\
@@ -40,9 +40,9 @@
 	area->data->unsize=sizemu;\
 	area->tail=area->data;\
 	zero_fromto_field(area,struct expr_area,monotonic_allocate,flag);\
-	area->flag=(_flag);
+	area->flag=(_flag)
 int expr_area_init(struct expr_area *restrict area,void *zone,size_t size){
-	INIT_COMMON(0);
+	INIT_COMMON(EXPR_ALAZY_ALL|EXPR_ASTARTADDRALIGN);
 	return 0;
 }
 int expr_area_init4(struct expr_area *restrict area,void *zone,size_t size,int flag){
@@ -412,7 +412,7 @@ static void static_area_dealloc(void *old,intptr_t arg){
 
 }
 int expr_setup_heapmtl(struct expr_memtool *restrict mtl,void *heap,size_t size,int flag){
-	if(flag&EXPR_AADDRALIGN){
+	if(flag&EXPR_ASTARTADDRALIGN){
 		uintptr_t alp;
 		size_t dif;
 		alp=align_size((uintptr_t)heap,sizeof(struct expr_area));
@@ -432,4 +432,7 @@ int expr_setup_heapmtl(struct expr_memtool *restrict mtl,void *heap,size_t size,
 	mtl->test=NULL;
 	mtl->arg=(intptr_t)heap;
 	return 0;
+}
+int expr_setup_heapmtl3(struct expr_memtool *restrict mtl,void *heap,size_t size){
+	return expr_setup_heapmtl(mtl,heap,size,EXPR_ALAZY_ALL|EXPR_ASTARTADDRALIGN);
 }

@@ -1019,9 +1019,10 @@ struct expr_areainfo {
 #define EXPR_ANAIL 8
 #define EXPR_ADYNAMICALIGN 16
 #define EXPR_ALAZYEX 32
+#define EXPR_AADDRALIGN 64
 
 #define EXPR_ALAZY_ALL (EXPR_ALAZY|EXPR_ALAZYEX)
-#define EXPR_AALIGN_SHIFT 6
+#define EXPR_AALIGN_SHIFT 7
 // if the EXPR_ADYNAMICALIGN is set:
 // (flag>>EXPR_AALIGN_SHIFT) must be nonzero, or the undefined behaviour(divide by 0) will occur.
 // if (flag>>EXPR_AALIGN_SHIFT) cannot be divided by sizeof(struct expr_areaunit), the align of memory may be broken.

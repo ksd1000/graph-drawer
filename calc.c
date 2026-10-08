@@ -707,7 +707,15 @@ break3:
 	if(adbt||!nobt)
 		expr_builtin_symbol_addalls(es,expr_symbols_ess);
 	if(summary){
-		if(expr_setup_heapmtl(&mtl,buf,sizeof(buf),summary>1?EXPR_ALAZY:0)<0)
+		int aflag;
+		aflag=0;
+		--summary;
+		if(summary&1)
+			aflag|=EXPR_ALAZY;
+		if(summary&2)
+			aflag|=EXPR_ALAZYEX;
+		++summary;
+		if(expr_setup_heapmtl(&mtl,buf,sizeof(buf),aflag)<0)
 			errx(EXIT_FAILURE,"buffer too small");
 		defmtl=&mtl;
 	}

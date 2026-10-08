@@ -14,12 +14,13 @@ set(CMAKE_C_FLAGS_RELWITHDEBINFO "-O2 -g")
 add_compile_options(-Wall -Wextra -Werror)
 #set(LIBRARY_OUTPUT_PATH .)
 add_library(expr
-	expr_global.c
-	expr_core.c
-	expr_buffered.c
-	expr_builtin.c
-	expr_format.c
-	expr_alloc.c
+	expr-global.c
+	expr-builtin.c
+	expr-core.c
+	expr-buffered.c
+	expr-format.c
+	expr-alloc.c
+	expr-internal.c
 )
 link_libraries(expr m)
 add_executable(expr-version expr-version.c)

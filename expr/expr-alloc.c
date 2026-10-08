@@ -12,23 +12,41 @@
 #define UNIT_SIZE (sizeof(struct expr_areaunit))
 #define zero_from_field(buf,type,field) memset((void *)((uintptr_t)(buf)+offsetof(type,field)),0,sizeof(type)-offsetof(type,field))
 #define zero_fromto_field(buf,type,field,endfield) memset((void *)((uintptr_t)(buf)+offsetof(type,field)),0,offsetof(type,endfield)-offsetof(type,field))
-#define INIT_COMMON \
-	size_t sizemu=size-UNIT_SIZE;\
+#define align_size(val,const_size) (((val)+((const_size)-1))/(const_size))*(const_size)
+#define zalign(size,_flag) ((!(_flag&EXPR_ADYNAMICALIGN))?(((size)+(UNIT_SIZE-1))/UNIT_SIZE)*UNIT_SIZE:({\
+	unsigned int _r=(unsigned int)_flag>>EXPR_AALIGN_SHIFT;\
+	(((size)+(_r-1))/_r)*_r;\
+}))
+#define INIT_COMMON(_flag) \
+	size_t sizemu;\
+	if((_flag)&EXPR_AADDRALIGN){\
+		uintptr_t alp;\
+		size_t dif;\
+		if(unlikely(size>(size_t)PTRDIFF_MAX)){\
+			return -1;\
+		}\
+		alp=zalign((uintptr_t)zone,_flag);\
+		dif=alp-(uintptr_t)zone;\
+		if(dif){\
+			size-=dif;\
+			zone=(void *)alp;\
+		}\
+	}\
+	sizemu=size-UNIT_SIZE;\
 	if(unlikely(sizemu>((size_t)PTRDIFF_MAX-UNIT_SIZE)))\
 		return -1;\
 	area->data=zone;\
 	area->data->unprev=size|HBITZ;\
 	area->data->unsize=sizemu;\
 	area->tail=area->data;\
-	zero_fromto_field(area,struct expr_area,monotonic_allocate,flag)
+	zero_fromto_field(area,struct expr_area,monotonic_allocate,flag);\
+	area->flag=(_flag);
 int expr_area_init(struct expr_area *restrict area,void *zone,size_t size){
-	INIT_COMMON;
-	area->flag=0;
+	INIT_COMMON(0);
 	return 0;
 }
 int expr_area_init4(struct expr_area *restrict area,void *zone,size_t size,int flag){
-	INIT_COMMON;
-	area->flag=flag;
+	INIT_COMMON(flag);
 	return 0;
 }
 #define WIPE_COMMON \
@@ -63,10 +81,6 @@ int expr_area_resize(struct expr_area *restrict area,size_t size){
 }
 #define monoinc(__type) {if(area->monotonic_##__type!=UINT_MAX)++area->monotonic_##__type;}
 
-#define zalign(size,_flag) ((!(_flag&EXPR_ADYNAMICALIGN))?(((size)+(UNIT_SIZE-1))/UNIT_SIZE)*UNIT_SIZE:({\
-	unsigned int _r=(unsigned int)_flag>>EXPR_AALIGN_SHIFT;\
-	(((size)+(_r-1))/_r)*_r;\
-}))
 #define zp p.z
 #define ip p.i
 #define zp1 p1.z
@@ -398,7 +412,17 @@ static void static_area_dealloc(void *old,intptr_t arg){
 
 }
 int expr_setup_heapmtl(struct expr_memtool *restrict mtl,void *heap,size_t size,int flag){
-	if(unlikely(size<sizeof(struct expr_area)))
+	if(flag&EXPR_AADDRALIGN){
+		uintptr_t alp;
+		size_t dif;
+		alp=align_size((uintptr_t)heap,sizeof(struct expr_area));
+		dif=alp-(uintptr_t)heap;
+		if(dif){
+			size-=dif;
+			heap=(void *)alp;
+		}
+	}
+	if(unlikely((ssize_t)size<(ssize_t)sizeof(struct expr_area)))
 		return -1;
 	if(unlikely(expr_area_init4((struct expr_area *)heap,expr_zoneof(heap),size-sizeof(struct expr_area),flag))<0)
 		return -1;

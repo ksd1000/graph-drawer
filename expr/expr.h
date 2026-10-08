@@ -1019,14 +1019,13 @@ struct expr_areainfo {
 #define EXPR_ANAIL 8
 #define EXPR_ADYNAMICALIGN 16
 #define EXPR_ALAZYEX 32
-#define EXPR_AADDRALIGN 64
+#define EXPR_ASTARTADDRALIGN 64
 
 #define EXPR_ALAZY_ALL (EXPR_ALAZY|EXPR_ALAZYEX)
 #define EXPR_AALIGN_SHIFT 7
 // if the EXPR_ADYNAMICALIGN is set:
 // (flag>>EXPR_AALIGN_SHIFT) must be nonzero, or the undefined behaviour(divide by 0) will occur.
 // if (flag>>EXPR_AALIGN_SHIFT) cannot be divided by sizeof(struct expr_areaunit), the align of memory may be broken.
-
 #define expr_zoneof(heap) ((void *)((uintptr_t)(heap)+sizeof(struct expr_area)))
 #define expr_memlen(p) ({expr_static_castable((p),const void *);((const struct expr_areaunit *)((uintptr_t)(p)-sizeof(struct expr_areaunit)))->size;})
 
@@ -1294,6 +1293,7 @@ void *expr_area_realloc4(struct expr_area *restrict area,void *old,size_t size,i
 void *expr_area_calloc(struct expr_area *restrict area,size_t size);
 int expr_area_summary(const struct expr_area *restrict area,struct expr_areainfo *restrict info);
 int expr_setup_heapmtl(struct expr_memtool *restrict mtl,void *heap,size_t size,int flag);
+int expr_setup_heapmtl3(struct expr_memtool *restrict mtl,void *heap,size_t size);
 //global externs of expr-alloc.c :
 //global functions of expr-buffered.c :
 ssize_t expr_buffered_write(struct expr_buffered_file *restrict fp,const void *buf,size_t size);

@@ -186,6 +186,24 @@ void expr_memswap(void *restrict s1,void *restrict s2,size_t size){
 		*(int8_t *)s2=un.swapbuf8;
 	}
 }
+static uint32_t oldpow32(uint32_t x,uint32_t y){
+	uint32_t r;
+	if(y){
+		r=1;
+		for(;;){
+			if(y&1){
+				r*=x;
+			}
+			y>>=1;
+			if(!y)
+				return r;
+			x=x*x;
+		}
+	}
+	return 1;
+}
+#define extint_zero(buf,size) memset(buf,0,(size)*sizeof(uint64_t))
+#define extint_copy(buf,src,size) memcpy(buf,src,(size)*sizeof(uint64_t))
 size_t expr_extint_left(uint64_t *buf,size_t size,uint64_t bits){
 	uint64_t b64=bits/64;
 	size_t rsize=size;
@@ -259,7 +277,9 @@ size_t expr_extint_add(uint64_t *buf,uint64_t addend){
 	do {
 		addend=((*(p++)+=addend)<addend);
 	}while(addend);
-	return p-buf;
+	while(p>buf&&!p[-1])
+		--p;
+	return p==buf?1:(size_t)(p-buf);
 }
 size_t expr_extint_addz(uint64_t *buf,size_t size,uint64_t addend){
 	uint64_t *restrict p=buf;
@@ -268,8 +288,126 @@ size_t expr_extint_addz(uint64_t *buf,size_t size,uint64_t addend){
 	do {
 		addend=((*(p++)+=addend)<addend);
 	}while(addend);
-	tmp_size=p-buf;
+	while(p>buf&&!p[-1])
+		--p;
+	tmp_size=(p==buf?1:(size_t)(p-buf));
 	return tmp_size>size?tmp_size:size;
+}
+size_t expr_extint_add2(uint64_t *buf,const uint64_t *addend_buf,size_t size){
+	uint64_t *restrict p=buf;
+	size_t s;
+	while(size--){
+		s=expr_extint_add(p,*(addend_buf++))+(p-buf);
+		++p;
+	}
+	return s;
+}
+size_t expr_extint_orindex(uint64_t *buf,size_t size,uint64_t index){
+	size_t off=index/64;
+	if(off>=size){
+		buf[off]=UINT64_C(1)<<(index%64);
+		if(off>size)
+			extint_zero(buf+size,off-size);
+		return off+1;
+	}
+	buf[off]|=UINT64_C(1)<<(index%64);
+	return size;
+}
+size_t expr_extint_sub(uint64_t *buf,uint64_t subtractor){
+	uint64_t *restrict p=buf;
+	int borrow;
+	//the caller should ensure subtractor<=buf
+	borrow=(*p<subtractor);
+	*(p++)-=subtractor;
+	if(borrow)for(;;){
+		if(*p){
+			--(*p);
+			++p;
+			break;
+		}
+		*p=UINT64_MAX;
+		++p;
+	}
+	while(p>buf&&!p[-1])
+		--p;
+	return p==buf?1:(size_t)(p-buf);
+}
+void expr_extint_subnrv(uint64_t *buf,uint64_t subtractor){
+	uint64_t *restrict p=buf;
+	int borrow;
+	//the caller should ensure subtractor<=buf
+	borrow=(*p<subtractor);
+	*(p++)-=subtractor;
+	if(borrow)for(;;){
+		if(*p){
+			--(*p);
+			++p;
+			break;
+		}
+		*p=UINT64_MAX;
+		++p;
+	}
+}
+size_t expr_extint_subz(uint64_t *buf,size_t size,uint64_t subtractor){
+	uint64_t *restrict p=buf;
+	int borrow;
+	//the caller should ensure subtractor<=buf
+	borrow=(*p<subtractor);
+	*(p++)-=subtractor;
+	if(borrow)while(--size){
+		if(*p){
+			--(*p);
+			++p;
+			break;
+		}
+		*p=UINT64_MAX;
+		++p;
+	}
+	while(p>buf&&!p[-1])
+		--p;
+	return p==buf?1:(size_t)(p-buf);
+}
+size_t expr_extint_sub2(uint64_t *buf,size_t size,const uint64_t *subtractor_buf,size_t subsize){
+	uint64_t *restrict p=buf;
+	//the caller should ensure subtractor_buf<=buf
+	do {
+		expr_extint_subnrv(p,*(subtractor_buf++));
+		++p;
+	}while(--subsize);
+	while(size>1&&!buf[size-1])
+		--size;
+	return size;
+}
+int expr_extint_cmp(const uint64_t *restrict buf,const uint64_t *restrict buf1,size_t size,size_t *index){
+	for(--size;;){
+		if(buf[size]!=buf1[size]){
+			if(index)
+				*index=size;
+			return buf[size]<buf1[size]?-1:1;
+		}
+		if(!size)
+			return 0;
+		--size;
+	}
+}
+int expr_extint_cmpz(const uint64_t *restrict buf,size_t size,const uint64_t *restrict buf1,size_t buf1size){
+	if(size!=buf1size){
+		return size<buf1size?-1:1;
+	}
+	for(--size;;){
+		if(buf[size]!=buf1[size]){
+			return buf[size]<buf1[size]?-1:1;
+		}
+		if(!size)
+			return 0;
+		--size;
+	}
+}
+int expr_extint_cmpsub(uint64_t *restrict buf,size_t size,const uint64_t *restrict buf1,size_t buf1size,size_t *outsize){
+	if(expr_extint_cmpz(buf,size,buf1,buf1size)<0)
+		return 0;
+	*outsize=expr_extint_sub2(buf,size,buf1,buf1size);
+	return 1;
 }
 // WARNING: the expr_extint_mul is old
 size_t expr_extint_mul(uint64_t *buf,size_t size,uint32_t factor,uint64_t *workspace){
@@ -311,7 +449,32 @@ size_t expr_extint_mul(uint64_t *buf,size_t size,uint32_t factor,uint64_t *works
 			size32=size<<1;
 		}
 	}
-	return size;
+	return buf[size-1]?size:(size>2?size-1:1);
+}
+// WARNING: too SLOOOOOOOOOWER than the mul2 of GMP
+size_t expr_extint_mul2(uint64_t *buf,size_t bufsize,const uint64_t *factor_buf,size_t factor_size,uint64_t *workspace){
+	uint32_t *restrict p=(uint32_t *)buf;
+	uint32_t *restrict fbuf=(uint32_t *)factor_buf;
+	uint64_t *pa=workspace+bufsize,
+		 *wsp=workspace+bufsize*2+1,
+		 *endp=buf+bufsize+factor_size;
+	size_t i=(factor_size<<1);
+	extint_copy(workspace,buf,bufsize);
+	extint_zero(buf,bufsize+factor_size);
+	while(i--){
+		extint_zero(pa,wsp-pa);
+		extint_copy(pa,workspace,bufsize);
+		if(expr_extint_mul(pa,bufsize,*(fbuf++),wsp)>bufsize)
+			expr_extint_add2((uint64_t *)p,pa,bufsize+1);
+		else
+			expr_extint_add2((uint64_t *)p,pa,bufsize);
+		++p;
+	}
+	while(--endp>buf){
+		if(*endp)
+			break;
+	}
+	return endp-buf+1;
 }
 size_t expr_extint_div(uint64_t *buf,size_t size,uint32_t divisor,uint32_t *mod){
 	uint32_t *p=(uint32_t *)(buf+size);
@@ -338,6 +501,33 @@ size_t expr_extint_div(uint64_t *buf,size_t size,uint32_t divisor,uint32_t *mod)
 	else
 		return 0;
 }
+#define bitindexof_ze2(buf,size) ((ssize_t)(63-clz64((buf)[(size)-1]))+(ssize_t)((size)-1)*64)
+#define bitindexof(buf,size) ({\
+	size_t _size=(size);\
+	bitindexof_ze2(buf,_size);\
+})
+size_t expr_extint_div2(uint64_t *buf,size_t size,uint64_t *divisor_buf,size_t divisor_size,uint64_t *out,size_t *outsize){
+	size_t qz;
+	size_t lf=(size_t)(bitindexof_ze2(buf,size)-bitindexof_ze2(divisor_buf,divisor_size));
+	if((ssize_t)lf<0){
+		*out=0;
+		*outsize=1;
+		return size;
+	}
+	qz=1;
+	*out=0;
+	divisor_size=expr_extint_left(divisor_buf,divisor_size,lf);
+	for(;;){
+		if(expr_extint_cmpsub(buf,size,divisor_buf,divisor_size,&size))
+			qz=expr_extint_orindex(out,qz,lf);
+		if(unlikely(!lf))
+			break;
+		--lf;
+		divisor_size=expr_extint_right(divisor_buf,divisor_size,1);
+	}
+	*outsize=qz;
+	return size;
+}
 static uint32_t oldsuppow32(uint32_t base,uint32_t expo2,uint32_t *powed){
 	uint32_t ds,n,i,tmp;
 	uint32_t cache[32];
@@ -351,9 +541,9 @@ static uint32_t oldsuppow32(uint32_t base,uint32_t expo2,uint32_t *powed){
 	n=1;
 	for(;;){
 		if(unlikely(mulo3(*cp,*cp,&tmp))){
-			if(unlikely(expo2&&clz64((uint64_t)*cp)<expo2*n)){
-				--cp;
-			}
+			//if(unlikely(expo2&&clz64((uint64_t)*cp)<expo2*n)){
+			//	--cp;
+			//}
 			break;
 		}
 		n<<=1;
@@ -380,24 +570,20 @@ static uint32_t oldsuppow32(uint32_t base,uint32_t expo2,uint32_t *powed){
 	*powed=ds;
 	return n;
 }
-/*
-static uint32_t oldpow32(uint32_t x,uint32_t y){
-	uint32_t r;
-	if(y){
-		r=1;
-		for(;;){
-			if(y&1){
-				r*=x;
-			}
-			y>>=1;
-			if(!y)
-				return r;
-			x=x*x;
-		}
+size_t expr_extint_mulnp(uint64_t *buf,size_t size,uint32_t factor,uint32_t power,uint64_t *workspace){
+	uint32_t ds,expo2,id,im,n;
+	expo2=(uint32_t)ctz32(factor);
+	factor>>=expo2;
+	n=oldsuppow32(factor,0,&ds);
+	if(n){
+		id=power/n;
+		im=power%n;
+		for(;id;--id)
+			size=expr_extint_mul(buf,size,ds,workspace);
+		size=expr_extint_mul(buf,size,oldpow32(factor,im),workspace);
 	}
-	return 1;
+	return expr_extint_left(buf,size,(uint64_t)expo2*power);
 }
-*/
 #define write_ascii(_op,_sz) \
 	uint32_t mod,ds=base,dsn,n;\
 	char *out=outbuf;\
@@ -419,8 +605,7 @@ static uint32_t oldpow32(uint32_t x,uint32_t y){
 	}\
 	if(out==outbuf)\
 		*(_op)=chars[0];\
-	size=(_sz);\
-	return size
+	return (_sz)
 size_t expr_extint_ascii(uint64_t *buf,size_t size,const char *chars,char *outbuf,uint32_t base){
 	write_ascii(out++,out-outbuf);
 }
@@ -578,11 +763,43 @@ overflow:
 #pragma GCC diagnostic ignored "-Wunused-but-set-variable"
 #pragma GCC diagnostic ignored "-Wunused-variable"
 #define DDMAXBIT 1076
-double expr_internal_strtod(const char *restrict nptr,size_t nsize,size_t *restrict end_index){
-	char nbuf[DDMAXBIT];
-	char *np,*np1;
-	const char *endp,*point,*nptr0;
-	ssize_t expo,trunc;
+#define nbuf ws->iabuf
+#define buf ws->dbuf
+#define wspace ws->workspace
+#define frac ws->dfrac
+double expr_internal_strtod4(const char *restrict nptr,size_t nsize,size_t *restrict end_index,struct expr_strtod_workspace *restrict ws){
+	const char *nptr0;
+	union {
+		ssize_t _trunc;
+		size_t _frsize;
+	} un;
+	union {
+		char *_np1;
+		ssize_t _u;
+	} un1;
+	union {
+		char *_np;
+		ssize_t _kd;
+	} un2;
+	union {
+		const char *_endp;
+		size_t _wsize;
+	} un3;
+	union {
+		const char *_point;
+		ssize_t _e2;
+	} un4;
+#define trunc un._trunc
+#define frsize un._frsize
+#define np1 un1._np1
+#define u un1._u
+#define np un2._np
+#define kd un2._kd
+#define endp un3._endp
+#define wsize un3._wsize
+#define point un4._point
+#define e2 un4._e2
+	ssize_t expo;
 	size_t npsize;
 	union expr_double val;
 	int trunc_nonzero,negative=0,umbrella;
@@ -717,11 +934,108 @@ no_expo:
 		expo+=trunc;
 	else
 		expo+=trunc-((ssize_t)(nptr-point)-1);
-	if(np==nbuf){
+	if(!npsize){
 zero:
-		val.uval=((uint64_t)negative<<63);
-		return val.val;
+		return negative?-0.0:0.0;
 	}
-	//do D=nbuf with npsize,E=expo?
-	return 0;//incompleted
+	//D=nbuf with npsize,E=expo
+	if(unlikely((ssize_t)expo<-323-(ssize_t)npsize)){
+		return negative?-0.0:0.0;
+	}
+	if(unlikely((ssize_t)expo>309-(ssize_t)npsize)){
+e2inf:
+		return negative?-INFINITY:INFINITY;
+	}
+	npsize=expr_extint_ascii_convert(buf,nbuf,npsize,10,wspace);
+	//npsize use for buf after here.
+	if(expo>=0){
+		if(expo)
+			npsize=expr_extint_mulnp(buf,npsize,10,expo,wspace);
+		*frac=1;
+		frsize=1;
+		e2=bitindexof_ze2(buf,npsize);
+		umbrella=0;
+		u=e2-52;
+	}else {
+		*frac=1;
+		frsize=expr_extint_mulnp(frac,1,10,(uint32_t)-expo,wspace);
+#define cmp_correct(s,sz,d,dz,left_or_right)\
+		if(expr_extint_cmpz(s,sz,d,dz)<0){\
+			--kd;\
+		}else {\
+			wsize=left_or_right(wspace,wsize,1);\
+			if(expr_extint_cmpz(s,sz,d,dz)>=0){\
+				++kd;\
+			}\
+		}
+		kd=bitindexof_ze2(buf,npsize)-bitindexof_ze2(frac,frsize);
+		if(kd>0){
+			memcpy(wspace,frac,frsize*sizeof(uint64_t));
+			wsize=expr_extint_left(wspace,frsize,kd);
+			cmp_correct(buf,npsize,wspace,wsize,expr_extint_left);
+		}else if(kd<0){
+			memcpy(wspace,buf,npsize*sizeof(uint64_t));
+			wsize=expr_extint_left(wspace,npsize,-kd);
+			cmp_correct(wspace,wsize,frac,frsize,expr_extint_right);
+		}else {
+			if(npsize<frsize||(npsize==frsize&&expr_extint_cmp(buf,frac,npsize,NULL)<0)){
+				--kd;
+			}
+		}
+		if(kd<-1022){
+			umbrella=1;
+			e2=-1022;
+		}else {
+			umbrella=0;
+			e2=kd;
+		}
+		u=e2-52;
+	}
+	if(u>0)
+		frsize=expr_extint_left(frac,frsize,(uint64_t)u);
+	else if(u<0)
+		npsize=expr_extint_left(buf,npsize,(uint64_t)-u);
+	npsize=expr_extint_div2(buf,npsize,frac,frsize,&val.uval,&wsize);
+	assume(wsize==1);
+	npsize=expr_extint_left(buf,npsize,1);
+	switch(expr_extint_cmpz(buf,npsize,frac,frsize)){
+		case -1:
+			break;
+		case 0:
+			if(trunc_nonzero||(val.uval&1))
+				++val.uval;
+			break;
+		case 1:
+			++val.uval;
+			break;
+		default:
+			__builtin_unreachable();
+	}
+	if(e2>1023||(val.rd.exp&~(UINT64_C(1))))
+		goto e2inf;
+	val.rd.sign=negative;
+	if(!umbrella){
+		val.rd.exp=(uint64_t)(e2+1023);
+	}
+	return val.val;//completed ?
+}
+double expr_internal_strtod(const char *restrict nptr,size_t nsize,size_t *restrict end_index){
+	struct expr_strtod_workspace ws[1];
+	return expr_internal_strtod4(nptr,nsize,end_index,ws);
+}
+double expr_internal_strtod_mtl(const char *restrict nptr,size_t nsize,size_t *restrict end_index,const struct expr_memtool *restrict mtl){
+	struct expr_strtod_workspace *ws;
+#define expr_allocator(size) (xmtl->allocate((size),xmtl->arg))
+#define expr_reallocator(old,size) (xmtl->reallocate((old),(size),xmtl->arg))
+#define expr_deallocator(old) (xmtl->deallocate((old),xmtl->arg))
+#define xmtl mtl
+	ws=xmalloc(sizeof(struct expr_strtod_workspace));
+	if(ws){
+		double r;
+		r=expr_internal_strtod4(nptr,nsize,end_index,ws);
+		xfree(ws);
+		return r;
+	}else {
+		return expr_internal_strtod4(nptr,nsize,end_index,alloca(sizeof(struct expr_strtod_workspace)));
+	}
 }

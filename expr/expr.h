@@ -1077,6 +1077,18 @@ struct expr_areainfo {
 #define expr_zoneof(heap) ((void *)((uintptr_t)(heap)+sizeof(struct expr_area)))
 #define expr_memlen(p) ({expr_static_castable((p),const void *);((const struct expr_areaunit *)((uintptr_t)(p)-sizeof(struct expr_areaunit)))->size;})
 
+
+struct expr_strtod_workspace {
+	uint64_t dbuf[74];
+	union {
+		char iabuf[1076];
+		struct {
+			uint64_t dfrac[74];
+			uint64_t workspace[74];
+		};
+	};
+};
+
 #define expr_symbols_all \
 	expr_symbols_default,\
 	expr_symbols_expr,\
@@ -1534,13 +1546,27 @@ size_t expr_extint_left(uint64_t *buf,size_t size,uint64_t bits);
 size_t expr_extint_right(uint64_t *buf,size_t size,uint64_t bits);
 size_t expr_extint_add(uint64_t *buf,uint64_t addend);
 size_t expr_extint_addz(uint64_t *buf,size_t size,uint64_t addend);
+size_t expr_extint_add2(uint64_t *buf,const uint64_t *addend_buf,size_t size);
+size_t expr_extint_orindex(uint64_t *buf,size_t size,uint64_t index);
+size_t expr_extint_sub(uint64_t *buf,uint64_t subtractor);
+void expr_extint_subnrv(uint64_t *buf,uint64_t subtractor);
+size_t expr_extint_subz(uint64_t *buf,size_t size,uint64_t subtractor);
+size_t expr_extint_sub2(uint64_t *buf,size_t size,const uint64_t *subtractor_buf,size_t subsize);
+int expr_extint_cmp(const uint64_t *restrict buf,const uint64_t *restrict buf1,size_t size,size_t *index);
+int expr_extint_cmpz(const uint64_t *restrict buf,size_t size,const uint64_t *restrict buf1,size_t buf1size);
+int expr_extint_cmpsub(uint64_t *restrict buf,size_t size,const uint64_t *restrict buf1,size_t buf1size,size_t *outsize);
 size_t expr_extint_mul(uint64_t *buf,size_t size,uint32_t factor,uint64_t *workspace);
+size_t expr_extint_mul2(uint64_t *buf,size_t bufsize,const uint64_t *factor_buf,size_t factor_size,uint64_t *workspace);
 size_t expr_extint_div(uint64_t *buf,size_t size,uint32_t divisor,uint32_t *mod);
+size_t expr_extint_div2(uint64_t *buf,size_t size,uint64_t *divisor_buf,size_t divisor_size,uint64_t *out,size_t *outsize);
+size_t expr_extint_mulnp(uint64_t *buf,size_t size,uint32_t factor,uint32_t power,uint64_t *workspace);
 size_t expr_extint_ascii(uint64_t *buf,size_t size,const char *chars,char *outbuf,uint32_t base);
 size_t expr_extint_ascii_rev(uint64_t *buf,size_t size,const char *chars,char *outbuf,uint32_t base);
 size_t expr_extint_ascii_convert(uint64_t *buf,const char *inbuf,size_t inbuf_size,uint32_t base,uint64_t *workspace);
 ssize_t expr_internal_strtoz(const char *restrict nptr,size_t nsize,size_t *restrict end_index,int base);
+double expr_internal_strtod4(const char *restrict nptr,size_t nsize,size_t *restrict end_index,struct expr_strtod_workspace *restrict ws);
 double expr_internal_strtod(const char *restrict nptr,size_t nsize,size_t *restrict end_index);
+double expr_internal_strtod_mtl(const char *restrict nptr,size_t nsize,size_t *restrict end_index,const struct expr_memtool *restrict mtl);
 //global externs of expr-internal.c :
 extern const uint8_t expr_number_table[256];
 #if !(defined(EXPR_INLIB)&&(EXPR_INLIB))

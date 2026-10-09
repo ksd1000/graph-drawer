@@ -1077,6 +1077,18 @@ struct expr_areainfo {
 #define expr_zoneof(heap) ((void *)((uintptr_t)(heap)+sizeof(struct expr_area)))
 #define expr_memlen(p) ({expr_static_castable((p),const void *);((const struct expr_areaunit *)((uintptr_t)(p)-sizeof(struct expr_areaunit)))->size;})
 
+
+struct expr_strtod_workspace {
+	uint64_t dbuf[74];
+	union {
+		char iabuf[1076];
+		struct {
+			uint64_t dfrac[74];
+			uint64_t workspace[74];
+		};
+	};
+};
+
 #define expr_symbols_all \
 	expr_symbols_default,\
 	expr_symbols_expr,\

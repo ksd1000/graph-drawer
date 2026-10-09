@@ -312,7 +312,7 @@ static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr
 			}\
 		}else\
 			r=1;\
-		np-=extint_ascii_rev(iival,r,conv_btox,_base,np);\
+		np-=extint_ascii_rev(iival,r,conv_btox,np,_base);\
 	}else {\
 		*(--np)='0';\
 	}\
@@ -340,7 +340,7 @@ static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr
 		ext=1075-fsz;\
 		r=1;\
 		_shift;\
-		fsz=extint_ascii_rev(ival,r,_conv_str,_base,p);\
+		fsz=extint_ascii_rev(ival,r,_conv_str,p,_base);\
 		p-=fsz;\
 		ext-=fsz;\
 		if(ext>0){\

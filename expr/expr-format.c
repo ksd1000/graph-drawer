@@ -1698,21 +1698,14 @@ static inline const char *internal_strtos(const char *nptr,const char *endp,cons
 	}
 	return nptr+outlen;
 }
-#define DOUBLE_MAXLEN 1536
 static const char *warped_strtof(const char *nptr,const char *endp,double *restrict outval){
-	char buf[DOUBLE_MAXLEN];
-	size_t len=endp-nptr;
-	char *endptr;
+	size_t len;
 	double r;
-	if(len>DOUBLE_MAXLEN-1)
-		len=DOUBLE_MAXLEN-1;
-	memcpy(buf,nptr,len);
-	buf[len]=0;
-	r=strtod(buf,&endptr);
-	if(unlikely(endptr==buf))
+	r=expr_internal_strtod(nptr,endp-nptr,&len);
+	if(unlikely(!len))
 		return nptr;
 	*outval=r;
-	return nptr+(endptr-buf);
+	return nptr+len;
 }
 size_t expr_sscanf(const char *str,size_t len,const char *fmt,size_t fmtlen,void *const *addr,size_t addrlen){
 	const char *p,*str0=str,*fend=fmt+fmtlen,*end=str+len;

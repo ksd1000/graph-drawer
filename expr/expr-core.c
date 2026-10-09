@@ -20,6 +20,7 @@
 #define printvald(x) warn(#x ":%lf",(double)(x))
 #define trap (warn("\nat file %s line %d",__FILE__,__LINE__),__builtin_trap())
 
+
 #define STACK_SIZEOFSSET(esp) ({size_t depth=(esp)->depth;depth<2?0:(depth-1)*EXPR_SYMSET_DEPTHUNIT;})
 #define STACK_DEFAULT(_stack,esp) \
 	void *_stack;\
@@ -1048,12 +1049,12 @@ static inline const char *getsym_expo(const char *c,const char *endp){
 	}
 	return c;
 }
-static inline int atod(const char *str,size_t sz,double *dst){
-	char *c;
-	*dst=strtod(str,&c);
-	if(unlikely(c==str))
+static inline int atod(const char *str,size_t sz,double *dst,const struct expr_memtool *restrict mtl){
+	size_t s;
+	*dst=expr_internal_strtod(str,sz,&s);
+	if(unlikely(!s))
 		return 0;
-	else if(unlikely(c-str!=sz))
+	else if(unlikely(s!=sz))
 		return 2;
 	else return 1;
 }
@@ -3313,7 +3314,7 @@ fok:
 	}
 number:
 	p=getsym_expo(e,endp);
-	r0=atod(e,p-e,&un.v);
+	r0=atod(e,p-e,&un.v,xmtl);
 	if(r0==1){
 		v0=expr_newvar(ep);
 		cknp(ep,v0,return NULL);

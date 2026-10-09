@@ -93,6 +93,8 @@ struct expr_memtool expr_defmtl[1]={{\
 
 #define addo(V,A) __builtin_add_overflow((V),(A),&(V))
 #define mulo(V,A) __builtin_mul_overflow((V),(A),&(V))
+#define addo3(V,A,D) __builtin_add_overflow((V),(A),(D))
+#define mulo3(V,A,D) __builtin_mul_overflow((V),(A),(D))
 
 #define likely(cond) expr_likely(cond)
 #define unlikely(cond) expr_unlikely(cond)
@@ -111,19 +113,15 @@ struct expr_memtool expr_defmtl[1]={{\
 #define alloca(size) __builtin_alloca(size)
 #endif
 
-#if (defined(__LONG_WIDTH__)&&(__LONG_WIDTH__==64))
-#define ctz64 __builtin_ctzl
-#define clz64 __builtin_clzl
-#elif ((defined(__LLONG_WIDTH__)&&(__LLONG_WIDTH__==64))||(defined(__LONG_LONG_WIDTH__)&&(__LONG_LONG_WIDTH__==64)))
-#define ctz64 __builtin_ctzll
-#define clz64 __builtin_clzll
-#elif (defined(__INT_WIDTH__)&&(__INT_WIDTH__==64))
-#define ctz64 __builtin_ctz
-#define clz64 __builtin_clz
-#else
-#define ctz64 __builtin_ctzg
-#define clz64 __builtin_clzg
-#endif
+#define ctz64 expr_ctz64
+#define clz64 expr_clz64
+#define ffs64 expr_ffs64
+#define ctz32 expr_ctz32
+#define clz32 expr_clz32
+#define ffs32 expr_ffs32
+#define ctzz expr_ctzz
+#define clzz expr_clzz
+#define ffsz expr_ffsz
 
 #define le16(x) expr_le(x,16)
 #define le32(x) expr_le(x,32)
@@ -152,6 +150,56 @@ struct expr_memtool expr_defmtl[1]={{\
 #pragma GCC diagnostic ignored "-Wcast-function-type"
 #pragma GCC diagnostic ignored "-Waddress"
 
+#endif
+
+#if (defined(__LONG_WIDTH__)&&(__LONG_WIDTH__==64))
+#define expr_ctz64 __builtin_ctzl
+#define expr_clz64 __builtin_clzl
+#define expr_ffs64 __builtin_ffsl
+#elif ((defined(__LLONG_WIDTH__)&&(__LLONG_WIDTH__==64))||(defined(__LONG_LONG_WIDTH__)&&(__LONG_LONG_WIDTH__==64)))
+#define expr_ctz64 __builtin_ctzll
+#define expr_clz64 __builtin_clzll
+#define expr_ffs64 __builtin_ffsll
+#elif (defined(__INT_WIDTH__)&&(__INT_WIDTH__==64))
+#define expr_ctz64 __builtin_ctz
+#define expr_clz64 __builtin_clz
+#define expr_ffs64 __builtin_ffs
+#else
+#define expr_ctz64 __builtin_ctzg
+#define expr_clz64 __builtin_clzg
+#define expr_ffs64 __builtin_ffsg
+#endif
+
+#if (defined(__LONG_WIDTH__)&&(__LONG_WIDTH__==32))
+#define expr_ctz32 __builtin_ctzl
+#define expr_clz32 __builtin_clzl
+#define expr_ffs32 __builtin_ffsl
+#elif ((defined(__LLONG_WIDTH__)&&(__LLONG_WIDTH__==32))||(defined(__LONG_LONG_WIDTH__)&&(__LONG_LONG_WIDTH__==32)))
+#define expr_ctz32 __builtin_ctzll
+#define expr_clz32 __builtin_clzll
+#define expr_ffs32 __builtin_ffsll
+#elif (defined(__INT_WIDTH__)&&(__INT_WIDTH__==32))
+#define expr_ctz32 __builtin_ctz
+#define expr_clz32 __builtin_clz
+#define expr_ffs32 __builtin_ffs
+#else
+#define expr_ctz32 __builtin_ctzg
+#define expr_clz32 __builtin_clzg
+#define expr_ffs32 __builtin_ffsg
+#endif
+
+#if (defined(__SIZE_WIDTH__)&&(__SIZE_WIDTH__==64))
+#define expr_ctzz expr_ctz64
+#define expr_clzz expr_clz64
+#define expr_ffsz expr_ffs64
+#elif (defined(__SIZE_WIDTH__)&&(__SIZE_WIDTH__==32))
+#define expr_ctzz expr_ctz32
+#define expr_clzz expr_clz32
+#define expr_ffsz expr_ffs32
+#else
+#define expr_ctzz __builtin_ctzg
+#define expr_clzz __builtin_clzg
+#define expr_ffsz __builtin_ffsg
 #endif
 
 enum expr_op {
@@ -1485,10 +1533,12 @@ void expr_memswap(void *restrict s1,void *restrict s2,size_t size);
 size_t expr_extint_left(uint64_t *buf,size_t size,uint64_t bits);
 size_t expr_extint_right(uint64_t *buf,size_t size,uint64_t bits);
 size_t expr_extint_add(uint64_t *buf,uint64_t addend);
+size_t expr_extint_addz(uint64_t *buf,size_t size,uint64_t addend);
 size_t expr_extint_mul(uint64_t *buf,size_t size,uint32_t factor,uint64_t *workspace);
 size_t expr_extint_div(uint64_t *buf,size_t size,uint32_t divisor,uint32_t *mod);
-size_t expr_extint_ascii(uint64_t *buf,size_t size,const char *chars,uint32_t base,char *outbuf);
-size_t expr_extint_ascii_rev(uint64_t *buf,size_t size,const char *chars,uint32_t base,char *outbuf);
+size_t expr_extint_ascii(uint64_t *buf,size_t size,const char *chars,char *outbuf,uint32_t base);
+size_t expr_extint_ascii_rev(uint64_t *buf,size_t size,const char *chars,char *outbuf,uint32_t base);
+size_t expr_extint_ascii_convert(uint64_t *buf,const char *inbuf,size_t inbuf_size,uint32_t base,uint64_t *workspace);
 ssize_t expr_internal_strtoz(const char *restrict nptr,size_t nsize,size_t *restrict end_index,int base);
 double expr_internal_strtod(const char *restrict nptr,size_t nsize,size_t *restrict end_index);
 //global externs of expr-internal.c :

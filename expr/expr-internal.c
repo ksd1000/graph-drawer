@@ -11,7 +11,7 @@
 
 #define EXPR_INLIB 1
 #include "expr.h"
-
+/*
 const uint8_t expr_number_table[256]={
 [0 ... '0'-1]=127,
 ['0']=0,
@@ -40,6 +40,7 @@ const uint8_t expr_number_table[256]={
 ['f']=15,
 ['f'+1 ... 255]=127,
 };
+*/
 size_t expr_strscan(const char *restrict s,size_t sz,char *restrict buf,size_t outsz){
 	const char *p,*endp=s+sz;
 	char *buf0=(char *)buf;
@@ -94,7 +95,7 @@ size_t expr_strscan(const char *restrict s,size_t sz,char *restrict buf,size_t o
 #define scanoux(base,maxlen) \
 					v=0;\
 					while(p<endp){\
-						v1=expr_number_table[(uint8_t)*p];\
+						v1=expr_ntable((uint8_t)*p);\
 						if(unlikely(v1>=base))\
 							break;\
 						v=v*base+v1;\
@@ -260,6 +261,16 @@ size_t expr_extint_add(uint64_t *buf,uint64_t addend){
 	}while(addend);
 	return p-buf;
 }
+size_t expr_extint_addz(uint64_t *buf,size_t size,uint64_t addend){
+	uint64_t *restrict p=buf;
+	size_t tmp_size;
+	buf[size]=0;
+	do {
+		addend=((*(p++)+=addend)<addend);
+	}while(addend);
+	tmp_size=p-buf;
+	return tmp_size>size?tmp_size:size;
+}
 // WARNING: the expr_extint_mul is old
 size_t expr_extint_mul(uint64_t *buf,size_t size,uint32_t factor,uint64_t *workspace){
 	uint32_t *restrict p;
@@ -281,7 +292,8 @@ size_t expr_extint_mul(uint64_t *buf,size_t size,uint32_t factor,uint64_t *works
 	for(p=(uint32_t *)buf,wp=(uint32_t *)workspace;
 			(wp-(uint32_t *)workspace)<csize32;
 			++p,++wp){
-		if(!*wp)continue;
+		if(!*wp)
+			continue;
 		un.size=p-(uint32_t *)buf;
 		if(((uintptr_t)p)&7)
 			un.size=(un.size>>1)+1+
@@ -291,7 +303,8 @@ size_t expr_extint_mul(uint64_t *buf,size_t size,uint32_t factor,uint64_t *works
 			if(*wp){
 			un.size=(un.size>>1)+1+
 				expr_extint_add((uint64_t *)(p+2),*wp);
-			}else continue;
+			}else
+				continue;
 		}
 		if(un.size>size){
 			size=un.size;
@@ -325,17 +338,70 @@ size_t expr_extint_div(uint64_t *buf,size_t size,uint32_t divisor,uint32_t *mod)
 	else
 		return 0;
 }
+static uint32_t oldsuppow32(uint32_t base,uint32_t expo2,uint32_t *powed){
+	uint32_t ds,n,i,tmp;
+	uint32_t cache[32];
+	uint32_t *cp;
+	if(base<2){
+		*powed=1;
+		return 0;
+	}
+	*cache=base;
+	cp=cache;
+	n=1;
+	for(;;){
+		if(unlikely(mulo3(*cp,*cp,&tmp))){
+			if(unlikely(expo2&&clz64((uint64_t)*cp)<expo2*n)){
+				--cp;
+			}
+			break;
+		}
+		n<<=1;
+		if(unlikely(expo2&&clz64((uint64_t)tmp)<expo2*n)){
+			break;
+		}
+		*(++cp)=tmp;
+	}
+	ds=*cp;
+	i=(uint32_t)(cp-cache);
+	n=UINT32_C(1)<<i;
+	--i;
+	for(;(int32_t)i>=0;--i){
+		--cp;
+		if(unlikely(mulo3(ds,*cp,&tmp)))
+			continue;
+		n|=UINT32_C(1)<<i;
+		if(unlikely(expo2&&clz64((uint64_t)tmp)<expo2*n)){
+			n-=UINT32_C(1)<<i;
+			continue;
+		}
+		ds=tmp;
+	}
+	*powed=ds;
+	return n;
+}
+/*
+static uint32_t oldpow32(uint32_t x,uint32_t y){
+	uint32_t r;
+	if(y){
+		r=1;
+		for(;;){
+			if(y&1){
+				r*=x;
+			}
+			y>>=1;
+			if(!y)
+				return r;
+			x=x*x;
+		}
+	}
+	return 1;
+}
+*/
 #define write_ascii(_op,_sz) \
 	uint32_t mod,ds=base,dsn,n;\
 	char *out=outbuf;\
-	for(n=1;;){\
-		dsn=ds*base;\
-		if(dsn>ds&&!(dsn%ds)){\
-			ds=dsn;\
-			++n;\
-		}else\
-			break;\
-	}\
+	n=oldsuppow32(base,0,&ds);\
 	for(;;){\
 		size=expr_extint_div(buf,size,ds,&mod);\
 		if(size){\
@@ -355,11 +421,65 @@ size_t expr_extint_div(uint64_t *buf,size_t size,uint32_t divisor,uint32_t *mod)
 		*(_op)=chars[0];\
 	size=(_sz);\
 	return size
-size_t expr_extint_ascii(uint64_t *buf,size_t size,const char *chars,uint32_t base,char *outbuf){
+size_t expr_extint_ascii(uint64_t *buf,size_t size,const char *chars,char *outbuf,uint32_t base){
 	write_ascii(out++,out-outbuf);
 }
-size_t expr_extint_ascii_rev(uint64_t *buf,size_t size,const char *chars,uint32_t base,char *outbuf){
+size_t expr_extint_ascii_rev(uint64_t *buf,size_t size,const char *chars,char *outbuf,uint32_t base){
 	write_ascii(--out,outbuf-out);
+}
+size_t expr_extint_ascii_convert(uint64_t *buf,const char *inbuf,size_t inbuf_size,uint32_t base,uint64_t *workspace){
+	uint32_t ds=base,n;
+	uint32_t expo2,base_odd;
+	uint64_t v,expo2_mn;
+	size_t size;
+	const char *in,*endp;
+	//the caller should ensure only '0' ... '0'+min(base,36) in inbuf and base !=0
+	expo2=(uint32_t)ctz32(base);
+	base_odd=base>>expo2;
+	n=oldsuppow32(base_odd,expo2,&ds);
+	//id=inbuf_size/n;
+	in=inbuf+inbuf_size;
+	*buf=0;
+	size=1;
+	v=0;
+	endp=inbuf+inbuf_size;
+	if(n){
+		expo2_mn=expo2*n;
+		in=inbuf+(inbuf_size%n);
+		for(const char *p=inbuf;p<in;++p){
+			v=v*base+expr_ntable(*p);
+		}
+		size=expr_extint_mul(buf,size,ds,workspace);
+		size=expr_extint_left(buf,size,expo2_mn);
+		size=expr_extint_addz(buf,size,v);
+		while(in<endp){
+			v=0;
+			for(const char *p=in+n;in<p;++in){
+				v=v*base+expr_ntable(*in);
+			}
+			size=expr_extint_mul(buf,size,ds,workspace);
+			size=expr_extint_left(buf,size,expo2_mn);
+			size=expr_extint_addz(buf,size,v);
+		}
+	}else {
+		n=UINT32_C(32)/expo2;
+		expo2_mn=expo2*n;
+		in=inbuf+(inbuf_size%n);
+		for(const char *p=inbuf;p<in;++p){
+			v=(v<<expo2)+expr_ntable(*p);
+		}
+		size=expr_extint_left(buf,size,expo2_mn);
+		size=expr_extint_addz(buf,size,v);
+		while(in<endp){
+			v=0;
+			for(const char *p=in+n;in<p;++in){
+				v=(v<<expo2)+expr_ntable(*in);
+			}
+			size=expr_extint_left(buf,size,expo2_mn);
+			size=expr_extint_addz(buf,size,v);
+		}
+	}
+	return size;
 }
 ssize_t expr_internal_strtoz(const char *restrict nptr,size_t nsize,size_t *restrict end_index,int base){
 	ssize_t r=0;
@@ -445,6 +565,7 @@ overflow:
 	debug("overflow result:%zd",(ssize_t)(neg?PTRDIFF_MIN:PTRDIFF_MAX));
 	return (ssize_t)(neg?PTRDIFF_MIN:PTRDIFF_MAX);
 }
+
 #define special_case(c0,c1,c2,val) \
 		case c0:\
 			if(nptr+2>=endp)\
@@ -454,8 +575,9 @@ overflow:
 				return negative?-(val):(val);\
 			}\
 			goto fail0
-#define DDMAXBIT 1076
 #pragma GCC diagnostic ignored "-Wunused-but-set-variable"
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#define DDMAXBIT 1076
 double expr_internal_strtod(const char *restrict nptr,size_t nsize,size_t *restrict end_index){
 	char nbuf[DDMAXBIT];
 	char *np,*np1;
@@ -482,33 +604,37 @@ fail0:
 				break;
 		}
 	}
-	switch(*nptr){
+	switch(*nptr|32){
 		special_case('I','n','f',INFINITY);
 		special_case('i','n','f',INFINITY);
-		case 'N':
+#define special_case_payload(c1,c2,defv,constructor) \
+			if(unlikely(nptr+2>=endp||(nptr[1]|32)!=(c1)||(nptr[2]|32)!=(c2)))\
+				goto fail0;\
+			nptr+=3;\
+			if(nptr==endp){\
+				*end_index=(size_t)(nptr-nptr0);\
+				return negative?-(defv):(defv);\
+			}\
+			if(*nptr!='('){\
+				*end_index=(size_t)(nptr-nptr0);\
+				return negative?-(defv):(defv);\
+			}\
+			++nptr;\
+			np=memchr(nptr,')',endp-nptr);\
+			if(unlikely(!np)){\
+				*end_index=(size_t)(nptr-nptr0)-1;\
+				return negative?-(defv):(defv);\
+			}\
+			trunc=(ssize_t)(np-nptr);\
+			expo=expr_internal_strtoz(nptr,(size_t)trunc,&npsize,0);\
+			val.uval=(constructor);\
+			*end_index=(size_t)(np-nptr0)+1;\
+			return val.val
 		case 'n':
-			if(unlikely(nptr+2>=endp||(nptr[1]|32)!='a'||(nptr[2]|32)!='n'))
-				goto fail0;
-			nptr+=3;
-			if(nptr==endp){
-no_payload:
-				*end_index=(size_t)(nptr-nptr0);
-				return negative?-NAN:NAN;
-			}
-			if(*nptr!='(')
-				goto no_payload;
-			++nptr;
-			np=memchr(nptr,')',endp-nptr);
-			if(unlikely(!np)){
-				--nptr;
-				goto no_payload;
-			}
-			trunc=(ssize_t)(np-nptr);
-			expo=expr_internal_strtoz(nptr,(size_t)trunc,&npsize,0);
-			//npsize not used here, avoid SIGSEGV.
-			val.uval=((uint64_t)negative<<63)|(UINT64_C(4095)<<51)|(expo&((UINT64_C(1)<<52)-1));
-			*end_index=(size_t)(np-nptr0)+1;
-			return val.val;
+			special_case_payload('a','n',NAN,((uint64_t)negative<<63)|(UINT64_C(4095)<<51)|((uint64_t)expo&((UINT64_C(1)<<52)-1)));
+		case 'c':
+			special_case_payload('t','r',0.0,(uint64_t)expo);
+	//npsize not used here, avoid SIGSEGV.
 		default:
 			break;
 	}
@@ -548,7 +674,7 @@ no_payload:
 		switch(*nptr){
 			case '0' ... '9':
 				if(likely(np<np1))
-					*(np++)=*nptr-(char)'0';
+					*(np++)=*nptr;
 				else {
 					++trunc;
 					if(*nptr!='0')

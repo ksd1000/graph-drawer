@@ -1096,3 +1096,179 @@ double expr_internal_strtod_mtl(const char *restrict nptr,size_t nsize,size_t *r
 		return expr_internal_strtod4(nptr,nsize,end_index,ws);
 	}
 }
+double expr_internal_trunc(double x){
+	union expr_double val;
+	ssize_t index;
+	val.val=x;
+	index=(ssize_t)(1023+52)-(ssize_t)val.rd.exp;
+	if(unlikely(index<=0))
+		return val.val;
+	if(unlikely(index>52))
+		return val.rd.sign?-0.0:0.0;
+	val.uval&=(UINT64_MAX<<(size_t)index);
+	return val.val;
+}
+#define fetch_base_exp(v,b,e) ({\
+	if(v.rd.exp){\
+		b=(uint64_t)v.rd.base|(UINT64_C(1)<<52);\
+		e=(int)v.rd.exp-(1023+52);\
+	}else {\
+		off=clz64(v.rd.base)-11;\
+		b=(uint64_t)v.rd.base<<off;\
+		e=-(1023+52-1)-off;\
+		debug("off=%d",off);\
+	}\
+})
+double expr_internal_fmod(double x,double y){
+	uint64_t mx,my;
+	int ex,ey,off;
+	union expr_double vx,vy;
+	vx.val=x;
+	vy.val=y;
+	if(unlikely(vx.rd.exp==2047)){
+		return NAN;
+	}
+	if(unlikely(!(vy.uval&(UINT64_MAX>>1)))){
+		return NAN;
+	}
+	if(unlikely(vy.rd.exp==2047)){
+		return vy.rd.base?NAN:vx.val;
+	}
+	if(unlikely(!(vx.uval&(UINT64_MAX>>1)))){
+		return vx.val;
+	}
+	fetch_base_exp(vx,mx,ex);
+	fetch_base_exp(vy,my,ey);
+	debug("mx=%lu,ex=%d,my=%lu,ey=%d",mx,ex,my,ey);
+	if(ex<ey)
+		return vx.val;
+	ex-=ey;
+	if(ex)do {
+		if(mx>=my)
+			mx-=my;
+		mx<<=1;
+	}while(--ex);
+	if(mx>=my)
+		mx-=my;
+	if(!mx){
+		vx.uval&=(UINT64_C(1)<<63);
+		return vx.val;
+	}
+	off=clz64(mx)-11;
+	debug("mx=%lu,clz64(mx)=%d",mx,off+11);
+	if(off>0){
+		mx<<=off;
+		ey-=off;
+	}
+	ey+=52;
+	if(ey>-1023){
+		vx.uval=(vx.uval&(UINT64_C(1)<<63))
+			|((uint64_t)(ey+1023)<<52)
+			|(mx&(UINT64_MAX>>12));
+	}else {
+		off=-1022-ey;
+		vx.uval=(vx.uval&(UINT64_C(1)<<63))
+			|((mx>>off)&(UINT64_MAX>>12));
+	}
+	return vx.val;
+}
+//WARNING: the pow is worse than libc pow and only for integer y now.
+double expr_internal_pow(double x,double y){
+	double r;
+	union expr_double vx,vy;
+	uint64_t y64;
+	vx.val=x;
+	vy.val=y;
+	if(unlikely(vx.rd.exp==2047&&vx.rd.base)){
+		return NAN;
+	}
+	if(unlikely(vy.rd.exp==2047)){
+		if(vy.rd.base)
+			return NAN;
+		if(vx.rd.exp<1023)
+			return vy.rd.sign?INFINITY:0.0;
+		if(vx.rd.exp==1023&&!vx.rd.base)
+			return 1.0;
+		return vy.rd.sign?0.0:INFINITY;
+	}
+	if(unlikely(!(vy.uval&(UINT64_MAX>>1)))){
+		return 1.0;
+	}
+	if(unlikely(vx.rd.exp==2047)){
+		return vy.rd.base?NAN:INFINITY;
+	}
+	if(unlikely(y>(double)UINT64_MAX)){
+		return INFINITY;
+	}
+	y64=(uint64_t)y;
+	if(y64){
+		r=1.0;
+		for(;;){
+			if(y64&1){
+				r*=x;
+			}
+			y64>>=1;
+			if(!y64)
+				return r;
+			x=x*x;
+		}
+	}
+	return 1.0;
+}
+#undef buf
+#define PALIGN (sizeof(void *))
+#define expr_mkval32(c) ({\
+	uint32_t _val=(uint32_t)(c)&0xff;\
+	_val=_val|(_val<<8)|(_val<<16)|(_val<<24);\
+})
+#define expr_mkval64(c) ({\
+	uint64_t _val=(uint64_t)(c)&0xff;\
+	_val=_val|(_val<<8)|(_val<<16)|(_val<<24)|(_val<<32)|(_val<<40)|(_val<<48)|(_val<<56);\
+})
+void expr_internal_memset(void *buf,uintptr_t val,size_t size){
+	uintptr_t diff,down;
+	size_t msize;
+	uintptr_t *p;
+	if(unlikely(!size))
+		return;
+	p=(uintptr_t *)buf;
+	diff=((uintptr_t)p%PALIGN);
+	if(diff){
+		down=(uintptr_t)p-diff;
+		if(size<PALIGN-diff){
+			diff=(UINTPTR_MAX<<((PALIGN-size)*8))>>((PALIGN-diff-size)*8);
+			*(uintptr_t *)down=(*(uintptr_t *)down&~diff)|(val&diff);
+			return;
+		}
+		*(uintptr_t *)down=(*(uintptr_t *)down&(UINTPTR_MAX>>((PALIGN-diff)*8)))|(val&(UINTPTR_MAX<<((diff)*8)));
+		p=(uintptr_t *)(down+PALIGN);
+		size-=PALIGN-diff;
+	}
+	msize=size%PALIGN;
+	down=(uintptr_t)p+size-msize;
+	while(p+4<=(uintptr_t *)down){
+		*p=val;
+		p[1]=val;
+		p[2]=val;
+		p[3]=val;
+		p+=4;
+	}
+	while((uintptr_t)p<down){
+		*p=val;
+		++p;
+	}
+	if(msize){
+		*p=(val&(UINTPTR_MAX>>((PALIGN-msize)*8)))|(*p&(UINTPTR_MAX<<((msize)*8)));
+	}
+}
+#define fetch_align(p,dif) \
+	dif=(uintptr_t)p%PALIGN;\
+	p=(uintptr_t *)((uintptr_t)p-dif)
+void expr_internal_memcpy(void *dst,const void *src,size_t size){
+	uintptr_t *dp=dst;
+	const uintptr_t *sp=src;
+	uintptr_t ddif,sdif;
+	fetch_align(dp,ddif);
+	fetch_align(sp,sdif);
+	//incompleted
+}

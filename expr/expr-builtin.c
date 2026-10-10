@@ -582,11 +582,13 @@ static double expr_isinf_b(double x){
 static double expr_isnan_b(double x){
 	return EXPR_EDBASE(&x)&&EXPR_EDEXP(&x)==2047?1.0:0.0;
 }
+#if (defined(EXPR_SETJMP_IMPL)&&(EXPR_SETJMP_IMPL))
 static double expr_longjmp_out(double *args,size_t n){
 	int val;
 	val=n<2?0:(int)args[1];
 	longjmp(cast(*args,void *),val);
 }
+#endif
 static double expr_destruct(double *args,size_t n){
 	struct expr *ep;
 	double *a;
@@ -890,6 +892,9 @@ static double expr_nfact(double *args,size_t n){
 		x-=args[1];
 	}
 	return sum;
+}
+static double expr_fmod_b(double *args,size_t n){
+	return expr_internal_fmod(args[0],args[1]);
 }
 static double expr_piece(const struct expr *args,size_t n,double input){
 	const struct expr *arg0=args;
@@ -1284,6 +1289,7 @@ const struct expr_builtin_symbol expr_symbols_default[]={
 	REGMDSYM2("mrand48_next",expr_mrand48_next,0),
 	REGMDSYM2("mrand48_state",expr_mrand48_state,0),
 
+	REGFSYM(expr_internal_trunc),
 
 	REGMDSYM2("add",expr_add,0),
 	REGMDSYM2("and",expr_and,0),
@@ -1300,6 +1306,7 @@ const struct expr_builtin_symbol expr_symbols_default[]={
 	REGMDSYM2("min",expr_min,0),
 	REGMDSYM2("mul",expr_mul,0),
 	REGMDSYM2("nfact",expr_nfact,2),
+	REGMDSYM2("internal_fmod",expr_fmod_b,2),
 	REGMDSYM2("pow_old_n",expr_pow_old_n,2),
 
 
@@ -1365,7 +1372,6 @@ const struct expr_builtin_symbol expr_symbols_expr[]={
 	REGCSYM_E(EVZP),
 	REGCSYM_E(EANT),
 	REGCSYM_E(EUDE),
-	REGCSYM2("jmpbuf",(double)sizeof(struct expr_internal_jmpbuf)),
 	REGCSYM2("INSTLEN",(double)sizeof(struct expr_inst)),
 	REGCSYM2("IPP_OFF",(double)offsetof(struct expr,ipp)),
 	REGCSYM2("SIZE_OFF",(double)offsetof(struct expr,size)),
@@ -1386,7 +1392,10 @@ const struct expr_builtin_symbol expr_symbols_common[]={
 	REGMDEPSYM2_NI("xsort",bxsort,2),
 	REGMDEPSYM2_NI("sort_old",bsort_old,2),
 	REGMDSYM2_NIU("destruct",expr_destruct,0),
+#if (defined(EXPR_SETJMP_IMPL)&&(EXPR_SETJMP_IMPL))
+	REGCSYM2("jmpbuf",(double)sizeof(struct expr_internal_jmpbuf)),
 	REGMDSYM2_NIU("longjmp_out",expr_longjmp_out,0),
+#endif
 
 	REGZASYM2_U("abort",(double (*)(void))abort),
 	REGZASYM2_U("explode",(double (*)(void))expr_explode),

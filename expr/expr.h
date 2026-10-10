@@ -1079,12 +1079,12 @@ struct expr_areainfo {
 
 
 struct expr_strtod_workspace {
-	uint64_t dbuf[74];
+	uint64_t dbuf[96];
 	union {
-		char iabuf[1184];
+		char iabuf[1536];
 		struct {
-			uint64_t dfrac[74];
-			uint64_t workspace[74];
+			uint64_t dfrac[96];
+			uint64_t workspace[96];
 		};
 	};
 };

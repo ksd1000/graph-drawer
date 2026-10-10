@@ -10,6 +10,7 @@
 #include <getopt.h>
 #include <errno.h>
 #include <stdarg.h>
+#include <setjmp.h>
 #define EXPR_BLOCKWARNING 1
 #include "expr.h"
 #ifdef __unix__

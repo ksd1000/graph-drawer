@@ -9,7 +9,6 @@
 #include <stdint.h>
 #include <stdarg.h>
 #include <limits.h>
-#include <setjmp.h>
 
 #define expr_static_assert(cond) _Static_assert((cond),"static assertion " #cond " failed")
 
@@ -129,6 +128,8 @@ struct expr_memtool expr_defmtl[1]={{\
 
 #define EXPR_BLOCKWARNING 1
 
+#else
+#define debug(fmt,...) ((void)sizeof(fprintf(stderr,"[DEBUG]%s:%d: " fmt "\n",__func__,__LINE__,##__VA_ARGS__)))
 #endif
 
 #if (defined(EXPR_BLOCKWARNING)&&(EXPR_BLOCKWARNING))
@@ -233,6 +234,9 @@ EXPR_ORL,
 EXPR_XORL,
 EXPR_NEXT,
 EXPR_DIFF,
+EXPR_OFF,
+EXPR_GCD,
+EXPR_LCM,
 EXPR_NEG,
 EXPR_NOT,
 EXPR_NOTL,
@@ -272,7 +276,6 @@ EXPR_PME,
 EXPR_PMEP,
 EXPR_READ,
 EXPR_WRITE,
-EXPR_OFF,
 EXPR_ALO,
 EXPR_SJ,
 EXPR_LJ,
@@ -528,7 +531,7 @@ EXPR_END
 #define expr_assume(cond) if(cond);else __builtin_unreachable()
 #define expr_likely(cond) __builtin_expect(!!(cond),1)
 #define expr_unlikely(cond) __builtin_expect(!!(cond),0)
-#define expr_static_castable(value,_type) ((void)__builtin_constant_p(((int (*)(_type))NULL)(value)))
+#define expr_static_castable(value,_type) ((void)sizeof(((int (*)(_type))NULL)(value)))
 #define EXPR_SYMSET_DEPTHUNIT (2*sizeof(void *))
 
 #define expr_symbol_foreach5(_sp,_esp,_stack,_atindex,_label) \
@@ -1004,6 +1007,8 @@ struct expr_callback {
 	void (*after)(const struct expr *restrict ep,struct expr_inst *ip,void *arg);
 	void *arg;
 };
+#if (defined(EXPR_SETJMP_IMPL)&&(EXPR_SETJMP_IMPL))
+#include <setjmp.h>
 struct expr_internal_jmpbuf {
 	struct expr_inst **ipp;
 	struct expr_inst *ip;
@@ -1015,6 +1020,19 @@ struct expr_internal_jmpbuf {
 	} un;
 	jmp_buf jb;
 };
+#else
+struct expr_internal_jmpbuf {
+	struct expr_inst **ipp;
+	struct expr_inst *ip;
+	union {
+		double val;
+		uint64_t u64;
+		int64_t i64;
+		intptr_t iptr;
+	} un;
+	intptr_t *jb[1];
+};
+#endif
 typedef int (*expr_recursive_callback)(struct expr *restrict ep,void *arg);
 #if (!defined(__BIG_ENDIAN__)||!(__BIG_ENDIAN__))
 #define expr_areaunit_bitfield(master,minor) struct {size_t master:sizeof(size_t)*8-1,minor:1;}

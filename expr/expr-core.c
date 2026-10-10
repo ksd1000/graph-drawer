@@ -12,6 +12,9 @@
 
 #define UNABLE_GETADDR_IN_PROTECTED_MODE 1
 
+#if !(defined(EXPR_LIBC_FMOD_IMPL)&&(EXPR_LIBC_FMOD_IMPL))
+#define fmod(x,y) expr_internal_fmod(x,y)
+#endif
 
 #define printval(x) warn(#x ":%lu",(unsigned long)(x))
 #define printvalx(x) warn(#x ":%lx",(unsigned long)(x))
@@ -122,6 +125,8 @@
 		case EXPR_XORL:\
 		case EXPR_NEXT:\
 		case EXPR_DIFF:\
+		case EXPR_GCD:\
+		case EXPR_LCM:\
 		case EXPR_OFF
 #define SRCCASES EXPR_COPY:\
 		case SRCCASES_NOCOPY
@@ -430,8 +435,13 @@ const struct expr_builtin_keyword expr_keywords[]={
 	REGKEYSCN("double",EXPR_BL,1,"double(constant_expression count)"),
 	REGKEYSCN("byte",EXPR_COPY,1,"byte(constant_expression count)"),
 	REGKEYCN("alloca",EXPR_ALO,2,"alloca(nmemb,[constant_expression size])"),
+#if (defined(EXPR_SETJMP_IMPL)&&(EXPR_SETJMP_IMPL))
 	REGKEYN("setjmp",EXPR_SJ,1,"setjmp(jmp_buf)"),
 	REGKEYCN("longjmp",EXPR_LJ,2,"longjmp(jmp_buf,val)"),
+#else
+#define setjmp(buf) 0
+#define longjmp(buf,val) ((void)0)
+#endif
 	REGKEYCN("eval",EXPR_EVAL,2,"eval(ep,input)"),
 	REGKEYSCN("decl",EXPR_ADD,2,"decl(symbol,[constant_expression flag])"),
 	REGKEYSC("static_assert",EXPR_SUB,1,"static_assert(constant_expression cond,[const string])"),
@@ -2307,9 +2317,11 @@ alias_found_decl:
 				v0=EXPR_VOID;
 				e=p+1;
 				goto vend;
+				/*
 			case EXPR_INPUT:
 				type=sizeof(struct expr_internal_jmpbuf);
 				goto use_byte;
+				*/
 			case EXPR_COPY:
 				type=1;
 				goto use_byte;
@@ -3870,12 +3882,20 @@ bracket_end:
 				op=EXPR_MUL;
 			goto end1;
 		case '/':
-			op=EXPR_DIV;
 			++e;
+			if(e<endp&&*e=='/'){
+				++e;
+				op=EXPR_GCD;
+			}else
+				op=EXPR_DIV;
 			goto end1;
 		case '%':
-			op=EXPR_MOD;
 			++e;
+			if(e<endp&&*e=='%'){
+				++e;
+				op=EXPR_LCM;
+			}else
+				op=EXPR_MOD;
 			goto end1;
 		case '^':
 			++e;
@@ -3976,6 +3996,7 @@ end2:
 	}
 	cknp(ep,do_unary(ep,ev)>=0,goto err);
 	SETPREC1(EXPR_POW)
+	SETPREC2(EXPR_GCD,EXPR_LCM)
 	SETPREC3(EXPR_MUL,EXPR_DIV,EXPR_MOD)
 	SETPREC2(EXPR_NEXT,EXPR_DIFF)
 	SETPREC2(EXPR_ADD,EXPR_SUB)
@@ -5253,6 +5274,8 @@ static int expr_optimize_contmul(struct expr *restrict ep,enum expr_op op){
 				case EXPR_NE:
 				case EXPR_NEXT:
 				case EXPR_DIFF:
+				case EXPR_GCD:
+				case EXPR_LCM:
 				case EXPR_OFF:
 					continue;
 				default:
@@ -5375,6 +5398,12 @@ static int expr_optimize_contmul(struct expr *restrict ep,enum expr_op op){
 						break;
 					case EXPR_DIFF:
 						sum=(double)(EXPR_EDIVAL(&sum)-*ip->un.isrc);
+						break;
+					case EXPR_GCD:
+						sum=gcd2(sum,*ip1->un.src);
+						break;
+					case EXPR_LCM:
+						sum=lcm2(sum,*ip1->un.src);
 						break;
 					default:
 						__builtin_unreachable();
@@ -6699,6 +6728,8 @@ static int expr_optimize_once(struct expr *restrict ep){
 	r+=expr_optimize_pure(ep);
 	r+=expr_optimize_pure_hotfunction(ep);
 	r+=expr_optimize_contmul(ep,EXPR_POW);
+	r+=expr_optimize_contmul(ep,EXPR_GCD);
+	r+=expr_optimize_contmul(ep,EXPR_LCM);
 	r+=expr_optimize_contmul(ep,EXPR_MUL);
 	r+=expr_optimize_contmul(ep,EXPR_DIV);
 	r+=expr_optimize_contmul(ep,EXPR_MOD);
@@ -6890,6 +6921,12 @@ int expr_optimize_recursive(struct expr *restrict ep){
 				break;\
 			case EXPR_DIFF:\
 				*ip->dst.dst=(double)(*ip->dst.idst-*ip->un.isrc);\
+				break;\
+			case EXPR_GCD:\
+				*ip->dst.dst=gcd2(*ip->dst.dst,*ip->un.src);\
+				break;\
+			case EXPR_LCM:\
+				*ip->dst.dst=lcm2(*ip->dst.dst,*ip->un.src);\
 				break;\
 			case EXPR_OFF:\
 				*ip->dst.idst+=(int64_t)*ip->un.src*(int64_t)sizeof(double);\

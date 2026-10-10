@@ -403,8 +403,11 @@ static double expr_pow_old_n(double *args,size_t n){
 static double expr_strtol(double *args,size_t n){
 	return cast(strtol(cast(*args,const char *),NULL,(int)args[1]),double);
 }
-static double expr_strtod_b(double *args,size_t n){
+static double expr_libc_strtod_b(double *args,size_t n){
 	return (double)strtod(cast(*args,const char *),n>1?cast(args[1],char **):NULL);
+}
+static double expr_strtod_b(double *args,size_t n){
+	return (double)expr_internal_strtod(cast(*args,const char *),strlen(cast(*args,const char *)),n>1?cast(args[1],size_t *):NULL);
 }
 static double expr_qmed(double *args,size_t n){
 	expr_sortq(args,n);
@@ -1411,6 +1414,7 @@ const struct expr_builtin_symbol expr_symbols_common[]={
 	REGMDSYM2_U("qmode",expr_qmode,0),
 	REGMDSYM2_NIU("strtol",expr_strtol,2),
 	REGMDSYM2_NIU("strtod",expr_strtod_b,0),
+	REGMDSYM2_NIU("libc_strtod",expr_libc_strtod_b,0),
 #if PHYSICAL_CONSTANT
 	REGCSYM2("c",299792458.0),
 	REGCSYM2("e0",8.8541878128e-12),

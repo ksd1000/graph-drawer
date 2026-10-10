@@ -4,10 +4,9 @@
  *This is free software: you are free to change and redistribute it.           *
  *******************************************************************************/
 #define _GNU_SOURCE
-#include <math.h>
 #include <string.h>
 #include <float.h>
-#include <setjmp.h>
+#include <math.h>
 
 #define EXPR_INLIB 1
 #include "expr.h"
@@ -751,15 +750,45 @@ overflow:
 	return (ssize_t)(neg?PTRDIFF_MIN:PTRDIFF_MAX);
 }
 
-#define special_case(c0,c1,c2,val) \
+#define set_index(idx) {debug("set index: %zu",(size_t)(idx));if(end_index)*end_index=(idx);}
+
+#define special_case(c0,c1,c2,c3,c4,c5,c6,c7,val) \
 		case c0:\
 			if(nptr+2>=endp)\
 				goto fail0;\
 			if(likely((nptr[1]|32)==c1&&(nptr[2]|32)==c2)){\
-				*end_index=(size_t)(nptr-nptr0)+3;\
+				if(nptr+7<endp&&(nptr[3]|32)==c3&&(nptr[4]|32)==c4&&(nptr[5]|32)==c5&&(nptr[6]|32)==c6&&(nptr[7]|32)==c7){\
+					set_index((size_t)(nptr-nptr0)+8);\
+				}else {\
+					set_index((size_t)(nptr-nptr0)+3);\
+				}\
 				return negative?-(val):(val);\
 			}\
 			goto fail0
+
+#define special_case_payload(c1,c2,defv,constructor) \
+			if(unlikely(nptr+2>=endp||(nptr[1]|32)!=(c1)||(nptr[2]|32)!=(c2)))\
+				goto fail0;\
+			nptr+=3;\
+			if(nptr==endp){\
+				set_index((size_t)(nptr-nptr0));\
+				return negative?-(defv):(defv);\
+			}\
+			if(*nptr!='('){\
+				set_index((size_t)(nptr-nptr0));\
+				return negative?-(defv):(defv);\
+			}\
+			++nptr;\
+			np=memchr(nptr,')',endp-nptr);\
+			if(unlikely(!np)){\
+				set_index((size_t)(nptr-nptr0)-1);\
+				return negative?-(defv):(defv);\
+			}\
+			trunc=(ssize_t)(np-nptr);\
+			expo=expr_internal_strtoz(nptr,(size_t)trunc,&npsize,0);\
+			val.uval=(constructor);\
+			set_index((size_t)(np-nptr0)+1);\
+			return val.val
 #pragma GCC diagnostic ignored "-Wunused-but-set-variable"
 #pragma GCC diagnostic ignored "-Wunused-variable"
 #define DDMAXBIT 1076
@@ -767,7 +796,6 @@ overflow:
 #define buf ws->dbuf
 #define wspace ws->workspace
 #define frac ws->dfrac
-#define set_index if(end_index)*end_index
 double expr_internal_strtod4(const char *restrict nptr,size_t nsize,size_t *restrict end_index,struct expr_strtod_workspace *restrict ws){
 	const char *nptr0;
 	union {
@@ -810,7 +838,7 @@ double expr_internal_strtod4(const char *restrict nptr,size_t nsize,size_t *rest
 	//treat the special cases.
 	if(unlikely(!nsize)){
 fail0:
-		set_index=0;
+		set_index(0);
 		return 0.0;
 	}
 	nptr0=(const char *)nptr;
@@ -826,31 +854,7 @@ fail0:
 		}
 	}
 	switch(*nptr|32){
-		special_case('I','n','f',INFINITY);
-		special_case('i','n','f',INFINITY);
-#define special_case_payload(c1,c2,defv,constructor) \
-			if(unlikely(nptr+2>=endp||(nptr[1]|32)!=(c1)||(nptr[2]|32)!=(c2)))\
-				goto fail0;\
-			nptr+=3;\
-			if(nptr==endp){\
-				set_index=(size_t)(nptr-nptr0);\
-				return negative?-(defv):(defv);\
-			}\
-			if(*nptr!='('){\
-				set_index=(size_t)(nptr-nptr0);\
-				return negative?-(defv):(defv);\
-			}\
-			++nptr;\
-			np=memchr(nptr,')',endp-nptr);\
-			if(unlikely(!np)){\
-				set_index=(size_t)(nptr-nptr0)-1;\
-				return negative?-(defv):(defv);\
-			}\
-			trunc=(ssize_t)(np-nptr);\
-			expo=expr_internal_strtoz(nptr,(size_t)trunc,&npsize,0);\
-			val.uval=(constructor);\
-			set_index=(size_t)(np-nptr0)+1;\
-			return val.val
+		special_case('i','n','f','i','n','i','t','y',INFINITY);
 		case 'n':
 			special_case_payload('a','n',NAN,((uint64_t)negative<<63)|(UINT64_C(4095)<<51)|((uint64_t)expo&((UINT64_C(1)<<52)-1)));
 		case 'c':
@@ -881,7 +885,7 @@ fail0:
 		switch(*nptr){
 			case '.':
 				if(unlikely(point)){
-					set_index=umbrella?(size_t)(nptr-nptr0):0;
+					set_index(umbrella?(size_t)(nptr-nptr0):0);
 					RZSU();
 				}
 				point=nptr;
@@ -897,7 +901,7 @@ fail0:
 		break;
 	}
 	if(unlikely(nptr==endp)){
-		set_index=umbrella?nsize:0;
+		set_index(umbrella?nsize:0);
 		RZSU();
 	}
 	np=nbuf;
@@ -940,7 +944,7 @@ fail0:
 	}
 	debug("*nptr=%d,index=%zd",(int)*nptr,nptr-nptr0);
 	if(unlikely(!umbrella&&np==nbuf)){
-		set_index=0;
+		set_index(0);
 		RZSU();
 	}
 	if(nptr+1<endp&&(*nptr|32)==(base==10?'e':'p')){
@@ -950,14 +954,14 @@ fail0:
 			--nptr;
 			goto no_expo;
 		}
-		set_index=(size_t)((nptr-nptr0)+npsize);
+		set_index((size_t)((nptr-nptr0)+npsize));
 		--nptr;
 	}else {
 		expo=0;
 		extra2=0;
 no_expo:
 		//strtoz returns 0 on fail. need not set again.
-		set_index=(size_t)(nptr-nptr0);
+		set_index((size_t)(nptr-nptr0));
 	}
 	npsize=np-nbuf;
 	if(base==16)
@@ -971,29 +975,26 @@ zero:
 	//D=nbuf with npsize,E=expo
 	switch(base){
 		case 2:
-		case 16:
-			e2=-1176+1;
-			kd=1024+1;
+			e2=-1078+1-(ssize_t)npsize;
+			kd=1024+1-(ssize_t)npsize;
 			break;
 		case 10:
-			e2=-324+1;
-			kd=308+1;
+			e2=-324+1-(ssize_t)npsize;
+			kd=308+1-(ssize_t)npsize;
 			break;
-		/*
 		case 16:
-			e2=-269+1;
-			kd=256+1;
+			e2=-1078+4-(ssize_t)npsize*4;
+			kd=1024+4-(ssize_t)npsize*4;
 			break;
-		*/
-			//+1 from -(npsize-1)
+			//+1/+4 from -(npsize-1)
 		default:
 			__builtin_unreachable();
 	}
-	debug("expo=%zd,expo+npsize-1=%zd,e2-npsize=%zd",expo,(ssize_t)(expo-npsize-1),e2-(ssize_t)npsize);
-	if(unlikely((ssize_t)expo<e2-(ssize_t)npsize)){
+	debug("expo=%zd,npsize-1=%zd,e2=%zd,kd=%zd",expo,(ssize_t)(npsize-1),e2,kd);
+	if(unlikely(expo<e2)){
 		return negative?-0.0:0.0;
 	}
-	if(unlikely((ssize_t)expo>kd-(ssize_t)npsize)){
+	if(unlikely(expo>kd)){
 e2inf:
 		return negative?-INFINITY:INFINITY;
 	}
@@ -1062,7 +1063,11 @@ e2inf:
 		default:
 			__builtin_unreachable();
 	}
-	if(e2>1023||(val.rd.exp&~(UINT64_C(1))))
+	if((val.uval>>52)==2){
+		val.uval>>=1;
+		++e2;
+	}
+	if(e2>1023)
 		goto e2inf;
 	val.rd.sign=negative;
 	if(!umbrella){

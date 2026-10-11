@@ -9,6 +9,9 @@
 #include <string.h>
 #endif
 
+#ifndef EXPR_SETUP_ENABLED
+#define EXPR_SETUP_ENABLED 1
+#endif
 #if EXPR_SETUP_ENABLED
 #include <stdio.h>
 #endif
@@ -217,10 +220,6 @@ intptr_t expr_warped_syscall7(int num,intptr_t a0,intptr_t a1,intptr_t a2,intptr
 #endif
 #endif
 #endif
-#endif
-
-#ifndef EXPR_SETUP_ENABLED
-#define EXPR_SETUP_ENABLED 1
 #endif
 
 #if EXPR_SETUP_ENABLED

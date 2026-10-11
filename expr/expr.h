@@ -75,10 +75,43 @@ struct expr_memtool expr_defmtl[1]={{\
 	.arg=0,\
 }}
 
+#if (defined(EXPR_SETJMP_IMPL)&&(EXPR_SETJMP_IMPL))
+#include <setjmp.h>
+struct expr_internal_jmpbuf {
+	struct expr_inst **ipp;
+	struct expr_inst *ip;
+	union {
+		double val;
+		uint64_t u64;
+		int64_t i64;
+		intptr_t iptr;
+	} un;
+	jmp_buf jb;
+};
+#else
+struct expr_internal_jmpbuf {
+	struct expr_inst **ipp;
+	struct expr_inst *ip;
+	union {
+		double val;
+		uint64_t u64;
+		int64_t i64;
+		intptr_t iptr;
+	} un;
+	intptr_t *jb[1];
+};
+#endif
+
 #if defined(EXPR_INLIB)&&(EXPR_INLIB)
-#include <stdlib.h>
 #ifndef EXPR_DEBUG
 #define EXPR_DEBUG 0
+#endif
+
+#if (EXPR_DEBUG)
+#include <stdio.h>
+#define debug(fmt,...) ((void)fprintf(stderr,"[DEBUG]%s:%d: " fmt "\n",__func__,__LINE__,##__VA_ARGS__))
+#else
+#define debug(fmt,...) ((void)0)
 #endif
 
 #if !(defined(EXPR_LIBC_FMOD_IMPL)&&(EXPR_LIBC_FMOD_IMPL))
@@ -103,12 +136,6 @@ struct expr_memtool expr_defmtl[1]={{\
 #define strend(s) ({const char *_s=(s);_s+strlen(_s);})
 #endif
 
-#if (EXPR_DEBUG)
-#include <stdio.h>
-#define debug(fmt,...) ((void)fprintf(stderr,"[DEBUG]%s:%d: " fmt "\n",__func__,__LINE__,##__VA_ARGS__))
-#else
-#define debug(fmt,...) ((void)0)
-#endif
 
 #define warn(fmt,...) fprintf(stderr,fmt "\n",##__VA_ARGS__)
 
@@ -1038,32 +1065,6 @@ struct expr_callback {
 	void (*after)(const struct expr *restrict ep,struct expr_inst *ip,void *arg);
 	void *arg;
 };
-#if (defined(EXPR_SETJMP_IMPL)&&(EXPR_SETJMP_IMPL))
-#include <setjmp.h>
-struct expr_internal_jmpbuf {
-	struct expr_inst **ipp;
-	struct expr_inst *ip;
-	union {
-		double val;
-		uint64_t u64;
-		int64_t i64;
-		intptr_t iptr;
-	} un;
-	jmp_buf jb;
-};
-#else
-struct expr_internal_jmpbuf {
-	struct expr_inst **ipp;
-	struct expr_inst *ip;
-	union {
-		double val;
-		uint64_t u64;
-		int64_t i64;
-		intptr_t iptr;
-	} un;
-	intptr_t *jb[1];
-};
-#endif
 typedef int (*expr_recursive_callback)(struct expr *restrict ep,void *arg);
 #if (!defined(__BIG_ENDIAN__)||!(__BIG_ENDIAN__))
 #define expr_areaunit_bitfield(master,minor) struct {size_t master:sizeof(size_t)*8-1,minor:1;}

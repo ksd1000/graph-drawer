@@ -3076,7 +3076,7 @@ vzero:
 		cknp(ep,expr_addop(ep,v0,un.uaddr,kp->op,flag),return NULL);
 		e=p+1;
 		goto vend;*/
-		abort();
+		__builtin_unreachable();
 	}
 	goto number;
 found:

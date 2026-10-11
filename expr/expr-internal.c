@@ -295,10 +295,10 @@ size_t expr_extint_addz(uint64_t *buf,size_t size,uint64_t addend){
 size_t expr_extint_add2(uint64_t *buf,const uint64_t *addend_buf,size_t size){
 	uint64_t *restrict p=buf;
 	size_t s;
-	while(size--){
+	do {
 		s=expr_extint_add(p,*(addend_buf++))+(p-buf);
 		++p;
-	}
+	}while(--size);
 	return s;
 }
 size_t expr_extint_orindex(uint64_t *buf,size_t size,uint64_t index){
@@ -1185,6 +1185,7 @@ double expr_internal_pow(double x,double y){
 	if(unlikely(vy.rd.exp==2047)){
 		if(vy.rd.base)
 			return NAN;
+yinf:
 		if(vx.rd.exp<1023)
 			return vy.rd.sign?INFINITY:0.0;
 		if(vx.rd.exp==1023&&!vx.rd.base)
@@ -1197,8 +1198,8 @@ double expr_internal_pow(double x,double y){
 	if(unlikely(vx.rd.exp==2047)){
 		return vy.rd.base?NAN:INFINITY;
 	}
-	if(unlikely(y>(double)UINT64_MAX)){
-		return INFINITY;
+	if(unlikely(vy.val>(double)UINT64_MAX)){
+		goto yinf;
 	}
 	y64=(uint64_t)y;
 	if(y64){
@@ -1215,24 +1216,157 @@ double expr_internal_pow(double x,double y){
 	}
 	return 1.0;
 }
+
+#if defined(__aarch64__)
+#define BYTE_COPY_ALIGN8P(d,s,n) __asm__ volatile(\
+		".L0%=:\n\t"\
+		"ldp q0,q1,[%1],#32\n\t"\
+		"stp q0,q1,[%0],#32\n\t"\
+		"ldp q0,q1,[%1],#32\n\t"\
+		"stp q0,q1,[%0],#32\n\t"\
+		"subs %2,%2,#64\n\t"\
+		"b.ne .L0%="\
+		:"+r"(d),"+r"(s),"+r"(n)\
+		:\
+		:"v0","v1","memory","cc"\
+)
+#define BYTE_COPY_ALIGN8PK(d,s) __asm__ volatile(\
+		"ldp q0,q1,[%1]\n\t"\
+		"stp q0,q1,[%0]\n\t"\
+		"ldp q0,q1,[%1,#32]\n\t"\
+		"stp q0,q1,[%0,#32]\n\t"\
+		:\
+		:"r"((void *)d),"r"(s)\
+		:"v0","v1","memory","cc"\
+)
+#define BYTE_COPY_ALIGN4P(d,s) __asm__ volatile(\
+		"ldp q0,q1,[%1],#32\n\t"\
+		"stp q0,q1,[%0],#32\n\t"\
+		:"+r"(d),"+r"(s)\
+		:\
+		:"v0","v1","memory","cc"\
+)
+#define BYTE_COPY_ALIGN4PK(d,s) __asm__ volatile(\
+		"ldp q0,q1,[%1]\n\t"\
+		"stp q0,q1,[%0]\n\t"\
+		:\
+		:"r"(d),"r"(s)\
+		:"v0","v1","memory","cc"\
+)
+#define BYTE_COPY_ALIGN2P(d,s) __asm__ volatile(\
+		"ldr q0,[%1],#16\n\t"\
+		"str q0,[%0],#16\n\t"\
+		:"+r"(d),"+r"(s)\
+		:\
+		:"v0","memory","cc"\
+)
+#define BYTE_COPY_ALIGN2PK(d,s) __asm__ volatile(\
+		"ldr q0,[%1]\n\t"\
+		"str q0,[%0]\n\t"\
+		:\
+		:"r"(d),"r"(s)\
+		:"v0","memory","cc"\
+)
+#define BYTE_COPY_ALIGN1PK(d,s) __asm__ volatile(\
+		"ldr x0,[%1]\n\t"\
+		"str x0,[%0]\n\t"\
+		:\
+		:"r"(d),"r"(s)\
+		:"x0","memory","cc"\
+)
+#define BYTE_COPY_ALIGN32K BYTE_COPY_ALIGN4PK
+#define BYTE_COPY_ALIGN8K BYTE_COPY_ALIGN1PK
+#elif defined(__x86_64__)
+#define BYTE_COPY_ALIGN8P(d,s,n) __asm__ volatile(\
+		".L0%=:\n\t"\
+		"movdqu (%1),%%xmm0\n\t"\
+		"movdqu 16(%1),%%xmm1\n\t"\
+		"movups %%xmm0,(%0)\n\t"\
+		"movups %%xmm1,16(%0)\n\t"\
+		"movdqu 32(%1),%%xmm0\n\t"\
+		"movdqu 48(%1),%%xmm1\n\t"\
+		"movups %%xmm0,32(%0)\n\t"\
+		"movups %%xmm1,48(%0)\n\t"\
+		"add $64,%0\n\t"\
+		"add $64,%1\n\t"\
+		"sub $64,%2\n\t"\
+		"jnz .L0%="\
+		:"+r"(d),"+r"(s),"+r"(n)\
+		:\
+		:"xmm0","xmm1","memory","cc"\
+)
+#define BYTE_COPY_ALIGN8PK(d,s) __asm__ volatile(\
+		"movdqu (%1),%%xmm0\n\t"\
+		"movdqu 16(%1),%%xmm1\n\t"\
+		"movups %%xmm0,(%0)\n\t"\
+		"movups %%xmm1,16(%0)\n\t"\
+		"movdqu 32(%1),%%xmm0\n\t"\
+		"movdqu 48(%1),%%xmm1\n\t"\
+		"movups %%xmm0,32(%0)\n\t"\
+		"movups %%xmm1,48(%0)\n\t"\
+		:\
+		:"r"(d),"r"(s)\
+		:"xmm0","xmm1","memory","cc"\
+)
+#define BYTE_COPY_ALIGN4P(d,s) __asm__ volatile(\
+		"movdqu (%1),%%xmm0\n\t"\
+		"movdqu 16(%1),%%xmm1\n\t"\
+		"movups %%xmm0,(%0)\n\t"\
+		"movups %%xmm1,16(%0)\n\t"\
+		"add $32,%0\n\t"\
+		"add $32,%1\n\t"\
+		:"+r"(d),"+r"(s)\
+		:\
+		:"xmm0","xmm1","memory","cc"\
+)
+#define BYTE_COPY_ALIGN4PK(d,s) __asm__ volatile(\
+		"movdqu (%1),%%xmm0\n\t"\
+		"movdqu 16(%1),%%xmm1\n\t"\
+		"movups %%xmm0,(%0)\n\t"\
+		"movups %%xmm1,16(%0)\n\t"\
+		:\
+		:"r"(d),"r"(s)\
+		:"xmm0","xmm1","memory","cc"\
+)
+#define BYTE_COPY_ALIGN2P(d,s) __asm__ volatile(\
+		"movdqu (%1),%%xmm0\n\t"\
+		"movups %%xmm0,(%0)\n\t"\
+		"add $16,%0\n\t"\
+		"add $16,%1\n\t"\
+		:"+r"(d),"+r"(s)\
+		:\
+		:"xmm0","memory","cc"\
+)
+#define BYTE_COPY_ALIGN2PK(d,s) __asm__ volatile(\
+		"movdqu (%1),%%xmm0\n\t"\
+		"movups %%xmm0,(%0)"\
+		:\
+		:"r"(d),"r"(s)\
+		:"xmm0","memory","cc"\
+)
+#define BYTE_COPY_ALIGN1PK(d,s) __asm__ volatile(\
+		"movq (%1),%%xmm0\n\t"\
+		"movq %%xmm0,(%0)"\
+		:\
+		:"r"(d),"r"(s)\
+		:"xmm0","memory","cc"\
+)
+#define BYTE_COPY_ALIGN32K BYTE_COPY_ALIGN4PK
+#define BYTE_COPY_ALIGN8K BYTE_COPY_ALIGN1PK
+#else
+#error "no supported arch."
+#endif
+
 #undef buf
-#define PALIGN (sizeof(void *))
-#define expr_mkval32(c) ({\
-	uint32_t _val=(uint32_t)(c)&0xff;\
-	_val=_val|(_val<<8)|(_val<<16)|(_val<<24);\
-})
-#define expr_mkval64(c) ({\
-	uint64_t _val=(uint64_t)(c)&0xff;\
-	_val=_val|(_val<<8)|(_val<<16)|(_val<<24)|(_val<<32)|(_val<<40)|(_val<<48)|(_val<<56);\
-})
-void expr_internal_memset(void *buf,uintptr_t val,size_t size){
+#define PALIGN __SIZEOF_POINTER__
+void expr_internal_memset64(void *buf,uintptr_t val,size_t size){
 	uintptr_t diff,down;
 	size_t msize;
 	uintptr_t *p;
 	if(unlikely(!size))
 		return;
 	p=(uintptr_t *)buf;
-	diff=((uintptr_t)p%PALIGN);
+	diff=((uintptr_t)p&(PALIGN-1));
 	if(diff){
 		down=(uintptr_t)p-diff;
 		if(size<PALIGN-diff){
@@ -1244,15 +1378,21 @@ void expr_internal_memset(void *buf,uintptr_t val,size_t size){
 		p=(uintptr_t *)(down+PALIGN);
 		size-=PALIGN-diff;
 	}
-	msize=size%PALIGN;
+	msize=size&(PALIGN-1);
 	down=(uintptr_t)p+size-msize;
-	while(p+4<=(uintptr_t *)down){
-		*p=val;
-		p[1]=val;
-		p[2]=val;
-		p[3]=val;
-		p+=4;
+	down-=4*PALIGN;
+	if(p<=(uintptr_t *)down){
+		uintptr_t val4[4];
+		*val4=val;
+		val4[1]=val;
+		val4[2]=val;
+		val4[3]=val;
+		do {
+			BYTE_COPY_ALIGN4PK(p,val4);
+			p+=4;
+		}while(p<=(uintptr_t *)down);
 	}
+	down+=4*PALIGN;
 	while((uintptr_t)p<down){
 		*p=val;
 		++p;
@@ -1261,14 +1401,337 @@ void expr_internal_memset(void *buf,uintptr_t val,size_t size){
 		*p=(val&(UINTPTR_MAX>>((PALIGN-msize)*8)))|(*p&(UINTPTR_MAX<<((msize)*8)));
 	}
 }
-#define fetch_align(p,dif) \
-	dif=(uintptr_t)p%PALIGN;\
-	p=(uintptr_t *)((uintptr_t)p-dif)
+
 void expr_internal_memcpy(void *dst,const void *src,size_t size){
-	uintptr_t *dp=dst;
-	const uintptr_t *sp=src;
-	uintptr_t ddif,sdif;
-	fetch_align(dp,ddif);
-	fetch_align(sp,sdif);
-	//incompleted
+	uintptr_t *dp;
+	uint8_t *bp;
+	const uintptr_t *sp;
+	const uint8_t *sbp;
+	uintptr_t end;
+	size_t tmp_size;
+	bp=dst;
+	sbp=src;
+	switch(size){
+		case 0:
+			return;
+		case 2*PALIGN:
+			BYTE_COPY_ALIGN2PK(bp,sbp);
+			return;
+		case 2*PALIGN+1 ... 4*PALIGN-1:
+			size-=2*PALIGN;
+			BYTE_COPY_ALIGN2PK(bp,sbp);
+			BYTE_COPY_ALIGN2PK(bp+size,sbp+size);
+			return;
+		case 4*PALIGN:
+			BYTE_COPY_ALIGN4PK(bp,sbp);
+			return;
+		case 4*PALIGN+1 ... 8*PALIGN-1:
+			size-=4*PALIGN;
+			BYTE_COPY_ALIGN4PK(bp,sbp);
+			BYTE_COPY_ALIGN4PK(bp+size,sbp+size);
+			return;
+		case 8*PALIGN:
+			BYTE_COPY_ALIGN8PK(bp,sbp);
+			return;
+		case 8*PALIGN+1 ... 16*PALIGN:
+			size-=8*PALIGN;
+			BYTE_COPY_ALIGN8PK(bp,sbp);
+			BYTE_COPY_ALIGN8PK(bp+size,sbp+size);
+			return;
+		default:
+			break;
+	}
+	end=(uintptr_t)(4*PALIGN)-((uintptr_t)bp&(4*PALIGN-1));
+	if(size<end){
+		for(;;){
+			*bp=*sbp;
+			if(unlikely(!--size))
+				return;
+			++bp;
+			++sbp;
+		}
+	}
+	switch(end){
+		case 1 ... PALIGN-1:
+			size-=end;
+			do {
+				*(bp++)=*(sbp++);
+			}while(--end);
+			break;
+		case PALIGN:
+			size-=PALIGN;
+			BYTE_COPY_ALIGN1PK(bp,sbp);
+			bp+=PALIGN;
+			sbp+=PALIGN;
+			break;
+		case PALIGN+1 ... 2*PALIGN-1:
+			size-=end;
+			BYTE_COPY_ALIGN1PK(bp,sbp);
+			BYTE_COPY_ALIGN1PK(bp+end-PALIGN,sbp+end-PALIGN);
+			bp+=end;
+			sbp+=end;
+			break;
+		case 2*PALIGN:
+			size-=2*PALIGN;
+			BYTE_COPY_ALIGN2P(bp,sbp);
+			break;
+		case 2*PALIGN+1 ... 4*PALIGN-1:
+			size-=end;
+			BYTE_COPY_ALIGN2PK(bp,sbp);
+			BYTE_COPY_ALIGN2PK(bp+end-2*PALIGN,sbp+end-2*PALIGN);
+			bp+=end;
+			sbp+=end;
+			break;
+		default:
+			break;
+	}
+	dp=(uintptr_t *)bp;
+	sp=(uintptr_t *)sbp;
+	// dp is aligned here
+	tmp_size=size&~(PALIGN*8-1);
+	if(tmp_size){
+		size-=tmp_size;
+		BYTE_COPY_ALIGN8P(dp,sp,tmp_size);
+	}
+	tmp_size=size&~(PALIGN*4-1);
+	if(tmp_size){
+		size-=tmp_size;
+		BYTE_COPY_ALIGN4P(dp,sp);
+	}
+	tmp_size=size&~(PALIGN*2-1);
+	if(tmp_size){
+		size-=tmp_size;
+		BYTE_COPY_ALIGN2P(dp,sp);
+	}
+	tmp_size=size&~(PALIGN-1);
+	if(tmp_size){
+		size-=PALIGN;
+		*(dp++)=*(sp++);
+	}
+	tmp_size=size&(PALIGN-1);
+	if(tmp_size){
+		bp=(uint8_t *)dp;
+		sbp=(uint8_t *)sp;
+		end=(uintptr_t)dp+tmp_size;
+		for(;;){
+			*bp=*sbp;
+			++bp;
+			if(bp==(uint8_t *)end)
+				break;
+			++sbp;
+		}
+	}
+}
+void expr_internal_memmove(void *dst,const void *src,size_t size){
+	uintptr_t d=(uintptr_t)dst
+		,s=(uintptr_t)src
+		,de,se;
+	size_t v;
+	if(unlikely(!size||d==s||(d|s|size)>=(size_t)PTRDIFF_MAX))
+		return;
+	de=d+size;
+	se=s+size;
+	if(s>=de||d>=se){
+		expr_internal_memcpy((void *)d,(void *)s,size);
+		return;
+	}
+	if(d<s){
+		while(size>4*PALIGN){
+			BYTE_COPY_ALIGN4PK(d,s);
+			d+=4*PALIGN;
+			s+=4*PALIGN;
+			size-=4*PALIGN;
+		}
+		if(size==4*PALIGN){
+			BYTE_COPY_ALIGN4PK(d,s);
+			return;
+		}
+		v=(size_t)(s-d);
+		while(size>v){
+			expr_internal_memcpy((void *)d,(void *)s,v);
+			d+=v;
+			s+=v;
+			size-=v;
+		}
+		if(size)
+			expr_internal_memcpy((void *)d,(void *)s,size);
+		return;
+	}
+	while(size>4*PALIGN){
+		de-=4*PALIGN;
+		se-=4*PALIGN;
+		BYTE_COPY_ALIGN4PK(de,se);
+		size-=4*PALIGN;
+	}
+	if(size==4*PALIGN){
+		BYTE_COPY_ALIGN4PK(d,s);
+		return;
+	}
+	v=(size_t)(d-s);
+	while(size>v){
+		de-=v;
+		se-=v;
+		expr_internal_memcpy((void *)de,(void *)se,v);
+		size-=v;
+	}
+	if(size){
+		expr_internal_memcpy((void *)d,(void *)s,size);
+	}
+	return;
+}
+#define SWAR(w) ({uint64_t _w=(w);~(((_w&UINT64_C(0x7f7f7f7f7f7f7f7f))+UINT64_C(0x7f7f7f7f7f7f7f7f))|_w)&UINT64_C(0x8080808080808080);})
+#if (!defined(__BIG_ENDIAN__)||!(__BIG_ENDIAN__))
+#define cz64 ctz64
+#define crz64 clz64
+#else
+#define cz64 clz64
+#define crz64 ctz64
+#endif
+#define w0 w._w0
+#define w1 w._w1
+#define w2 w._w2
+#define w3 w._w3
+void *expr_internal_memchr(const void *buf,int c,size_t size){
+	const uint8_t *p=buf;
+	uint64_t val=expr_mkval64(c);
+	struct {
+		uint64_t _w0,_w1,_w2,_w3;
+	} w;
+	while(size>=32){
+		BYTE_COPY_ALIGN32K(&w,p);
+		w0=SWAR(w0^val);
+		w1=SWAR(w1^val);
+		w2=SWAR(w2^val);
+		w3=SWAR(w3^val);
+		if(w0|w1|w2|w3){
+			if(w0)
+				return (void *)(p+cz64(w0)/8);
+			if(w1)
+				return (void *)(p+8+cz64(w1)/8);
+			if(w2)
+				return (void *)(p+16+cz64(w2)/8);
+			return (void *)(p+24+cz64(w3)/8);
+		}
+		p+=32;
+		size-=32;
+	}
+	while(size>=8){
+		BYTE_COPY_ALIGN8K(&w0,p);
+		w0=SWAR(w0^val);
+		if(w0)
+			return (void *)(p+cz64(w0)/8);
+		p+=8;
+		size-=8;
+	}
+	while(size--){
+		if(*p==(uint8_t)c)
+			return (void *)p;
+		++p;
+	}
+	return NULL;
+}
+void *expr_internal_memrchr(const void *buf,int c,size_t size){
+	const uint8_t *p=buf+size;
+	uint64_t val=expr_mkval64(c);
+	struct {
+		uint64_t _w0,_w1,_w2,_w3;
+	} w;
+	while(size>=32){
+		p-=32;
+		BYTE_COPY_ALIGN32K(&w,p);
+		w0=SWAR(w0^val);
+		w1=SWAR(w1^val);
+		w2=SWAR(w2^val);
+		w3=SWAR(w3^val);
+		if(w0|w1|w2|w3){
+			if(w3)
+				return (void *)(p+(24+7)-crz64(w3)/8);
+			if(w2)
+				return (void *)(p+(16+7)-crz64(w2)/8);
+			if(w1)
+				return (void *)(p+(8+7)-crz64(w1)/8);
+			return (void *)(p+7-crz64(w0)/8);
+		}
+		size-=32;
+	}
+	while(size>=8){
+		p-=8;
+		BYTE_COPY_ALIGN8K(&w0,p);
+		w0=SWAR(w0^val);
+		if(w0)
+			return (void *)(p+7-crz64(w0)/8);
+		size-=8;
+	}
+	while(size--){
+		--p;
+		if(*p==(uint8_t)c)
+			return (void *)p;
+	}
+	return NULL;
+}
+#define w01 w_1._w0
+#define w11 w_1._w1
+#define w21 w_1._w2
+#define w31 w_1._w3
+int expr_internal_memcmp(const void *s0,const void *s1,size_t size){
+	const uint8_t *p=s0;
+	const uint8_t *p1=s1;
+	uint64_t d;
+	int r;
+	struct {
+		uint64_t _w0,_w1,_w2,_w3;
+	} w,w_1;
+	while(size>=32){
+		BYTE_COPY_ALIGN32K(&w,p);
+		BYTE_COPY_ALIGN32K(&w_1,p1);
+#define TEST(x,y,off) \
+		d=x^y;\
+		if(d){\
+			r=cz64(d)/8;\
+			return (int)p[r off ]-(int)p1[r off ];\
+		}
+		TEST(w0,w01,);
+		TEST(w1,w11,+8);
+		TEST(w2,w21,+16);
+		TEST(w3,w31,+24);
+		p+=32;
+		p1+=32;
+		size-=32;
+	}
+	while(size>=8){
+		BYTE_COPY_ALIGN8K(&w0,p);
+		BYTE_COPY_ALIGN8K(&w01,p1);
+		TEST(w0,w01,);
+		p+=8;
+		p1+=8;
+		size-=8;
+	}
+	while(size--){
+		r=(int)*p-(int)*p1;
+		if(r)
+			return r;
+		++p;
+		++p1;
+	}
+	return 0;
+}
+#ifndef PAGE_SIZE
+#define PAGE_SIZE 4096
+#endif
+void *expr_internal_memchr2(const void *buf,int c){
+	const uint8_t *p=buf,*s=buf,*q;
+	size_t ava;
+	ava=PAGE_SIZE-((uintptr_t)p&(PAGE_SIZE-1));
+	if(ava){
+		q=expr_internal_memchr(p,c,ava);
+		if(q)
+			return (void *)q;
+		p+=ava;
+	}
+	for(;;){
+		q=expr_internal_memchr(p,c,PAGE_SIZE);
+		if(q)
+			return (void *)q;
+		p+=PAGE_SIZE;
+	}
 }

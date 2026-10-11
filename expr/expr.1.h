@@ -81,6 +81,28 @@ struct expr_memtool expr_defmtl[1]={{\
 #define EXPR_DEBUG 0
 #endif
 
+#if !(defined(EXPR_LIBC_FMOD_IMPL)&&(EXPR_LIBC_FMOD_IMPL))
+#define fmod expr_internal_fmod
+#endif
+#if !(defined(EXPR_LIBC_POW_IMPL)&&(EXPR_LIBC_POW_IMPL))
+#define pow expr_internal_pow
+#endif
+#if !(defined(EXPR_LIBC_STRING_IMPL)&&(EXPR_LIBC_STRING_IMPL))
+#define memchr expr_internal_memchr
+#define memset expr_internal_memset
+#define memcpy expr_internal_memcpy
+#define memmove expr_internal_memmove
+#define memrchr expr_internal_memrchr
+#define memcmp expr_internal_memcmp
+#define strend(s) expr_internal_memchr2(s,0)
+#define strlen(s) ({const char *_s=(s);(const char *)expr_internal_memchr2(_s,0)-_s;})
+#define strnlen(s,n) ({const char *_s=(s);size_t _n=(n);const char *_p=expr_internal_memchr(_s,0,_n);_p?_p-_s:_n;})
+#define memmem expr_fake_memmem
+#define memrmem expr_fake_memrmem
+#else
+#define strend(s) ({const char *_s=(s);_s+strlen(_s);})
+#endif
+
 #if (EXPR_DEBUG)
 #include <stdio.h>
 #define debug(fmt,...) ((void)fprintf(stderr,"[DEBUG]%s:%d: " fmt "\n",__func__,__LINE__,##__VA_ARGS__))
@@ -568,49 +590,58 @@ EXPR_END
 
 #define expr_symset_foreach(_sp,_esp,_stack) expr_symset_foreach4(_sp,_esp,_stack,0)
 
-#define expr_fake_memrchr(buf,c,size) ({\
-	const void *__buf=(buf);\
-	const char *__end=__buf+(size);\
-	void *__out=NULL;\
-	char __c=(char)(c);\
-	while(--__end>(const char *)__buf){\
-		if(expr_unlikely(*__end==__c)){\
-			__out=(void *)__end;\
-			break;\
-		}\
-	}\
-	__out;\
-})
+#if __SIZEOF_POINTER__==8
+#define expr_mkval(c) expr_mkval64(c)
+#elif __SIZEOF_POINTER__==4
+#define expr_mkval(c) expr_mkval32(c)
+#elif __SIZEOF_POINTER__==2
+#define expr_mkval(c) expr_mkval16(c)
+#elif __SIZEOF_POINTER__==1
+#define expr_mkval(c) ((uint8_t)(c))
+#endif
+
+#define expr_mkval16(c) ((uint16_t)(uint8_t)(c))*UINT16_C(0x0101)
+#define expr_mkval32(c) ((uint32_t)(uint8_t)(c))*UINT32_C(0x01010101)
+#define expr_mkval64(c) ((uint64_t)(uint8_t)(c))*UINT64_C(0x0101010101010101)
+expr_static_assert(__builtin_constant_p(expr_mkval(0)));
+#define expr_internal_memset(buf,val,size) expr_internal_memset64(buf,expr_mkval(val),size)
+//#define expr_internal_memset(buf,val,size) ({if(__builtin_constant_p(val)&&!(val))expr_internal_memset64(buf,0,size);else expr_internal_memset64(buf,expr_mkval(val),size);})
+
 #define expr_fake_memrmem(buf,size,c,c_size) ({\
-	const void *___buf=(buf);\
-	const void *___c=(c);\
+	const char *___buf=(buf);\
+	const char *___c=(c);\
 	size_t ___c_size=(c_size);\
 	size_t ___size=(size)-(___c_size-1);\
 	const char *___r;\
 	char ___ch=*(const char *)___c;\
-	if(expr_likely((ssize_t)___size>0)){\
+	if(expr_likely(___c_size&&(ssize_t)___size>0)){\
+		___ch=*___c;\
 		do {\
 			___r=memrchr(___buf,___ch,___size);\
 			if(!___r||!memcmp(___r,___c,___c_size))\
 				break;\
-			___size=___r-(const char *)___buf;\
+			___size=___r-___buf;\
 		}while(expr_likely(___size));\
 	}else\
 		___r=NULL;\
 	(void *)___r;\
 })
 #define expr_fake_memmem(buf,size,c,c_size) ({\
-	const void *___r=(buf);\
-	const void *___c=(c);\
+	const char *___r=(buf);\
+	const char *___c=(c);\
 	size_t ___c_size=(c_size);\
-	size_t ___size=(size)-(___c_size-1);\
-	char ___ch=*(const char *)___c;\
-	if(expr_likely((ssize_t)___size>0)){\
+	size_t ___size=(size);\
+	const char *___end=___r+___size;\
+	char ___ch;\
+	___size-=(___c_size-1);\
+	if(expr_likely(___c_size&&(ssize_t)___size>0)){\
+		___ch=*___c;\
 		do {\
 			___r=memchr(___r,___ch,___size);\
 			if(!___r||!memcmp(___r,___c,___c_size))\
 				break;\
 			++___r;\
+			___size=___end-___r;\
 		}while(expr_likely(___size));\
 	}else\
 		___r=NULL;\
@@ -726,7 +757,7 @@ union expr_argf {
 	ssize_t *taddr;
 	const char *str;
 	union expr_argf *aaddr;
-#if ___POINTER_WIDTH__<64
+#if __SIZEOF_POINTER__<8
 #define expr_umaxf_t uint64_t
 #define expr_imaxf_t int64_t
 #else
@@ -1176,19 +1207,22 @@ struct expr_strtod_workspace {
 #endif
 
 #ifdef EXPR_SYSIN
-#define expr_internal_syscall(N,num,a0,a1,a2,a3,a4,a5,a6) expr_internal_syscall_reg##N(num,a0,a1,a2,a3,a4,a5,a6,EXPR_SYSID,EXPR_SYSA0,EXPR_SYSA1,EXPR_SYSA2,EXPR_SYSA3,EXPR_SYSA4,EXPR_SYSA5,EXPR_SYSA6,EXPR_SYSRE,EXPR_SYSE0,EXPR_SYSE1,EXPR_SYSE2,EXPR_SYSE3,EXPR_SYSE4,EXPR_SYSE5,EXPR_SYSE6,EXPR_SYSE7)
+#define expr_internal_syscalln(N,num,a0,a1,a2,a3,a4,a5,a6) expr_internal_syscall_reg##N(num,a0,a1,a2,a3,a4,a5,a6,EXPR_SYSID,EXPR_SYSA0,EXPR_SYSA1,EXPR_SYSA2,EXPR_SYSA3,EXPR_SYSA4,EXPR_SYSA5,EXPR_SYSA6,EXPR_SYSRE,EXPR_SYSE0,EXPR_SYSE1,EXPR_SYSE2,EXPR_SYSE3,EXPR_SYSE4,EXPR_SYSE5,EXPR_SYSE6,EXPR_SYSE7)
 #else
-#define expr_internal_syscall(N,num,a0,a1,a2,a3,a4,a5,a6) ((intptr_t)0)
+#define expr_internal_syscalln(N,num,a0,a1,a2,a3,a4,a5,a6) ((intptr_t)0)
 #endif
 
-#define expr_internal_syscall0(num) expr_internal_syscall(0,num,,,,,,,)
-#define expr_internal_syscall1(num,a0) expr_internal_syscall(1,num,a0,,,,,,)
-#define expr_internal_syscall2(num,a0,a1) expr_internal_syscall(2,num,a0,a1,,,,,)
-#define expr_internal_syscall3(num,a0,a1,a2) expr_internal_syscall(3,num,a0,a1,a2,,,,)
-#define expr_internal_syscall4(num,a0,a1,a2,a3) expr_internal_syscall(4,num,a0,a1,a2,a3,,,)
-#define expr_internal_syscall5(num,a0,a1,a2,a3,a4) expr_internal_syscall(5,num,a0,a1,a2,a3,a4,,)
-#define expr_internal_syscall6(num,a0,a1,a2,a3,a4,a5) expr_internal_syscall(6,num,a0,a1,a2,a3,a4,a5,)
-#define expr_internal_syscall7(num,a0,a1,a2,a3,a4,a5,a6) expr_internal_syscall(7,num,a0,a1,a2,a3,a4,a5,a6,)
+#define expr_internal_syscall_sel(_n,_0,_1,_2,_3,_4,_5,_6,_name,...) _name
+#define expr_internal_syscall(...) expr_internal_syscall_sel(__VA_ARGS__,expr_internal_syscall7,expr_internal_syscall6,expr_internal_syscall5,expr_internal_syscall4,expr_internal_syscall3,expr_internal_syscall2,expr_internal_syscall1,expr_internal_syscall0)(__VA_ARGS__)
+
+#define expr_internal_syscall0(num) expr_internal_syscalln(0,num,,,,,,,)
+#define expr_internal_syscall1(num,a0) expr_internal_syscalln(1,num,a0,,,,,,)
+#define expr_internal_syscall2(num,a0,a1) expr_internal_syscalln(2,num,a0,a1,,,,,)
+#define expr_internal_syscall3(num,a0,a1,a2) expr_internal_syscalln(3,num,a0,a1,a2,,,,)
+#define expr_internal_syscall4(num,a0,a1,a2,a3) expr_internal_syscalln(4,num,a0,a1,a2,a3,,,)
+#define expr_internal_syscall5(num,a0,a1,a2,a3,a4) expr_internal_syscalln(5,num,a0,a1,a2,a3,a4,,)
+#define expr_internal_syscall6(num,a0,a1,a2,a3,a4,a5) expr_internal_syscalln(6,num,a0,a1,a2,a3,a4,a5,)
+#define expr_internal_syscall7(num,a0,a1,a2,a3,a4,a5,a6) expr_internal_syscalln(7,num,a0,a1,a2,a3,a4,a5,a6,)
 
 #define expr_internal_syscall_reg7(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ({\
 		expr_internal_regvarr(ID)=(intptr_t)(num);\

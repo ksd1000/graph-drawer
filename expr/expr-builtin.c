@@ -10,6 +10,11 @@
 #include <string.h>
 //#endif
 
+#include <stdlib.h>
+#if defined(EXPR_ISOLATED)&&(EXPR_ISOLATED)
+expr_globals_define();
+#endif
+
 #define EXPR_INLIB 1
 #include "expr.h"
 
@@ -17,9 +22,6 @@
 
 #define eval(_ep,_input) expr_eval(_ep,_input)
 
-#if defined(EXPR_ISOLATED)&&(EXPR_ISOLATED)
-expr_globals_define();
-#endif
 
 #define expr_allocator(size) (xmtl->allocate((size),xmtl->arg))
 #define expr_reallocator(old,size) (xmtl->reallocate((old),(size),xmtl->arg))

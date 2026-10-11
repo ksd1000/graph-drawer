@@ -1172,7 +1172,7 @@ double expr_internal_fmod(double x,double y){
 	}
 	return vx.val;
 }
-//WARNING: the pow is worse than libc pow and only for integer y now.
+//WARNING: the pow is worse than libc pow and only for integer y now. for no-libc mode only
 double expr_internal_pow(double x,double y){
 	double r;
 	union expr_double vx,vy;
@@ -1354,7 +1354,65 @@ yinf:
 #define BYTE_COPY_ALIGN32K BYTE_COPY_ALIGN4PK
 #define BYTE_COPY_ALIGN8K BYTE_COPY_ALIGN1PK
 #else
-#error "no supported arch."
+#define BYTE_COPY_ALIGN8P(d,s,n) do {\
+	(*(uintptr_t *)(d))=(*(uintptr_t *)(s));\
+	((uintptr_t *)(d))[1]=((uintptr_t *)(s))[1];\
+	((uintptr_t *)(d))[2]=((uintptr_t *)(s))[2];\
+	((uintptr_t *)(d))[3]=((uintptr_t *)(s))[3];\
+	((uintptr_t *)(d))[4]=((uintptr_t *)(s))[4];\
+	((uintptr_t *)(d))[5]=((uintptr_t *)(s))[5];\
+	((uintptr_t *)(d))[6]=((uintptr_t *)(s))[6];\
+	((uintptr_t *)(d))[7]=((uintptr_t *)(s))[7];\
+	d=(void *)((uintptr_t)(d)+8*PALIGN);\
+	s=(void *)((uintptr_t)(s)+8*PALIGN);\
+	n-=8*PALIGN;\
+}while(n);
+#define BYTE_COPY_ALIGN8PK(d,s) ({\
+	(*(uintptr_t *)(d))=(*(uintptr_t *)(s));\
+	((uintptr_t *)(d))[1]=((uintptr_t *)(s))[1];\
+	((uintptr_t *)(d))[2]=((uintptr_t *)(s))[2];\
+	((uintptr_t *)(d))[3]=((uintptr_t *)(s))[3];\
+	((uintptr_t *)(d))[4]=((uintptr_t *)(s))[4];\
+	((uintptr_t *)(d))[5]=((uintptr_t *)(s))[5];\
+	((uintptr_t *)(d))[6]=((uintptr_t *)(s))[6];\
+	((uintptr_t *)(d))[7]=((uintptr_t *)(s))[7];\
+})
+#define BYTE_COPY_ALIGN4P(d,s) ({\
+	(*(uintptr_t *)(d))=(*(uintptr_t *)(s));\
+	((uintptr_t *)(d))[1]=((uintptr_t *)(s))[1];\
+	((uintptr_t *)(d))[2]=((uintptr_t *)(s))[2];\
+	((uintptr_t *)(d))[3]=((uintptr_t *)(s))[3];\
+	d=(void *)((uintptr_t)(d)+4*PALIGN);\
+	s=(void *)((uintptr_t)(s)+4*PALIGN);\
+})
+#define BYTE_COPY_ALIGN4PK(d,s) ({\
+	(*(uintptr_t *)(d))=(*(uintptr_t *)(s));\
+	((uintptr_t *)(d))[1]=((uintptr_t *)(s))[1];\
+	((uintptr_t *)(d))[2]=((uintptr_t *)(s))[2];\
+	((uintptr_t *)(d))[3]=((uintptr_t *)(s))[3];\
+})
+#define BYTE_COPY_ALIGN4P(d,s) ({\
+	(*(uintptr_t *)(d))=(*(uintptr_t *)(s));\
+	((uintptr_t *)(d))[1]=((uintptr_t *)(s))[1];\
+	d=(void *)((uintptr_t)(d)+2*PALIGN);\
+	s=(void *)((uintptr_t)(s)+2*PALIGN);\
+})
+#define BYTE_COPY_ALIGN2PK(d,s) ({\
+	(*(uintptr_t *)(d))=(*(uintptr_t *)(s));\
+	((uintptr_t *)(d))[1]=((uintptr_t *)(s))[1];\
+})
+#define BYTE_COPY_ALIGN1PK(d,s) ({\
+	(*(uintptr_t *)(d))=(*(uintptr_t *)(s));\
+})
+#define BYTE_COPY_ALIGN32K(d,s) ({\
+	(*(uint64_t *)(d))=(*(uint64_t *)(s));\
+	((uint64_t *)(d))[1]=((uint64_t *)(s))[1];\
+	((uint64_t *)(d))[2]=((uint64_t *)(s))[2];\
+	((uint64_t *)(d))[3]=((uint64_t *)(s))[3];\
+})
+#define BYTE_COPY_ALIGN8K(d,s) ({\
+	(*(uint64_t *)(d))=(*(uint64_t *)(s));\
+})
 #endif
 
 #undef buf

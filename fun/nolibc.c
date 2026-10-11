@@ -3,7 +3,7 @@
  *This is free software: you are free to change and redistribute it.           *
  *******************************************************************************/
 
-// built command: gcc nolibc.c -I ../expr ../expr/expr-internal.c ../expr/expr-buffered.c ../expr/expr-format.c ../expr/expr-alloc.c ../expr/expr-core.c -nostdlib -o nolibc
+// compile command: gcc nolibc.c -I ../expr ../expr/expr-internal.c ../expr/expr-buffered.c ../expr/expr-format.c ../expr/expr-alloc.c ../expr/expr-core.c -nostdlib -o nolibc
 
 #define _GNU_SOURCE
 #include <stdio.h>

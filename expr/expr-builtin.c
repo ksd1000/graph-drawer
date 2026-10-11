@@ -5,8 +5,10 @@
 #define _GNU_SOURCE
 #include <math.h>
 #include <stdio.h>
-#include <string.h>
 #include <float.h>
+#if (defined(EXPR_LIBC_STRING_IMPL)&&(EXPR_LIBC_STRING_IMPL))
+#include <string.h>
+#endif
 
 #define EXPR_INLIB 1
 #include "expr.h"

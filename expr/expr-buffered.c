@@ -3,7 +3,10 @@
  *This is free software: you are free to change and redistribute it.           *
  *******************************************************************************/
 #define _GNU_SOURCE
+
+#if (defined(EXPR_LIBC_STRING_IMPL)&&(EXPR_LIBC_STRING_IMPL))
 #include <string.h>
+#endif
 
 #define EXPR_INLIB 1
 #include "expr.h"
@@ -275,11 +278,13 @@ err:
 }
 #undef reterr
 
+#if !(defined(EXPR_LIBC_STRING_IMPL)&&(EXPR_LIBC_STRING_IMPL))
 #ifndef __unix__
 #define memrchr expr_fake_memrchr
 #define memmem expr_fake_memmem
 #endif
 #define memrmem expr_fake_memrmem
+#endif
 
 #define rcheckadd(V) r=(V);\
 	if(unlikely(r<0)){\

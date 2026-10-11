@@ -4,17 +4,16 @@
  *******************************************************************************/
 #define _GNU_SOURCE
 #include <math.h>
-#include <string.h>
 #include <float.h>
+
+#if (defined(EXPR_LIBC_STRING_IMPL)&&(EXPR_LIBC_STRING_IMPL))
+#include <string.h>
+#endif
 
 #define EXPR_INLIB 1
 #include "expr.h"
 
 #define UNABLE_GETADDR_IN_PROTECTED_MODE 1
-
-#if !(defined(EXPR_LIBC_FMOD_IMPL)&&(EXPR_LIBC_FMOD_IMPL))
-#define fmod(x,y) expr_internal_fmod(x,y)
-#endif
 
 #define printval(x) warn(#x ":%lu",(unsigned long)(x))
 #define printvalx(x) warn(#x ":%lx",(unsigned long)(x))
@@ -1092,7 +1091,7 @@ static char *expr_tok(char *restrict str,char **restrict saveptr){
 				++(*saveptr);
 				return str;
 			case '(':
-				*saveptr=(char *)findpair(*saveptr,*saveptr+strlen(*saveptr));
+				*saveptr=(char *)findpair(*saveptr,strend(*saveptr));
 				if(unlikely(!*saveptr))
 					return NULL;
 			default:
@@ -2779,7 +2778,7 @@ convert_error:
 						serrinfoc(ep->errinfo,"alloca");
 						goto c_fail;
 				}
-				v0=scan(ep,sym.vv[0],sym.vv[0]+strlen(sym.vv[0]),asym,asymlen);
+				v0=scan(ep,sym.vv[0],strend(sym.vv[0]),asym,asymlen);
 				vfree2(sym.vv);
 				if(unlikely(!v0))
 					return NULL;
@@ -2810,10 +2809,10 @@ svc_enea:
 						serrinfoc(ep->errinfo,"svcp");
 						goto c_fail;
 				}
-				v0=scan(ep,sym.vv[0],sym.vv[0]+strlen(sym.vv[0]),asym,asymlen);
+				v0=scan(ep,sym.vv[0],strend(sym.vv[0]),asym,asymlen);
 				if(unlikely(!v0))
 					goto c_fail;
-				v1=scan(ep,sym.vv[1],sym.vv[1]+strlen(sym.vv[1]),asym,asymlen);
+				v1=scan(ep,sym.vv[1],strend(sym.vv[1]),asym,asymlen);
 				vfree2(sym.vv);
 				if(unlikely(!v1))
 					return NULL;
@@ -2834,7 +2833,7 @@ svc_enea:
 						serrinfoc(ep->errinfo,"svc");
 						goto c_fail;
 				}
-				v0=scan(ep,sym.vv[0],sym.vv[0]+strlen(sym.vv[0]),asym,asymlen);
+				v0=scan(ep,sym.vv[0],strend(sym.vv[0]),asym,asymlen);
 				if(unlikely(!v0))
 					goto c_fail;
 				--dim;
@@ -2842,7 +2841,7 @@ svc_enea:
 					sv.i=0;
 					do {
 						un.ccp=sym.vv[sv.i+1];
-						v1=scan(ep,un.ccp,un.ccp+strlen(un.ccp),asym,asymlen);
+						v1=scan(ep,un.ccp,strend(un.ccp),asym,asymlen);
 						if(unlikely(!v1))
 							goto c_fail;
 						cknp(ep,expr_addcopy(ep,ep->un.args+sv.i,v1),goto c_fail);
@@ -2870,10 +2869,10 @@ svc_enea:
 					serrinfoc(ep->errinfo,"longjmp");
 					goto c_fail;
 				}
-				v0=scan(ep,sym.vv[0],sym.vv[0]+strlen(sym.vv[0]),asym,asymlen);
+				v0=scan(ep,sym.vv[0],strend(sym.vv[0]),asym,asymlen);
 				if(unlikely(!v0))
 					goto c_fail;
-				v1=scan(ep,sym.vv[1],sym.vv[1]+strlen(sym.vv[1]),asym,asymlen);
+				v1=scan(ep,sym.vv[1],strend(sym.vv[1]),asym,asymlen);
 				vfree2(sym.vv);
 				if(unlikely(!v1))
 					return NULL;
@@ -2922,7 +2921,7 @@ svc_enea:
 				for(un.vv1=sym.vv;*un.vv1;++un.vv1);\
 				switch(un.vv1-sym.vv){\
 					case 2:\
-						v0=scan(ep,sym.vv[1],sym.vv[1]+strlen(sym.vv[1]),asym,asymlen);\
+						v0=scan(ep,sym.vv[1],strend(sym.vv[1]),asym,asymlen);\
 						if(unlikely(!v0))\
 							goto c_fail;\
 						break;\
@@ -2932,7 +2931,7 @@ svc_enea:
 						goto c_fail;\
 				}\
 \
-				v1=scan(ep,sym.vv[0],sym.vv[0]+strlen(sym.vv[0]),asym,asymlen);\
+				v1=scan(ep,sym.vv[0],strend(sym.vv[0]),asym,asymlen);\
 				vfree2(sym.vv);\
 				if(unlikely(!v1))\
 					return NULL;\

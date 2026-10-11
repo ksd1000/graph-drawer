@@ -302,7 +302,7 @@ static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr
 	sz=(ssize_t)EXPR_EDEXP(&val)-1023;\
 	if(sz>=0){\
 		double fval;\
-		fval=floor(val);\
+		fval=expr_internal_trunc(val);\
 		val-=fval;\
 		*iival=EXPR_EDBASE(&fval)|(UINT64_C(1)<<52);\
 		sz-=52;\

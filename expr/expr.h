@@ -769,6 +769,16 @@ struct expr_writeflag {
 
 #define EXPR_FMTC_MAX 255
 #define EXPR_FMTC_MIN 237
+
+#define EXPR_FPLUS 230
+#define EXPR_FSPACE 229
+#define EXPR_FMINUS 228
+#define EXPR_FSHARP 227
+#define EXPR_FZERO 226
+#define EXPR_FEQ 225
+#define EXPR_FSAVED 224
+#define EXPR_FADDR 223
+
 expr_static_assert(offsetof(struct expr_writeflag,bit)+sizeof(uint64_t)==sizeof(struct expr_writeflag));
 union expr_argf {
 	void *addr;
@@ -798,12 +808,18 @@ union expr_argf {
 };
 expr_static_assert(sizeof(union expr_argf)>=sizeof(double));
 expr_static_assert(sizeof(union expr_argf)>=sizeof(expr_umaxf_t));
+typedef const union expr_argf *(*expr_argfetch)(ptrdiff_t index,const struct expr_writeflag *flag,void *addr);
 struct expr_writefmt {
 	ssize_t (*converter)(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
 	uint8_t op[7];
 	uint8_t type:2,no_arg:1,digit_check:1,setcap:1,unused:3;
 };
-typedef const union expr_argf *(*expr_argfetch)(ptrdiff_t index,const struct expr_writeflag *flag,void *addr);
+struct expr_ftable {
+	const struct expr_writefmt *fmts;
+	uint8_t c[256];
+	char fph,digit,bitwidth,readarg;
+	char unused[4];
+};
 
 #define expr_iprintf(fmt,...) expr_idprintf(STDOUT_FILENO,fmt,##__VA_ARGS__)
 #define expr_ieprintf(fmt,...) expr_idprintf(STDERR_FILENO,fmt,##__VA_ARGS__)
@@ -1571,18 +1587,18 @@ extern const struct expr_builtin_keyword expr_keywords[];
 ssize_t expr_writec(expr_writer writer,intptr_t fd,size_t count,int c);
 ssize_t expr_converter_common(expr_writer writer,intptr_t fd,const void *buf,size_t size,const struct expr_writeflag *flag);
 ssize_t expr_vwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,expr_argfetch arg,void *addr);
-ssize_t expr_vwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,expr_argfetch arg,void *addr,const struct expr_writefmt *restrict fmts,const uint8_t *restrict table);
+ssize_t expr_vwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,expr_argfetch arg,void *addr,const struct expr_ftable *restrict table);
 ssize_t expr_writef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const union expr_argf *restrict args,size_t arglen);
-ssize_t expr_writef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const union expr_argf *restrict args,size_t arglen,const struct expr_writefmt *restrict fmts,const uint8_t *restrict table);
-ssize_t expr_vapwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const struct expr_writefmt *restrict fmts,const uint8_t *restrict table,va_list ap);
-ssize_t expr_apwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const struct expr_writefmt *restrict fmts,const uint8_t *restrict table,...);
+ssize_t expr_writef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const union expr_argf *restrict args,size_t arglen,const struct expr_ftable *restrict table);
+ssize_t expr_vapwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const struct expr_ftable *restrict table,va_list ap);
+ssize_t expr_apwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const struct expr_ftable *restrict table,...);
 ssize_t expr_vapwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,va_list ap);
 ssize_t expr_apwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,...);
 size_t expr_sscanf(const char *str,size_t len,const char *fmt,size_t fmtlen,void *const *addr,size_t addrlen);
 //global externs of expr-format.c :
 extern const struct expr_writefmt expr_writefmts_default[];
 extern const uint8_t expr_writefmts_default_size;
-extern const uint8_t expr_writefmts_table_default[256];
+extern const struct expr_ftable expr_ftable_default[1];
 //global functions of expr-global.c :
 void expr_contract(void *buf,size_t size);
 __attribute__((noreturn)) void expr_explode_r(void (*contractor)(void *,size_t),const struct expr_memtool *restrict mtl,size_t max);

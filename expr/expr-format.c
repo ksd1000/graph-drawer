@@ -854,7 +854,9 @@ const struct expr_writefmt expr_writefmts_default[]={
 
 };
 const uint8_t expr_writefmts_default_size=arrsize(expr_writefmts_default);
-const uint8_t expr_writefmts_table_default[256]={
+const struct expr_ftable expr_ftable_default[1]={{
+	.fmts=expr_writefmts_default,
+	.c={
 ['q']=0,
 ['n']=EXPR_FMTC_WRITESIZE,
 ['N']=EXPR_FMTC_WRITESIZEDF,
@@ -875,6 +877,15 @@ const uint8_t expr_writefmts_table_default[256]={
 ['V']=EXPR_FMTC_SAVE,
 ['v']=EXPR_FMTC_EVAL,
 ['z']=EXPR_FMTC_FLUSH,
+
+['+']=EXPR_FPLUS,
+[' ']=EXPR_FSPACE,
+['-']=EXPR_FMINUS,
+['#']=EXPR_FSHARP,
+['0']=EXPR_FZERO,
+['=']=EXPR_FEQ,
+['?']=EXPR_FSAVED,
+['&']=EXPR_FADDR,
 
 ['%']=1,
 [(uint8_t)'\x81']=2,['x']=2,
@@ -942,7 +953,10 @@ const uint8_t expr_writefmts_table_default[256]={
 ['H']=64,
 ['m']=65,
 ['M']=66,
-};
+	},
+	.fph='%',.digit='.',.bitwidth=':',
+	.unused={0},
+}};
 #define wf_trywrite(buf,sz) {\
 	v=writer(fd,(buf),(sz));\
 	if(unlikely(v<0))\
@@ -1067,9 +1081,9 @@ out:
 	}\
 })
 ssize_t expr_vwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,expr_argfetch arg,void *addr){
-	return expr_vwritef_r(fmt,fmtlen,writer,fd,arg,addr,expr_writefmts_default,expr_writefmts_table_default);
+	return expr_vwritef_r(fmt,fmtlen,writer,fd,arg,addr,expr_ftable_default);
 }
-ssize_t expr_vwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,expr_argfetch arg,void *addr,const struct expr_writefmt *restrict fmts,const uint8_t *restrict table){
+ssize_t expr_vwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,expr_argfetch arg,void *addr,const struct expr_ftable *restrict table){
 	const char *endp=fmt+fmtlen,*fmt_old=fmt,*fmt0=fmt;
 	ssize_t ret=0;
 	ssize_t v;
@@ -1087,7 +1101,7 @@ ssize_t expr_vwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer
 		return 0;
 	fmt_save_current=fmt_save;
 next:
-	fmt=memchr(fmt,'%',endp-fmt);
+	fmt=memchr(fmt,table->fph,endp-fmt);
 	if(unlikely(!fmt)){
 		wf_trywrite(fmt_old,endp-fmt_old);
 		goto end;
@@ -1107,22 +1121,22 @@ next:
 	fmt_inc_check;\
 	goto reflag
 reflag:
-	switch(*fmt){
-		case '+':
+	switch(table->c[(uint8_t)*fmt]){
+		case EXPR_FPLUS:
 			fmt_setflag(plus);
-		case ' ':
+		case EXPR_FSPACE:
 			fmt_setflag(space);
-		case '-':
+		case EXPR_FMINUS:
 			fmt_setflag(minus);
-		case '#':
+		case EXPR_FSHARP:
 			fmt_setflag(sharp);
-		case '0':
+		case EXPR_FZERO:
 			fmt_setflag(zero);
-		case '=':
+		case EXPR_FEQ:
 			fmt_setflag(eq);
-		case '?':
+		case EXPR_FSAVED:
 			fmt_setflag(saved);
-		case '&':
+		case EXPR_FADDR:
 			fmt_setflag(addr);
 		default:
 			break;
@@ -1172,9 +1186,9 @@ reflag:
 #define argt(_type) ({register const union expr_argf *__arg;flag->type=(_type);__arg=arg(index,flag,addr);if(unlikely(!__arg)){debug("cannot get arg[%zd]",index);goto_argfail;}__arg;})
 #define arg1 argt(EXPR_FLAGTYPE_ADDR)
 #define get_next_arg64(dest,_after,_type,_field,_afield) \
-	if(*fmt=='*'){\
+	if(*fmt==table->readarg){\
 		fmt_inc_check;\
-		if(*fmt=='*'){\
+		if(*fmt==table->readarg){\
 			dest=*argt(EXPR_FLAGTYPE_ADDR)->_afield;\
 			fmt_inc_check;\
 		}else\
@@ -1192,18 +1206,18 @@ reflag:
 		}\
 	}
 	get_next_arg64(flag->width,flag->width_set=1,EXPR_FLAGTYPE_UNSIGNED,zint,zaddr);
-	if(*fmt=='.'){
+	if(*fmt==table->digit){
 		fmt_inc_check;
 		get_next_arg64(flag->digit,flag->digit_set=1,EXPR_FLAGTYPE_SIGNED,tint,taddr);
 	}
-	if(*fmt==':'){
+	if(*fmt==table->bitwidth){
 		fmt_inc_check;
 		get_next_arg64(flag->argsize,,EXPR_FLAGTYPE_UNSIGNED,zint,zaddr);
 	}
 	current=*(uint8_t *)fmt;
 current_get:
 	flag->op=current;
-	switch((r1=table[current])){
+	switch((r1=table->c[current])){
 		case EXPR_FMTC_EXIT:
 			goto end;
 		case EXPR_FMTC_WRITESIZE:
@@ -1457,7 +1471,7 @@ current_get:
 	}
 
 		default:
-			wfp=fmts+(r1-1);//r
+			wfp=table->fmts+(r1-1);//r
 wfp_get:
 			if(unlikely(wfp->digit_check&&!flag->digit_set))
 				goto_argfail;
@@ -1555,13 +1569,13 @@ ssize_t expr_writef(const char *restrict fmt,size_t fmtlen,expr_writer writer,in
 	struct writef_args wa[1];
 	wa->base=args;
 	wa->arglen=arglen;
-	return expr_vwritef_r(fmt,fmtlen,writer,fd,arr_arg,wa,expr_writefmts_default,expr_writefmts_table_default);
+	return expr_vwritef_r(fmt,fmtlen,writer,fd,arr_arg,wa,expr_ftable_default);
 }
-ssize_t expr_writef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const union expr_argf *restrict args,size_t arglen,const struct expr_writefmt *restrict fmts,const uint8_t *restrict table){
+ssize_t expr_writef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const union expr_argf *restrict args,size_t arglen,const struct expr_ftable *restrict table){
 	struct writef_args wa[1];
 	wa->base=args;
 	wa->arglen=arglen;
-	return expr_vwritef_r(fmt,fmtlen,writer,fd,arr_arg,wa,fmts,table);
+	return expr_vwritef_r(fmt,fmtlen,writer,fd,arr_arg,wa,table);
 }
 struct fmtarg {
 	va_list ap;
@@ -1614,25 +1628,25 @@ static const union expr_argf *ap_getarg(ptrdiff_t index,const struct expr_writef
 end:
 	return useaddr?a->save->aaddr:a->save;
 }
-#define ap_common(_start,_end,_fmts,_table) \
+#define ap_common(_start,_end,_table) \
 	ssize_t r;\
 	struct fmtarg a[1];\
 	a->index_old=-1;\
 	_start;\
-	r=expr_vwritef_r(fmt,fmtlen,writer,fd,ap_getarg,a,_fmts,_table);\
+	r=expr_vwritef_r(fmt,fmtlen,writer,fd,ap_getarg,a,_table);\
 	_end;\
 	return r
-ssize_t expr_vapwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const struct expr_writefmt *restrict fmts,const uint8_t *restrict table,va_list ap){
-	ap_common(va_copy(a->ap,ap),va_end(a->ap),fmts,table);
+ssize_t expr_vapwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const struct expr_ftable *restrict table,va_list ap){
+	ap_common(va_copy(a->ap,ap),va_end(a->ap),table);
 }
-ssize_t expr_apwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const struct expr_writefmt *restrict fmts,const uint8_t *restrict table,...){
-	ap_common(va_start(a->ap,table),va_end(a->ap),fmts,table);
+ssize_t expr_apwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const struct expr_ftable *restrict table,...){
+	ap_common(va_start(a->ap,table),va_end(a->ap),table);
 }
 ssize_t expr_vapwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,va_list ap){
-	ap_common(va_copy(a->ap,ap),va_end(a->ap),expr_writefmts_default,expr_writefmts_table_default);
+	ap_common(va_copy(a->ap,ap),va_end(a->ap),expr_ftable_default);
 }
 ssize_t expr_apwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,...){
-	ap_common(va_start(a->ap,fd),va_end(a->ap),expr_writefmts_default,expr_writefmts_table_default);
+	ap_common(va_start(a->ap,fd),va_end(a->ap),expr_ftable_default);
 }
 
 static inline const char *internal_strtom_10(const char *restrict nptr,const char *endp,ssize_t *restrict outval){

@@ -322,12 +322,7 @@ static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr
 			}\
 		}else\
 			r=1;\
-		ds=extint_ascii_rev(iival,r,conv_btox,np,_base);\
-		np-=ds;\
-		if(ds>=digit)\
-			digit=0;\
-		else\
-			digit-=ds;\
+		np-=extint_ascii_rev(iival,r,conv_btox,np,_base);\
 	}else {\
 		*(--np)='0';\
 	}\

@@ -687,21 +687,21 @@ ssize_t expr_internal_strtoz(const char *restrict nptr,size_t nsize,size_t *rest
 	if(!base){
 		if(nptr+1<endp&&*nptr=='0'){
 			++nptr;
-			if(nptr+1<endp&&*nptr=='x'){
+			if(nptr+1<endp&&(*nptr=='x'||*nptr=='b')){
 				++nptr;
+				base=(*nptr=='x'?16:2);
 				get=expr_ntable(*nptr);
-				if(unlikely(get>=16)){
+				if(unlikely(get>=base)){
 					--nptr;
 					goto out;
 				}
-				base=16;
 				goto got;
 			}else {
+				base=8;
 				get=expr_ntable(*nptr);
 				if(unlikely(get>=8)){
 					goto out;
 				}
-				base=8;
 				goto got;
 			}
 		}else {

@@ -1410,7 +1410,7 @@ struct expr {
 	struct expr_resource *res,*tail;
 	size_t length,vsize,vlength;
 	const struct expr_memtool *restrict mtl;
-	// the restrict in field may be ignored, might work in the feture
+	// the restrict in field may be ignored, might work in the future
 	union {
 		double args[EXPR_SYSAM];
 		struct {

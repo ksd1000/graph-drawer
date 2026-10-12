@@ -1633,7 +1633,8 @@ size_t expr_extint_ascii_convert(uint64_t *buf,const char *inbuf,size_t inbuf_si
 ssize_t expr_internal_strtoz(const char *restrict nptr,size_t nsize,size_t *restrict end_index,int base);
 double expr_internal_strtod4(const char *restrict nptr,size_t nsize,size_t *restrict end_index,struct expr_strtod_workspace *restrict ws);
 double expr_internal_strtod(const char *restrict nptr,size_t nsize,size_t *restrict end_index);
-double expr_internal_strtod_mtl(const char *restrict nptr,size_t nsize,size_t *restrict end_index,const struct expr_memtool *restrict mtl);
+double expr_internal_strtod_mtl_auto(const char *restrict nptr,size_t nsize,size_t *restrict end_index,const struct expr_memtool *restrict mtl);
+double expr_internal_strtod_mtl_force(const char *restrict nptr,size_t nsize,size_t *restrict end_index,const struct expr_memtool *restrict mtl);
 double expr_internal_trunc(double x);
 double expr_internal_fmod(double x,double y);
 double expr_internal_pow(double x,double y);

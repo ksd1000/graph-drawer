@@ -277,8 +277,8 @@ static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr
 	char *endp;\
 	char *p,*np;\
 	int positive,f61,f58;\
-	ssize_t ext,sum,r,sz,fsz,ds;\
-	size_t digit,width;\
+	ssize_t ext,sum,r,sz,fsz;\
+	size_t digit,width,ds;\
 	const char *_conv_str=flag->cap?conv_btoX:conv_btox;\
 	_start;\
 	if(unlikely(!expr_isfinite(val))){\
@@ -290,14 +290,21 @@ static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr
 			*(uint32_t *)p=*(const uint32_t *)(expr_isinf(val)?"inf":"nan");\
 		cwrite_common(nbuf,(ssize_t)(p==nbuf?3:4));\
 	}\
+	f61=!!(flag->minus);\
+	f58=!!(flag->eq);\
+	digit=(size_t)flag_digit(flag,6);\
+	if(digit>(size_t)SSIZE_MAX-1){\
+		digit=(size_t)SSIZE_MAX-1;\
+	}\
+	width=flag_width(flag,0);\
 	endp=nbuf+_nsize;\
-	np=endp;\
 	if(EXPR_EDSIGN(&val)){\
 		EXPR_EDSIGN(&val)=0;\
 		positive=0;\
 	}else {\
 		positive=1;\
 	}\
+	np=endp;\
 	sum=0;\
 	sz=(ssize_t)EXPR_EDEXP(&val)-1023;\
 	if(sz>=0){\
@@ -315,7 +322,12 @@ static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr
 			}\
 		}else\
 			r=1;\
-		np-=extint_ascii_rev(iival,r,conv_btox,np,_base);\
+		ds=extint_ascii_rev(iival,r,conv_btox,np,_base);\
+		np-=ds;\
+		if(ds>=digit)\
+			digit=0;\
+		else\
+			digit-=ds;\
 	}else {\
 		*(--np)='0';\
 	}\
@@ -327,12 +339,6 @@ static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr
 	}\
 	write_sign_to_np(!positive);\
 	ds=endp-np;\
-	f61=!!(flag->minus);\
-	f58=!!(flag->eq);\
-	digit=flag_digit(flag,6);\
-	if(digit>SSIZE_MAX-1)\
-		digit=SSIZE_MAX-1;\
-	width=flag_width(flag,0);\
 	p=vbuf+1096;\
 	if(digit){\
 		fsz=(ssize_t)EXPR_EDEXP(&val);\
@@ -394,6 +400,7 @@ static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr
 	if(fsz==1)\
 		fsz=0;\
 	sz=ds+(f58?fsz:ext);\
+	debug("set sz=%zd",sz);\
 )
 #define conv_fe(_name,_base,_shift,_nsize,_e) conv_f0(_name,_base,_shift,_nsize,\
 	if(r1<0){\
@@ -440,7 +447,7 @@ static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr
 	ssize_t esz;\
 	ssize_t iz;\
 	{\
-	r1=ds-1;\
+	r1=(ssize_t)ds-1;\
 	sz=0;\
 	if(!fsz){\
 		goto nofsz;\
@@ -518,20 +525,27 @@ onzero:\
 		extint_mirror(ebuf+2,r2);\
 	};\
 	esz=sz;\
+	debug("set sz=%zd",sz);\
 	sz+=ds+(f58?fsz+!!digit:digit+!!digit);\
 	if(!fsz)\
 		++sz;\
+	debug("set sz=%zd",sz);\
 	for(iz=0,endp=np+ds;--endp>np;){\
 		if(*endp=='0')\
 			++iz;\
 		else\
 			break;\
 	}\
+	debug("set sz=%zd",sz);\
 	sz-=iz;\
 	if(!digit)\
 		--sz;\
+	if(sz<0)\
+		sz=SSIZE_MAX;\
+	debug("set sz=%zd",sz);\
 })
 #define writeext_f \
+	debug("width=%zu,sz=%zd",width,sz);\
 	ext=(ssize_t)width-sz;\
 	if(ext>0){\
 		c_trywriteext((flag->zero)?'0':' ',ext);\
@@ -1584,17 +1598,17 @@ static const union expr_argf *ap_getarg(ptrdiff_t index,const struct expr_writef
 					a->save->smax=va_arg(a->ap,int);
 					break;
 				default:
-					a->save->smax=va_arg(a->ap,intptr_t);
+					a->save->smax=va_arg(a->ap,expr_imaxf_t);
 					break;
 			}
 			break;
 		case EXPR_FLAGTYPE_UNSIGNED:
 			switch(flag->argsize){
 				case 1 ... sizeof(int):
-					a->save->smax=va_arg(a->ap,unsigned int);
+					a->save->umax=va_arg(a->ap,unsigned int);
 					break;
 				default:
-					a->save->smax=va_arg(a->ap,uintptr_t);
+					a->save->umax=va_arg(a->ap,expr_umaxf_t);
 					break;
 			}
 			break;
@@ -1658,7 +1672,7 @@ out:
 				if(likely(r<=(SIZE_MAX>>(n))))\
 					r<<=(n);\
 				else{\
-					*outval=PTRDIFF_MIN;\
+					*outval=SSIZE_MAX;\
 					return nptr;\
 				}\
 				break

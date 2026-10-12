@@ -97,8 +97,9 @@ const struct eproj {
 	{"sum(",EXPR_EPT},
 	{"sum",EXPR_EFP},
 	{"sqrt()",EXPR_ENVP},
+	{"$e",EXPR_ENUMBER},
 	{"sum(n)",EXPR_ENEA},
-	{"266j",EXPR_ESYMBOL},
+	{"266j",EXPR_EUSN},
 	{"5->pi",EXPR_ETNV},
 	{"5->sqrt",EXPR_ETNV},
 	{"5->e",EXPR_ETNV},
@@ -186,7 +187,6 @@ int main(int argc,char **argv){
 		check(p->e,p->expect);
 	for(const struct eproj *p=eprojs;p->e;++p)
 		errcheck(p->e,p->expect);
-	expr_new7("t**3+sin(t)+sum(n,0,100,1,sin(n*t))","t",NULL,EXPR_IINSTANT_FREE,1250,NULL,NULL);
 	for(const struct expr_builtin_keyword *p=expr_keywords;;++p){
 		if(!p->str){
 			break;

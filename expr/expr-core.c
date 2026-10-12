@@ -1049,6 +1049,7 @@ static inline const char *getsym(const char *c,const char *endp){
 		++c;
 	return c;
 }
+/*
 static inline const char *getsym_expo(const char *c,const char *endp){
 	const char *c0=c;
 	while(c<endp&&!expr_operator(*c))
@@ -1058,16 +1059,18 @@ static inline const char *getsym_expo(const char *c,const char *endp){
 	}
 	return c;
 }
-static inline int atod(const char *str,size_t sz,double *dst,const struct expr_memtool *restrict mtl){
+*/
+static inline int atod(const char *str,size_t sz,double *dst,const char **endptr,const struct expr_memtool *restrict mtl){
 	size_t s;
 	*dst=expr_internal_strtod_mtl_force(str,sz,&s,mtl);
 	if(unlikely(!s))
 		return 0;
 	else if(unlikely(s==SIZE_MAX))
-		return 3;
-	else if(unlikely(s!=sz))
 		return 2;
-	else return 1;
+	else {
+		*endptr=str+s;
+		return 1;
+	}
 }
 static char *expr_tok(char *restrict str,char **restrict saveptr){
 	char *s0=(char *)str;
@@ -1867,7 +1870,7 @@ err:
 static double *getvalue(struct expr *restrict ep,const char *e,const char *endp,const char **_p,const char *asym,size_t asymlen){
 	const char *p,*p2,*p4,*e0=e;
 	double *v0=NULL,*v1;
-	int r0;
+	int r0,dol=0;
 	union {
 		double v;
 		void *uaddr;
@@ -2107,6 +2110,10 @@ block:
 			cknp(ep,expr_addconst_i(ep,v0,un.v),return NULL);
 			e=p;
 			goto vend;
+		case '$':
+			dol=1;
+			++e;
+			goto number;
 		/*case '0' ... '9':
 			goto number;
 		case '.':
@@ -3326,19 +3333,22 @@ fok:
 			goto_symerr;
 	}
 number:
-	p=getsym_expo(e,endp);
-	r0=atod(e,p-e,&un.v,xmtl);
+	r0=atod(e,endp-e,&un.v,&p,xmtl);
 	switch(r0){
+		case 0:
+			if(!dol)
+				goto sym_notfound;
+			p=getsym(e,endp);
+			serrinfo(ep->errinfo,e,p-e);
+			seterr(ep,EXPR_ENUMBER);
+			return NULL;
 		case 1:
 			v0=expr_newvar(ep);
 			cknp(ep,v0,return NULL);
 			cknp(ep,expr_addconst(ep,v0,un.v),return NULL);
 			e=p;
 			goto vend;
-		case 0:
 		case 2:
-			goto sym_notfound;
-		case 3:
 			seterr(ep,EXPR_EMEM);
 			return NULL;
 		default:

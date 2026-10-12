@@ -817,8 +817,8 @@ struct expr_writefmt {
 struct expr_ftable {
 	const struct expr_writefmt *fmts;
 	uint8_t c[256];
-	char fph,digit,bitwidth,readarg;
-	char unused[4];
+	char fph,digit,bitwidth,readarg,readarg2;
+	char unused[3];
 };
 
 #define expr_iprintf(fmt,...) expr_idprintf(STDOUT_FILENO,fmt,##__VA_ARGS__)

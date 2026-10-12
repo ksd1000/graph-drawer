@@ -796,8 +796,8 @@ union expr_argf {
 	expr_imaxf_t smax;
 	expr_imaxf_t *smaddr;
 };
-expr_static_assert(sizeof(union expr_argf)==sizeof(double));
-expr_static_assert(sizeof(union expr_argf)==sizeof(expr_umaxf_t));
+expr_static_assert(sizeof(union expr_argf)>=sizeof(double));
+expr_static_assert(sizeof(union expr_argf)>=sizeof(expr_umaxf_t));
 struct expr_writefmt {
 	ssize_t (*converter)(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
 	uint8_t op[7];

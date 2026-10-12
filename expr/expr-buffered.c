@@ -156,6 +156,7 @@ size_le_c:
 ssize_t expr_buffered_read(struct expr_buffered_file *restrict fp,void *buf,size_t size){
 	size_t i;
 	ssize_t r;
+	expr_test_t test;
 	if(unlikely(size>SSIZE_MAX)){
 		if(size==SIZE_MAX){
 			i=fp->index-fp->written;
@@ -166,11 +167,14 @@ ssize_t expr_buffered_read(struct expr_buffered_file *restrict fp,void *buf,size
 		}
 	}
 	fp->flag&=~EXPR_BZERO;
+	/*
 	if(unlikely(fp->flag&EXPR_BZERO)){
 		debug("end index=%zu",fp->index);
 		return 0;
 	}
+	*/
 	debug("start index=%zu",fp->index);
+	test=xmtl?xmtl->test:NULL;
 	while(fp->length<fp->dynamic){
 		void *p;
 		i=align(fp->length+BUFSIZE_INITIAL+EXTEND_FRAC(fp->length));
@@ -191,7 +195,7 @@ try_read_again:
 			r=fp->reader(fp->fd,p,r);
 			if(unlikely(r<0))
 				goto err;
-			if(unlikely(xmtl&&xmtl->test&&xmtl->test(p,xmtl->arg,r))){
+			if(unlikely(test&&test(p,xmtl->arg,r))){
 				fp->index+=r;
 				debug("end index=%zu",fp->index);
 				return 0;

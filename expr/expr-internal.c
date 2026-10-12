@@ -1082,12 +1082,12 @@ double expr_internal_strtod(const char *restrict nptr,size_t nsize,size_t *restr
 	struct expr_strtod_workspace ws[1];
 	return expr_internal_strtod4(nptr,nsize,end_index,ws);
 }
-double expr_internal_strtod_mtl(const char *restrict nptr,size_t nsize,size_t *restrict end_index,const struct expr_memtool *restrict mtl){
-	struct expr_strtod_workspace *ws;
 #define expr_allocator(size) (xmtl->allocate((size),xmtl->arg))
 #define expr_reallocator(old,size) (xmtl->reallocate((old),(size),xmtl->arg))
 #define expr_deallocator(old) (xmtl->deallocate((old),xmtl->arg))
 #define xmtl mtl
+double expr_internal_strtod_mtl_auto(const char *restrict nptr,size_t nsize,size_t *restrict end_index,const struct expr_memtool *restrict mtl){
+	struct expr_strtod_workspace *ws;
 	ws=xmalloc(sizeof(struct expr_strtod_workspace));
 	if(ws){
 		double r;
@@ -1097,6 +1097,19 @@ double expr_internal_strtod_mtl(const char *restrict nptr,size_t nsize,size_t *r
 	}else {
 		ws=alloca(sizeof(struct expr_strtod_workspace));
 		return expr_internal_strtod4(nptr,nsize,end_index,ws);
+	}
+}
+double expr_internal_strtod_mtl_force(const char *restrict nptr,size_t nsize,size_t *restrict end_index,const struct expr_memtool *restrict mtl){
+	struct expr_strtod_workspace *ws;
+	ws=xmalloc(sizeof(struct expr_strtod_workspace));
+	if(ws){
+		double r;
+		r=expr_internal_strtod4(nptr,nsize,end_index,ws);
+		xfree(ws);
+		return r;
+	}else {
+		set_index(SIZE_MAX);
+		return 0.0;
 	}
 }
 double expr_internal_trunc(double x){

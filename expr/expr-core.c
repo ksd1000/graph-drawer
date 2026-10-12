@@ -1060,9 +1060,11 @@ static inline const char *getsym_expo(const char *c,const char *endp){
 }
 static inline int atod(const char *str,size_t sz,double *dst,const struct expr_memtool *restrict mtl){
 	size_t s;
-	*dst=expr_internal_strtod(str,sz,&s);
+	*dst=expr_internal_strtod_mtl_force(str,sz,&s,mtl);
 	if(unlikely(!s))
 		return 0;
+	else if(unlikely(s==SIZE_MAX))
+		return 3;
 	else if(unlikely(s!=sz))
 		return 2;
 	else return 1;
@@ -3326,14 +3328,22 @@ fok:
 number:
 	p=getsym_expo(e,endp);
 	r0=atod(e,p-e,&un.v,xmtl);
-	if(r0==1){
-		v0=expr_newvar(ep);
-		cknp(ep,v0,return NULL);
-		cknp(ep,expr_addconst(ep,v0,un.v),return NULL);
-		e=p;
-		goto vend;
+	switch(r0){
+		case 1:
+			v0=expr_newvar(ep);
+			cknp(ep,v0,return NULL);
+			cknp(ep,expr_addconst(ep,v0,un.v),return NULL);
+			e=p;
+			goto vend;
+		case 0:
+		case 2:
+			goto sym_notfound;
+		case 3:
+			seterr(ep,EXPR_EMEM);
+			return NULL;
+		default:
+			__builtin_unreachable();
 	}
-	goto sym_notfound;
 /*
 ein:
 	serrinfo(ep->errinfo,e,p-e);

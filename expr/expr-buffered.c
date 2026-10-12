@@ -191,7 +191,7 @@ try_read_again:
 			r=fp->reader(fp->fd,p,r);
 			if(unlikely(r<0))
 				goto err;
-			if(unlikely(xmtl->test&&xmtl->test(p,xmtl->arg,r))){
+			if(unlikely(xmtl&&xmtl->test&&xmtl->test(p,xmtl->arg,r))){
 				fp->index+=r;
 				debug("end index=%zu",fp->index);
 				return 0;

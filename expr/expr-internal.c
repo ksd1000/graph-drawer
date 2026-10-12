@@ -219,10 +219,11 @@ size_t expr_extint_left(uint64_t *buf,size_t size,uint64_t bits){
 			--p0;
 			--p;
 		}while(p0>=buf);
-		do{
+		memset(buf,0,(uintptr_t)p-(uintptr_t)buf+8);
+		/*do{
 			*p=0;
 			--p;
-		}while(p>=buf);
+		}while(p>=buf);*/
 	}
 	if(bits){
 		p=buf+rsize;

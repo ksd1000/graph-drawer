@@ -954,7 +954,7 @@ const struct expr_ftable expr_ftable_default[1]={{
 ['m']=65,
 ['M']=66,
 	},
-	.fph='%',.digit='.',.bitwidth=':',
+	.fph='%',.digit='.',.bitwidth=':',.readarg='*',.readarg2='*',
 	.unused={0},
 }};
 #define wf_trywrite(buf,sz) {\
@@ -1097,8 +1097,12 @@ ssize_t expr_vwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer
 	const char *fmt_save[8];
 	const char **fmt_save_current;
 	union expr_argf save;
-	if(unlikely(endp<=fmt))
+	if(unlikely(!fmtlen))
 		return 0;
+	if(unlikely(!table->fph)){
+		wf_trywrite(fmt,fmtlen);
+		goto end;
+	}
 	fmt_save_current=fmt_save;
 next:
 	fmt=memchr(fmt,table->fph,endp-fmt);
@@ -1186,9 +1190,9 @@ reflag:
 #define argt(_type) ({register const union expr_argf *__arg;flag->type=(_type);__arg=arg(index,flag,addr);if(unlikely(!__arg)){debug("cannot get arg[%zd]",index);goto_argfail;}__arg;})
 #define arg1 argt(EXPR_FLAGTYPE_ADDR)
 #define get_next_arg64(dest,_after,_type,_field,_afield) \
-	if(*fmt==table->readarg){\
+	if(table->readarg&&*fmt==table->readarg){\
 		fmt_inc_check;\
-		if(*fmt==table->readarg){\
+		if(table->readarg2&&*fmt==table->readarg2){\
 			dest=*argt(EXPR_FLAGTYPE_ADDR)->_afield;\
 			fmt_inc_check;\
 		}else\
@@ -1206,11 +1210,11 @@ reflag:
 		}\
 	}
 	get_next_arg64(flag->width,flag->width_set=1,EXPR_FLAGTYPE_UNSIGNED,zint,zaddr);
-	if(*fmt==table->digit){
+	if(table->digit&&*fmt==table->digit){
 		fmt_inc_check;
 		get_next_arg64(flag->digit,flag->digit_set=1,EXPR_FLAGTYPE_SIGNED,tint,taddr);
 	}
-	if(*fmt==table->bitwidth){
+	if(table->bitwidth&&*fmt==table->bitwidth){
 		fmt_inc_check;
 		get_next_arg64(flag->argsize,,EXPR_FLAGTYPE_UNSIGNED,zint,zaddr);
 	}

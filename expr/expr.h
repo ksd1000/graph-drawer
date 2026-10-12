@@ -1178,6 +1178,13 @@ struct expr_strtod_workspace {
 #define EXPR_SYSE5
 #define EXPR_SYSE6
 #define EXPR_SYSE7
+#define EXPR_CLOB0 "x1","memory","cc"
+#define EXPR_CLOB1 "x1","memory","cc"
+#define EXPR_CLOB2 "memory","cc"
+#define EXPR_CLOB3 "memory","cc"
+#define EXPR_CLOB4 "memory","cc"
+#define EXPR_CLOB5 "memory","cc"
+#define EXPR_CLOB6 "memory","cc"
 #define EXPR_ARCHN "aarch64"
 #elif defined(__x86_64__)
 #define EXPR_SYSIN "syscall"
@@ -1198,6 +1205,13 @@ struct expr_strtod_workspace {
 #define EXPR_SYSE5
 #define EXPR_SYSE6
 #define EXPR_SYSE7
+#define EXPR_CLOB0 "rcx","r11","memory","cc"
+#define EXPR_CLOB1 "rcx","r11","memory","cc"
+#define EXPR_CLOB2 "rcx","r11","memory","cc"
+#define EXPR_CLOB3 "rcx","r11","memory","cc"
+#define EXPR_CLOB4 "rcx","r11","memory","cc"
+#define EXPR_CLOB5 "rcx","r11","memory","cc"
+#define EXPR_CLOB6 "rcx","r11","memory","cc"
 #define EXPR_ARCHN "x86_64"
 #else
 #define EXPR_SYSAM 0
@@ -1239,7 +1253,7 @@ struct expr_strtod_workspace {
 		EXPR_SYSIN \
 		:"=r"(expr_combine(__r_,RE))\
 		:"r"(expr_combine(__r_,A0)),"r"(expr_combine(__r_,A1)),"r"(expr_combine(__r_,A2)),"r"(expr_combine(__r_,A3)),"r"(expr_combine(__r_,A4)),"r"(expr_combine(__r_,A5)),"r"(expr_combine(__r_,A6)),"r"(expr_combine(__r_,ID))\
-		:"memory");\
+		:EXPR_CLOB7);\
 		expr_combine(__r_,RE);\
 })
 #define expr_internal_syscall_reg6(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ({\
@@ -1255,7 +1269,7 @@ struct expr_strtod_workspace {
 		EXPR_SYSIN \
 		:"=r"(expr_combine(__r_,RE))\
 		:"r"(expr_combine(__r_,A0)),"r"(expr_combine(__r_,A1)),"r"(expr_combine(__r_,A2)),"r"(expr_combine(__r_,A3)),"r"(expr_combine(__r_,A4)),"r"(expr_combine(__r_,A5)),"r"(expr_combine(__r_,ID))\
-		:"memory");\
+		:EXPR_CLOB6);\
 		expr_combine(__r_,RE);\
 })
 #define expr_internal_syscall_reg5(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ({\
@@ -1270,7 +1284,7 @@ struct expr_strtod_workspace {
 		EXPR_SYSIN \
 		:"=r"(expr_combine(__r_,RE))\
 		:"r"(expr_combine(__r_,A0)),"r"(expr_combine(__r_,A1)),"r"(expr_combine(__r_,A2)),"r"(expr_combine(__r_,A3)),"r"(expr_combine(__r_,A4)),"r"(expr_combine(__r_,ID))\
-		:"memory");\
+		:EXPR_CLOB5);\
 		expr_combine(__r_,RE);\
 })
 #define expr_internal_syscall_reg4(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ({\
@@ -1284,7 +1298,7 @@ struct expr_strtod_workspace {
 		EXPR_SYSIN \
 		:"=r"(expr_combine(__r_,RE))\
 		:"r"(expr_combine(__r_,A0)),"r"(expr_combine(__r_,A1)),"r"(expr_combine(__r_,A2)),"r"(expr_combine(__r_,A3)),"r"(expr_combine(__r_,ID))\
-		:"memory");\
+		:EXPR_CLOB4);\
 		expr_combine(__r_,RE);\
 })
 #define expr_internal_syscall_reg3(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ({\
@@ -1297,7 +1311,7 @@ struct expr_strtod_workspace {
 		EXPR_SYSIN \
 		:"=r"(expr_combine(__r_,RE))\
 		:"r"(expr_combine(__r_,A0)),"r"(expr_combine(__r_,A1)),"r"(expr_combine(__r_,A2)),"r"(expr_combine(__r_,ID))\
-		:"memory");\
+		:EXPR_CLOB3);\
 		expr_combine(__r_,RE);\
 })
 #define expr_internal_syscall_reg2(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ({\
@@ -1309,7 +1323,7 @@ struct expr_strtod_workspace {
 		EXPR_SYSIN \
 		:"=r"(expr_combine(__r_,RE))\
 		:"r"(expr_combine(__r_,A0)),"r"(expr_combine(__r_,A1)),"r"(expr_combine(__r_,ID))\
-		:"memory");\
+		:EXPR_CLOB2);\
 		expr_combine(__r_,RE);\
 })
 #define expr_internal_syscall_reg1(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ({\
@@ -1320,7 +1334,7 @@ struct expr_strtod_workspace {
 		EXPR_SYSIN \
 		:"=r"(expr_combine(__r_,RE))\
 		:"r"(expr_combine(__r_,A0)),"r"(expr_combine(__r_,ID))\
-		:"memory");\
+		:EXPR_CLOB1);\
 		expr_combine(__r_,RE);\
 })
 #define expr_internal_syscall_reg0(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ({\
@@ -1330,7 +1344,7 @@ struct expr_strtod_workspace {
 		EXPR_SYSIN \
 		:"=r"(expr_combine(__r_,RE))\
 		:"r"(expr_combine(__r_,ID))\
-		:"memory");\
+		:EXPR_CLOB0);\
 		expr_combine(__r_,RE);\
 })
 

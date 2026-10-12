@@ -1171,14 +1171,14 @@ reflag:
 #define goto_argfail {debug("arg failed");return PTRDIFF_MIN;}
 #define argt(_type) ({register const union expr_argf *__arg;flag->type=(_type);__arg=arg(index,flag,addr);if(unlikely(!__arg)){debug("cannot get arg[%zd]",index);goto_argfail;}__arg;})
 #define arg1 argt(EXPR_FLAGTYPE_ADDR)
-#define get_next_arg64(dest,_after) \
+#define get_next_arg64(dest,_after,_type,_field,_afield) \
 	if(*fmt=='*'){\
 		fmt_inc_check;\
 		if(*fmt=='*'){\
-			dest=*argt(EXPR_FLAGTYPE_SIGNED)->siaddr;\
+			dest=*argt(EXPR_FLAGTYPE_ADDR)->_afield;\
 			fmt_inc_check;\
 		}else\
-			dest=argt(EXPR_FLAGTYPE_SIGNED)->sint;\
+			dest=argt(_type)->_field;\
 		_after;\
 		argnext1;\
 	}else {\
@@ -1191,14 +1191,14 @@ reflag:
 				goto end;\
 		}\
 	}
-	get_next_arg64(flag->width,flag->width_set=1);
+	get_next_arg64(flag->width,flag->width_set=1,EXPR_FLAGTYPE_UNSIGNED,zint,zaddr);
 	if(*fmt=='.'){
 		fmt_inc_check;
-		get_next_arg64(flag->digit,flag->digit_set=1);
+		get_next_arg64(flag->digit,flag->digit_set=1,EXPR_FLAGTYPE_SIGNED,tint,taddr);
 	}
 	if(*fmt==':'){
 		fmt_inc_check;
-		get_next_arg64(flag->argsize,);
+		get_next_arg64(flag->argsize,,EXPR_FLAGTYPE_UNSIGNED,zint,zaddr);
 	}
 	current=*(uint8_t *)fmt;
 current_get:

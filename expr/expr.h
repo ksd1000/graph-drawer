@@ -102,14 +102,15 @@ struct expr_internal_jmpbuf {
 };
 #endif
 
-#if defined(EXPR_INLIB)&&(EXPR_INLIB)
+#if (defined(EXPR_INLIB)&&(EXPR_INLIB))
 #ifndef EXPR_DEBUG
 #define EXPR_DEBUG 0
 #endif
 
-#if (EXPR_DEBUG)
+#if (defined(EXPR_DEBUG)&&(EXPR_DEBUG))
 #include <stdio.h>
 #define debug(fmt,...) ((void)fprintf(stderr,"[DEBUG]%s:%d: " fmt "\n",__func__,__LINE__,##__VA_ARGS__))
+//the debug() must not be provided by expr-format.c
 #else
 #define debug(fmt,...) ((void)0)
 #endif
@@ -177,8 +178,6 @@ struct expr_internal_jmpbuf {
 
 #define EXPR_BLOCKWARNING 1
 
-#else
-#define debug(fmt,...) ((void)sizeof(fprintf(stderr,"[DEBUG]%s:%d: " fmt "\n",__func__,__LINE__,##__VA_ARGS__)))
 #endif
 
 #if (defined(EXPR_BLOCKWARNING)&&(EXPR_BLOCKWARNING))
@@ -346,7 +345,9 @@ EXPR_END
 #define EXPR_SYMSET_INITIALIZER(mtl) {NULL,0,0,0,0,0,0,0,0,0,0,0,(mtl),0,0}
 #define EXPR_MUTEX_INITIALIZER ((uint32_t)(0))
 
+#ifndef EXPR_SYMLEN
 #define EXPR_SYMLEN 64
+#endif
 
 #ifndef EXPR_SYMNEXT
 #define EXPR_SYMNEXT 14

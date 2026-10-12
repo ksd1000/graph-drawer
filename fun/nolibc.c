@@ -22,7 +22,7 @@ struct expr_memtool mtl[1];
 __attribute__((force_align_arg_pointer))
 #endif
 int main(int argc,char **argv){
-	expr_setup_heapmtl3(mtl,buf,sizeof(buf));
+	expr_setup_heapmtl(mtl,buf,sizeof(buf));
 	expr_ilprintf(printf_buf,"hello\n",argc,argv);
 	expr_ilprintf(printf_buf,"expr_calc(\"1+1\")=%f\n",expr_calc_r("1+1",mtl));
 	return EXIT_SUCCESS;

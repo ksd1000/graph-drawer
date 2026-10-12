@@ -1419,8 +1419,8 @@ void *expr_area_realloc(struct expr_area *restrict area,void *old,size_t size);
 void *expr_area_realloc4(struct expr_area *restrict area,void *old,size_t size,int flag);
 void *expr_area_calloc(struct expr_area *restrict area,size_t size);
 int expr_area_summary(const struct expr_area *restrict area,struct expr_areainfo *restrict info);
-int expr_setup_heapmtl(struct expr_memtool *restrict mtl,void *heap,size_t size,int flag);
-int expr_setup_heapmtl3(struct expr_memtool *restrict mtl,void *heap,size_t size);
+int expr_setup_heapmtl4(struct expr_memtool *restrict mtl,void *heap,size_t size,int flag);
+int expr_setup_heapmtl(struct expr_memtool *restrict mtl,void *heap,size_t size);
 //global externs of expr-alloc.c :
 //global functions of expr-buffered.c :
 ssize_t expr_buffered_write(struct expr_buffered_file *restrict fp,const void *buf,size_t size);

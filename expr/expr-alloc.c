@@ -413,7 +413,7 @@ static void static_area_dealloc(void *old,intptr_t arg){
 	expr_area_dealloc((struct expr_area *)arg,old);
 
 }
-int expr_setup_heapmtl(struct expr_memtool *restrict mtl,void *heap,size_t size,int flag){
+int expr_setup_heapmtl4(struct expr_memtool *restrict mtl,void *heap,size_t size,int flag){
 	if(flag&EXPR_ASTARTADDRALIGN){
 		uintptr_t alp;
 		size_t dif;
@@ -435,6 +435,6 @@ int expr_setup_heapmtl(struct expr_memtool *restrict mtl,void *heap,size_t size,
 	mtl->arg=(intptr_t)heap;
 	return 0;
 }
-int expr_setup_heapmtl3(struct expr_memtool *restrict mtl,void *heap,size_t size){
-	return expr_setup_heapmtl(mtl,heap,size,EXPR_ALAZY_ALL|EXPR_ASTARTADDRALIGN);
+int expr_setup_heapmtl(struct expr_memtool *restrict mtl,void *heap,size_t size){
+	return expr_setup_heapmtl4(mtl,heap,size,EXPR_ALAZY_ALL|EXPR_ASTARTADDRALIGN);
 }

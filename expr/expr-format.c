@@ -886,6 +886,7 @@ const struct expr_ftable expr_ftable_default[1]={{
 ['=']=EXPR_FEQ,
 ['?']=EXPR_FSAVED,
 ['&']=EXPR_FADDR,
+['!']=EXPR_FCAP,
 
 ['%']=1,
 [(uint8_t)'\x81']=2,['x']=2,
@@ -1142,6 +1143,8 @@ reflag:
 			fmt_setflag(saved);
 		case EXPR_FADDR:
 			fmt_setflag(addr);
+		case EXPR_FCAP:
+			fmt_setflag(cap);
 		default:
 			break;
 	}
@@ -1652,6 +1655,7 @@ ssize_t expr_vapwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer
 ssize_t expr_apwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,...){
 	ap_common(va_start(a->ap,fd),va_end(a->ap),expr_ftable_default);
 }
+//ssize_t expr_(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,...){}
 
 static inline const char *internal_strtom_10(const char *restrict nptr,const char *endp,ssize_t *restrict outval){
 	size_t r=0;

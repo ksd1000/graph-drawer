@@ -778,6 +778,7 @@ struct expr_writeflag {
 #define EXPR_FEQ 225
 #define EXPR_FSAVED 224
 #define EXPR_FADDR 223
+#define EXPR_FCAP 222
 
 expr_static_assert(offsetof(struct expr_writeflag,bit)+sizeof(uint64_t)==sizeof(struct expr_writeflag));
 union expr_argf {

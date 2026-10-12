@@ -1233,6 +1233,8 @@ yinf:
 	return 1.0;
 }
 
+#define PALIGN __SIZEOF_POINTER__
+
 #if defined(__aarch64__)
 #define BYTE_COPY_ALIGN8P(d,s,n) __asm__ volatile(\
 		".L0%=:\n\t"\
@@ -1269,6 +1271,16 @@ yinf:
 		:"r"(d),"r"(s)\
 		:"v0","v1","memory","cc"\
 )
+#define BYTE_SET_ALIGN4P(d,s,n) __asm__ volatile(\
+		"ldp q0,q1,[%2]\n\t"\
+		".L0%=:\n\t"\
+		"stp q0,q1,[%0],#32\n\t"\
+		"subs %1,%1,#32\n\t"\
+		"b.ne .L0%="\
+		:"+r"(d),"+r"(n)\
+		:"r"(s)\
+		:"v0","v1","memory","cc"\
+)
 #define BYTE_COPY_ALIGN2P(d,s) __asm__ volatile(\
 		"ldr q0,[%1],#16\n\t"\
 		"str q0,[%0],#16\n\t"\
@@ -1283,12 +1295,36 @@ yinf:
 		:"r"(d),"r"(s)\
 		:"v0","memory","cc"\
 )
+#define BYTE_SET_ALIGN2P(d,s) __asm__ volatile(\
+		"ldr q0,[%1]\n\t"\
+		"str q0,[%0],#16\n\t"\
+		:"+r"(d)\
+		:"r"(s)\
+		:"v0","memory","cc"\
+)
+#define BYTE_COPY_ALIGN1P(d,s) __asm__ volatile(\
+		"ldr x0,[%1],#8\n\t"\
+		"str x0,[%0],#8\n\t"\
+		:"+r"(d),"+r"(s)\
+		:\
+		:"x0","memory","cc"\
+)
 #define BYTE_COPY_ALIGN1PK(d,s) __asm__ volatile(\
 		"ldr x0,[%1]\n\t"\
 		"str x0,[%0]\n\t"\
 		:\
 		:"r"(d),"r"(s)\
 		:"x0","memory","cc"\
+)
+#define BYTE_SET(d,s,n) __asm__ volatile(\
+		"ldrb w0,[%2]\n\t"\
+		".L0%=:\n\t"\
+		"strb w0,[%0],#1\n\t"\
+		"subs %1,%1,#1\n\t"\
+		"b.ne .L0%="\
+		:"+r"(d),"+r"(n)\
+		:"r"(s)\
+		:"x0","x1","memory","cc"\
 )
 #define BYTE_COPY_ALIGN32K BYTE_COPY_ALIGN4PK
 #define BYTE_COPY_ALIGN8K BYTE_COPY_ALIGN1PK
@@ -1323,6 +1359,18 @@ yinf:
 		:\
 		:"r"(d),"r"(s)\
 		:"xmm0","xmm1","memory","cc"\
+)
+#define BYTE_SET_ALIGN4P(d,s,n) __asm__ volatile(\
+		"movdqu (%2),%%xmm0\n\t"\
+		".L0%=:\n\t"\
+		"movups %%xmm0,(%0)\n\t"\
+		"movups %%xmm0,16(%0)\n\t"\
+		"add $32,%0\n\t"\
+		"sub $32,%1\n\t"\
+		"jnz .L0%="\
+		:"+r"(d),"+r"(n)\
+		:"r"(s)\
+		:"xmm0","memory","cc"\
 )
 #define BYTE_COPY_ALIGN4P(d,s) __asm__ volatile(\
 		"movdqu (%1),%%xmm0\n\t"\
@@ -1360,12 +1408,40 @@ yinf:
 		:"r"(d),"r"(s)\
 		:"xmm0","memory","cc"\
 )
+#define BYTE_SET_ALIGN2P(d,s) __asm__ volatile(\
+		"movdqu (%1),%%xmm0\n\t"\
+		"movups %%xmm0,(%0)\n\t"\
+		"add $16,%0\n\t"\
+		:"+r"(d)\
+		:"r"(s)\
+		:"xmm0","memory","cc"\
+)
+#define BYTE_COPY_ALIGN1P(d,s) __asm__ volatile(\
+		"movq (%1),%%xmm0\n\t"\
+		"movq %%xmm0,(%0)\n\t"\
+		"add $8,%0\n\t"\
+		"add $8,%1\n\t"\
+		:"+r"(d),"+r"(s)\
+		:\
+		:"xmm0","memory","cc"\
+)
 #define BYTE_COPY_ALIGN1PK(d,s) __asm__ volatile(\
 		"movq (%1),%%xmm0\n\t"\
 		"movq %%xmm0,(%0)"\
 		:\
 		:"r"(d),"r"(s)\
 		:"xmm0","memory","cc"\
+)
+#define BYTE_SET(d,s,n) __asm__ volatile(\
+		"movb (%2),%%al\n\t"\
+		".L0%=:\n\t"\
+		"movb %%al,(%0)\n\t"\
+		"add $1,%0\n\t"\
+		"sub $1,%1\n\t"\
+		"jnz .L0%="\
+		:"+r"(d),"+r"(n)\
+		:"r"(s)\
+		:"rax","memory","cc"\
 )
 #define BYTE_COPY_ALIGN32K BYTE_COPY_ALIGN4PK
 #define BYTE_COPY_ALIGN8K BYTE_COPY_ALIGN1PK
@@ -1407,7 +1483,15 @@ yinf:
 	((uintptr_t *)(d))[2]=((uintptr_t *)(s))[2];\
 	((uintptr_t *)(d))[3]=((uintptr_t *)(s))[3];\
 })
-#define BYTE_COPY_ALIGN4P(d,s) ({\
+#define BYTE_SET_ALIGN4P(d,s,n) do {\
+	(*(uintptr_t *)(d))=(*(uintptr_t *)(s));\
+	((uintptr_t *)(d))[1]=(*(uintptr_t *)(s));\
+	((uintptr_t *)(d))[2]=(*(uintptr_t *)(s));\
+	((uintptr_t *)(d))[3]=(*(uintptr_t *)(s));\
+	d=(void *)((uintptr_t)(d)+4*PALIGN);\
+	n-=4*PALIGN;\
+}while(n);
+#define BYTE_COPY_ALIGN2P(d,s) ({\
 	(*(uintptr_t *)(d))=(*(uintptr_t *)(s));\
 	((uintptr_t *)(d))[1]=((uintptr_t *)(s))[1];\
 	d=(void *)((uintptr_t)(d)+2*PALIGN);\
@@ -1416,6 +1500,16 @@ yinf:
 #define BYTE_COPY_ALIGN2PK(d,s) ({\
 	(*(uintptr_t *)(d))=(*(uintptr_t *)(s));\
 	((uintptr_t *)(d))[1]=((uintptr_t *)(s))[1];\
+})
+#define BYTE_SET_ALIGN2P(d,s) ({\
+	(*(uintptr_t *)(d))=(*(uintptr_t *)(s));\
+	((uintptr_t *)(d))[1]=(*(uintptr_t *)(s));\
+	d=(void *)((uintptr_t)(d)+2*PALIGN);\
+})
+#define BYTE_COPY_ALIGN1P(d,s) ({\
+	(*(uintptr_t *)(d))=(*(uintptr_t *)(s));\
+	d=(void *)((uintptr_t)(d)+PALIGN);\
+	s=(void *)((uintptr_t)(s)+PALIGN);\
 })
 #define BYTE_COPY_ALIGN1PK(d,s) ({\
 	(*(uintptr_t *)(d))=(*(uintptr_t *)(s));\
@@ -1429,57 +1523,112 @@ yinf:
 #define BYTE_COPY_ALIGN8K(d,s) ({\
 	(*(uint64_t *)(d))=(*(uint64_t *)(s));\
 })
+#define BYTE_SET(d,s,n) do {\
+	(*(uint8_t *)(d))=(*(uint8_t *)(s));\
+	d=(void *)((uintptr_t)(d)+1);\
+}while(--n);
 #endif
 
 #undef buf
-#define PALIGN __SIZEOF_POINTER__
+#define BYTE_SET_4PM1(v_len,v_bp,v_sbp) ({\
+	switch(v_len){\
+		case 1 ... PALIGN-1:\
+			BYTE_SET(v_bp,v_sbp,v_len);\
+			break;\
+		case PALIGN:\
+			BYTE_COPY_ALIGN1PK(v_bp,v_sbp);\
+			v_bp+=PALIGN;\
+			break;\
+		case PALIGN+1 ... 2*PALIGN-1:\
+			BYTE_COPY_ALIGN1PK(v_bp,v_sbp);\
+			v_bp+=v_len;\
+			BYTE_COPY_ALIGN1PK(v_bp-PALIGN,v_sbp);\
+			break;\
+		case 2*PALIGN:\
+			BYTE_SET_ALIGN2P(v_bp,v_sbp);\
+			break;\
+		case 2*PALIGN+1 ... 4*PALIGN-1:\
+			BYTE_COPY_ALIGN2PK(v_bp,v_sbp);\
+			v_bp+=v_len;\
+			BYTE_COPY_ALIGN2PK(v_bp-2*PALIGN,v_sbp);\
+			break;\
+		default:\
+			break;\
+	}\
+})
 void expr_internal_memset64(void *buf,uintptr_t val,size_t size){
-	uintptr_t diff,down;
-	size_t msize;
-	uintptr_t *p;
+	uint8_t *bp;
+	uintptr_t end;
+	size_t tmp_size;
+	uint64_t val4[4];
 	if(unlikely(!size))
 		return;
-	p=(uintptr_t *)buf;
-	diff=((uintptr_t)p&(PALIGN-1));
-	if(diff){
-		down=(uintptr_t)p-diff;
-		if(size<PALIGN-diff){
-			diff=(UINTPTR_MAX<<((PALIGN-size)*8))>>((PALIGN-diff-size)*8);
-			*(uintptr_t *)down=(*(uintptr_t *)down&~diff)|(val&diff);
+	bp=buf;
+	*val4=val;
+	val4[1]=val;
+	val4[2]=val;
+	val4[3]=val;
+	end=(uintptr_t)(4*PALIGN)-((uintptr_t)bp&(4*PALIGN-1));
+	if(end!=4*PALIGN){
+		if(size<end){
+			BYTE_SET_4PM1(size,bp,((uint8_t *)val4));
 			return;
 		}
-		*(uintptr_t *)down=(*(uintptr_t *)down&(UINTPTR_MAX>>((PALIGN-diff)*8)))|(val&(UINTPTR_MAX<<((diff)*8)));
-		p=(uintptr_t *)(down+PALIGN);
-		size-=PALIGN-diff;
+		size-=end;
+		BYTE_SET_4PM1(end,bp,((uint8_t *)val4));
 	}
-	msize=size&(PALIGN-1);
-	down=(uintptr_t)p+size-msize;
-	down-=4*PALIGN;
-	if(p<=(uintptr_t *)down){
-		uintptr_t val4[4];
-		*val4=val;
-		val4[1]=val;
-		val4[2]=val;
-		val4[3]=val;
-		do {
-			BYTE_COPY_ALIGN4PK(p,val4);
-			p+=4;
-		}while(p<=(uintptr_t *)down);
+	// dp is aligned here
+	tmp_size=size&~(PALIGN*4-1);
+	if(tmp_size){
+		size-=tmp_size;
+		BYTE_SET_ALIGN4P(bp,val4,tmp_size);
 	}
-	down+=4*PALIGN;
-	while((uintptr_t)p<down){
-		*p=val;
-		++p;
+	if(size>=PALIGN*2){
+		size-=PALIGN*2;
+		BYTE_SET_ALIGN2P(bp,val4);
 	}
-	if(msize){
-		*p=(val&(UINTPTR_MAX>>((PALIGN-msize)*8)))|(*p&(UINTPTR_MAX<<((msize)*8)));
+	if(size>=PALIGN){
+		size-=PALIGN;
+		BYTE_COPY_ALIGN1PK(bp,val4);
+		bp+=PALIGN;
+	}
+	if(size){
+		*((uintptr_t *)bp)=(val&(UINTPTR_MAX>>((PALIGN-size)*8)))|(*((uintptr_t *)bp)&(UINTPTR_MAX<<((size)*8)));
 	}
 }
-
+#define BYTE_COPY_4PM1(v_len,v_bp,v_sbp) ({\
+	switch(v_len){\
+		case 1 ... PALIGN-1:\
+			do {\
+				*(v_bp++)=*(v_sbp++);\
+			}while(--v_len);\
+			break;\
+		case PALIGN:\
+			BYTE_COPY_ALIGN1PK(v_bp,v_sbp);\
+			v_bp+=PALIGN;\
+			v_sbp+=PALIGN;\
+			break;\
+		case PALIGN+1 ... 2*PALIGN-1:\
+			BYTE_COPY_ALIGN1PK(v_bp,v_sbp);\
+			v_bp+=v_len;\
+			v_sbp+=v_len;\
+			BYTE_COPY_ALIGN1PK(v_bp-PALIGN,v_sbp-PALIGN);\
+			break;\
+		case 2*PALIGN:\
+			BYTE_COPY_ALIGN2P(v_bp,v_sbp);\
+			break;\
+		case 2*PALIGN+1 ... 4*PALIGN-1:\
+			BYTE_COPY_ALIGN2PK(v_bp,v_sbp);\
+			v_bp+=v_len;\
+			v_sbp+=v_len;\
+			BYTE_COPY_ALIGN2PK(v_bp-2*PALIGN,v_sbp-2*PALIGN);\
+			break;\
+		default:\
+			__builtin_unreachable();\
+	}\
+})
 void expr_internal_memcpy(void *dst,const void *src,size_t size){
-	uintptr_t *dp;
 	uint8_t *bp;
-	const uintptr_t *sp;
 	const uint8_t *sbp;
 	uintptr_t end;
 	size_t tmp_size;
@@ -1487,6 +1636,23 @@ void expr_internal_memcpy(void *dst,const void *src,size_t size){
 	sbp=src;
 	switch(size){
 		case 0:
+			return;
+		case 1 ... PALIGN-1:
+			for(;;){
+				*bp=*sbp;
+				if(unlikely(!--size))
+					return;
+				++bp;
+				++sbp;
+			}
+			return;
+		case PALIGN:
+			BYTE_COPY_ALIGN1PK(bp,sbp);
+			return;
+		case PALIGN+1 ... 2*PALIGN-1:
+			size-=PALIGN;
+			BYTE_COPY_ALIGN1PK(bp,sbp);
+			BYTE_COPY_ALIGN1PK(bp+size,sbp+size);
 			return;
 		case 2*PALIGN:
 			BYTE_COPY_ALIGN2PK(bp,sbp);
@@ -1516,77 +1682,30 @@ void expr_internal_memcpy(void *dst,const void *src,size_t size){
 			break;
 	}
 	end=(uintptr_t)(4*PALIGN)-((uintptr_t)bp&(4*PALIGN-1));
-	if(size<end){
-		for(;;){
-			*bp=*sbp;
-			if(unlikely(!--size))
-				return;
-			++bp;
-			++sbp;
-		}
+	if(end!=4*PALIGN){
+		size-=end;
+		BYTE_COPY_4PM1(end,bp,sbp);
 	}
-	switch(end){
-		case 1 ... PALIGN-1:
-			size-=end;
-			do {
-				*(bp++)=*(sbp++);
-			}while(--end);
-			break;
-		case PALIGN:
-			size-=PALIGN;
-			BYTE_COPY_ALIGN1PK(bp,sbp);
-			bp+=PALIGN;
-			sbp+=PALIGN;
-			break;
-		case PALIGN+1 ... 2*PALIGN-1:
-			size-=end;
-			BYTE_COPY_ALIGN1PK(bp,sbp);
-			BYTE_COPY_ALIGN1PK(bp+end-PALIGN,sbp+end-PALIGN);
-			bp+=end;
-			sbp+=end;
-			break;
-		case 2*PALIGN:
-			size-=2*PALIGN;
-			BYTE_COPY_ALIGN2P(bp,sbp);
-			break;
-		case 2*PALIGN+1 ... 4*PALIGN-1:
-			size-=end;
-			BYTE_COPY_ALIGN2PK(bp,sbp);
-			BYTE_COPY_ALIGN2PK(bp+end-2*PALIGN,sbp+end-2*PALIGN);
-			bp+=end;
-			sbp+=end;
-			break;
-		default:
-			break;
-	}
-	dp=(uintptr_t *)bp;
-	sp=(uintptr_t *)sbp;
 	// dp is aligned here
 	tmp_size=size&~(PALIGN*8-1);
 	if(tmp_size){
 		size-=tmp_size;
-		BYTE_COPY_ALIGN8P(dp,sp,tmp_size);
+		BYTE_COPY_ALIGN8P(bp,sbp,tmp_size);
 	}
-	tmp_size=size&~(PALIGN*4-1);
-	if(tmp_size){
-		size-=tmp_size;
-		BYTE_COPY_ALIGN4P(dp,sp);
+	if(size>=PALIGN*4){
+		size-=PALIGN*4;
+		BYTE_COPY_ALIGN4P(bp,sbp);
 	}
-	tmp_size=size&~(PALIGN*2-1);
-	if(tmp_size){
-		size-=tmp_size;
-		BYTE_COPY_ALIGN2P(dp,sp);
+	if(size>=PALIGN*2){
+		size-=PALIGN*2;
+		BYTE_COPY_ALIGN2P(bp,sbp);
 	}
-	tmp_size=size&~(PALIGN-1);
-	if(tmp_size){
+	if(size>=PALIGN){
 		size-=PALIGN;
-		*(dp++)=*(sp++);
+		BYTE_COPY_ALIGN1P(bp,sbp);
 	}
-	tmp_size=size&(PALIGN-1);
-	if(tmp_size){
-		bp=(uint8_t *)dp;
-		sbp=(uint8_t *)sp;
-		end=(uintptr_t)dp+tmp_size;
+	if(size){
+		end=(uintptr_t)bp+size;
 		for(;;){
 			*bp=*sbp;
 			++bp;

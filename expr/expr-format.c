@@ -1232,7 +1232,7 @@ current_get:
 		case EXPR_FMTC_JUMP_INDEX:
 #define fmt_op_cond(onexit) \
 			if(flag->eq){\
-				intptr_t *restrict ar;\
+				ssize_t *restrict ar;\
 				int c;\
 				if(flag->digit_set){\
 					ar=arg1->addr;\
@@ -1604,20 +1604,20 @@ static const union expr_argf *ap_getarg(ptrdiff_t index,const struct expr_writef
 		case EXPR_FLAGTYPE_SIGNED:
 			switch(flag->argsize){
 				case 1 ... sizeof(int):
-					a->save->smax=va_arg(a->ap,int);
+					a->save->sint=va_arg(a->ap,int);
 					break;
 				default:
-					a->save->smax=va_arg(a->ap,expr_imaxf_t);
+					a->save->smax=va_arg(a->ap,ssize_t);
 					break;
 			}
 			break;
 		case EXPR_FLAGTYPE_UNSIGNED:
 			switch(flag->argsize){
 				case 1 ... sizeof(int):
-					a->save->umax=va_arg(a->ap,unsigned int);
+					a->save->uint=va_arg(a->ap,unsigned int);
 					break;
 				default:
-					a->save->umax=va_arg(a->ap,expr_umaxf_t);
+					a->save->umax=va_arg(a->ap,size_t);
 					break;
 			}
 			break;

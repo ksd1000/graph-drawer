@@ -716,7 +716,7 @@ break3:
 		if(summary&2)
 			aflag|=EXPR_ALAZYEX;
 		++summary;
-		if(expr_setup_heapmtl(&mtl,buf,sizeof(buf),aflag)<0)
+		if(expr_setup_heapmtl4(&mtl,buf,sizeof(buf),aflag)<0)
 			errx(EXIT_FAILURE,"buffer too small");
 		defmtl=&mtl;
 	}

@@ -22,6 +22,7 @@ add_library(expr
 	expr-alloc.c
 	expr-internal.c
 )
+target_compile_options(expr PRIVATE -ffreestanding)
 link_libraries(expr m)
 add_executable(expr-version expr-version.c)
 if(EXPR_CHECK)

@@ -5027,16 +5027,16 @@ double expr_calc5_r(const char *e,int *error,char errinfo[EXPR_SYMLEN],struct ex
 	return r;
 }
 double expr_calc4_r(const char *e,int *error,char errinfo[EXPR_SYMLEN],struct expr_symset *esp,const struct expr_memtool *restrict mtl){
-	return expr_calc5_r(e,error,errinfo,esp,0,mtl);
+	return expr_calc5_r(e,error,errinfo,esp,EXPR_INOOPTIMIZE,mtl);
 }
 double expr_calc3_r(const char *e,int *error,char errinfo[EXPR_SYMLEN],const struct expr_memtool *restrict mtl){
-	return expr_calc5_r(e,error,errinfo,NULL,0,mtl);
+	return expr_calc5_r(e,error,errinfo,NULL,EXPR_INOOPTIMIZE,mtl);
 }
 double expr_calc2_r(const char *e,int flag,const struct expr_memtool *restrict mtl){
 	return expr_calc5_r(e,NULL,NULL,NULL,flag,mtl);
 }
 double expr_calc_r(const char *e,const struct expr_memtool *restrict mtl){
-	return expr_calc5_r(e,NULL,NULL,NULL,0,mtl);
+	return expr_calc5_r(e,NULL,NULL,NULL,EXPR_INOOPTIMIZE,mtl);
 }
 
 static size_t expr_varofep(const struct expr *restrict ep,double *v){

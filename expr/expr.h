@@ -1143,6 +1143,7 @@ struct expr_areainfo {
 #define EXPR_ASTARTADDRALIGN 64
 
 #define EXPR_ALAZY_ALL (EXPR_ALAZY|EXPR_ALAZYEX)
+#define EXPR_ADEFAULT (EXPR_ALAZY_ALL|EXPR_ASTARTADDRALIGN)
 #define EXPR_AALIGN_SHIFT 7
 // if the EXPR_ADYNAMICALIGN is set:
 // (flag>>EXPR_AALIGN_SHIFT) must be nonzero, or the undefined behaviour(divide by 0) will occur.
@@ -1157,7 +1158,7 @@ struct expr_areainfo {
 	.test=NULL,\
 	.arg=(intptr_t)(heap),\
 }
-#define expr_setup_heapmtl(mtl,heap,size) expr_setup_heapmtl4(mtl,heap,size,EXPR_ALAZY_ALL|EXPR_ASTARTADDRALIGN)
+#define expr_setup_heapmtl(mtl,heap,size) expr_setup_heapmtl4(mtl,heap,size,EXPR_ADEFAULT)
 
 struct expr_strtod_workspace {
 	uint64_t dbuf[96];
@@ -1453,6 +1454,7 @@ int expr_area_summary(const struct expr_area *restrict area,struct expr_areainfo
 void *expr_heapmtl_malloc(size_t size,intptr_t arg);
 void *expr_heapmtl_realloc(void *old,size_t size,intptr_t arg);
 void expr_heapmtl_dealloc(void *old,intptr_t arg);
+void *expr_heapmtl_calloc(size_t size,intptr_t arg);
 int expr_setup_heapmtl4(struct expr_memtool *restrict mtl,void *heap,size_t size,int flag);
 //global externs of expr-alloc.c :
 //global functions of expr-buffered.c :

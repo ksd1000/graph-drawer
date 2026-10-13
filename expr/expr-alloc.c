@@ -44,7 +44,7 @@
 	zero_fromto_field(area,struct expr_area,monotonic_allocate,flag);\
 	area->flag=(_flag)
 int expr_area_init(struct expr_area *restrict area,void *zone,size_t size){
-	INIT_COMMON(EXPR_ALAZY_ALL|EXPR_ASTARTADDRALIGN);
+	INIT_COMMON(EXPR_ADEFAULT);
 	return 0;
 }
 int expr_area_init4(struct expr_area *restrict area,void *zone,size_t size,int flag){
@@ -413,6 +413,9 @@ void *expr_heapmtl_realloc(void *old,size_t size,intptr_t arg){
 void expr_heapmtl_dealloc(void *old,intptr_t arg){
 	expr_area_dealloc((struct expr_area *)arg,old);
 
+}
+void *expr_heapmtl_calloc(size_t size,intptr_t arg){
+	return expr_area_calloc((struct expr_area *)arg,size);
 }
 int expr_setup_heapmtl4(struct expr_memtool *restrict mtl,void *heap,size_t size,int flag){
 	if(flag&EXPR_ASTARTADDRALIGN){

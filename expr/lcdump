@@ -6,6 +6,8 @@ echo typedef expr_allocator_type = void *\;
 echo typedef expr_reallocator_type = void *\;
 echo typedef expr_deallocator_type = void *\;
 echo typedef expr_buffered_test = void *\;
+echo typedef expr_test_t = void *\;
+echo typedef expr_recursive_callback = void *\;
 echo typedef expr_symbol_type = 'enum(EXPR_CONSTANT=0,EXPR_VARIABLE=1,EXPR_FUMCTION=2,EXPR_MDFUNCTION=3,EXPR_MDEPFUNCTION=4,EXPR_ZAFUNCTION=5,EXPR_HOTFUNCTION=6,EXPR_ALIAS=7)'\;
 echo typedef expr_symbol_type_short = 'enum[short](EXPR_CONSTANT=0,EXPR_VARIABLE=1,EXPR_FUMCTION=2,EXPR_MDFUNCTION=3,EXPR_MDEPFUNCTION=4,EXPR_ZAFUNCTION=5,EXPR_HOTFUNCTION=6,EXPR_ALIAS=7)'\;
 echo typedef struct_expr_builtin_symbol = 'struct(void *,string,ushort,expr_symbol_type_short,short,short)'\;
@@ -38,4 +40,5 @@ sed 's/__attribute__((.*)) //g' |
 	sed 's/ \*[^(,]*)/ \*)/g' |
 	sed 's/ [^(,\*]*,/,/g' |
 	sed 's/ [^(,\*]*)/)/g' |
+	sed 's/void (\*contractor)(void \*,ulong)/void \*/g' |
 	sed 's/char \*/string/g'

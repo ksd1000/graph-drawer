@@ -1,9 +1,22 @@
+//compile command: gcc compare.c -I ../expr ../expr/expr-core.c ../expr/expr-internal.c ../expr/expr-alloc.c -o compare -I ../../expr -lm -O3
+
 #define _GNU_SOURCE
 #include "expr.h"
 #undef expr_init
 #include <stdio.h>
 #include <assert.h>
 #include <time.h>
+
+#include <stdlib.h>
+#include <malloc.h>
+//avoid being included again in expr_z.h
+
+char internal_heap[1024*1024*16];
+struct expr_memtool mtl[1];
+#define malloc(s) mtl->allocate(s,mtl->arg)
+#define calloc(s,n) expr_area_calloc((struct expr_area *)mtl->arg,(s)*(n))
+#define realloc(o,s) ({void *_o=(o);(_o)?mtl->reallocate(_o,s,mtl->arg):mtl->allocate(s,mtl->arg);})
+#define free(o) ({void *_o=(o);if(_o)mtl->deallocate(_o,mtl->arg);})
 
 #define expr_eval expr_eval_z
 #define expr expr_z
@@ -33,7 +46,7 @@ float eval_z(unsigned int count){
 	return r;
 }
 double eval(unsigned int count,int flag){
-	struct expr *ep=expr_new4(expression,NULL,es,flag);
+	struct expr *ep=expr_new4_r(expression,NULL,es,flag,mtl);
 	double r=0;
 	assert(ep);
 	while(count--)
@@ -46,9 +59,10 @@ int main(void){
 	unsigned int count=50000000;
 	double ct,st,r=0;
 	double x0=4;
+	assert(!expr_setup_heapmtl4(mtl,internal_heap,sizeof(internal_heap),EXPR_ADEFAULT));
 	assert(a=expr_var(&vars,"x0",2));
 	a->value=4;
-	assert(es=expr_symset_new());
+	assert(es=expr_symset_new_r(mtl));
 	assert(expr_symset_add(es,"x0",EXPR_VARIABLE,0,&x0));
 	printf("eval %s %u times\n",expression,count);
 	rct r=(double)eval_z(count);

@@ -1365,7 +1365,7 @@ static struct expr_vmdinfo *getvmdinfo(struct expr *restrict ep,const char *e0,s
 			setunsafe(ep);
 		}
 	}
-	sset=expr_symset_clone(ep->sset);
+	sset=!ep->sset?expr_symset_new_r(xmtl):expr_symset_clone(ep->sset);
 	cknp(ep,sset,goto err075);
 	s0=strlen(v[0]);
 	expr_symset_remove(sset,v[0],s0);
@@ -1430,7 +1430,7 @@ static struct expr_suminfo *getsuminfo(struct expr *restrict ep,const char *e0,s
 	es=xmalloc(sizeof(struct expr_suminfo));
 	cknp(ep,es,goto err0);
 //	sum(sym_index,from,to,step,expression)
-	sset=expr_symset_clone(ep->sset);
+	sset=!ep->sset?expr_symset_new_r(xmtl):expr_symset_clone(ep->sset);
 	cknp(ep,sset,goto err05);
 	s0=strlen(v[0]);
 	expr_symset_remove(sset,v[0],s0);
@@ -1757,7 +1757,7 @@ static double *alias_scan(struct expr *restrict ep,const struct expr_symbol *ali
 	struct expr_symset *esp,*old;
 	double *v0;
 	cknp(ep,expr_detach(ep)>=0,return NULL);
-	esp=expr_symset_clone(ep->sset);
+	esp=!ep->sset?expr_symset_new_r(xmtl):expr_symset_clone(ep->sset);
 	cknp(ep,esp,return NULL);
 	p=expr_symbol_hot(alias);
 	len=HOTLEN(alias);
@@ -3160,7 +3160,7 @@ fok:
 			if(!(flag&EXPR_SWRITEIP)){
 #define sset_push(_start,_end) \
 				cknp(ep,expr_detach(ep)>=0,return NULL);\
-				sym.esp=expr_symset_clone(ep->sset);\
+				sym.esp=!ep->sset?expr_symset_new_r(xmtl):expr_symset_clone(ep->sset);\
 				cknp(ep,sym.esp,return NULL);\
 				expr_symset_remove(sym.esp,_start,_end-_start)
 				un.ccp=expr_symbol_hot(sym.es);
@@ -4779,7 +4779,7 @@ struct expr_symset *expr_symset_clone(const struct expr_symset *restrict esp){
 	struct expr_symset *es=expr_symset_new_r(esp->mtl);
 	if(!es)
 		return NULL;
-	if(esp&&expr_symset_copy(es,esp)<esp->size){
+	if(expr_symset_copy(es,esp)<esp->size){
 		expr_symset_free(es);
 		return NULL;
 	}
@@ -4789,7 +4789,7 @@ struct expr_symset *expr_symset_clone_s(const struct expr_symset *restrict esp,v
 	struct expr_symset *es=expr_symset_new_r(esp->mtl);
 	if(!es)
 		return NULL;
-	if(esp&&expr_symset_copy_s(es,esp,stack)<esp->size){
+	if(expr_symset_copy_s(es,esp,stack)<esp->size){
 		expr_symset_free_s(es,stack);
 		return NULL;
 	}

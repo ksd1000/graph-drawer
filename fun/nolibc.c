@@ -22,9 +22,14 @@ struct expr_memtool mtl[1];
 __attribute__((force_align_arg_pointer))
 #endif
 int main(int argc,char **argv){
+	struct expr *ep;
 	expr_setup_heapmtl(mtl,buf,sizeof(buf));
 	expr_ilprintf(printf_buf,"hello\n",argc,argv);
-	expr_ilprintf(printf_buf,"expr_calc(\"1+1\")=%f\n",expr_calc_r("1+1",mtl));
+	ep=expr_new2_r("sum(n,1,100,1,n)",NULL,mtl);
+	if(!ep)
+		return EXIT_FAILURE;
+	expr_ilprintf(printf_buf,"sum(n,1,100,1,n)=%f\n",expr_eval(ep,0.0));
+	expr_free(ep);//the expr_free() is not necessary here.
 	return EXIT_SUCCESS;
 }
 __attribute__((noreturn)) void _start(void){

@@ -828,7 +828,7 @@ struct expr_ftable {
 #define expr_idprintf(fd,fmt,...) expr_idwprintf(fd,write,fmt,##__VA_ARGS__)
 #define expr_ibprintf(fd,fmt,...) expr_idwprintf(fd,expr_buffered_write,fmt,##__VA_ARGS__)
 #define expr_ilprintf(fd,fmt,...) expr_idwprintf(fd,expr_buffered_write_iolbf,fmt,##__VA_ARGS__)
-#define expr_idwprintf(fd,writer,fmt,...) expr_apwritef(fmt,sizeof(fmt)-1,(expr_writer)(writer),(intptr_t)(fd),##__VA_ARGS__)
+#define expr_idwprintf(fd,writer,fmt,...) expr_apwritef(fmt,sizeof(fmt)-1,(expr_writer)(const void *)(writer),(intptr_t)(fd),##__VA_ARGS__)
 
 #define EXPR_BZERO 1
 #define EXPR_BTRUNC 2
@@ -1089,7 +1089,7 @@ typedef int (*expr_recursive_callback)(struct expr *restrict ep,void *arg);
 #else
 #define expr_areaunit_bitfield(master,minor) struct {size_t minor:1,master:sizeof(size_t)*8-1;}
 #endif
-struct expr_areaunit {
+struct expr_zoneunit {
 	union {
 		expr_areaunit_bitfield(prev,tail);
 		size_t unprev;
@@ -1100,8 +1100,8 @@ struct expr_areaunit {
 	};
 };
 struct expr_area {
-	struct expr_areaunit *data;
-	struct expr_areaunit *tail;
+	struct expr_zoneunit *data;
+	struct expr_zoneunit *tail;
 	unsigned int monotonic_allocate,
 		     monotonic_allocate_fail,
 		     monotonic_deallocate,
@@ -1115,7 +1115,7 @@ struct expr_area {
 		     monotonic_retail_down;
 	int flag;
 };
-expr_static_assert(!(sizeof(struct expr_area)%sizeof(struct expr_areaunit)));
+expr_static_assert(!(sizeof(struct expr_area)%sizeof(struct expr_zoneunit)));
 struct expr_areainfo {
 	size_t size;
 	size_t unit_count;
@@ -1141,10 +1141,18 @@ struct expr_areainfo {
 #define EXPR_AALIGN_SHIFT 7
 // if the EXPR_ADYNAMICALIGN is set:
 // (flag>>EXPR_AALIGN_SHIFT) must be nonzero, or the undefined behaviour(divide by 0) will occur.
-// if (flag>>EXPR_AALIGN_SHIFT) cannot be divided by sizeof(struct expr_areaunit), the align of memory may be broken.
+// if (flag>>EXPR_AALIGN_SHIFT) cannot be divided by sizeof(struct expr_zoneunit), the align of memory may be broken.
 #define expr_zoneof(heap) ((void *)((uintptr_t)(heap)+sizeof(struct expr_area)))
-#define expr_memlen(p) ({expr_static_castable((p),const void *);((const struct expr_areaunit *)((uintptr_t)(p)-sizeof(struct expr_areaunit)))->size;})
+#define expr_memlen(p) ({expr_static_castable((p),const void *);((const struct expr_zoneunit *)((uintptr_t)(p)-sizeof(struct expr_zoneunit)))->size;})
 
+#define EXPR_HEAPMTL_INITIALIZER(heap) {\
+	.allocate=expr_heapmtl_malloc,\
+	.reallocate=expr_heapmtl_realloc,\
+	.deallocate=expr_heapmtl_dealloc,\
+	.test=NULL,\
+	.arg=(intptr_t)(heap),\
+}
+#define expr_setup_heapmtl(mtl,heap,size) expr_setup_heapmtl4(mtl,heap,size,EXPR_ALAZY_ALL|EXPR_ASTARTADDRALIGN)
 
 struct expr_strtod_workspace {
 	uint64_t dbuf[96];
@@ -1437,8 +1445,10 @@ void *expr_area_realloc(struct expr_area *restrict area,void *old,size_t size);
 void *expr_area_realloc4(struct expr_area *restrict area,void *old,size_t size,int flag);
 void *expr_area_calloc(struct expr_area *restrict area,size_t size);
 int expr_area_summary(const struct expr_area *restrict area,struct expr_areainfo *restrict info);
+void *expr_heapmtl_malloc(size_t size,intptr_t arg);
+void *expr_heapmtl_realloc(void *old,size_t size,intptr_t arg);
+void expr_heapmtl_dealloc(void *old,intptr_t arg);
 int expr_setup_heapmtl4(struct expr_memtool *restrict mtl,void *heap,size_t size,int flag);
-int expr_setup_heapmtl(struct expr_memtool *restrict mtl,void *heap,size_t size);
 //global externs of expr-alloc.c :
 //global functions of expr-buffered.c :
 ssize_t expr_buffered_write(struct expr_buffered_file *restrict fp,const void *buf,size_t size);

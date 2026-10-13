@@ -1271,11 +1271,90 @@ double expr_internal_fxor(double x,double y){
 	build_double(vx,mx,ex,vx.rd.sign!=vy.rd.sign);
 	return vx.val;
 }
-//WARNING: the pow is worse than libc pow and only for integer y now. for no-libc mode only
+double expr_internal_sqrt(double x){
+	uint64_t mx;	
+	int ex,off;
+	union expr_double vx;
+	vx.val=x;
+	if(unlikely(uzero(vx.uval))){
+		return vx.val;
+	}
+	if(unlikely(vx.rd.sign)){
+		return -NAN;
+	}
+	if(unlikely(vx.rd.exp==2047)){
+		return vx.val;
+	}
+	fetch_base_exp(vx,mx,ex);
+	if(ex&1){
+		mx<<=1;
+		--ex;
+	}
+	ex=(ex-52)/2;
+	mx=expr_internal_sqrt128(mx<<52,mx>>12);
+	if(mx>(UINT64_MAX>>11)){
+		mx>>=1;
+		++ex;
+	}
+	build_double(vx,mx,ex,0);
+	return vx.val;
+}
+uint64_t expr_internal_sqrt64(uint64_t x){
+	uint64_t bit,res,t;
+	if(unlikely(!x))
+		return 0;
+	bit=UINT64_C(1)<<((63-clz64(x))&~1);
+	res=0;
+	do {
+		t=res+bit;
+		if(t<=x){
+			x-=t;
+			res=(res>>1)|bit;
+		}else {
+			res>>=1;
+		}
+		bit>>=2;
+	}while(bit);
+	return res;
+}
+uint64_t expr_internal_sqrt128(uint64_t low,uint64_t high){
+	uint64_t bh,bl,rh,rl,th,tl;
+	if(unlikely(!high)){
+		return expr_internal_sqrt64(low);
+	}
+	bh=UINT64_C(1)<<((63-clz64(high))&~1);
+	bl=0;
+	rh=0;
+	rl=0;
+	do {
+		th=rh+bh;
+		tl=rl+bl;
+		if(tl<bl)
+			++th;
+		if(th<high||(th==high&&tl<=low)){
+			high-=th;
+			if(low<tl)
+				--high;
+			low-=tl;
+			rl=((rh&1)<<63)|(rl>>1);
+			rh>>=1;
+			rh|=bh;
+			rl|=bl;
+		}else {
+			rl=((rh&1)<<63)|(rl>>1);
+			rh>>=1;
+		}
+		bl=((bh&3)<<62)|(bl>>2);
+		bh>>=2;
+	}while(bl||bh);
+	return rl;
+}
+//WARNING: the pow is worse than libc pow. for no-libc mode only
 double expr_internal_pow(double x,double y){
 	double r;
 	union expr_double vx,vy;
 	uint64_t y64;
+	int neg,off;
 	vx.val=x;
 	vy.val=y;
 	if(unlikely(vx.rd.exp==2047&&vx.rd.base)){
@@ -1297,23 +1376,43 @@ yinf:
 	if(unlikely(vx.rd.exp==2047)){
 		return vy.rd.base?NAN:INFINITY;
 	}
-	if(unlikely(vy.val>(double)UINT64_MAX)){
+	if(unlikely(vy.val>9007199254740991.0)){
 		goto yinf;
 	}
-	y64=(uint64_t)y;
+	neg=vy.rd.sign;
+	vy.rd.sign=0;
+	y64=(uint64_t)vy.val;
+	vy.val-=(double)y64;
+	r=1.0;
 	if(y64){
-		r=1.0;
 		for(;;){
 			if(y64&1){
 				r*=x;
 			}
 			y64>>=1;
 			if(!y64)
-				return r;
+				break;
 			x=x*x;
 		}
 	}
-	return 1.0;
+	if(!uzero(vx.uval)){
+		uint64_t my;
+		int ey;
+		fetch_base_exp(vy,my,ey);
+		for(ey=-52-ey;ey>0;--ey)
+			vx.val=expr_internal_sqrt(vx.val);
+		debug("r=%lf,vx.val=%lf,my=%lx",r,vx.val,my);
+		r*=vx.val;
+		my<<=12;
+		while(my){
+			vx.val=expr_internal_sqrt(vx.val);
+			if(my&(UINT64_C(1)<<63))
+				r*=vx.val;
+			debug("r=%lf,vx.val=%lf,my=%lx",r,vx.val,my);
+			my<<=1;
+		}
+	}
+	return neg?1.0/r:r;
 }
 double expr_internal_fabs(double x){
 	union expr_double val;

@@ -11,7 +11,7 @@
 #include "expr.h"
 
 #define HBITZ ((size_t)PTRDIFF_MIN)
-#define UNIT_SIZE (sizeof(struct expr_areaunit))
+#define UNIT_SIZE (sizeof(struct expr_zoneunit))
 #define zero_from_field(buf,type,field) memset((void *)((uintptr_t)(buf)+offsetof(type,field)),0,sizeof(type)-offsetof(type,field))
 #define zero_fromto_field(buf,type,field,endfield) memset((void *)((uintptr_t)(buf)+offsetof(type,field)),0,offsetof(type,endfield)-offsetof(type,field))
 #define align_size(val,const_size) (((val)+((const_size)-1))/(const_size))*(const_size)
@@ -37,7 +37,7 @@
 	sizemu=size-UNIT_SIZE;\
 	if(unlikely(sizemu>((size_t)PTRDIFF_MAX-UNIT_SIZE)))\
 		return -1;\
-	area->data=zone;\
+	area->data=(struct expr_zoneunit *)zone;\
 	area->data->unprev=size|HBITZ;\
 	area->data->unsize=sizemu;\
 	area->tail=area->data;\
@@ -51,6 +51,7 @@ int expr_area_init4(struct expr_area *restrict area,void *zone,size_t size,int f
 	INIT_COMMON(flag);
 	return 0;
 }
+
 #define WIPE_COMMON \
 	area->data->unsize=area->data->prev-UNIT_SIZE;\
 	area->data->tail=1;\
@@ -95,7 +96,7 @@ int expr_area_resize(struct expr_area *restrict area,size_t size){
 #define __ip __p.i
 #define findbest(dest,_flag,_type) {\
 	union {\
-		struct expr_areaunit *z;\
+		struct expr_zoneunit *z;\
 		uintptr_t i;\
 	} __p;\
 	uintptr_t __prev=0;\
@@ -153,7 +154,7 @@ int expr_area_resize(struct expr_area *restrict area,size_t size){
 }
 #define alloc_internal(_flag,_type) ({\
 	union {\
-		struct expr_areaunit *z;\
+		struct expr_zoneunit *z;\
 		uintptr_t i;\
 	} _p,_p1;\
 	uintptr_t _ret;\
@@ -244,7 +245,7 @@ void *expr_area_malloc3(struct expr_area *restrict area,size_t size,int flag){
 	}
 void expr_area_dealloc(struct expr_area *restrict area,void *old){
 	union {
-		struct expr_areaunit *z;
+		struct expr_zoneunit *z;
 		uintptr_t i;
 	} p,p1;
 	DEALLOC_BODY(old);
@@ -254,7 +255,7 @@ void expr_area_dealloc(struct expr_area *restrict area,void *old){
 #define new un._new
 #define REALLOC_BODY(_flag) \
 	union {\
-		struct expr_areaunit *z;\
+		struct expr_zoneunit *z;\
 		uintptr_t i;\
 	} p,p1;\
 	union {\
@@ -361,10 +362,10 @@ void *expr_area_calloc(struct expr_area *restrict area,size_t size){
 }
 int expr_area_summary(const struct expr_area *restrict area,struct expr_areainfo *restrict info){
 	union {
-		struct expr_areaunit *z;
+		struct expr_zoneunit *z;
 		uintptr_t i;
 	} p;
-	struct expr_areaunit *prev=NULL;
+	struct expr_zoneunit *prev=NULL;
 	zp=area->data;
 	info->size=zp->prev;
 	zero_from_field(info,struct expr_areainfo,unit_count);
@@ -403,13 +404,13 @@ int expr_area_summary(const struct expr_area *restrict area,struct expr_areainfo
 	++info->unit_count;
 	return 0;
 }
-static void *static_area_malloc(size_t size,intptr_t arg){
+void *expr_heapmtl_malloc(size_t size,intptr_t arg){
 	return expr_area_malloc((struct expr_area *)arg,size);
 }
-static void *static_area_realloc(void *old,size_t size,intptr_t arg){
+void *expr_heapmtl_realloc(void *old,size_t size,intptr_t arg){
 	return expr_area_realloc((struct expr_area *)arg,old,size);
 }
-static void static_area_dealloc(void *old,intptr_t arg){
+void expr_heapmtl_dealloc(void *old,intptr_t arg){
 	expr_area_dealloc((struct expr_area *)arg,old);
 
 }
@@ -428,13 +429,10 @@ int expr_setup_heapmtl4(struct expr_memtool *restrict mtl,void *heap,size_t size
 		return -1;
 	if(unlikely(expr_area_init4((struct expr_area *)heap,expr_zoneof(heap),size-sizeof(struct expr_area),flag))<0)
 		return -1;
-	mtl->allocate=static_area_malloc;
-	mtl->reallocate=static_area_realloc;
-	mtl->deallocate=static_area_dealloc;
+	mtl->allocate=expr_heapmtl_malloc;
+	mtl->reallocate=expr_heapmtl_realloc;
+	mtl->deallocate=expr_heapmtl_dealloc;
 	mtl->test=NULL;
 	mtl->arg=(intptr_t)heap;
 	return 0;
-}
-int expr_setup_heapmtl(struct expr_memtool *restrict mtl,void *heap,size_t size){
-	return expr_setup_heapmtl4(mtl,heap,size,EXPR_ALAZY_ALL|EXPR_ASTARTADDRALIGN);
 }

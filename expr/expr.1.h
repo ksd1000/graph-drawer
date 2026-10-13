@@ -12,6 +12,8 @@
 
 #define expr_static_assert(cond) _Static_assert((cond),"static assertion " #cond " failed")
 
+expr_static_assert((!0)==1);
+
 #ifndef _SSIZE_T_DEFINED_
 #define _SSIZE_T_DEFINED_
 typedef ptrdiff_t ssize_t;

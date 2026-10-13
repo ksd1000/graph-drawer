@@ -226,79 +226,12 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #define LOGIC(a,b,_s) (((a)!=0.0) _s ((b)!=0.0))
-#define LOGIC_BIT(_a,_b,_op_cal,_op_zero,_zero_val) \
-	if(_expdiff>INT64_C(52)){\
-		_r=EXPR_EDSIGN(&_a) _op_zero EXPR_EDSIGN(&_b)?-( _zero_val):(_zero_val);\
-	}else {\
-		_x2=((uint64_t)EXPR_EDBASE(&_b)|(UINT64_C(1)<<UINT64_C(52)))>>_expdiff;\
-		_x1=(uint64_t)EXPR_EDBASE(&_a)|(UINT64_C(1)<<UINT64_C(52));\
-		debug(#_op_cal " x1=%zx,x2=%zx\n",_x1,_x2);\
-		_x1 _op_cal _x2;\
-		debug(#_op_cal " <x1,x2>=%zx\n",_x1);\
-		if(_x1){\
-			_x2=63-clz64(_x1);\
-			_x1&=~(UINT64_C(1)<<_x2);\
-			_x2=UINT64_C(52)-_x2;\
-			if((uint64_t)EXPR_EDEXP(&_a)<_x2){\
-				_r=EXPR_EDSIGN(&_a) _op_zero EXPR_EDSIGN(&_b)?-( _zero_val):(_zero_val);\
-			}else {\
-				EXPR_EDBASE(&_a)=_x1<<_x2;\
-				EXPR_EDEXP(&_a)-=_x2;\
-				EXPR_EDSIGN(&_a) _op_cal EXPR_EDSIGN(&_b);\
-				_r=_a;\
-				debug(#_op_cal " r=%zx,exp=%zu\n",EXPR_EDUVAL(&_r),(uint64_t)EXPR_EDEXP(&_r));\
-			}\
-		}else {\
-			_r=EXPR_EDSIGN(&_a)?-0.0:0.0;\
-			EXPR_EDSIGN(&_r) _op_cal EXPR_EDSIGN(&_b);\
-		}\
-	}
-#define and2(__a,__b) ({\
-	uint64_t _x2,_x1;\
-	int64_t _expdiff;\
-	double _a,_b,_r;\
-	_a=(__a);\
-	_b=(__b);\
-	_expdiff=(uint64_t)EXPR_EDEXP(&_a)-(uint64_t)EXPR_EDEXP(&_b);\
-	if(_expdiff<INT64_C(0)){\
-		_expdiff=-_expdiff;\
-		LOGIC_BIT(_b,_a,&=,&&,0.0)\
-	}else {\
-		LOGIC_BIT(_a,_b,&=,&&,0.0)\
-	}\
-	_r;\
-})
-#define or2(__a,__b) ({\
-	uint64_t _x2,_x1;\
-	int64_t _expdiff;\
-	double _a,_b,_r;\
-	_a=(__a);\
-	_b=(__b);\
-	_expdiff=(uint64_t)EXPR_EDEXP(&_a)-(uint64_t)EXPR_EDEXP(&_b);\
-	if(_expdiff<INT64_C(0)){\
-		_expdiff=-_expdiff;\
-		LOGIC_BIT(_b,_a,|=,||,_b>=0.0?_b:-_b)\
-	}else {\
-		LOGIC_BIT(_a,_b,|=,||,_a>=0.0?_a:-_a)\
-	}\
-	_r;\
-})
-#define xor2(__a,__b) ({\
-	uint64_t _x2,_x1;\
-	int64_t _expdiff;\
-	double _a,_b,_r;\
-	_a=(__a);\
-	_b=(__b);\
-	_expdiff=(uint64_t)EXPR_EDEXP(&_a)-(uint64_t)EXPR_EDEXP(&_b);\
-	if(_expdiff<INT64_C(0)){\
-		_expdiff=-_expdiff;\
-		LOGIC_BIT(_b,_a,^=,^,_b>=0.0?_b:-_b)\
-	}else {\
-		LOGIC_BIT(_a,_b,^=,^,_a>=0.0?_a:-_a)\
-	}\
-	_r;\
-})
-#define not(_x) xor2(9007199254740991.0/* 2^53-1*/,(_x))
+
+#define and2(__a,__b) expr_internal_fand(__a,__b)
+#define or2(__a,__b) expr_internal_for(__a,__b)
+#define xor2(__a,__b) expr_internal_fxor(__a,__b)
+#define not(_x) expr_internal_fxor((_x),9007199254740991.0)
+
 #define nex0(x) (cast((int64_t)(x),double))
 #define dif0(x) ((double)cast((x),int64_t))
 #pragma GCC diagnostic pop

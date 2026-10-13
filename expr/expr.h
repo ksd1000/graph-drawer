@@ -12,6 +12,8 @@
 
 #define expr_static_assert(cond) _Static_assert((cond),"static assertion " #cond " failed")
 
+expr_static_assert((!0)==1);
+
 #ifndef _SSIZE_T_DEFINED_
 #define _SSIZE_T_DEFINED_
 typedef ptrdiff_t ssize_t;
@@ -1668,6 +1670,9 @@ double expr_internal_strtod_mtl_auto(const char *restrict nptr,size_t nsize,size
 double expr_internal_strtod_mtl_force(const char *restrict nptr,size_t nsize,size_t *restrict end_index,const struct expr_memtool *restrict mtl);
 double expr_internal_trunc(double x);
 double expr_internal_fmod(double x,double y);
+double expr_internal_fand(double x,double y);
+double expr_internal_for(double x,double y);
+double expr_internal_fxor(double x,double y);
 double expr_internal_pow(double x,double y);
 double expr_internal_fabs(double x);
 void expr_internal_memset64(void *buf,uintptr_t val,size_t size);

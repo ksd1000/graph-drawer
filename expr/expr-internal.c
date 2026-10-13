@@ -1135,6 +1135,25 @@ double expr_internal_trunc(double x){
 		debug("off=%d",off);\
 	}\
 })
+#define build_double(ed,mx,ex,sign) ({\
+	off=clz64(mx)-11;\
+	debug("mx=%lu,clz64(mx)=%d",mx,off+11);\
+	if(off){\
+		mx<<=off;\
+		ex-=off;\
+	}\
+	ex+=52;\
+	if(ex>-1023){\
+		ed.uval=(((uint64_t)!!(sign))<<63)\
+			|((uint64_t)(ex+1023)<<52)\
+			|(mx&(UINT64_MAX>>12));\
+	}else {\
+		off=-1022-ex;\
+		ed.uval=(((uint64_t)!!(sign))<<63)\
+			|((mx>>off)&(UINT64_MAX>>12));\
+	}\
+})
+#define uzero(u) (!((u)&(UINT64_MAX>>1)))
 double expr_internal_fmod(double x,double y){
 	uint64_t mx,my;
 	int ex,ey,off;
@@ -1144,13 +1163,13 @@ double expr_internal_fmod(double x,double y){
 	if(unlikely(vx.rd.exp==2047)){
 		return NAN;
 	}
-	if(unlikely(!(vy.uval&(UINT64_MAX>>1)))){
+	if(unlikely(uzero(vy.uval))){
 		return NAN;
 	}
 	if(unlikely(vy.rd.exp==2047)){
 		return vy.rd.base?NAN:vx.val;
 	}
-	if(unlikely(!(vx.uval&(UINT64_MAX>>1)))){
+	if(unlikely(uzero(vx.uval))){
 		return vx.val;
 	}
 	fetch_base_exp(vx,mx,ex);
@@ -1170,22 +1189,86 @@ double expr_internal_fmod(double x,double y){
 		vx.uval&=(UINT64_C(1)<<63);
 		return vx.val;
 	}
-	off=clz64(mx)-11;
-	debug("mx=%lu,clz64(mx)=%d",mx,off+11);
-	if(off>0){
-		mx<<=off;
-		ey-=off;
+	build_double(vx,mx,ey,vx.rd.sign);
+	return vx.val;
+}
+#define FBIT_COMMON(xz,yz,xl,yl) \
+	uint64_t mx,my;\
+	int ex,ey,off;\
+	union expr_double vx,vy;\
+	vx.val=x;\
+	vy.val=y;\
+	if(unlikely(uzero(vx.uval))){\
+		return (xz);\
+	}\
+	if(unlikely(uzero(vy.uval))){\
+		return (yz);\
+	}\
+	if(unlikely(vx.rd.exp==2047)){\
+		return (xl);\
+	}\
+	if(unlikely(vy.rd.exp==2047)){\
+		return (yl);\
+	}\
+	fetch_base_exp(vx,mx,ex);\
+	fetch_base_exp(vy,my,ey);\
+	debug("mx=%lu,ex=%d,my=%lu,ey=%d",mx,ex,my,ey);\
+	if(ex<ey){\
+		off=ey-ex;\
+		if(off>=64)\
+			mx=0;\
+		else\
+			mx>>=off;\
+		ex=ey;\
+	}else {\
+		off=ex-ey;\
+		if(off>=64)\
+			my=0;\
+		else\
+			my>>=off;\
 	}
-	ey+=52;
-	if(ey>-1023){
-		vx.uval=(vx.uval&(UINT64_C(1)<<63))
-			|((uint64_t)(ey+1023)<<52)
-			|(mx&(UINT64_MAX>>12));
-	}else {
-		off=-1022-ey;
-		vx.uval=(vx.uval&(UINT64_C(1)<<63))
-			|((mx>>off)&(UINT64_MAX>>12));
+#define FAND_SPEC(val) ((vx.rd.sign&&vy.rd.sign)?-(val):(val))
+#define FOR_SPEC(val) ((vx.rd.sign||vy.rd.sign)?-(val):(val))
+#define FXOR_SPEC(val) ((vx.rd.sign!=vy.rd.sign)?-(val):(val))
+double expr_internal_fand(double x,double y){
+	FBIT_COMMON(
+		FAND_SPEC(vy.rd.exp==2047&&vy.rd.base?NAN:0.0),
+		FAND_SPEC(vx.rd.exp==2047&&vx.rd.base?NAN:0.0),
+		FXOR_SPEC(vx.rd.base?NAN:(vy.rd.exp==2047?(vy.rd.base?NAN:INFINITY):0.0)),
+		FXOR_SPEC(vy.rd.base?NAN:(vx.rd.exp==2047?(vx.rd.base?NAN:INFINITY):0.0))
+	);
+	mx&=my;
+	if(!mx){
+		return FAND_SPEC(0.0);
 	}
+	build_double(vx,mx,ex,vx.rd.sign&&vy.rd.sign);
+	return vx.val;
+}
+#define FOR_NEXT(vx,vy) ({if(vx.rd.sign)vy.rd.sign=1;vy.val;})
+#define FXOR_NEXT(vx,vy) ({if(vx.rd.sign)vy.rd.sign^=1;vy.val;})
+double expr_internal_for(double x,double y){
+	FBIT_COMMON(
+		FOR_NEXT(vx,vy),
+		FOR_NEXT(vy,vx),
+		FOR_SPEC(vx.rd.base?NAN:(vy.rd.exp==2047&&vy.rd.base?NAN:INFINITY)),
+		FOR_SPEC(vy.rd.base?NAN:(vx.rd.exp==2047&&vx.rd.base?NAN:INFINITY))
+	);
+	mx|=my;
+	build_double(vx,mx,ex,vx.rd.sign||vy.rd.sign);
+	return vx.val;
+}
+double expr_internal_fxor(double x,double y){
+	FBIT_COMMON(
+		FXOR_NEXT(vx,vy),
+		FXOR_NEXT(vy,vx),
+		FXOR_SPEC(vx.rd.base?NAN:(vy.rd.exp==2047?(vy.rd.base?NAN:0.0):INFINITY)),
+		FXOR_SPEC(vy.rd.base?NAN:(vx.rd.exp==2047?(vx.rd.base?NAN:0.0):INFINITY))
+	);
+	mx^=my;
+	if(!mx){
+		return FXOR_SPEC(0.0);
+	}
+	build_double(vx,mx,ex,vx.rd.sign!=vy.rd.sign);
 	return vx.val;
 }
 //WARNING: the pow is worse than libc pow and only for integer y now. for no-libc mode only
@@ -1235,7 +1318,7 @@ yinf:
 double expr_internal_fabs(double x){
 	union expr_double val;
 	val.val=x;
-	val.uval&=(uint64_t)INT64_MAX;
+	val.uval&=UINT64_MAX>>1;
 	return val.val;
 }
 

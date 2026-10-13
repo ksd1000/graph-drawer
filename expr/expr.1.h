@@ -1143,6 +1143,7 @@ struct expr_areainfo {
 #define EXPR_ASTARTADDRALIGN 64
 
 #define EXPR_ALAZY_ALL (EXPR_ALAZY|EXPR_ALAZYEX)
+#define EXPR_ADEFAULT (EXPR_ALAZY_ALL|EXPR_ASTARTADDRALIGN)
 #define EXPR_AALIGN_SHIFT 7
 // if the EXPR_ADYNAMICALIGN is set:
 // (flag>>EXPR_AALIGN_SHIFT) must be nonzero, or the undefined behaviour(divide by 0) will occur.
@@ -1157,7 +1158,7 @@ struct expr_areainfo {
 	.test=NULL,\
 	.arg=(intptr_t)(heap),\
 }
-#define expr_setup_heapmtl(mtl,heap,size) expr_setup_heapmtl4(mtl,heap,size,EXPR_ALAZY_ALL|EXPR_ASTARTADDRALIGN)
+#define expr_setup_heapmtl(mtl,heap,size) expr_setup_heapmtl4(mtl,heap,size,EXPR_ADEFAULT)
 
 struct expr_strtod_workspace {
 	uint64_t dbuf[96];

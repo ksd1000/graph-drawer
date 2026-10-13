@@ -121,6 +121,9 @@ struct expr_internal_jmpbuf {
 #if !(defined(EXPR_LIBC_POW_IMPL)&&(EXPR_LIBC_POW_IMPL))
 #define pow expr_internal_pow
 #endif
+#if !(defined(EXPR_LIBC_FABS_IMPL)&&(EXPR_LIBC_FABS_IMPL))
+#define fabs expr_internal_fabs
+#endif
 #if !(defined(EXPR_LIBC_STRING_IMPL)&&(EXPR_LIBC_STRING_IMPL))
 #define memchr expr_internal_memchr
 #define memset expr_internal_memset
@@ -855,8 +858,8 @@ struct expr_buffered_file {
 	.uaddr=(_wrer),\
 	.fd=(_fd),\
 	.buf=(_buf),\
-	.length=(_buf)?(_len):0,\
-	.dynamic=(_buf)?0:(_len),\
+	.length=(intptr_t)(_buf)?(_len):0,\
+	.dynamic=(intptr_t)(_buf)?0:(_len),\
 	.index=0,\
 	.written=0,\
 	.mtl=(_mtl),\

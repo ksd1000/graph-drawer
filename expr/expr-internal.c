@@ -1232,6 +1232,12 @@ yinf:
 	}
 	return 1.0;
 }
+double expr_internal_fabs(double x){
+	union expr_double val;
+	val.val=x;
+	val.uval&=(uint64_t)INT64_MAX;
+	return val.val;
+}
 
 #define PALIGN __SIZEOF_POINTER__
 

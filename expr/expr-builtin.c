@@ -1152,12 +1152,6 @@ static double expr_hypot(double *args,size_t n){
 	return sqrt(ret);
 }
 
-#ifndef __unix__
-#define memrchr expr_fake_memrchr
-#define memmem expr_fake_memmem
-#endif
-#define memrmem expr_fake_memrmem
-
 //#define REGSYM(s) {#s,s}
 #define REGZASYM(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.zafunc=s},.type=EXPR_ZAFUNCTION,.flag=0}
 #define REGZASYM_U(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.zafunc=s},.type=EXPR_ZAFUNCTION,.flag=EXPR_SUNSAFE}

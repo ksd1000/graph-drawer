@@ -4911,10 +4911,47 @@ struct expr *expr_new_const_r(double val,const struct expr_memtool *restrict mtl
 	r->freeable=1;
 	return r;
 }
+static size_t expr_varofep(const struct expr *restrict ep,double *v);
+static int expr_vcheck_ep(struct expr *restrict ep,struct expr_inst *ip,double *v);
+static int expr_remove_unused_vars(struct expr *restrict ep,const struct expr_memtool *restrict mtl){
+	double **p=ep->vars;
+	double **cp=ep->vars;
+	double **endp=ep->vars+ep->vsize;
+	int r=0;
+	for(;p<endp;++p){
+
+		if(!expr_varofep(ep,*p))
+			continue;
+		if(!expr_vcheck_ep(ep,ep->data,*p)){
+			xfree(*p);
+			++r;
+			continue;
+		}
+		if(cp<p)
+			*(cp++)=*p;
+		else
+			++cp;
+	}
+	ep->vsize=cp-ep->vars;
+	if(ep->vsize){
+		p=xrealloc(ep->vars,ep->vsize*sizeof(double *));
+		if(p){
+			ep->vars=p;
+			ep->vlength=ep->vsize;
+		}
+	}else {
+		xfree(ep->vars);
+		ep->vars=NULL;
+		ep->vlength=0;
+	}
+	debug("removed %d vars",r);
+	return r;
+}
 static int expr_init8(struct expr *restrict ep,const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,struct expr *parent,const struct expr_memtool *restrict mtl){
 	union {
 		double *p;
 		double v;
+		struct expr_inst *ip;
 	} un;
 	char *r,*p0;
 	double *v;
@@ -4955,6 +4992,18 @@ err:
 	}
 	if(!(flag&EXPR_INOOPTIMIZE)){
 		expr_optimize(ep);
+	}
+	if(!(flag&EXPR_INOSHRINK)){
+		if(ep->size<ep->length){
+			un.ip=xrealloc(ep->data,ep->size*sizeof(struct expr_inst));
+			if(un.ip){
+				ep->data=un.ip;
+				ep->length=ep->size;
+			}
+		}
+		if(ep->vars){
+			expr_remove_unused_vars(ep,mtl);
+		}
 	}
 	if(flag&EXPR_IINSTANT_FREE){
 		expr_free_r(ep);

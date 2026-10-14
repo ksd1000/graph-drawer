@@ -429,6 +429,7 @@ EXPR_END
 #define EXPR_IKEEPSYMSET 128
 #define EXPR_IDETACHSYMSET 256
 #define EXPR_IUNSAFE 512
+#define EXPR_INOSHRINK 1024
 
 #define EXPR_IEXTEND_MASK (\
 		EXPR_IINSTANT_FREE\
@@ -1434,7 +1435,7 @@ struct expr {
 	} un;
 	int error;
 	short iflag;
-	uint8_t freeable:2,sset_shouldfree:1,isconst:1,unused:4;
+	unsigned short freeable:2,sset_shouldfree:1,isconst:1,unused:sizeof(short)*8-4;
 	char errinfo[EXPR_SYMLEN];
 };
 typedef struct expr expr_t[1];

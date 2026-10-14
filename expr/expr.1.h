@@ -105,11 +105,43 @@ struct expr_internal_jmpbuf {
 #endif
 
 #if (defined(EXPR_INLIB)&&(EXPR_INLIB))
+#define EXPR_BLOCKWARNING 1
+#endif
+
+#if (defined(EXPR_BLOCKWARNING)&&(EXPR_BLOCKWARNING))
+
+#ifdef __clang__
+#pragma GCC diagnostic ignored "-Wunknown-warning-option"
+#else
+#pragma GCC diagnostic ignored "-Wpragmas"
+#endif
+
+#pragma GCC diagnostic ignored "-Wzero-length-bounds"
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#pragma GCC diagnostic ignored "-Wpointer-arith"
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#pragma GCC diagnostic ignored "-Wcast-function-type-mismatch"
+#pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
+#pragma GCC diagnostic ignored "-Wclobbered"
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#pragma GCC diagnostic ignored "-Waddress"
+#pragma GCC diagnostic ignored "-Wextra-semi"
+#pragma GCC diagnostic ignored "-Wc2y-extensions"
+#pragma GCC diagnostic ignored "-Wgnu-auto-type"
+#pragma GCC diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
+#pragma GCC diagnostic ignored "-Wpedantic"
+#pragma GCC diagnostic ignored "-Wnull-dereference"
+
+#pragma GCC diagnostic ignored "-Wgnu-statement-expression-from-macro-expansion"
+#pragma GCC diagnostic ignored "-Wshadow"
+#pragma GCC diagnostic ignored "-Wflexible-array-extensions"
+
+#endif
+
+#if (defined(EXPR_INLIB)&&(EXPR_INLIB))
 #ifndef EXPR_DEBUG
 #define EXPR_DEBUG 0
 #endif
-
-#pragma GCC diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
 
 #if (defined(EXPR_DEBUG)&&(EXPR_DEBUG))
 #include <stdio.h>
@@ -182,38 +214,8 @@ struct expr_internal_jmpbuf {
 #define le32(x) expr_le(x,32)
 #define le64(x) expr_le(x,64)
 
-#define EXPR_BLOCKWARNING 1
-
 #endif
 
-#if (defined(EXPR_BLOCKWARNING)&&(EXPR_BLOCKWARNING))
-
-#ifdef __clang__
-#pragma GCC diagnostic ignored "-Wunknown-warning-option"
-#else
-#pragma GCC diagnostic ignored "-Wpragmas"
-#endif
-
-#pragma GCC diagnostic ignored "-Wzero-length-bounds"
-#pragma GCC diagnostic ignored "-Wstrict-aliasing"
-#pragma GCC diagnostic ignored "-Wpointer-arith"
-#pragma GCC diagnostic ignored "-Wunused-parameter"
-#pragma GCC diagnostic ignored "-Wcast-function-type-mismatch"
-#pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
-#pragma GCC diagnostic ignored "-Wclobbered"
-#pragma GCC diagnostic ignored "-Wcast-function-type"
-#pragma GCC diagnostic ignored "-Waddress"
-#pragma GCC diagnostic ignored "-Wextra-semi"
-#pragma GCC diagnostic ignored "-Wc2y-extensions"
-#pragma GCC diagnostic ignored "-Wgnu-auto-type"
-#pragma GCC diagnostic ignored "-Wpedantic"
-#pragma GCC diagnostic ignored "-Wnull-dereference"
-
-#pragma GCC diagnostic ignored "-Wgnu-statement-expression-from-macro-expansion"
-#pragma GCC diagnostic ignored "-Wshadow"
-#pragma GCC diagnostic ignored "-Wflexible-array-extensions"
-
-#endif
 
 #if (defined(__LONG_WIDTH__)&&(__LONG_WIDTH__==64))
 #define expr_ctz64 __builtin_ctzl

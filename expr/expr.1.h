@@ -1131,7 +1131,7 @@ struct expr_areainfo {
 	size_t free;
 	size_t free_count;
 	size_t free_max;
-	uintptr_t tail_index;
+	size_t tail_index;
 	size_t tail_size;
 	size_t max;
 };

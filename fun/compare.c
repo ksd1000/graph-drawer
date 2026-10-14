@@ -33,6 +33,62 @@ double dtime(void){
 	clock_gettime(CLOCK_REALTIME,&ts);
 	return (double)ts.tv_sec+ts.tv_nsec/1000000000.0;
 }
+void area_show(struct expr_area *a){
+	printf("heap monotonic: "
+	"allocate=%u,"
+	"allocate_fail=%u,"
+	"deallocate=%u,"
+	"expand_nail=%u,"
+	"expand_move=%u,"
+	"expand_fail=%u,"
+	"shrink=%u,"
+	"create=%u,"
+	"combine=%u,"
+	"retail_up=%u,"
+	"retail_down=%u\n",
+	a->monotonic_allocate,
+	a->monotonic_allocate_fail,
+	a->monotonic_deallocate,
+	a->monotonic_expand_nail,
+	a->monotonic_expand_move,
+	a->monotonic_expand_fail,
+	a->monotonic_shrink,
+	a->monotonic_create,
+	a->monotonic_combine,
+	a->monotonic_retail_up,
+	a->monotonic_retail_down
+	);
+	expr_area_reset_monotonic(a);
+}
+void area_showcur(struct expr_area *a){
+	struct expr_areainfo ai;
+	assert(!expr_area_summary(a,&ai));
+	printf("heap current: "
+	"size=%zu,"
+	"unit_count=%zu,"
+	"free=%zu,"
+	"free_count=%zu,"
+	"free_max=%zu,"
+	"leak=%zu,"
+	"leak_count=%zu,"
+	"leak_max=%zu,"
+	"tail_size=%zu,"
+	"tail_index=%zu,"
+	"max=%zu\n",
+	ai.size,
+	ai.unit_count,
+	ai.free,
+	ai.free_count,
+	ai.free_max,
+	ai.leak,
+	ai.leak_count,
+	ai.leak_max,
+	ai.tail_size,
+	ai.tail_index,
+	ai.max
+	);
+	//assert((!ai.leak&&!ai.leak_count));
+}
 struct expr_var_list vars={0};
 struct expr_var *a;
 struct expr_symset *es;
@@ -64,21 +120,39 @@ int main(void){
 	a->value=4;
 	assert(es=expr_symset_new_r(mtl));
 	assert(expr_symset_add(es,"x0",EXPR_VARIABLE,0,&x0));
+
 	printf("eval %s %u times\n",expression,count);
+
+	expr_area_reset_monotonic((struct expr_area *)mtl->arg);
 	rct r=(double)eval_z(count);
 	printf("zserge_expr uses %.2lf ms,result=%lf\n",(ct-st)*1000,r);
+	area_show((struct expr_area *)mtl->arg);
+
+	expr_area_reset_monotonic((struct expr_area *)mtl->arg);
 	rct r=eval(count,EXPR_INOOPTIMIZE);
 	printf("expr(no optimize) uses %.2lf ms,result=%lf\n",(ct-st)*1000,r);
+	area_show((struct expr_area *)mtl->arg);
+
+	expr_area_reset_monotonic((struct expr_area *)mtl->arg);
 	rct r=eval(count,0);
 	printf("expr(optimized) uses %.2lf ms,result=%lf\n",(ct-st)*1000,r);
+	area_show((struct expr_area *)mtl->arg);
+
 	count=500000;
+
 	printf("init+eval(once)+free %u times\n",count);
+
 	rct for(unsigned int i=0;i<count;++i)eval_z(1);
 	printf("zserge_expr uses %.2lf ms\n",(ct-st)*1000);
+
 	rct for(unsigned int i=0;i<count;++i)eval(1,EXPR_INOOPTIMIZE);
 	printf("expr(no optimize) uses %.2lf ms\n",(ct-st)*1000);
+
 	rct for(unsigned int i=0;i<count;++i)eval(1,0);
 	printf("expr(optimized) uses %.2lf ms\n",(ct-st)*1000);
+
+	expr_symset_free(es);
+	area_showcur((struct expr_area *)mtl->arg);
 	return 0;
 }
 

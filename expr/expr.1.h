@@ -206,11 +206,14 @@ struct expr_internal_jmpbuf {
 #pragma GCC diagnostic ignored "-Wextra-semi"
 #pragma GCC diagnostic ignored "-Wc2y-extensions"
 #pragma GCC diagnostic ignored "-Wgnu-auto-type"
+#pragma GCC diagnostic ignored "-Wpedantic"
+#pragma GCC diagnostic ignored "-Wnull-dereference"
 
-#endif
 #pragma GCC diagnostic ignored "-Wgnu-statement-expression-from-macro-expansion"
 #pragma GCC diagnostic ignored "-Wshadow"
 #pragma GCC diagnostic ignored "-Wflexible-array-extensions"
+
+#endif
 
 #if (defined(__LONG_WIDTH__)&&(__LONG_WIDTH__==64))
 #define expr_ctz64 __builtin_ctzl
@@ -878,7 +881,7 @@ struct expr_buffered_file {
 #define EXPR_BUFFERED_INITIALIZER(_wrer,_fd,_buf,_len) EXPR_BUFFERED_INITIALIZER_R(_wrer,_fd,_buf,_len,expr_defmtl)
 #define expr_buffered_init_r(fp,_wrer,_fd,_buf,_len,_mtl) ({\
 	struct expr_buffered_file *__fp=(fp);\
-	__fp->uaddr=(const void *)(_wrer);\
+	__fp->uaddr=(const void *)(uintptr_t)(_wrer);\
 	__fp->fd=(_fd);\
 	if((__fp->buf=(_buf))){\
 		__fp->length=(_len);\

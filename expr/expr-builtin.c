@@ -1152,6 +1152,22 @@ static double expr_hypot(double *args,size_t n){
 	return sqrt(ret);
 }
 
+#define and2(__a,__b) expr_internal_fand(__a,__b)
+#define or2(__a,__b) expr_internal_for(__a,__b)
+#define xor2(__a,__b) expr_internal_fxor(__a,__b)
+#define not(_x) expr_internal_fxor((_x),9007199254740991.0)
+double expr_and2(double x,double y){
+	return and2(x,y);
+}
+double expr_or2(double x,double y){
+	return or2(x,y);
+}
+double expr_xor2(double x,double y){
+	return xor2(x,y);
+}
+double expr_not(double x){
+	return not(x);
+}
 //#define REGSYM(s) {#s,s}
 #define REGZASYM(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.zafunc=s},.type=EXPR_ZAFUNCTION,.flag=0}
 #define REGZASYM_U(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.zafunc=s},.type=EXPR_ZAFUNCTION,.flag=EXPR_SUNSAFE}

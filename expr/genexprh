@@ -10,6 +10,7 @@ dump expr-alloc.c
 dump expr-buffered.c
 dump expr-builtin.c
 dump expr-core.c
+dump expr-symext.c
 dump expr-format.c
 dump expr-global.c
 dump expr-internal.c

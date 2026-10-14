@@ -11,7 +11,7 @@
 #include <malloc.h>
 //avoid being included again in expr_z.h
 
-char internal_heap[1024*1024*16];
+char internal_heap[1024*1024*8];
 struct expr_memtool mtl[1];
 #define malloc(s) mtl->allocate(s,mtl->arg)
 #define calloc(s,n) expr_area_calloc((struct expr_area *)mtl->arg,(s)*(n))
@@ -26,7 +26,7 @@ struct expr_memtool mtl[1];
 #undef expr_eval
 #undef expr
 
-char *expression="x0+5+3+7+x0";
+const char *expression="x0+5+3+7+x1";
 
 double dtime(void){
 	struct timespec ts;
@@ -114,12 +114,15 @@ double eval(unsigned int count,int flag){
 int main(void){
 	unsigned int count=50000000;
 	double ct,st,r=0;
-	double x0=4;
+	double x0=4,x1=6;
 	assert(!expr_setup_heapmtl4(mtl,internal_heap,sizeof(internal_heap),EXPR_ADEFAULT));
 	assert(a=expr_var(&vars,"x0",2));
 	a->value=4;
+	assert(a=expr_var(&vars,"x1",2));
+	a->value=6;
 	assert(es=expr_symset_new_r(mtl));
 	assert(expr_symset_add(es,"x0",EXPR_VARIABLE,0,&x0));
+	assert(expr_symset_add(es,"x1",EXPR_VARIABLE,0,&x1));
 
 	printf("eval %s %u times\n",expression,count);
 
@@ -153,6 +156,8 @@ int main(void){
 
 	expr_symset_free(es);
 	area_showcur((struct expr_area *)mtl->arg);
+	// there is not a function to free vars in zserge_expr,
+	// memory may leak.
 	return 0;
 }
 

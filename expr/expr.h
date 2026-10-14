@@ -1131,7 +1131,7 @@ struct expr_areainfo {
 	size_t free;
 	size_t free_count;
 	size_t free_max;
-	uintptr_t tail_index;
+	size_t tail_index;
 	size_t tail_size;
 	size_t max;
 };
@@ -1444,6 +1444,7 @@ int expr_area_init(struct expr_area *restrict area,void *zone,size_t size);
 int expr_area_init4(struct expr_area *restrict area,void *zone,size_t size,int flag);
 void expr_area_wipe(struct expr_area *restrict area);
 void expr_area_wipe_monotonic(struct expr_area *restrict area);
+void expr_area_reset_monotonic(struct expr_area *restrict area);
 int expr_area_resize(struct expr_area *restrict area,size_t size);
 void *expr_area_malloc(struct expr_area *restrict area,size_t size);
 void *expr_area_malloc3(struct expr_area *restrict area,size_t size,int flag);

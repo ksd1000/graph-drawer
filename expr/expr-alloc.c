@@ -63,6 +63,9 @@ void expr_area_wipe_monotonic(struct expr_area *restrict area){
 	WIPE_COMMON;
 	zero_fromto_field(area,struct expr_area,monotonic_allocate,flag);
 }
+void expr_area_reset_monotonic(struct expr_area *restrict area){
+	zero_fromto_field(area,struct expr_area,monotonic_allocate,flag);
+}
 int expr_area_resize(struct expr_area *restrict area,size_t size){
 	size_t old_size;
 	if(unlikely(size>(size_t)PTRDIFF_MAX)){

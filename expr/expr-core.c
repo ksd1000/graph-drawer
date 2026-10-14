@@ -289,7 +289,11 @@ static inline void *xautoadd(void **restrict old,size_t *restrict size,size_t *r
 	new_length=*length+*length/4+expand;
 	r=xrealloc(*old,new_length*n);
 	if(unlikely(!r)){
-		return NULL;
+		new_length=*length+expand;
+		r=xrealloc(*old,new_length*n);
+		if(unlikely(!r)){
+			return NULL;
+		}
 	}
 	*old=r;
 	*length=new_length;

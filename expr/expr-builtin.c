@@ -31,8 +31,7 @@ static double expr_setup_mtl_b(double x){
 	return (double)expr_setup_mtl((int)x);
 }
 uint64_t expr_gcd64(uint64_t x,uint64_t y){
-	uint64_t r;
-	int r1;
+	int r,r1;
 	r=ctz64(x);
 	r1=ctz64(y);
 	r=r<r1?r:r1;
@@ -60,9 +59,9 @@ void expr_mirror(double *buf,size_t size){
 }
 void expr_memfry48(void *restrict buf,size_t size,size_t n,int64_t seed){
 	size_t r;
-	seed=expr_seed48(seed);
+	seed=(int64_t)expr_seed48(seed);
 	for(size_t i=0;i<n;++i){
-		r=expr_ltol48(expr_next48(&seed))%n;
+		r=(size_t)expr_ltol48(expr_next48(&seed))%n;
 		if(likely(r!=i))
 			expr_memswap((char *)buf+i*size,(char *)buf+r*size,size);
 		else if(i<n-1){
@@ -87,7 +86,7 @@ void expr_fry(double *restrict v,size_t n){
 	r=((uintptr_t)v+(uintptr_t)__builtin_frame_address(0))&511;
 	for(endp=v+n-1;likely(v<endp);++v,--endp){
 		r=(r*121+37)&1023;
-		if(__builtin_parity(r)){
+		if(__builtin_parity((unsigned int)r)){
 			swapbuf=*v;
 			*v=*endp;
 			*endp=swapbuf;
@@ -319,8 +318,8 @@ double expr_exp_old(double x){
 		frac=1;
 	}else
 		frac=0;
-	n=x;
-	x-=n;
+	n=(size_t)x;
+	x-=(double)n;
 	r=1.0;
 	if(n){
 		y=M_E;
@@ -342,7 +341,7 @@ double expr_exp_old(double x){
 		y=x;
 		for(;;){
 			y*=x/ff;
-			if(!y)
+			if(y==0.0)
 				break;
 			z+=y;
 			++ff;
@@ -402,7 +401,7 @@ static double expr_pow_old(double x,uintmax_t y){
 }
 #define SIZE_BITS (8*sizeof(size_t))
 static double expr_pow_old_n(double *args,size_t n){
-	return expr_pow_old(*args,args[1]);
+	return expr_pow_old(*args,(uintmax_t)args[1]);
 }
 static double expr_strtol(double *args,size_t n){
 	return cast(strtol(cast(*args,const char *),NULL,(int)args[1]),double);
@@ -662,7 +661,7 @@ static double bsyscall(double *args,size_t n){
 	num=(intptr_t)*args;
 	argt=(unsigned int)(num>>32);
 	num&=0x0ffffffff;
-	for(i=1;i<(int)n;++i){
+	for(i=1;i<(unsigned int)n;++i){
 		a[i-1]=argt&(1u<<i)?cast(args[i],intptr_t):(intptr_t)args[i];
 	}
 	for(;i<7;++i){
@@ -834,7 +833,7 @@ static double expr_asuint(double x){
 	return (double)un.u;
 }
 static double expr_popcount(double x){
-	return (double)__builtin_popcountl(EXPR_EDIVAL(&x));
+	return (double)__builtin_popcountl(EXPR_EDUVAL(&x));
 }
 static double expr_popcountb(double x){
 	return (double)__builtin_popcountl(EXPR_EDBASE(&x));
@@ -856,7 +855,7 @@ static double expr_exitif(double x){
 static double expr_ctz(double x){
 	uint64_t base=EXPR_EDBASE(&x);
 	if(base){
-		return (double)(ctz64(base)+(EXPR_EDEXP(&x)-(uint64_t)(1023+52)));
+		return (double)((uint64_t)ctz64(base)+(EXPR_EDEXP(&x)-(uint64_t)(1023+52)));
 	}else
 		return (double)(EXPR_EDEXP(&x)-UINT64_C(1023));
 }
@@ -866,7 +865,7 @@ static double expr_clz(double x){
 static double expr_ffs(double x){
 	int64_t base=EXPR_EDBASE(&x);
 	if(base){
-		return (double)(__builtin_ffsl(base)+(EXPR_EDEXP(&x)-(uint64_t)(1023+52)));
+		return (double)((uint64_t)__builtin_ffsl(base)+(EXPR_EDEXP(&x)-(uint64_t)(1023+52)));
 	}else
 		return (double)(EXPR_EDEXP(&x)-UINT64_C(1022));
 }
@@ -903,7 +902,7 @@ static double expr_fmod_b(double *args,size_t n){
 static double expr_piece(const struct expr *args,size_t n,double input){
 	const struct expr *arg0=args;
 	--n;
-	while(args-arg0<n){
+	while((size_t)(args-arg0)<n){
 		if(eval(args++,input)!=0.0){
 			return eval(args,input);
 		}else {
@@ -915,7 +914,7 @@ static double expr_piece(const struct expr *args,size_t n,double input){
 }
 static double expr_assign(const struct expr *args,size_t n,double input){
 	double *p;
-	const struct expr *endp=args+(n&~1);
+	const struct expr *endp=args+(n&~(size_t)1);
 	while(args<endp){
 		p=expr_cast(eval(args++,input),__typeof(p));
 		*p=(__typeof(*p))eval(args++,input);
@@ -924,7 +923,7 @@ static double expr_assign(const struct expr *args,size_t n,double input){
 }
 static double expr_assigni(const struct expr *args,size_t n,double input){
 	int64_t *p;
-	const struct expr *endp=args+(n&~1);
+	const struct expr *endp=args+(n&~(size_t)1);
 	while(args<endp){
 		p=expr_cast(eval(args++,input),__typeof(p));
 		*p=(__typeof(*p))eval(args++,input);
@@ -933,7 +932,7 @@ static double expr_assigni(const struct expr *args,size_t n,double input){
 }
 static double expr_assignu(const struct expr *args,size_t n,double input){
 	uint64_t *p;
-	const struct expr *endp=args+(n&~1);
+	const struct expr *endp=args+(n&~(size_t)1);
 	while(args<endp){
 		p=expr_cast(eval(args++,input),__typeof(p));
 		*p=(__typeof(*p))eval(args++,input);
@@ -1108,14 +1107,14 @@ static double expr_rooti(const struct expr *args,size_t n,double input){
 	return INFINITY;
 }
 static double expr_andl(const struct expr *args,size_t n,double input){
-	for(const struct expr *ep=args;ep-args<n;++ep){
+	for(const struct expr *ep=args;(size_t)(ep-args)<n;++ep){
 		if(eval(ep,input)==0.0)
 			return 0.0;
 	}
 	return 1.0;
 }
 static double expr_orl(const struct expr *args,size_t n,double input){
-	for(const struct expr *ep=args;ep-args<n;++ep){
+	for(const struct expr *ep=args;(size_t)(ep-args)<n;++ep){
 		if(eval(ep,input)!=0.0)
 			return 1.0;
 	}

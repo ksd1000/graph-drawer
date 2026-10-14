@@ -103,7 +103,7 @@ size_t expr_strscan(const char *restrict s,size_t sz,char *restrict buf,size_t o
 						++p;\
 						if(p-s>=maxlen){\
 							if(base==16){\
-								*(buf++)=v;\
+								*(buf++)=(char)v;\
 								if(unlikely(buf>=oend))\
 									goto no_enough_size;\
 								s=p;\
@@ -114,7 +114,7 @@ size_t expr_strscan(const char *restrict s,size_t sz,char *restrict buf,size_t o
 					}\
 					if(unlikely(p==s))\
 						goto fail;\
-					*(buf++)=v;\
+					*(buf++)=(char)v;\
 					s=p
 				case 'B':
 					s+=2;

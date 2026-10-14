@@ -131,6 +131,7 @@ struct expr_internal_jmpbuf {
 #pragma GCC diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
 #pragma GCC diagnostic ignored "-Wpedantic"
 #pragma GCC diagnostic ignored "-Wnull-dereference"
+#pragma GCC diagnostic ignored "-Wconversion"
 
 #pragma GCC diagnostic ignored "-Wgnu-statement-expression-from-macro-expansion"
 #pragma GCC diagnostic ignored "-Wshadow"

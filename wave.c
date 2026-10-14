@@ -311,14 +311,14 @@ int generate_##ampl_fmt(ssize_t endt){\
 }
 
 #define make_s32le(d) (int32_t)(INT32_MAX*(d))
-#define make_s32be(d) (int32_t)(raw?expr_bswap32(make_s32le(d)):make_s32le(d))
-#define make_u32le(d) (raw?(uint32_t)(UINT32_MAX*0.5*(1+(d))):make_s32le(d))
-#define make_u32be(d) (raw?expr_bswap32(UINT32_MAX*0.5*(1+(d))):make_s32le(d))
+#define make_s32be(d) (raw?(int32_t)expr_bswap32(make_s32le(d)):make_s32le(d))
+#define make_u32le(d) (raw?(uint32_t)(UINT32_MAX*0.5*(1+(d))):(uint32_t)make_s32le(d))
+#define make_u32be(d) (raw?(uint32_t)expr_bswap32(UINT32_MAX*0.5*(1+(d))):(uint32_t)make_s32le(d))
 #define make_s16le(d) (int16_t)(INT16_MAX*(d))
-#define make_s16be(d) (int16_t)(raw?expr_bswap16(make_s16le(d)):make_s16le(d))
-#define make_u16le(d) (raw?(uint16_t)(UINT16_MAX*0.5*(1+(d))):make_s16le(d))
-#define make_u16be(d) (raw?expr_bswap16(UINT16_MAX*0.5*(1+(d))):make_s16le(d))
-#define make_s8(d) ((int8_t)(raw?(int8_t)(INT8_MAX*(d)):make_u8(d)))
+#define make_s16be(d) (raw?(int16_t)expr_bswap16(make_s16le(d)):make_s16le(d))
+#define make_u16le(d) (raw?(uint16_t)(UINT16_MAX*0.5*(1+(d))):(uint16_t)make_s16le(d))
+#define make_u16be(d) (raw?(uint16_t)expr_bswap16(UINT16_MAX*0.5*(1+(d))):(uint16_t)make_s16le(d))
+#define make_s8(d) ((raw?(int8_t)(INT8_MAX*(d)):(int8_t)make_u8(d)))
 #define make_u8(d) ((uint8_t)(UINT8_MAX*0.5*(1+(d))))
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
@@ -847,7 +847,7 @@ show_help:
 				setexpr(&ept,optarg);
 				break;
 			case 's':
-				sample_freq=atol2(optarg);
+				sample_freq=(uint32_t)atol2(optarg);
 				sample_freq_d=(double)sample_freq;
 				break;
 			case 'o':
@@ -860,7 +860,7 @@ show_help:
 					quiet=1;
 				break;
 			case 'b':
-				buffer_size=(optarg?atol2(optarg):SIZE_MAX);
+				buffer_size=(optarg?(size_t)atol2(optarg):SIZE_MAX);
 				break;
 			case 'r':
 				raw=1;

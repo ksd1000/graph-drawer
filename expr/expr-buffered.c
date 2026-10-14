@@ -32,11 +32,11 @@
 	if(unlikely(!r))\
 		fp->flag|=EXPR_BZERO;\
 	else{\
-		fp->written+=r;\
-		if(unlikely((ssize_t)(r1=size-r)>0)){\
+		fp->written+=(size_t)r;\
+		if(unlikely((r1=(ssize_t)(size)-r)>0)){\
 			if(!(fp->flag&EXPR_BTRUNC_NOREWRITE)){\
 				for(;;){\
-					r2=fp->writer(fp->fd,fp->buf+r,r1);\
+					r2=fp->writer(fp->fd,fp->buf+r,(size_t)r1);\
 					if(unlikely(r2<0)){\
 						CKPDM(r2);\
 						onerr;\
@@ -44,11 +44,11 @@
 					}\
 					if(unlikely(!r2)){\
 						fp->flag|=EXPR_BZERO|EXPR_BTRUNC;\
-						memmove(fp->buf,fp->buf+r,r1);\
-						fp->index=r1;\
-						return trunc;\
+						memmove(fp->buf,fp->buf+r,(size_t)r1);\
+						fp->index=(size_t)r1;\
+						return (ssize_t)(trunc);\
 					}\
-					fp->written+=r2;\
+					fp->written+=(size_t)r2;\
 					r+=r2;\
 					if(!(r1-=r2)){\
 						fp->index=0;\
@@ -57,16 +57,16 @@
 				}\
 			}else {\
 				fp->flag|=EXPR_BTRUNC;\
-				memmove(fp->buf,fp->buf+r,r1);\
-				fp->index=r1;\
-				return trunc;\
+				memmove(fp->buf,fp->buf+r,(size_t)r1);\
+				fp->index=(size_t)r1;\
+				return (ssize_t)(trunc);\
 			}\
 		}else\
 			fp->index=0;\
 	}
 ssize_t expr_buffered_write(struct expr_buffered_file *restrict fp,const void *buf,size_t size){
-	size_t i,c;
-	ssize_t r,s0,r1,r2;
+	size_t i,c,s0;
+	ssize_t r,r1,r2;
 	void *p;
 	if(unlikely(!size)){
 		r=expr_buffered_flush(fp);
@@ -74,7 +74,7 @@ ssize_t expr_buffered_write(struct expr_buffered_file *restrict fp,const void *b
 			CKPDM(r);
 			return r;
 		}
-		fp->written+=r;
+		fp->written+=(size_t)r;
 		return 0;
 	}
 	if(unlikely(size>SSIZE_MAX)){
@@ -102,10 +102,10 @@ size_le_c:
 					fp->length=i;
 				}
 			}
-			return size;
+			return (ssize_t)size;
 		}else {
 			fp->index+=size;
-			return size;
+			return (ssize_t)size;
 		}
 	}
 	debug("len=%zu,dyn=%zu",fp->length,fp->dynamic);
@@ -143,15 +143,15 @@ size_le_c:
 		if(unlikely(!r))
 			fp->flag|=EXPR_BZERO;
 		else {
-			size-=r;
-			fp->written+=r;
+			size-=(size_t)r;
+			fp->written+=(size_t)r;
 		}
-		return s0-size;
+		return (ssize_t)(s0-size);
 	}
 	fp->index=size;
 	memcpy(fp->buf,buf,size);
 	debug("%zd bytes written",s0);
-	return s0;
+	return (ssize_t)s0;
 }
 ssize_t expr_buffered_read(struct expr_buffered_file *restrict fp,void *buf,size_t size){
 	size_t i;
@@ -161,7 +161,7 @@ ssize_t expr_buffered_read(struct expr_buffered_file *restrict fp,void *buf,size
 		if(size==SIZE_MAX){
 			i=fp->index-fp->written;
 			expr_buffered_rdrop(fp);
-			return i;
+			return (ssize_t)i;
 		}else {
 			return expr_buffered_rdropall(fp);
 		}
@@ -188,15 +188,15 @@ ssize_t expr_buffered_read(struct expr_buffered_file *restrict fp,void *buf,size
 		fp->buf=p;
 		fp->length=i;
 try_read_again:
-		r=fp->length-fp->index;
+		r=(ssize_t)(fp->length-fp->index);
 		debug("index=%zu length=%zu",fp->index,fp->length);
 		if(likely(r)){
 			p=fp->buf+fp->index;
-			r=fp->reader(fp->fd,p,r);
+			r=fp->reader(fp->fd,p,(size_t)r);
 			if(unlikely(r<0))
 				goto err;
-			if(unlikely(test&&test(p,xmtl->arg,r))){
-				fp->index+=r;
+			if(unlikely(test&&test(p,xmtl->arg,(size_t)r))){
+				fp->index+=(size_t)r;
 				debug("end index=%zu",fp->index);
 				return 0;
 			}
@@ -209,7 +209,7 @@ try_read_again:
 			}
 			goto size_ok;
 		}else {
-			fp->index+=r;
+			fp->index+=(size_t)r;
 			if(fp->index<fp->length)
 				goto try_read_again;
 		}
@@ -220,7 +220,7 @@ try_read_again:
 			r=fp->reader(fp->fd,fp->buf+fp->index,i);
 			if(unlikely(r<0))
 				goto err;
-			fp->index+=r;
+			fp->index+=(size_t)r;
 		}
 		debug("end index=%zu",fp->index);
 		return 0;
@@ -233,7 +233,7 @@ size_ok:
 			memcpy(buf,fp->buf+fp->written,size);
 			fp->written+=size;
 			debug("end index=%zu",fp->index);
-			return size;
+			return (ssize_t)size;
 		}
 		debug("memcpy");
 		memcpy(buf,fp->buf+fp->written,i);
@@ -241,7 +241,7 @@ size_ok:
 		fp->index=0;
 		if(i==size){
 			debug("end index=%zu",fp->index);
-			return size;
+			return (ssize_t)size;
 		}
 		buf+=i;
 		size-=i;
@@ -263,18 +263,18 @@ size_ok:
 		debug("end index=%zu",fp->index);
 		return 0;
 	}
-	if(r<=size){
+	if((size_t)r<=size){
 		debug("memcpy");
-		memcpy(buf,fp->buf,r);
+		memcpy(buf,fp->buf,(size_t)r);
 		debug("end index=%zu",fp->index);
 		return r;
 	}
 	debug("memcpy");
 	memcpy(buf,fp->buf,size);
-	fp->index=r;
+	fp->index=(size_t)r;
 	fp->written=size;
 	debug("end index=%zu",fp->index);
-	return size;
+	return (ssize_t)size;
 err:
 	debug("error code:%zd",r);
 	CKPDM(r);
@@ -298,7 +298,7 @@ err:
 	ret+=r
 #define flushat_common(rcfetch,rcinc) \
 	ssize_t r,ret;\
-	ssize_t n;\
+	size_t n;\
 	uintptr_t rc=(uintptr_t)(rcfetch);\
 	if(!rc){\
 		debug("no flush point found");\
@@ -331,7 +331,7 @@ ssize_t expr_buffered_write_flushat(struct expr_buffered_file *restrict fp,const
 }
 #define sflushat_common(rcfetch,rcinc) \
 	ssize_t r,ret=0;\
-	ssize_t n;\
+	size_t n;\
 	uintptr_t rc;\
 	do {\
 		rc=(uintptr_t)(rcfetch);\
@@ -382,7 +382,7 @@ ssize_t expr_buffered_flush(struct expr_buffered_file *restrict fp){
 }
 #define TRASHLEN 1024
 ssize_t expr_buffered_rdropall(struct expr_buffered_file *restrict fp){
-	ssize_t r,ret=fp->index-fp->written;
+	ssize_t r,ret=(ssize_t)(fp->index-fp->written);
 	char *trash;
 	size_t trashlen;
 	if(fp->length>=TRASHLEN){
@@ -436,15 +436,15 @@ ssize_t expr_buffered_readline(struct expr_buffered_file *restrict fp,int c,void
 	end=fp->buf+fp->index;
 	r=end-p;
 	if(r){
-		cp=memchr(p,c,r);
+		cp=memchr(p,c,(size_t)r);
 		if(cp){
 			*cp=0;
-			fp->written=cp+1-(char *)fp->buf;
+			fp->written=(size_t)(cp+1-(char *)fp->buf);
 			*(void **)savep=p;
 			debug("return %zd",cp-p);
 			return cp-p;
 		}
-		memmove(fp->buf,p,r);
+		memmove(fp->buf,p,(size_t)r);
 		fp->index-=fp->written;
 		fp->written=0;
 	}else {
@@ -481,15 +481,15 @@ ssize_t expr_buffered_readline(struct expr_buffered_file *restrict fp,int c,void
 		fp->written=in;
 		*(void **)savep=fp->buf;
 		debug("return %zd",in);
-		return in;
+		return (ssize_t)in;
 	}
 	cp=memchr(fp->buf,c,fp->index);
 	if(cp){
 		*cp=0;
-		fp->written=cp+1-(char *)fp->buf;
+		fp->written=(size_t)(cp+1-(char *)fp->buf);
 		*(void **)savep=fp->buf;
 		debug("return %zd",fp->written-1);
-		return fp->written-1;
+		return (ssize_t)(fp->written-1);
 	}
 	in=fp->index;
 	if(unlikely(in==fp->length)){
@@ -498,7 +498,7 @@ ssize_t expr_buffered_readline(struct expr_buffered_file *restrict fp,int c,void
 	fp->written=in;
 	*(char *)(fp->buf+in)=0;
 	*(void **)savep=fp->buf;
-	return in;
+	return (ssize_t)in;
 }
 ssize_t expr_buffered_write_iolbf(struct expr_buffered_file *restrict fp,const void *buf,size_t size){
 	debug("iolbf size=%zu",size);

@@ -67,7 +67,7 @@ void *expr_reallocator_default(void *old,size_t size,intptr_t arg){\
 	return size>=expr_allocate_max?NULL:realloc(old,size);\
 }\
 void expr_deallocator_default(void *old,intptr_t arg){\
-	return free(old);\
+	free(old);\
 }\
 struct expr_memtool expr_defmtl[1]={{\
 	.allocate=expr_allocator_default,\
@@ -109,6 +109,8 @@ struct expr_internal_jmpbuf {
 #define EXPR_DEBUG 0
 #endif
 
+#pragma GCC diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
+
 #if (defined(EXPR_DEBUG)&&(EXPR_DEBUG))
 #include <stdio.h>
 #define debug(fmt,...) ((void)fprintf(stderr,"[DEBUG]%s:%d: " fmt "\n",__func__,__LINE__,##__VA_ARGS__))
@@ -134,14 +136,13 @@ struct expr_internal_jmpbuf {
 #define memrchr expr_internal_memrchr
 #define memcmp expr_internal_memcmp
 #define strend(s) expr_internal_memchr2(s,0)
-#define strlen(s) ({const char *_s=(s);(const char *)expr_internal_memchr2(_s,0)-_s;})
-#define strnlen(s,n) ({const char *_s=(s);size_t _n=(n);const char *_p=expr_internal_memchr(_s,0,_n);_p?_p-_s:_n;})
+#define strlen(s) ({const char *_s=(s);(size_t)((const char *)expr_internal_memchr2(_s,0)-_s);})
+#define strnlen(s,n) ({const char *_s=(s);size_t _n=(n);const char *_p=expr_internal_memchr(_s,0,_n);_p?(size_t)(_p-_s):_n;})
 #define memmem expr_fake_memmem
 #define memrmem expr_fake_memrmem
 #else
 #define strend(s) ({const char *_s=(s);_s+strlen(_s);})
 #endif
-
 
 #define warn(fmt,...) fprintf(stderr,fmt "\n",##__VA_ARGS__)
 
@@ -197,14 +198,19 @@ struct expr_internal_jmpbuf {
 #pragma GCC diagnostic ignored "-Wstrict-aliasing"
 #pragma GCC diagnostic ignored "-Wpointer-arith"
 #pragma GCC diagnostic ignored "-Wunused-parameter"
-#pragma GCC diagnostic ignored "-Wsign-compare"
 #pragma GCC diagnostic ignored "-Wcast-function-type-mismatch"
 #pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
 #pragma GCC diagnostic ignored "-Wclobbered"
 #pragma GCC diagnostic ignored "-Wcast-function-type"
 #pragma GCC diagnostic ignored "-Waddress"
+#pragma GCC diagnostic ignored "-Wextra-semi"
+#pragma GCC diagnostic ignored "-Wc2y-extensions"
+#pragma GCC diagnostic ignored "-Wgnu-auto-type"
 
 #endif
+#pragma GCC diagnostic ignored "-Wgnu-statement-expression-from-macro-expansion"
+#pragma GCC diagnostic ignored "-Wshadow"
+#pragma GCC diagnostic ignored "-Wflexible-array-extensions"
 
 #if (defined(__LONG_WIDTH__)&&(__LONG_WIDTH__==64))
 #define expr_ctz64 __builtin_ctzl
@@ -522,24 +528,24 @@ EXPR_END
 })
 
 #define EXPR_ALIGN (sizeof(void *))
-#define EXPR_MAGIC48_A 0x5deece66dul
+#define EXPR_MAGIC48_A 0x5deece66d
 #define EXPR_MAGIC48_B 0xb
 
-#define expr_ltod48(_l) (expr_cast((((_l)&UINT64_C(0xffffffffffff))<<4)|UINT64_C(0x3ff0000000000000),double)-1.0)
-#define expr_ltol48(_l) ((int32_t)(((_l)&UINT64_C(0xffffffff0000))>>17))
-#define expr_ltom48(_l) ((int32_t)(((_l)&UINT64_C(0xffffffff0000))>>16))
+#define expr_ltod48(_l) (expr_cast((((_l)&INT64_C(0xffffffffffff))<<4)|INT64_C(0x3ff0000000000000),double)-1.0)
+#define expr_ltol48(_l) ((int32_t)(((_l)&INT64_C(0xffffffff0000))>>17))
+#define expr_ltom48(_l) ((int32_t)(((_l)&INT64_C(0xffffffff0000))>>16))
 
-#define expr_next48v(_val) (((EXPR_MAGIC48_A)*(_val)+(EXPR_MAGIC48_B))&UINT64_C(0xffffffffffff))
+#define expr_next48v(_val) (((EXPR_MAGIC48_A)*(_val)+(EXPR_MAGIC48_B))&INT64_C(0xffffffffffff))
 #define expr_next48(_seedp) ({\
 	int64_t *_next48_seed=(_seedp);\
 	*_next48_seed=expr_next48v(*_next48_seed);\
 })
-#define expr_seed48(__val) (0x330e|(((__val)&UINT64_C(0xffffffff))<<16))
-#define expr_next48l32(_seedp) (expr_next48(_seedp)&UINT64_C(0xffffffff))
+#define expr_seed48(__val) (0x330e|(((__val)&INT64_C(0xffffffff))<<16))
+#define expr_next48l32(_seedp) (expr_next48(_seedp)&INT64_C(0xffffffff))
 
 #define expr_get48(_addr) ({\
 	const uint16_t *_get48_addr=(_addr);\
-	(int64_t)*(uint32_t *)_get48_addr|((int64_t)_get48_addr[2]<<32);\
+	(int64_t)*(const uint32_t *)_get48_addr|((int64_t)_get48_addr[2]<<32);\
 })
 #define expr_set48(_addr,_val) ({\
 	uint16_t *_set48_addr=(_addr);\
@@ -562,7 +568,7 @@ EXPR_END
 		expr_set48(*__ss,__r);\
 		++__ss;\
 	}\
-	__val&UINT64_C(0xffffffffffff);\
+	__val&INT64_C(0xffffffffffff);\
 })
 
 #define expr_ssgetnext48(_ss,_sz) ({\
@@ -577,13 +583,13 @@ EXPR_END
 		__n+=2;\
 		++__ss;\
 	}\
-	__val&UINT64_C(0xffffffffffff);\
+	__val&INT64_C(0xffffffffffff);\
 })
 
-#define expr_symbol_hot(_esp) ({const struct expr_symbol *__esp=(_esp);(char *)(__esp->str+__esp->strlen+1);})
+#define expr_symbol_hot(_esp) ({const struct expr_symbol *__esp=(_esp);(char *)(uintptr_t)(__esp->str+__esp->strlen+1);})
 #define expr_symbol_hotlen(_esp) ({const struct expr_symbol *__esp=(_esp);(size_t)__esp->length-(size_t)__esp->strlen-sizeof(struct expr_symbol)-2;})
-#define expr_symbol_un(_esp) ({const struct expr_symbol *__esp=(_esp);(union expr_symvalue *)(__esp->str+__esp->strlen+1);})
-#define expr_symbol_dim(_esp) ({const struct expr_symbol *__esp=(_esp);(size_t *)(__esp->str+__esp->strlen+1+sizeof(union expr_symvalue));})
+#define expr_symbol_un(_esp) ({const struct expr_symbol *__esp=(_esp);(union expr_symvalue *)(uintptr_t)(__esp->str+__esp->strlen+1);})
+#define expr_symbol_dim(_esp) ({const struct expr_symbol *__esp=(_esp);(size_t *)(uintptr_t)(__esp->str+__esp->strlen+1+sizeof(union expr_symvalue));})
 #define expr_assume(cond) if(cond);else __builtin_unreachable()
 #define expr_likely(cond) __builtin_expect(!!(cond),1)
 #define expr_unlikely(cond) __builtin_expect(!!(cond),0)
@@ -654,11 +660,11 @@ expr_static_assert(__builtin_constant_p(expr_mkval(0)));
 			___r=memrchr(___buf,___ch,___size);\
 			if(!___r||!memcmp(___r,___c,___c_size))\
 				break;\
-			___size=___r-___buf;\
+			___size=(size_t)(___r-___buf);\
 		}while(expr_likely(___size));\
 	}else\
 		___r=NULL;\
-	(void *)___r;\
+	(void *)(uintptr_t)___r;\
 })
 #define expr_fake_memmem(buf,size,c,c_size) ({\
 	const char *___r=(buf);\
@@ -675,11 +681,11 @@ expr_static_assert(__builtin_constant_p(expr_mkval(0)));
 			if(!___r||!memcmp(___r,___c,___c_size))\
 				break;\
 			++___r;\
-			___size=___end-___r;\
+			___size=(size_t)(___end-___r);\
 		}while(expr_likely(___size));\
 	}else\
 		___r=NULL;\
-	(void *)___r;\
+	(void *)(uintptr_t)___r;\
 })
 #define expr_ntable(c) ({\
 	unsigned char __c=(unsigned char)(c);\
@@ -872,7 +878,7 @@ struct expr_buffered_file {
 #define EXPR_BUFFERED_INITIALIZER(_wrer,_fd,_buf,_len) EXPR_BUFFERED_INITIALIZER_R(_wrer,_fd,_buf,_len,expr_defmtl)
 #define expr_buffered_init_r(fp,_wrer,_fd,_buf,_len,_mtl) ({\
 	struct expr_buffered_file *__fp=(fp);\
-	__fp->uaddr=(_wrer);\
+	__fp->uaddr=(const void *)(_wrer);\
 	__fp->fd=(_fd);\
 	if((__fp->buf=(_buf))){\
 		__fp->length=(_len);\
@@ -905,7 +911,7 @@ struct expr_branchinfo {
 struct expr_mdinfo {
 	struct expr *eps;
 	double *args;
-	const char *e;
+	char *e;
 	union {
 		double (*func)(double *,size_t);
 		double (*funcep)(const struct expr *,size_t,double);
@@ -1434,8 +1440,8 @@ struct expr {
 		} end[1];
 	} un;
 	int error;
-	short iflag;
-	unsigned short freeable:2,sset_shouldfree:1,isconst:1,unused:sizeof(short)*8-4;
+	int iflag:sizeof(int)*8-4;
+	unsigned int freeable:2,sset_shouldfree:1,isconst:1;
 	char errinfo[EXPR_SYMLEN];
 };
 typedef struct expr expr_t[1];

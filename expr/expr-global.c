@@ -117,7 +117,7 @@ __attribute__((noreturn)) void expr_ubehavior(void){
 static ssize_t zero_reader(intptr_t fd,void *buf,size_t size){
 	memset(buf,0,size);
 	debug("write %zu zeros on %p",size,buf);
-	return size;
+	return (ssize_t)size;
 }
 #define checkr(_fp) \
 	if(unlikely(r<0)){\

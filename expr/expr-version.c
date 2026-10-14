@@ -42,7 +42,7 @@ size_t all=0;
 double freemem(void){
 	struct sysinfo si;
 	sysinfo(&si);
-	return (double)si.freeram/si.totalram;
+	return (double)si.freeram/(double)si.totalram;
 }
 #else
 double freemem(void){
@@ -65,7 +65,7 @@ void printprog(size_t size,size_t c,size_t n){
 	double v,v1;
 	v=human(size,&i);
 	v1=human(all,&i1);
-	fprintf(stdout,"allocated %.2lf %c / %.2lf %c, contracting [%6.2lf%%], %6.2lf%% memory free         \r",v,(int)hchars[i],v1,(int)hchars[i1],100.0*(double)c/n,100.0*freemem());
+	fprintf(stdout,"allocated %.2lf %c / %.2lf %c, contracting [%6.2lf%%], %6.2lf%% memory free         \r",v,(int)hchars[i],v1,(int)hchars[i1],100.0*(double)c/(double)n,100.0*freemem());
 	fflush(stdout);
 }
 #ifndef PAGE_SIZE
@@ -177,7 +177,7 @@ int main(int argc,char **argv){
 			case 'e':
 				expr_defmtl->allocate=alloc_hook;
 				if(optarg)
-					expr_allocate_max=atol(optarg);
+					expr_allocate_max=(size_t)atol(optarg);
 				expr_explode_r(contract_hook,expr_defmtl,expr_allocate_max);
 			case 't':
 				__builtin_trap();

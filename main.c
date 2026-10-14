@@ -114,7 +114,7 @@ int drawat(char *ey){
 			rate=barlen*pc/10000;
 			srate+=pc;
 			if(wsize.ws_row>thread+3){
-			for(int j=0;j<barlen;++j){
+			for(int j=0;j<(int)barlen;++j){
 				if(j>rate)bar[j+1]='-';
 				else if(j<rate)bar[j+1]='=';
 				else bar[j+1]='>';
@@ -127,7 +127,7 @@ int drawat(char *ey){
 		}
 		if(srate>lrate){
 			rate=barlen*srate/mrate;
-			for(int j=0;j<barlen;++j){
+			for(int j=0;j<(int)barlen;++j){
 				if(j>rate)
 					bar[j+1]='-';
 				else if(j<rate)bar[j+1]='=';

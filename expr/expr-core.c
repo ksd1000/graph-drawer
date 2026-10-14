@@ -3472,7 +3472,7 @@ rescan:
 				op=EXPR_SHR;
 				++e;
 			}else if(e<endp&&*e=='<'){
-				op=EXPR_SNE;
+				op=EXPR_NE;
 				++e;
 			}else op=EXPR_GT;
 			goto end1;
@@ -3495,15 +3495,21 @@ rescan:
 		case '=':
 			++e;
 			if(e<endp&&*e=='='){
-				op=EXPR_EQ;
 				++e;
+				if(e<endp&&*e=='='){
+					++e;
+					op=EXPR_EQ;
+				}else op=EXPR_SEQ;
 			}else op=EXPR_SEQ;
 			goto end1;
 		case '!':
 			++e;
 			if(e<endp&&*e=='='){
 				++e;
-				op=EXPR_NE;
+				if(e<endp&&*e=='='){
+					++e;
+					op=EXPR_NE;
+				}else op=EXPR_SNE;
 			}else op=EXPR_SNE;
 			goto end1;
 		case '&':

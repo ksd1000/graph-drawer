@@ -246,6 +246,8 @@ const struct inst_info ii[]={
 [EXPR_READ]={.name="read",.st=MEM,},
 [EXPR_WRITE]={.name="write",.st=MEM,},
 [EXPR_OFF]={.name="off",.st=MEM,},
+[EXPR_GCD]={.name="gcd",.st=MEM,},
+[EXPR_LCM]={.name="lcm",.st=MEM,},
 [EXPR_ALO]={.name="alo",.st=ZVAL,},
 [EXPR_SJ]={.name="sj",.st=NUL,},
 [EXPR_LJ]={.name="lj",.st=MEM,},

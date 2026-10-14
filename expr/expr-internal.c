@@ -147,7 +147,7 @@ dflt:
 			break;
 	}
 no_enough_size:
-	return buf-buf0;
+	return (size_t)(buf-buf0);
 }
 
 void expr_memswap(void *restrict s1,void *restrict s2,size_t size){
@@ -158,33 +158,33 @@ void expr_memswap(void *restrict s1,void *restrict s2,size_t size){
 		int8_t swapbuf8;
 	} un;
 	while(size>=8){
-		un.swapbuf=*(int64_t *)s1;
-		*(int64_t *)s1=*(int64_t *)s2;
-		*(int64_t *)s2=un.swapbuf;
+		un.swapbuf=*(int64_t *)(uintptr_t)s1;
+		*(int64_t *)(uintptr_t)s1=*(int64_t *)(uintptr_t)s2;
+		*(int64_t *)(uintptr_t)s2=un.swapbuf;
 		size-=8;
-		++(*(int64_t **)&s1);
-		++(*(int64_t **)&s2);
+		++(*(int64_t **)(uintptr_t)&s1);
+		++(*(int64_t **)(uintptr_t)&s2);
 	}
 	if(size>=4){
-		un.swapbuf32=*(int32_t *)s1;
-		*(int32_t *)s1=*(int32_t *)s2;
-		*(int32_t *)s2=un.swapbuf32;
+		un.swapbuf32=*(int32_t *)(uintptr_t)s1;
+		*(int32_t *)(uintptr_t)s1=*(int32_t *)(uintptr_t)s2;
+		*(int32_t *)(uintptr_t)s2=un.swapbuf32;
 		size-=4;
-		++(*(int32_t **)&s1);
-		++(*(int32_t **)&s2);
+		++(*(int32_t **)(uintptr_t)&s1);
+		++(*(int32_t **)(uintptr_t)&s2);
 	}
 	if(size>=2){
-		un.swapbuf16=*(int16_t *)s1;
-		*(int16_t *)s1=*(int16_t *)s2;
-		*(int16_t *)s2=un.swapbuf16;
+		un.swapbuf16=*(int16_t *)(uintptr_t)s1;
+		*(int16_t *)(uintptr_t)s1=*(int16_t *)(uintptr_t)s2;
+		*(int16_t *)(uintptr_t)s2=un.swapbuf16;
 		size-=2;
-		++(*(int16_t **)&s1);
-		++(*(int16_t **)&s2);
+		++(*(int16_t **)(uintptr_t)&s1);
+		++(*(int16_t **)(uintptr_t)&s2);
 	}
 	if(size){
-		un.swapbuf8=*(int8_t *)s1;
-		*(int8_t *)s1=*(int8_t *)s2;
-		*(int8_t *)s2=un.swapbuf8;
+		un.swapbuf8=*(int8_t *)(uintptr_t)s1;
+		*(int8_t *)(uintptr_t)s1=*(int8_t *)(uintptr_t)s2;
+		*(int8_t *)(uintptr_t)s2=un.swapbuf8;
 	}
 }
 static uint32_t oldpow32(uint32_t x,uint32_t y){
@@ -203,8 +203,8 @@ static uint32_t oldpow32(uint32_t x,uint32_t y){
 	}
 	return 1;
 }
-#define extint_zero(buf,size) memset(buf,0,(size)*sizeof(uint64_t))
-#define extint_copy(buf,src,size) memcpy(buf,src,(size)*sizeof(uint64_t))
+#define extint_zero(buf,size) memset(buf,0,(size_t)(size)*sizeof(uint64_t))
+#define extint_copy(buf,src,size) memcpy(buf,src,(size_t)(size)*sizeof(uint64_t))
 size_t expr_extint_left(uint64_t *buf,size_t size,uint64_t bits){
 	uint64_t b64=bits/64;
 	size_t rsize=size;
@@ -299,7 +299,7 @@ size_t expr_extint_add2(uint64_t *buf,const uint64_t *addend_buf,size_t size){
 	uint64_t *restrict p=buf;
 	size_t s;
 	do {
-		s=expr_extint_add(p,*(addend_buf++))+(p-buf);
+		s=expr_extint_add(p,*(addend_buf++))+(size_t)(p-buf);
 		++p;
 	}while(--size);
 	return s;
@@ -430,11 +430,11 @@ size_t expr_extint_mul(uint64_t *buf,size_t size,uint32_t factor,uint64_t *works
 	}
 	csize32=size32;
 	for(p=(uint32_t *)buf,wp=(uint32_t *)workspace;
-			(wp-(uint32_t *)workspace)<csize32;
+			(size_t)(wp-(uint32_t *)workspace)<csize32;
 			++p,++wp){
 		if(!*wp)
 			continue;
-		un.size=p-(uint32_t *)buf;
+		un.size=(size_t)(p-(uint32_t *)buf);
 		if(((uintptr_t)p)&7)
 			un.size=(un.size>>1)+1+
 				expr_extint_add((uint64_t *)(p+1),*wp);
@@ -456,7 +456,7 @@ size_t expr_extint_mul(uint64_t *buf,size_t size,uint32_t factor,uint64_t *works
 // WARNING: too SLOOOOOOOOOWER than the mul2 of GMP
 size_t expr_extint_mul2(uint64_t *buf,size_t bufsize,const uint64_t *factor_buf,size_t factor_size,uint64_t *workspace){
 	uint32_t *restrict p=(uint32_t *)buf;
-	uint32_t *restrict fbuf=(uint32_t *)factor_buf;
+	const uint32_t *restrict fbuf=(const uint32_t *)factor_buf;
 	uint64_t *pa=workspace+bufsize,
 		 *wsp=workspace+bufsize*2+1,
 		 *endp=buf+bufsize+factor_size;
@@ -476,7 +476,7 @@ size_t expr_extint_mul2(uint64_t *buf,size_t bufsize,const uint64_t *factor_buf,
 		if(*endp)
 			break;
 	}
-	return endp-buf+1;
+	return (size_t)(endp-buf+1);
 }
 size_t expr_extint_div(uint64_t *buf,size_t size,uint32_t divisor,uint32_t *mod){
 	uint32_t *p=(uint32_t *)(buf+size);
@@ -489,11 +489,11 @@ size_t expr_extint_div(uint64_t *buf,size_t size,uint32_t divisor,uint32_t *mod)
 		v=*(uint64_t *)p/divisor;
 		*(uint64_t *)p%=divisor;
 		((uint32_t *)p)[1]=backup;
-		backup=v;
+		backup=(uint32_t)v;
 		if(!v)
 			continue;
 		if(!rsize)
-			rsize=(p-(uint32_t *)buf)+1;
+			rsize=(size_t)((p-(uint32_t *)buf)+1);
 	}while(p>(uint32_t *)buf);
 	if(mod)
 		*mod=*(uint32_t *)buf;
@@ -549,7 +549,7 @@ static uint32_t oldsuppow32(uint32_t base,uint32_t expo2,uint32_t *powed){
 			break;
 		}
 		n<<=1;
-		if(unlikely(expo2&&clz64((uint64_t)tmp)<expo2*n)){
+		if(unlikely(expo2&&(uint32_t)clz64((uint64_t)tmp)<expo2*n)){
 			break;
 		}
 		*(++cp)=tmp;
@@ -563,7 +563,7 @@ static uint32_t oldsuppow32(uint32_t base,uint32_t expo2,uint32_t *powed){
 		if(unlikely(mulo3(ds,*cp,&tmp)))
 			continue;
 		n|=UINT32_C(1)<<i;
-		if(unlikely(expo2&&clz64((uint64_t)tmp)<expo2*n)){
+		if(unlikely(expo2&&(uint32_t)clz64((uint64_t)tmp)<expo2*n)){
 			n-=UINT32_C(1)<<i;
 			continue;
 		}
@@ -609,10 +609,10 @@ size_t expr_extint_mulnp(uint64_t *buf,size_t size,uint32_t factor,uint32_t powe
 		*(_op)=chars[0];\
 	return (_sz)
 size_t expr_extint_ascii(uint64_t *buf,size_t size,const char *chars,char *outbuf,uint32_t base){
-	write_ascii(out++,out-outbuf);
+	write_ascii(out++,(size_t)(out-outbuf));
 }
 size_t expr_extint_ascii_rev(uint64_t *buf,size_t size,const char *chars,char *outbuf,uint32_t base){
-	write_ascii(--out,outbuf-out);
+	write_ascii(--out,(size_t)(outbuf-out));
 }
 size_t expr_extint_ascii_convert(uint64_t *buf,const char *inbuf,size_t inbuf_size,uint32_t base,uint64_t *workspace){
 	uint32_t ds=base,n;
@@ -691,7 +691,7 @@ ssize_t expr_internal_strtoz(const char *restrict nptr,size_t nsize,size_t *rest
 				++nptr;
 				base=(*nptr=='x'?16:2);
 				get=expr_ntable(*nptr);
-				if(unlikely(get>=base)){
+				if(unlikely(get>=(unsigned int)base)){
 					--nptr;
 					goto out;
 				}
@@ -713,7 +713,7 @@ ssize_t expr_internal_strtoz(const char *restrict nptr,size_t nsize,size_t *rest
 	}
 	// base cannot be >36
 	get=expr_ntable(*nptr);
-	if(unlikely(get>=base)){
+	if(unlikely(get>=(unsigned int)base)){
 atend:
 		if(nptr==startp+1){
 			--nptr;
@@ -728,7 +728,7 @@ got:
 	++nptr;
 	while(nptr<endp){
 		get=expr_ntable(*nptr);
-		if(unlikely(get>=base))
+		if(unlikely(get>=(unsigned int)base))
 			goto out;
 		if(unlikely(mulo(r,base)))
 			goto overflow;
@@ -744,7 +744,7 @@ overflow:
 	++nptr;
 	while(nptr<endp){
 		get=expr_ntable(*nptr);
-		if(unlikely(get>=base))
+		if(unlikely(get>=(unsigned int)base))
 			break;
 		++nptr;
 	}
@@ -782,7 +782,7 @@ overflow:
 				return negative?-(defv):(defv);\
 			}\
 			++nptr;\
-			np=memchr(nptr,')',endp-nptr);\
+			np=memchr(nptr,')',(size_t)(endp-nptr));\
 			if(unlikely(!np)){\
 				set_index((size_t)(nptr-nptr0)-1);\
 				return negative?-(defv):(defv);\
@@ -945,19 +945,19 @@ fail0:
 		}
 		break;
 	}
-	debug("*nptr=%d,index=%zd",(int)*nptr,nptr-nptr0);
+	debug("*nptr=%d,index=%zd",(int)*nptr,(size_t)(nptr-nptr0));
 	if(unlikely(!umbrella&&np==nbuf)){
 		set_index(0);
 		RZSU();
 	}
 	if(nptr+1<endp&&(*nptr|32)==(base==10?'e':'p')){
 		++nptr;
-		expo=expr_internal_strtoz(nptr,endp-nptr,&npsize,0);
+		expo=expr_internal_strtoz(nptr,(size_t)(endp-nptr),&npsize,0);
 		if(unlikely(!npsize)){
 			--nptr;
 			goto no_expo;
 		}
-		set_index((size_t)((nptr-nptr0)+npsize));
+		set_index((size_t)((size_t)(nptr-nptr0)+npsize));
 		--nptr;
 	}else {
 		expo=0;
@@ -966,7 +966,7 @@ no_expo:
 		//strtoz returns 0 on fail. need not set again.
 		set_index((size_t)(nptr-nptr0));
 	}
-	npsize=np-nbuf;
+	npsize=(size_t)(np-nbuf);
 	if(base==16)
 		expo+=(point?trunc-((ssize_t)(nptr-point)-1):trunc)*4;
 	else
@@ -1005,7 +1005,7 @@ e2inf:
 	//npsize use for buf after here.
 	if(expo>=0){
 		if(expo)
-			npsize=expr_extint_mulnp(buf,npsize,base==16?2:base,expo,wspace);
+			npsize=expr_extint_mulnp(buf,npsize,base==16?2:(uint32_t)base,(uint32_t)expo,wspace);
 		*frac=1;
 		frsize=1;
 		e2=bitindexof_ze2(buf,npsize);
@@ -1026,11 +1026,11 @@ e2inf:
 		kd=bitindexof_ze2(buf,npsize)-bitindexof_ze2(frac,frsize);
 		if(kd>0){
 			memcpy(wspace,frac,frsize*sizeof(uint64_t));
-			wsize=expr_extint_left(wspace,frsize,kd);
+			wsize=expr_extint_left(wspace,frsize,(size_t)kd);
 			cmp_correct(buf,npsize,wspace,wsize,expr_extint_left);
 		}else if(kd<0){
 			memcpy(wspace,buf,npsize*sizeof(uint64_t));
-			wsize=expr_extint_left(wspace,npsize,-kd);
+			wsize=expr_extint_left(wspace,npsize,(size_t)-kd);
 			cmp_correct(wspace,wsize,frac,frsize,expr_extint_right);
 		}else {
 			if(npsize<frsize||(npsize==frsize&&expr_extint_cmp(buf,frac,npsize,NULL)<0)){
@@ -1766,7 +1766,7 @@ void expr_internal_memset64(void *buf,uintptr_t val,size_t size){
 		BYTE_SET_4PM1(end,bp,((uint8_t *)val4));
 	}
 	// dp is aligned here
-	tmp_size=size&~(PALIGN*4-1);
+	tmp_size=size&~(size_t)(PALIGN*4-1);
 	if(tmp_size){
 		size-=tmp_size;
 		BYTE_SET_ALIGN4P(bp,val4,tmp_size);
@@ -1875,7 +1875,7 @@ void expr_internal_memcpy(void *dst,const void *src,size_t size){
 		BYTE_COPY_4PM1(end,bp,sbp);
 	}
 	// dp is aligned here
-	tmp_size=size&~(PALIGN*8-1);
+	tmp_size=size&~(size_t)(PALIGN*8-1);
 	if(tmp_size){
 		size-=tmp_size;
 		BYTE_COPY_ALIGN8P(bp,sbp,tmp_size);
@@ -1986,12 +1986,12 @@ void *expr_internal_memchr(const void *buf,int c,size_t size){
 		w3=SWAR(w3^val);
 		if(w0|w1|w2|w3){
 			if(w0)
-				return (void *)(p+cz64(w0)/8);
+				return (void *)(uintptr_t)(p+cz64(w0)/8);
 			if(w1)
-				return (void *)(p+8+cz64(w1)/8);
+				return (void *)(uintptr_t)(p+8+cz64(w1)/8);
 			if(w2)
-				return (void *)(p+16+cz64(w2)/8);
-			return (void *)(p+24+cz64(w3)/8);
+				return (void *)(uintptr_t)(p+16+cz64(w2)/8);
+			return (void *)(uintptr_t)(p+24+cz64(w3)/8);
 		}
 		p+=32;
 		size-=32;
@@ -2000,13 +2000,13 @@ void *expr_internal_memchr(const void *buf,int c,size_t size){
 		BYTE_COPY_ALIGN8K(&w0,p);
 		w0=SWAR(w0^val);
 		if(w0)
-			return (void *)(p+cz64(w0)/8);
+			return (void *)(uintptr_t)(p+cz64(w0)/8);
 		p+=8;
 		size-=8;
 	}
 	while(size--){
 		if(*p==(uint8_t)c)
-			return (void *)p;
+			return (void *)(uintptr_t)p;
 		++p;
 	}
 	return NULL;
@@ -2026,12 +2026,12 @@ void *expr_internal_memrchr(const void *buf,int c,size_t size){
 		w3=SWAR(w3^val);
 		if(w0|w1|w2|w3){
 			if(w3)
-				return (void *)(p+(24+7)-crz64(w3)/8);
+				return (void *)(uintptr_t)(p+(24+7)-crz64(w3)/8);
 			if(w2)
-				return (void *)(p+(16+7)-crz64(w2)/8);
+				return (void *)(uintptr_t)(p+(16+7)-crz64(w2)/8);
 			if(w1)
-				return (void *)(p+(8+7)-crz64(w1)/8);
-			return (void *)(p+7-crz64(w0)/8);
+				return (void *)(uintptr_t)(p+(8+7)-crz64(w1)/8);
+			return (void *)(uintptr_t)(p+7-crz64(w0)/8);
 		}
 		size-=32;
 	}
@@ -2040,13 +2040,13 @@ void *expr_internal_memrchr(const void *buf,int c,size_t size){
 		BYTE_COPY_ALIGN8K(&w0,p);
 		w0=SWAR(w0^val);
 		if(w0)
-			return (void *)(p+7-crz64(w0)/8);
+			return (void *)(uintptr_t)(p+7-crz64(w0)/8);
 		size-=8;
 	}
 	while(size--){
 		--p;
 		if(*p==(uint8_t)c)
-			return (void *)p;
+			return (void *)(uintptr_t)p;
 	}
 	return NULL;
 }
@@ -2106,13 +2106,13 @@ void *expr_internal_memchr2(const void *buf,int c){
 	if(ava){
 		q=expr_internal_memchr(p,c,ava);
 		if(q)
-			return (void *)q;
+			return (void *)(uintptr_t)q;
 		p+=ava;
 	}
 	for(;;){
 		q=expr_internal_memchr(p,c,PAGE_SIZE);
 		if(q)
-			return (void *)q;
+			return (void *)(uintptr_t)q;
 		p+=PAGE_SIZE;
 	}
 }

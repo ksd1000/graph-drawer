@@ -443,7 +443,7 @@ double bmfunc(double t0){
 		return 0.0;
 	t=floor(t0/bminterval);
 	w=bm->width;
-	if(t>=w)
+	if(t>=(uint64_t)w)
 		return 0.0;
 	if(bmmirror)
 		t=w-t-1;
@@ -530,7 +530,7 @@ void text_scan(struct text *t,const char *p){
 		text_end=e;
 }
 double ftext2(const struct text *restrict tp,double t0){
-	unsigned long n,t;
+	uint64_t n,t;
 	struct sbmp *sp;
 	double sum;
 	int64_t u;
@@ -543,7 +543,7 @@ next:
 	sp=tp->sbuf[n];
 	w=sp->width;
 	u=w+tp->tinterval;
-	if(t>=u){
+	if(t>=(uint64_t)u){
 		++n;
 		if(n<tp->scount){
 			t-=u;
@@ -551,7 +551,7 @@ next:
 		}
 		return 0.0;
 	}
-	if(t>=w)
+	if(t>=(uint64_t)w)
 		return 0.0;
 	if(tp->mirror)
 		t=w-t-1;

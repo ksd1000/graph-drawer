@@ -380,7 +380,7 @@ void list(const struct expr *restrict ep,const struct expr_symset *restrict esp)
 	printf("={\n");
 	//xprintf("[%zu],[%zu]{\n",ep->size,ep->vsize);
 	++level;
-	for(struct expr_inst *ip=ep->data;ip-ep->data<ep->size;++ip){
+	for(struct expr_inst *ip=ep->data;(size_t)(ip-ep->data)<ep->size;++ip){
 	xprintf("%zu:[%zu]->[%zd] %s\n",line++,indexof(ep),ip-ep->data,ainst(ep,ip));
 	switch(ii[ip->op].st){
 		case SUM:

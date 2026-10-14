@@ -12,14 +12,14 @@
 #define EXPR_INLIB 1
 #include "expr.h"
 
-#define c_trywrite(buf,sz) if(likely((r=(sz))>0)){\
-	r=writer(fd,(buf),r);\
+#define c_trywrite(buf,sz) if(likely((r=(ssize_t)(sz))>0)){\
+	r=writer(fd,(buf),(size_t)r);\
 	if(unlikely(r<0))\
 		return r;\
 	sum+=r;\
 }
 #define c_trywriteext(c,sz) {\
-	r=writeext(writer,fd,(sz),(c));\
+	r=writeext(writer,fd,(size_t)(sz),(c));\
 	if(unlikely(r<0))\
 		return r;\
 	sum+=r;\
@@ -64,7 +64,7 @@ ssize_t expr_writec(expr_writer writer,intptr_t fd,size_t count,int c){
 		}\
 		return sum;\
 	}\
-	return (likely(sz>0)?writer(fd,(_s),sz):0)
+	return (likely(sz>0)?writer(fd,(_s),(size_t)(sz)):0)
 
 #define cwrite_common(_s,_sz) \
 	sz=(_sz);\
@@ -114,7 +114,7 @@ static ssize_t converter_d(expr_writer writer,intptr_t fd,const union expr_argf 
 		default:
 			__builtin_unreachable();
 	}
-	cwrite_common(p,endp-p);
+	cwrite_common(p,(endp-p));
 }
 static ssize_t converter_size(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	static const char dimc[]={"bkmgtpe"};
@@ -159,7 +159,7 @@ static ssize_t converter_size(expr_writer writer,intptr_t fd,const union expr_ar
 				*(dp++)=(char)('0'+(r>>dim));
 				r&=sdimm1;
 				if(!r&&feq){
-					dig=dp-dbuf;
+					dig=(size_t)(dp-dbuf);
 					break;
 				}
 			}while(dp<dp_end);
@@ -187,7 +187,7 @@ no_digit:
 		default:
 			__builtin_unreachable();
 	}
-	cwrite_common(p,endp-p);
+	cwrite_common(p,(endp-p));
 }
 #define conv_x(name,base,bufsz) \
 static ssize_t converter_##name(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){\
@@ -226,7 +226,7 @@ static ssize_t converter_##name(expr_writer writer,intptr_t fd,const union expr_
 		default:\
 			__builtin_unreachable();\
 	}\
-	cwrite_common(p,endp-p);\
+	cwrite_common(p,(endp-p));\
 }
 static const char conv_btox[]={"0123456789abcdefx"};
 static const char conv_btoX[]={"0123456789ABCDEFX"};
@@ -246,9 +246,9 @@ conv_x(x8d,13,32);
 conv_x(x8e,14,32);
 conv_x(x8f,15,32);
 
-#define extint_left expr_extint_left
-#define extint_right expr_extint_right
-#define extint_mul expr_extint_mul
+#define extint_left(i,l,b) expr_extint_left(i,(size_t)(l),(uint64_t)(b))
+#define extint_right(i,l,b) expr_extint_right(i,(size_t)(l),(uint64_t)(b))
+#define extint_mul(i,l,m,w) expr_extint_mul(i,(size_t)(l),m,w)
 #define extint_ascii_rev expr_extint_ascii_rev
 #define extint_mirror(buf,size) ({\
 	volatile char *_buf=(buf);\
@@ -315,14 +315,14 @@ static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr
 		sz-=52;\
 		if(sz){\
 			if(sz>0){\
-				r=extint_left(iival,1,sz);\
+				r=(ssize_t)extint_left(iival,1,(size_t)sz);\
 			}else {\
 				*iival>>=-sz;\
 				r=1;\
 			}\
 		}else\
 			r=1;\
-		np-=extint_ascii_rev(iival,r,conv_btox,np,_base);\
+		np-=extint_ascii_rev(iival,(size_t)r,conv_btox,np,_base);\
 	}else {\
 		*(--np)='0';\
 	}\
@@ -333,7 +333,7 @@ static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr
 		}\
 	}\
 	write_sign_to_np(!positive);\
-	ds=endp-np;\
+	ds=(size_t)(endp-np);\
 	p=vbuf+1096;\
 	if(digit){\
 		fsz=(ssize_t)EXPR_EDEXP(&val);\
@@ -344,13 +344,13 @@ static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr
 		ext=1075-fsz;\
 		r=1;\
 		_shift;\
-		fsz=extint_ascii_rev(ival,r,_conv_str,p,_base);\
+		fsz=(ssize_t)extint_ascii_rev(ival,(size_t)r,_conv_str,p,_base);\
 		p-=fsz;\
 		ext-=fsz;\
 		if(ext>0){\
 			p-=ext;\
 			fsz+=ext;\
-			memset(p,'0',ext);\
+			memset(p,'0',(size_t)ext);\
 		}\
 		if(fsz){\
 			*(--p)='.';\
@@ -376,15 +376,15 @@ static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr
 	if(fsz){\
 		c_trywrite(p,fsz);\
 	}\
-	if(!f58&&fsz<digit){\
+	if(!f58&&(size_t)fsz<digit){\
 		if(!fsz){\
 			c_trywrite(".",1);\
-			c_trywriteext('0',digit-fsz);\
+			c_trywriteext('0',digit-(size_t)fsz);\
 		}else\
-			c_trywriteext('0',digit-fsz+1);\
+			c_trywriteext('0',digit-(size_t)fsz+(size_t)1);\
 	}\
 },\
-	ext=digit+1;\
+	ext=(ssize_t)(digit+1);\
 	if(fsz>ext){\
 		fsz=ext;\
 	}\
@@ -394,7 +394,7 @@ static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr
 	}\
 	if(fsz==1)\
 		fsz=0;\
-	sz=ds+(f58?fsz:ext);\
+	sz=(ssize_t)ds+(f58?fsz:ext);\
 	debug("set sz=%zd",sz);\
 )
 #define conv_fe(_name,_base,_shift,_nsize,_e) conv_f0(_name,_base,_shift,_nsize,\
@@ -414,11 +414,11 @@ static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr
 		if(digit)\
 			c_trywrite(".",1);\
 		r1=(np+ds)-firp-iz;\
-		if(r1>=digit){\
+		if((size_t)r1>=digit){\
 			ext=0;\
-			r1=digit;\
+			r1=(ssize_t)digit;\
 		}else {\
-			ext=digit-r1;\
+			ext=(ssize_t)digit-r1;\
 		}\
 		c_trywrite(firp,r1);\
 		if(ext){\
@@ -430,8 +430,8 @@ static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr
 		}\
 		fsz=r1+ext;\
 	}\
-	if(!f58&&fsz<digit){\
-		c_trywriteext('0',digit-fsz);\
+	if(!f58&&(size_t)fsz<digit){\
+		c_trywriteext('0',(ssize_t)digit-fsz);\
 	}\
 	c_trywrite(ebuf,esz);\
 ,\
@@ -493,8 +493,8 @@ onzero:\
 			break;\
 		}\
 	}\
-	if(fsz>digit){\
-		fsz=digit;\
+	if((size_t)fsz>digit){\
+		fsz=(ssize_t)digit;\
 	}\
 	for(endp=p+fsz-1;endp>=p&&*endp=='0';){\
 		--fsz;\
@@ -521,7 +521,7 @@ onzero:\
 	};\
 	esz=sz;\
 	debug("set sz=%zd",sz);\
-	sz+=ds+(f58?fsz+!!digit:digit+!!digit);\
+	sz+=(ssize_t)ds+(f58?fsz+!!digit:(ssize_t)digit+!!digit);\
 	if(!fsz)\
 		++sz;\
 	debug("set sz=%zd",sz);\
@@ -565,17 +565,17 @@ onzero:\
 #define iival (bufst.ii)
 #define workspace (bufst.w)
 #define ival_mul_pow(n,M) \
-		for(int i=fsz/(n);i;--i)\
-			r=extint_mul(ival,r,M,workspace);\
+		for(int i=(int)fsz/(n);i;--i)\
+			r=(ssize_t)extint_mul(ival,r,M,workspace);\
 		fsz%=(n)
 #define ival_mul_pow_nl(n,M) \
-		if(fsz>=(n)){\
-			r=extint_mul(ival,r,M,workspace);\
+		if((int)fsz>=(n)){\
+			r=(ssize_t)extint_mul(ival,r,M,workspace);\
 			fsz-=(n);\
 		}
 #define ival_mul_pow_nlm(n,M) \
-		if(fsz>=(n)){\
-			r=extint_mul(ival,r,M,workspace);\
+		if((int)fsz>=(n)){\
+			r=(ssize_t)extint_mul(ival,r,M,workspace);\
 		}
 #define ival_mul5p \
 		fsz=ext;\
@@ -627,21 +627,21 @@ onzero:\
 		ival_mul_pow_nlm(1,15)
 #define nbuf_size(x) (((x)+23u)&~7u)
 #define fconvs(pref) \
-conv_f(expr_combine(pref,1),16,r=extint_left(ival,r,3*ext),nbuf_size(256));\
+conv_f(expr_combine(pref,1),16,r=(ssize_t)extint_left(ival,r,3*ext),nbuf_size(256));\
 conv_f(expr_combine(pref,2),2,,nbuf_size(1024));\
-conv_f(expr_combine(pref,3),3,ival_mul3p;r=extint_right(ival,r,ext),nbuf_size(646));\
-conv_f(expr_combine(pref,4),4,r=extint_left(ival,r,ext),nbuf_size(512));\
-conv_f(expr_combine(pref,5),5,ival_mul5p;r=extint_right(ival,r,ext),nbuf_size(441));\
+conv_f(expr_combine(pref,3),3,ival_mul3p;r=(ssize_t)extint_right(ival,r,ext),nbuf_size(646));\
+conv_f(expr_combine(pref,4),4,r=(ssize_t)extint_left(ival,r,ext),nbuf_size(512));\
+conv_f(expr_combine(pref,5),5,ival_mul5p;r=(ssize_t)extint_right(ival,r,ext),nbuf_size(441));\
 conv_f(expr_combine(pref,6),6,ival_mul3p,nbuf_size(396));\
-conv_f(expr_combine(pref,7),7,ival_mul7p;r=extint_right(ival,r,ext),nbuf_size(364));\
-conv_f(expr_combine(pref,8),8,r=extint_left(ival,r,2*ext),nbuf_size(342));\
-conv_f(expr_combine(pref,9),9,ival_mul9p;r=extint_right(ival,r,ext),nbuf_size(323));\
+conv_f(expr_combine(pref,7),7,ival_mul7p;r=(ssize_t)extint_right(ival,r,ext),nbuf_size(364));\
+conv_f(expr_combine(pref,8),8,r=(ssize_t)extint_left(ival,r,2*ext),nbuf_size(342));\
+conv_f(expr_combine(pref,9),9,ival_mul9p;r=(ssize_t)extint_right(ival,r,ext),nbuf_size(323));\
 conv_f(expr_combine(pref,a),10,ival_mul5p,nbuf_size(308));\
-conv_f(expr_combine(pref,b),11,ival_mul11p;r=extint_right(ival,r,ext),nbuf_size(296));\
-conv_f(expr_combine(pref,c),12,ival_mul3p;r=extint_left(ival,r,2*ext),nbuf_size(285));\
-conv_f(expr_combine(pref,d),13,ival_mul13p;r=extint_right(ival,r,ext),nbuf_size(276));\
-conv_f(expr_combine(pref,e),14,ival_mul7p;r=extint_left(ival,r,ext),nbuf_size(268));\
-conv_f(expr_combine(pref,f),15,ival_mul15p;r=extint_right(ival,r,ext),nbuf_size(262))
+conv_f(expr_combine(pref,b),11,ival_mul11p;r=(ssize_t)extint_right(ival,r,ext),nbuf_size(296));\
+conv_f(expr_combine(pref,c),12,ival_mul3p;r=(ssize_t)extint_left(ival,r,2*ext),nbuf_size(285));\
+conv_f(expr_combine(pref,d),13,ival_mul13p;r=(ssize_t)extint_right(ival,r,ext),nbuf_size(276));\
+conv_f(expr_combine(pref,e),14,ival_mul7p;r=(ssize_t)extint_left(ival,r,ext),nbuf_size(268));\
+conv_f(expr_combine(pref,f),15,ival_mul15p;r=(ssize_t)extint_right(ival,r,ext),nbuf_size(262))
 fconvs(xa);
 
 conv_fe(fe,10,ival_mul5p,nbuf_size(308),flag->cap?'E':'e');
@@ -657,7 +657,7 @@ static ssize_t faction_s(expr_writer writer,intptr_t fd,const union expr_argf *a
 	if(unlikely(!arg->str)){
 		cwrite_common("(null)",6);
 	}
-	len=flag->digit_set?strnlen(arg->str,flag->digit):strlen(arg->str);
+	len=flag->digit_set?strnlen(arg->str,(size_t)flag->digit):strlen(arg->str);
 	cwrite_common(arg->str,(ssize_t)len);
 }
 static ssize_t faction_S(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
@@ -742,12 +742,13 @@ static ssize_t log10_floor_inaccurate(double x){
 static ssize_t faction_g(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	double val=dbl_abs(arg->dbl);
 	ssize_t vl;
-	return ((val==0.0||((vl=log10_floor_inaccurate(val))>=-4&&vl<flag_digit(flag,6)))?
+	return ((val==0.0||((vl=log10_floor_inaccurate(val))>=-4&&vl<(ssize_t)flag_digit(flag,6)))?
 	converter_xaa:converter_fe)(writer,fd,arg,(flag->eq=1,flag));
 }
 static ssize_t faction_G(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
-	double val=fabs(arg->dbl),vl;
-	return ((val==0.0||((vl=log10_floor_inaccurate(val))>=-4&&vl<flag_digit(flag,6)))?
+	double val=fabs(arg->dbl);
+	ssize_t vl;
+	return ((val==0.0||((vl=log10_floor_inaccurate(val))>=-4&&vl<(ssize_t)flag_digit(flag,6)))?
 	converter_xaa:converter_fe)(writer,fd,arg,(flag->eq=1,flag));
 }
 static ssize_t faction_p(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
@@ -959,7 +960,7 @@ const struct expr_ftable expr_ftable_default[1]={{
 	.unused={0},
 }};
 #define wf_trywrite(buf,sz) {\
-	v=writer(fd,(buf),(sz));\
+	v=writer(fd,(buf),(size_t)(sz));\
 	if(unlikely(v<0))\
 		return v;\
 	ret+=v;\
@@ -1106,9 +1107,9 @@ ssize_t expr_vwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer
 	}
 	fmt_save_current=fmt_save;
 next:
-	fmt=memchr(fmt,table->fph,endp-fmt);
+	fmt=memchr(fmt,table->fph,(size_t)(endp-fmt));
 	if(unlikely(!fmt)){
-		wf_trywrite(fmt_old,endp-fmt_old);
+		wf_trywrite(fmt_old,(size_t)(endp-fmt_old));
 		goto end;
 	}
 	v=fmt-fmt_old;
@@ -1192,7 +1193,7 @@ reflag:
 #define goto_argfail {debug("arg failed");return PTRDIFF_MIN;}
 #define argt(_type) ({register const union expr_argf *__arg;flag->type=(_type);__arg=arg(index,flag,addr);if(unlikely(!__arg)){debug("cannot get arg[%zd]",index);goto_argfail;}__arg;})
 #define arg1 argt(EXPR_FLAGTYPE_ADDR)
-#define get_next_arg64(dest,_after,_type,_field,_afield) \
+#define get_next_arg64(dest,dtype,_after,_type,_field,_afield) \
 	if(table->readarg&&*fmt==table->readarg){\
 		fmt_inc_check;\
 		if(table->readarg2&&*fmt==table->readarg2){\
@@ -1206,22 +1207,22 @@ reflag:
 		fmt_old=fmt;\
 		fmt=internal_strtoz_10(fmt,endp,&v);\
 		if(fmt>fmt_old){\
-			dest=v;\
+			dest=(dtype)v;\
 			_after;\
 			if(unlikely(fmt>=endp))\
 				goto end;\
 		}\
 	}
-	get_next_arg64(flag->width,flag->width_set=1,EXPR_FLAGTYPE_UNSIGNED,zint,zaddr);
+	get_next_arg64(flag->width,size_t,flag->width_set=1,EXPR_FLAGTYPE_UNSIGNED,zint,zaddr);
 	if(table->digit&&*fmt==table->digit){
 		fmt_inc_check;
-		get_next_arg64(flag->digit,flag->digit_set=1,EXPR_FLAGTYPE_SIGNED,tint,taddr);
+		get_next_arg64(flag->digit,ssize_t,flag->digit_set=1,EXPR_FLAGTYPE_SIGNED,tint,taddr);
 	}
 	if(table->bitwidth&&*fmt==table->bitwidth){
 		fmt_inc_check;
-		get_next_arg64(flag->argsize,,EXPR_FLAGTYPE_UNSIGNED,zint,zaddr);
+		get_next_arg64(flag->argsize,uint64_t,,EXPR_FLAGTYPE_UNSIGNED,zint,zaddr);
 	}
-	current=*(uint8_t *)fmt;
+	current=*(const uint8_t *)fmt;
 current_get:
 	flag->op=current;
 	switch((r1=table->c[current])){
@@ -1262,7 +1263,7 @@ current_get:
 				}\
 			}
 			fmt_op_cond();
-			v=flag_width(flag,1);
+			v=(ssize_t)flag_width(flag,1);
 			if(flag->minus){
 				index-=v;
 			}else {
@@ -1293,7 +1294,7 @@ current_get:
 			setdlm(tail,tailsz);
 			break;
 		case EXPR_FMTC_SETARR:
-			arrwid=flag_digit(flag,8);
+			arrwid=(uint8_t)flag_digit(flag,8);
 			if(unlikely(arrwid>8||!arrwid))
 				goto_argfail;
 			arrlen=flag_width(flag,0);
@@ -1319,7 +1320,7 @@ current_get:
 					range_checkn(--fmt_save_current,fmt_save,8,goto_argfail);
 				}
 				arrlen=0);
-			v=flag_width(flag,0);
+			v=(ssize_t)flag_width(flag,0);
 			if(flag->plus){
 				range_checkn(fmt_save_current-1,fmt_save,8,goto_argfail);
 				d1=fmt_save_current[-1];
@@ -1341,7 +1342,7 @@ current_get:
 			if(flag->width_set)
 				*arg1->uiaddr*=flag->width;
 			if(flag->digit_set)
-				*arg1->uiaddr+=flag->digit;
+				*arg1->uiaddr+=(size_t)flag->digit;
 			else
 				++(*arg1->uiaddr);
 			argnext1;
@@ -1350,7 +1351,7 @@ current_get:
 			if(flag->width_set)
 				*arg1->uiaddr/=flag->width;
 			if(flag->digit_set)
-				*arg1->uiaddr-=flag->digit;
+				*arg1->uiaddr-=(size_t)flag->digit;
 			else
 				--(*arg1->uiaddr);
 			argnext1;
@@ -1704,12 +1705,12 @@ out:
 	return nptr;
 }
 static inline const char *internal_strtos(const char *nptr,const char *endp,const char *c,char *restrict out,size_t *restrict outval){
-	size_t outlen=endp-nptr;
+	size_t outlen=(size_t)(endp-nptr);
 	if(c){
 		const char *r;
 		r=memchr(nptr,*c,outlen);
 		if(r)
-			outlen=r-nptr;
+			outlen=(size_t)(r-nptr);
 
 	}
 	if(!out){
@@ -1734,7 +1735,7 @@ static inline const char *internal_strtos(const char *nptr,const char *endp,cons
 static const char *warped_strtof(const char *nptr,const char *endp,double *restrict outval){
 	size_t len;
 	double r;
-	r=expr_internal_strtod(nptr,endp-nptr,&len);
+	r=expr_internal_strtod(nptr,(size_t)(endp-nptr),&len);
 	if(unlikely(!len))
 		return nptr;
 	*outval=r;
@@ -1759,7 +1760,7 @@ next:
 	if(!p){
 		return n;
 	}
-	r=p-fmt;
+	r=(size_t)(p-fmt);
 	debug("r=%zu,len=%zu,*fmt=%c,*str=%c",r,len,*fmt,*str);
 	if(r){
 		if(unlikely(len<r||memcmp(fmt,str,r)||p+1==fend)){
@@ -1776,12 +1777,12 @@ next:
 			if(unlikely(addr>=aend))\
 				return n;\
 			fmt=p+1;\
-			fmtlen=fend-fmt;\
+			fmtlen=(size_t)(fend-fmt);\
 			scanner;\
 			if(unlikely(p==str))\
 				return n;\
 			str=p;\
-			len=end-str;\
+			len=(size_t)(end-str);\
 			a=*addr;\
 			++addr;\
 			if(a){\
@@ -1794,19 +1795,19 @@ next:
 			if(unlikely(*str!='%'))
 				return n;
 			fmt=p+1;
-			fmtlen=fend-fmt;
+			fmtlen=(size_t)(fend-fmt);
 			++str;
 			--len;
 			goto next;
 		case 'i':
 			fmt=p+1;
-			fmtlen=fend-fmt;
+			fmtlen=(size_t)(fend-fmt);
 			goto next;
 		case 'n':
 			if(unlikely(addr>=aend))
 				return n;
 			fmt=p+1;
-			fmtlen=fend-fmt;
+			fmtlen=(size_t)(fend-fmt);
 			a=*addr;
 			++addr;
 			if(a)
@@ -1817,7 +1818,7 @@ next:
 			if(unlikely(addr+1>=aend))
 				return n;
 			fmt=p+1;
-			fmtlen=fend-fmt;
+			fmtlen=(size_t)(fend-fmt);
 			p=(fmtlen?fmt:NULL);
 			str=internal_strtos(str,end,p,*addr,addr[1]);
 			addr+=2;

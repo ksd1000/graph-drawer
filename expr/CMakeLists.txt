@@ -17,6 +17,7 @@ add_library(expr
 	expr-global.c
 	expr-builtin.c
 	expr-core.c
+	expr-symext.c
 	expr-buffered.c
 	expr-format.c
 	expr-alloc.c

@@ -32,7 +32,9 @@ struct expr_memtool mtl[1];
 
 //compile command: gcc -I  ../../expr -I ../expr -I ../../tinyexpr compare.c (graph-drawer build path)/expr/libexpr.a -lm -Wall -Wextra -O3 -o compare
 
-const char *expression="x0+5+3+7+x1";
+const char *expression="x0+5+3+(0.75|1.5)+7+x1";
+const char *texpression="x0+5+3+(0.75+1.5)+7+x1";
+//tinyexpr does not allow bitwise and/or. use an addition to replace it.
 
 double dtime(void){
 	struct timespec ts;
@@ -103,7 +105,7 @@ te_variable tvars[]={{"x0",&tx0,TE_VARIABLE,NULL},{"x1",&tx1,TE_VARIABLE,NULL}};
 struct expr_symset es[1]={EXPR_SYMSET_INITIALIZER(mtl)};
 double eval_t(unsigned int count){
 	int err;
-	struct te_expr *ep=te_compile(expression,tvars,2,&err);
+	struct te_expr *ep=te_compile(texpression,tvars,2,&err);
 	double r=0;
 	assert(ep);
 	while(count--)

@@ -217,7 +217,7 @@ static inline void *xautoadd(void **restrict old,size_t *restrict size,size_t *r
 	size_t old_size=*size,new_length;
 	if(old_size<*length){
 		++(*size);
-		return (uint8_t *)*old+old_size*n;
+		return (char *)*old+old_size*n;
 	}
 	new_length=*length+*length/4+expand;
 	r=xrealloc(*old,new_length*n);
@@ -231,7 +231,7 @@ static inline void *xautoadd(void **restrict old,size_t *restrict size,size_t *r
 	*old=r;
 	*length=new_length;
 	++(*size);
-	return (uint8_t *)r+old_size*n;
+	return (char *)r+old_size*n;
 }
 
 #define gcd2(__x,__y) ({\
@@ -539,11 +539,11 @@ static inline void setunsafe(struct expr *restrict ep){
 	}
 	ep->iflag|=EXPR_IUNSAFE;
 }
-#define EXPAND_SIZE 16
+#define EXPAND_SIZE EXPR_EXPAND_SIZE
 #define expr_addop(ep,dst,src,op,flag) expr_addop_i(ep,dst,(uintptr_t)(src),op,flag)
 static inline struct expr_inst *expr_addop_i(struct expr *restrict ep,void *dst,uintptr_t src,enum expr_op op,int flag){
 	struct expr_inst *ip;
-	ip=xautoadd((void **)&ep->data,&ep->size,&ep->length,sizeof(struct expr_inst),EXPAND_SIZE*sizeof(struct expr_inst),ep->mtl);
+	ip=xautoadd((void **)&ep->data,&ep->size,&ep->length,sizeof(struct expr_inst),EXPAND_SIZE,ep->mtl);
 	if(unlikely(!ip))
 		return NULL;
 	ip->op=op;
@@ -669,7 +669,7 @@ static expr_t *expr_newvar(struct expr *restrict ep){
 	expr_t *r=xmalloc(sizeof(expr_t)),**p;
 	if(unlikely(!r))
 		return NULL;
-	p=xautoadd((void **)&ep->vars,&ep->vsize,&ep->vlength,sizeof(expr_t *),EXPAND_SIZE*sizeof(expr_t *),ep->mtl);
+	p=xautoadd((void **)&ep->vars,&ep->vsize,&ep->vlength,sizeof(expr_t *),EXPAND_SIZE,ep->mtl);
 	if(unlikely(!p))
 		return NULL;
 	*p=r;

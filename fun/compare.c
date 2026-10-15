@@ -1,5 +1,3 @@
-//compile command: gcc compare.c -I ../expr ../expr/expr-core.c ../expr/expr-internal.c ../expr/expr-alloc.c -o compare -I ../../expr -lm -O3
-
 #define _GNU_SOURCE
 #include "expr.h"
 #undef expr_init
@@ -26,6 +24,14 @@ struct expr_memtool mtl[1];
 #undef expr_eval
 #undef expr
 
+#include "tinyexpr.h"
+#include "tinyexpr.c"
+//link: https://raw.githubusercontent.com/codeplea/tinyexpr/refs/heads/master/tinyexpr.h
+//and https://raw.githubusercontent.com/codeplea/tinyexpr/refs/heads/master/tinyexpr.c
+//patch the malloc by include
+
+//compile command: gcc -I  ../../expr -I ../expr -I ../../tinyexpr compare.c (graph-drawer build path)/expr/libexpr.a -lm -Wall -Wextra -O3 -o compare
+
 const char *expression="x0+5+3+7+x1";
 
 double dtime(void){
@@ -35,17 +41,17 @@ double dtime(void){
 }
 void area_show(struct expr_area *a){
 	printf("heap monotonic: "
-	"allocate=%u,"
-	"allocate_fail=%u,"
-	"deallocate=%u,"
-	"expand_nail=%u,"
-	"expand_move=%u,"
-	"expand_fail=%u,"
-	"shrink=%u,"
-	"create=%u,"
-	"combine=%u,"
-	"retail_up=%u,"
-	"retail_down=%u\n",
+	"a=%u,"
+	"af=%u,"
+	"d=%u,"
+	"en=%u,"
+	"em=%u,"
+	"ef=%u,"
+	"s=%u,"
+	"c=%u,"
+	"co=%u,"
+	"ru=%u,"
+	"rd=%u\n",
 	a->monotonic_allocate,
 	a->monotonic_allocate_fail,
 	a->monotonic_deallocate,
@@ -87,11 +93,24 @@ void area_showcur(struct expr_area *a){
 	ai.tail_index,
 	ai.max
 	);
-	//assert((!ai.leak&&!ai.leak_count));
+	assert((!ai.leak&&!ai.leak_count));
 }
 struct expr_var_list vars={0};
 struct expr_var *a;
-struct expr_symset *es;
+double tx0=4,tx1=6;
+double x0=4,x1=6;
+te_variable tvars[]={{"x0",&tx0,TE_VARIABLE,NULL},{"x1",&tx1,TE_VARIABLE,NULL}};
+struct expr_symset es[1]={EXPR_SYMSET_INITIALIZER(mtl)};
+double eval_t(unsigned int count){
+	int err;
+	struct te_expr *ep=te_compile(expression,tvars,2,&err);
+	double r=0;
+	assert(ep);
+	while(count--)
+		r=te_eval(ep);
+	te_free(ep);
+	return r;
+}
 float eval_z(unsigned int count){
 	struct expr_z *ep=expr_create(expression,strlen(expression),&vars,NULL);
 	float r=0;
@@ -114,50 +133,41 @@ double eval(unsigned int count,int flag){
 int main(void){
 	unsigned int count=50000000;
 	double ct,st,r=0;
-	double x0=4,x1=6;
 	assert(!expr_setup_heapmtl4(mtl,internal_heap,sizeof(internal_heap),EXPR_ADEFAULT));
 	assert(a=expr_var(&vars,"x0",2));
 	a->value=4;
 	assert(a=expr_var(&vars,"x1",2));
 	a->value=6;
-	assert(es=expr_symset_new_r(mtl));
 	assert(expr_symset_add(es,"x0",EXPR_VARIABLE,0,&x0));
 	assert(expr_symset_add(es,"x1",EXPR_VARIABLE,0,&x1));
 
 	printf("eval %s %u times\n",expression,count);
+#define test_eval(func,name) \
+	expr_area_reset_monotonic((struct expr_area *)mtl->arg);\
+	rct r=(double)(func);\
+	printf(#name " uses %.2lf ms,result=%lf\n",(ct-st)*1000,r);\
+	area_show((struct expr_area *)mtl->arg)
+	test_eval(eval_z(count),"zserge_expr");
+	test_eval(eval_t(count),"tinyexpr");
+	test_eval(eval(count,EXPR_INOOPTIMIZE),"expr(no optimize)");
+	test_eval(eval(count,0),"expr(optimized)");
 
-	expr_area_reset_monotonic((struct expr_area *)mtl->arg);
-	rct r=(double)eval_z(count);
-	printf("zserge_expr uses %.2lf ms,result=%lf\n",(ct-st)*1000,r);
-	area_show((struct expr_area *)mtl->arg);
-
-	expr_area_reset_monotonic((struct expr_area *)mtl->arg);
-	rct r=eval(count,EXPR_INOOPTIMIZE);
-	printf("expr(no optimize) uses %.2lf ms,result=%lf\n",(ct-st)*1000,r);
-	area_show((struct expr_area *)mtl->arg);
-
-	expr_area_reset_monotonic((struct expr_area *)mtl->arg);
-	rct r=eval(count,0);
-	printf("expr(optimized) uses %.2lf ms,result=%lf\n",(ct-st)*1000,r);
-	area_show((struct expr_area *)mtl->arg);
 
 	count=500000;
 
 	printf("init+eval(once)+free %u times\n",count);
 
-	rct for(unsigned int i=0;i<count;++i)eval_z(1);
-	printf("zserge_expr uses %.2lf ms\n",(ct-st)*1000);
-
-	rct for(unsigned int i=0;i<count;++i)eval(1,EXPR_INOOPTIMIZE);
-	printf("expr(no optimize) uses %.2lf ms\n",(ct-st)*1000);
-
-	rct for(unsigned int i=0;i<count;++i)eval(1,0);
-	printf("expr(optimized) uses %.2lf ms\n",(ct-st)*1000);
+#define test_ief(func,name) \
+	rct for(unsigned int i=0;i<count;++i)(func);\
+	printf(#name " uses %.2lf ms\n",(ct-st)*1000)
+	test_ief(eval_z(1),"zserge_expr");
+	test_ief(eval_t(1),"tinyexpr");
+	test_ief(eval(1,EXPR_INOOPTIMIZE),"expr(no optimize)");
+	test_ief(eval(1,0),"expr(optimized)");
 
 	expr_symset_free(es);
+	expr_destroy(NULL,&vars);
 	area_showcur((struct expr_area *)mtl->arg);
-	// there is not a function to free vars in zserge_expr,
-	// memory may leak.
 	return 0;
 }
 

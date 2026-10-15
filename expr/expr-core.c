@@ -376,6 +376,26 @@ err:
 ssize_t expr_builtin_symbol_xaddall(struct expr_symset *restrict esp,const struct expr_builtin_symbol **symsp,const struct expr_builtin_symbol *syms){
 	return expr_builtin_symbol_xaddalls(esp,symsp,syms,NULL);
 }
+ssize_t expr_builtin_symbol_addalls(struct expr_symset *restrict esp,const struct expr_builtin_symbol *syms,...){
+	ssize_t r=0;
+	ssize_t fail=0;
+	va_list ap;
+	va_start(ap,syms);
+	do {
+		for(;syms->str;++syms){
+			if(likely(expr_builtin_symbol_add(esp,syms)))
+				++r;
+			else
+				--fail;
+		}
+		syms=va_arg(ap,const struct expr_builtin_symbol *);
+	}while(syms);
+	va_end(ap);
+	return fail?fail:r;
+}
+ssize_t expr_builtin_symbol_addall(struct expr_symset *restrict esp,const struct expr_builtin_symbol *syms){
+	return expr_builtin_symbol_addalls(esp,syms,NULL);
+}
 
 static inline const char *findpair_dmark(const char *c,const char *endp){
 	for(++c;c<endp;++c){

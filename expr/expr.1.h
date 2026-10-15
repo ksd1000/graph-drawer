@@ -79,7 +79,9 @@ struct expr_memtool {
 	expr_test_t test;
 	intptr_t arg;
 };
-
+#ifndef EXPR_EXPAND_SIZE
+#define EXPR_EXPAND_SIZE 16
+#endif
 void *expr_allocator_default(size_t size,intptr_t arg);
 void *expr_reallocator_default(void *old,size_t size,intptr_t arg);
 void expr_deallocator_default(void *old,intptr_t arg);

@@ -32,13 +32,45 @@ struct expr_memtool mtl[1];
 
 //compile command: gcc -I  ../../expr -I ../expr -I ../../tinyexpr compare.c (graph-drawer build path)/expr/libexpr.a -lm -Wall -Wextra -O3 -o compare
 
-const char *expression="x0+5+3+(0.75+1.5)+7.01234568910111213141516+x1";
+const char *expression="x0+5+3+(0.75+1.5)+7.012345689+x1";
 //tinyexpr does not allow bitwise and/or.
 
 double dtime(void){
 	struct timespec ts;
 	clock_gettime(CLOCK_REALTIME,&ts);
 	return (double)ts.tv_sec+ts.tv_nsec/1000000000.0;
+}
+size_t mem_used=0,mem_max=0,mem_cur=0,mem_old=0;
+void *expr_heapmtl_malloc_hook(size_t size,intptr_t arg){
+	void *r;
+	//printf("malloc=%zu\n",size);
+	r=expr_area_malloc((struct expr_area *)arg,size);
+	if(r){
+		size_t n;
+		n=expr_memlen(r);
+		mem_used+=n;
+		if(n>mem_max)
+			mem_max=n;
+	//printf("memlen=%zu\n",expr_memlen(r));
+	}
+	return r;
+}
+void *expr_heapmtl_realloc_hook(void *old,size_t size,intptr_t arg){
+	size_t olds,new;
+	void *r;
+	olds=expr_memlen(old);
+	r=expr_area_realloc((struct expr_area *)arg,old,size);
+	if(r){
+		new=expr_memlen(r);
+		if(new>olds){
+			size_t n;
+			n=new-olds;
+			mem_used+=n;
+			if(n>mem_max)
+				mem_max=n;
+			}
+	}
+	return r;
 }
 void area_show(struct expr_area *a){
 	printf("heap monotonic: "
@@ -52,7 +84,7 @@ void area_show(struct expr_area *a){
 	"c=%u,"
 	"co=%u,"
 	"ru=%u,"
-	"rd=%u\n",
+	"rd=%u\n\n",
 	a->monotonic_allocate,
 	a->monotonic_allocate_fail,
 	a->monotonic_deallocate,
@@ -96,8 +128,13 @@ void area_showcur(struct expr_area *a){
 	);
 	assert((!ai.leak&&!ai.leak_count));
 }
+size_t area_size(struct expr_area *a){
+	struct expr_areainfo ai;
+	assert(!expr_area_summary(a,&ai));
+	return ai.leak;
+}
 struct expr_var_list vars={0};
-struct expr_var *a;
+struct expr_var *a=NULL;
 double tx0=4,tx1=6;
 double x0=4,x1=6;
 te_variable tvars[]={{"x0",&tx0,TE_VARIABLE,NULL},{"x1",&tx1,TE_VARIABLE,NULL}};
@@ -109,6 +146,7 @@ double eval_t(unsigned int count){
 	assert(ep);
 	while(count--)
 		r=te_eval(ep);
+	mem_cur=area_size((struct expr_area *)mtl->arg);
 	te_free(ep);
 	return r;
 }
@@ -118,6 +156,7 @@ float eval_z(unsigned int count){
 	assert(ep);
 	while(count--)
 		r=expr_eval_z(ep);
+	mem_cur=area_size((struct expr_area *)mtl->arg);
 	expr_destroy(ep,NULL);
 	return r;
 }
@@ -127,6 +166,7 @@ double eval(unsigned int count,int flag){
 	assert(ep);
 	while(count--)
 		r=expr_eval(ep,0.0);
+	mem_cur=area_size((struct expr_area *)mtl->arg);
 	expr_free(ep);
 	return r;
 }
@@ -137,22 +177,26 @@ int main(int argc,char **argv){
 	if(argc>1)
 		expression=argv[1];
 	assert(!expr_setup_heapmtl4(mtl,internal_heap,sizeof(internal_heap),EXPR_ADEFAULT));
+	mtl->allocate=expr_heapmtl_malloc_hook;
+	mtl->reallocate=expr_heapmtl_realloc_hook;
 	assert((a=expr_var(&vars,"x0",2)));
 	a->value=4;
 	assert((a=expr_var(&vars,"x1",2)));
 	a->value=6;
 	assert(expr_symset_add(es,"x0",EXPR_VARIABLE,0,&x0));
 	assert(expr_symset_add(es,"x1",EXPR_VARIABLE,0,&x1));
-
+	mem_old=area_size((struct expr_area *)mtl->arg);
 	printf("eval %s %u times\n",expression,count);
 #define test_eval(func,name) \
+	mem_used=0;\
+	mem_max=0;\
 	expr_area_reset_monotonic((struct expr_area *)mtl->arg);\
 	rct r=(double)(func);\
-	printf(#name " uses %.2lf ms,result=%.16lf\n",(ct-st)*1000,r);\
+	printf(name " uses %.2lf ms,result=%.16lf,mem=%zu/%zu/%zu\n",(ct-st)*1000,r,mem_cur-mem_old,mem_used,mem_max);\
 	area_show((struct expr_area *)mtl->arg)
 	test_eval(eval_z(count),"zserge_expr");
 	test_eval(eval_t(count),"tinyexpr");
-	test_eval(eval(count,EXPR_INOOPTIMIZE),"expr(no optimize)");
+	test_eval(eval(count,EXPR_INOOPTIMIZE|EXPR_INOSHRINK),"expr(no optimize)");
 	test_eval(eval(count,0),"expr(optimized)");
 
 
@@ -161,20 +205,20 @@ int main(int argc,char **argv){
 
 #define test_ief(func,name) \
 	rct for(unsigned int i=0;i<count;++i)(func);\
-	printf(#name " uses %.2lf ms\n",(ct-st)*1000)
+	printf(name " uses %.2lf ms\n",(ct-st)*1000)
 	test_ief(eval_z(0),"zserge_expr");
 	test_ief(eval_t(0),"tinyexpr");
-	test_ief(eval(0,EXPR_INOOPTIMIZE),"expr(no optimize)");
+	test_ief(eval(0,EXPR_INOOPTIMIZE|EXPR_INOSHRINK),"expr(no optimize)");
 	test_ief(eval(0,0),"expr(optimized)");
 
-	printf("init+eval(once)+free %u times\n",count);
+	printf("\ninit+eval(once)+free %u times\n",count);
 
 #define test_ief(func,name) \
 	rct for(unsigned int i=0;i<count;++i)(func);\
-	printf(#name " uses %.2lf ms\n",(ct-st)*1000)
+	printf(name " uses %.2lf ms\n",(ct-st)*1000)
 	test_ief(eval_z(1),"zserge_expr");
 	test_ief(eval_t(1),"tinyexpr");
-	test_ief(eval(1,EXPR_INOOPTIMIZE),"expr(no optimize)");
+	test_ief(eval(1,EXPR_INOOPTIMIZE|EXPR_INOSHRINK),"expr(no optimize)");
 	test_ief(eval(1,0),"expr(optimized)");
 
 	expr_symset_free(es);

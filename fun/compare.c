@@ -32,9 +32,8 @@ struct expr_memtool mtl[1];
 
 //compile command: gcc -I  ../../expr -I ../expr -I ../../tinyexpr compare.c (graph-drawer build path)/expr/libexpr.a -lm -Wall -Wextra -O3 -o compare
 
-const char *expression="x0+5+3+(0.75|1.5)+7+x1";
-const char *texpression="x0+5+3+(0.75+1.5)+7+x1";
-//tinyexpr does not allow bitwise and/or. use an addition to replace it.
+const char *expression="x0+5+3+(0.75+1.5)+7+x1";
+//tinyexpr does not allow bitwise and/or.
 
 double dtime(void){
 	struct timespec ts;
@@ -105,7 +104,7 @@ te_variable tvars[]={{"x0",&tx0,TE_VARIABLE,NULL},{"x1",&tx1,TE_VARIABLE,NULL}};
 struct expr_symset es[1]={EXPR_SYMSET_INITIALIZER(mtl)};
 double eval_t(unsigned int count){
 	int err;
-	struct te_expr *ep=te_compile(texpression,tvars,2,&err);
+	struct te_expr *ep=te_compile(expression,tvars,2,&err);
 	double r=0;
 	assert(ep);
 	while(count--)
@@ -132,13 +131,15 @@ double eval(unsigned int count,int flag){
 	return r;
 }
 #define rct for(ct=0.0,st=dtime();ct==0.0;ct=dtime())
-int main(void){
+int main(int argc,char **argv){
 	unsigned int count=50000000;
 	double ct,st,r=0;
+	if(argc>1)
+		expression=argv[1];
 	assert(!expr_setup_heapmtl4(mtl,internal_heap,sizeof(internal_heap),EXPR_ADEFAULT));
-	assert(a=expr_var(&vars,"x0",2));
+	assert((a=expr_var(&vars,"x0",2)));
 	a->value=4;
-	assert(a=expr_var(&vars,"x1",2));
+	assert((a=expr_var(&vars,"x1",2)));
 	a->value=6;
 	assert(expr_symset_add(es,"x0",EXPR_VARIABLE,0,&x0));
 	assert(expr_symset_add(es,"x1",EXPR_VARIABLE,0,&x1));

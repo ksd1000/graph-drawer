@@ -32,7 +32,7 @@ struct expr_memtool mtl[1];
 
 //compile command: gcc -I  ../../expr -I ../expr -I ../../tinyexpr compare.c (graph-drawer build path)/expr/libexpr.a -lm -Wall -Wextra -O3 -o compare
 
-const char *expression="x0+5+3+(0.75+1.5)+7+x1";
+const char *expression="x0+5+3+(0.75+1.5)+7.01234568910111213141516+x1";
 //tinyexpr does not allow bitwise and/or.
 
 double dtime(void){
@@ -148,7 +148,7 @@ int main(int argc,char **argv){
 #define test_eval(func,name) \
 	expr_area_reset_monotonic((struct expr_area *)mtl->arg);\
 	rct r=(double)(func);\
-	printf(#name " uses %.2lf ms,result=%lf\n",(ct-st)*1000,r);\
+	printf(#name " uses %.2lf ms,result=%.16lf\n",(ct-st)*1000,r);\
 	area_show((struct expr_area *)mtl->arg)
 	test_eval(eval_z(count),"zserge_expr");
 	test_eval(eval_t(count),"tinyexpr");
@@ -157,6 +157,15 @@ int main(int argc,char **argv){
 
 
 	count=500000;
+	printf("init+free %u times\n",count);
+
+#define test_ief(func,name) \
+	rct for(unsigned int i=0;i<count;++i)(func);\
+	printf(#name " uses %.2lf ms\n",(ct-st)*1000)
+	test_ief(eval_z(0),"zserge_expr");
+	test_ief(eval_t(0),"tinyexpr");
+	test_ief(eval(0,EXPR_INOOPTIMIZE),"expr(no optimize)");
+	test_ief(eval(0,0),"expr(optimized)");
 
 	printf("init+eval(once)+free %u times\n",count);
 

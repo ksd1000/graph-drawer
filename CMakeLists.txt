@@ -34,7 +34,7 @@ add_library(common_symbols common_symbols.c)
 add_definitions(-DCOMMON_SYMBOLS)
 if(DEFINED CMAKE_HOST_UNIX)
 	execute_process(COMMAND sh -c "sh ${PROJECT_SOURCE_DIR}/systable.sh >${PROJECT_BINARY_DIR}/systable.c")
-	add_custom_target(expr.so.conf ALL sh -c \"sh "${PROJECT_SOURCE_DIR}/expr/lcdump" <"${PROJECT_SOURCE_DIR}/expr/expr.h" >"${PROJECT_BINARY_DIR}/expr.so.conf"\" BYPRODUCTS expr.so.conf SOURCES expr/expr.h)
+	add_custom_target(expr.so.conf ALL sh -c \"sh "${PROJECT_SOURCE_DIR}/expr/lcdump" <"${PROJECT_SOURCE_DIR}/expr/expr.h" >"${PROJECT_BINARY_DIR}/expr.so.conf"\" BYPRODUCTS expr.so.conf SOURCES expr/expr.h expr/lcdump)
 	include_directories(${PROJECT_BINARY_DIR})
 endif()
 # so.conf for ltrace

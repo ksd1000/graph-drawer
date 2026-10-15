@@ -199,6 +199,8 @@ const struct inst_info ii[]={
 [EXPR_SGE]={.name="sge",.st=MEM,},
 [EXPR_SEQ]={.name="seq",.st=MEM,},
 [EXPR_SNE]={.name="sne",.st=MEM,},
+[EXPR_IEQ]={.name="ieq",.st=MEM,},
+[EXPR_INE]={.name="ine",.st=MEM,},
 [EXPR_EQ]={.name="eq",.st=MEM,},
 [EXPR_NE]={.name="ne",.st=MEM,},
 [EXPR_ANDL]={.name="andl",.st=MEM,},

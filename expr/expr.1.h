@@ -36,7 +36,35 @@ expr_static_assert(SSIZE_MIN==PTRDIFF_MIN);
 expr_static_assert(sizeof(ssize_t)==sizeof(ptrdiff_t));
 expr_static_assert(sizeof(size_t)==sizeof(ptrdiff_t));
 expr_static_assert(sizeof(void *)==sizeof(ptrdiff_t));
+
+#ifndef expr_t
+#define expr_t double
+#define expr_ti int64_t
+#define expr_tu uint64_t
 expr_static_assert(sizeof(void *)>=sizeof(double));
+#define EXPR_FMTd "f"
+#define EXPR_FMTu "f"
+#define EXPR_FMTo "\xa8"
+#define EXPR_FMTx "a"
+#define EXPR_FMTX "A"
+#define EXPR_FAIL NAN
+#define EXPR_INFINITY INFINITY
+#define EXPR_ZERO 0.0
+#define EXPR_ONE 1.0
+#define EXPR_TWO 2.0
+#define EXPR_EDBASE(d) (((union expr_double *)(d))->rd.base)
+#define EXPR_EDEXP(d) (((union expr_double *)(d))->rd.exp)
+#define EXPR_EDSIGN(d) (((union expr_double *)(d))->rd.sign)
+#define EXPR_EDIVAL(d) (((union expr_double *)(d))->ival)
+#define EXPR_EDUVAL(d) (((union expr_double *)(d))->uval)
+#define expr_tand(__a,__b) expr_internal_fand(__a,__b)
+#define expr_tor(__a,__b) expr_internal_for(__a,__b)
+#define expr_txor(__a,__b) expr_internal_fxor(__a,__b)
+#define expr_tnot(_x) expr_internal_fxor((_x),9007199254740991.0)
+#define expr_tpow(__a,__b) pow(__a,__b)
+#define expr_tmod(__a,__b) fmod(__a,__b)
+#define expr_tscan(_str,_size,_outsize,_mtl) expr_internal_strtod_mtl_force(_str,_size,_outsize,_mtl)
+#endif
 
 typedef ssize_t (*expr_writer)(intptr_t fd,const void *buf,size_t size);
 typedef ssize_t (*expr_reader)(intptr_t fd,void *buf,size_t size);
@@ -292,6 +320,8 @@ EXPR_SLE,
 EXPR_SGE,
 EXPR_SEQ,
 EXPR_SNE,
+EXPR_IEQ,
+EXPR_INE,
 EXPR_EQ,
 EXPR_NE,
 EXPR_ANDL,
@@ -453,12 +483,6 @@ EXPR_END
 #define EXPR_KSEPCOMMA 2
 #define EXPR_KNOPROTECT 4
 
-#define EXPR_EDBASE(d) (((union expr_double *)(d))->rd.base)
-#define EXPR_EDEXP(d) (((union expr_double *)(d))->rd.exp)
-#define EXPR_EDSIGN(d) (((union expr_double *)(d))->rd.sign)
-#define EXPR_EDIVAL(d) (((union expr_double *)(d))->ival)
-#define EXPR_EDUVAL(d) (((union expr_double *)(d))->uval)
-
 #define EXPR_RPUSH(_sp) (*((_sp)++))
 #define EXPR_RPOP(_sp) (*(--(_sp)))
 //R:reverse
@@ -477,6 +501,61 @@ EXPR_END
 	int _r;\
 	switch(c){\
 		case EXPR_BLANKS:\
+			_r=1;\
+			break;\
+		default:\
+			_r=0;\
+			break;\
+	}\
+	_r;\
+})
+#define expr_equal(_a,_b) ({\
+	double a,b,absa,absb,absamb;\
+	int _r;\
+	a=(_a);\
+	b=(_b);\
+	absa=a<0.0?-a:a;\
+	absb=b<0.0?-b:b;\
+	absamb=a<b?b-a:a-b;\
+	if(absa>absb){\
+		if(absa<=1.0)\
+			_r=(absamb<=DBL_EPSILON);\
+		else\
+			_r=(absamb<=DBL_EPSILON*absa);\
+	}else {\
+		if(absb<=1.0)\
+			_r=(absamb<=DBL_EPSILON);\
+		else\
+			_r=(absamb<=DBL_EPSILON*absb);\
+	}\
+	_r;\
+})
+#define EXPR_OPERATORS \
+		'+':\
+		case '-':\
+		case '*':\
+		case '/':\
+		case '%':\
+		case '^':\
+		case '(':\
+		case ')':\
+		case ',':\
+		case ';':\
+		case '<':\
+		case '>':\
+		case '=':\
+		case '!':\
+		case '&':\
+		case '|':\
+		case '#':\
+		case '[':\
+		case ']':\
+		case '{':\
+		case '}'
+#define expr_operator(c) ({\
+	int _r;\
+	switch(c){\
+		case EXPR_OPERATORS:\
 			_r=1;\
 			break;\
 		default:\
@@ -909,34 +988,34 @@ struct expr;
 struct expr_symset;
 struct expr_suminfo {
 	struct expr *fromep,*toep,*stepep,*ep;
-	volatile double index;
+	volatile expr_t index;
 };
 struct expr_branchinfo {
 	struct expr *cond,*body,*value;
 };
 struct expr_mdinfo {
 	struct expr *eps;
-	double *args;
+	expr_t *args;
 	char *e;
 	union {
-		double (*func)(double *,size_t);
-		double (*funcep)(const struct expr *,size_t,double);
+		expr_t (*func)(expr_t *,size_t);
+		expr_t (*funcep)(const struct expr *,size_t,expr_t);
 		void *uaddr;
 	} un;
 	size_t dim;
 };
 struct expr_hmdinfo {
 	struct expr *eps;
-	double *args;
+	expr_t *args;
 	struct expr *hotfunc;
 	size_t dim;
 };
 struct expr_vmdinfo {
 	struct expr *fromep,*toep,*stepep,*ep;
 	size_t max;
-	double (*func)(double *,size_t);
-	double *args;
-	volatile double index;
+	expr_t (*func)(expr_t *,size_t);
+	expr_t *args;
+	volatile expr_t index;
 };
 typedef uint16_t expr_superseed48[3];
 struct expr_rawdouble {
@@ -952,32 +1031,37 @@ struct expr_rawdouble {
 }__attribute__((packed));
 struct expr_inst {
 	union {
-		double *dst;
-		int64_t *idst;
+		expr_t *dst;
+		double *ddst;
+		expr_ti *idst;
 		intptr_t *pdst;
 		void *uaddr;
 		void **uaddr2;
-		double **dst2;
+		expr_t **dst2;
+		double **ddst2;
 		struct expr_inst **instaddr2;
 		struct expr_rawdouble *rdst;
-		double (**md2)(double *,size_t);
-		double (**me2)(const struct expr *,size_t,double);
+		expr_t (**md2)(expr_t *,size_t);
+		expr_t (**me2)(const struct expr *,size_t,expr_t);
 	} dst;
 	union {
-		double *src;
-		int64_t *isrc;
+		expr_t *src;
+		double *dsrc;
+		expr_ti *isrc;
 		intptr_t *psrc;
-		double **src2;
+		expr_t **src2;
+		double **dsrc2;
 		void *uaddr;
 		void **uaddr2;
-		double value;
+		expr_t value;
+		double dvalue;
 		size_t zu;
 		struct expr *hotfunc;
 		struct expr **hotfunc2;
-		double (*func)(double);
-		double (**func2)(double);
-		double (*zafunc)(void);
-		double (**zafunc2)(void);
+		expr_t (*func)(expr_t);
+		expr_t (**func2)(expr_t);
+		expr_t (*zafunc)(void);
+		expr_t (**zafunc2)(void);
 		struct expr_suminfo *es;
 		struct expr_branchinfo *eb;
 		struct expr_mdinfo *em;
@@ -988,18 +1072,20 @@ struct expr_inst {
 	int flag;
 };
 union expr_symvalue {
-	double value;
-	int64_t ivalue;
-	uint64_t uvalue;
+	expr_t value;
+	double dvalue;
+	expr_ti ivalue;
+	expr_tu uvalue;
 	size_t size;
 	ssize_t off;
-	double *addr;
+	expr_t *addr;
+	double *daddr;
 	void *uaddr;
 	const char *hot; //for builtin symbols only
-	double (*func)(double);
-	double (*zafunc)(void);
-	double (*mdfunc)(double *,size_t);
-	double (*mdepfunc)(const struct expr *,size_t,double);
+	expr_t (*func)(expr_t);
+	expr_t (*zafunc)(void);
+	expr_t (*mdfunc)(expr_t *,size_t);
+	expr_t (*mdepfunc)(const struct expr *,size_t,expr_t);
 	const struct expr_builtin_symbol *bsyms;
 	const struct expr_symset *sset;
 };
@@ -1082,7 +1168,8 @@ struct expr_resource {
 	struct expr_resource *next;
 	union {
 		void *uaddr;
-		double *addr;
+		expr_t *addr;
+		double *daddr;
 		char *str;
 		struct expr *ep;
 	} un;
@@ -1432,17 +1519,17 @@ struct expr {
 	struct expr_inst **ipp;
 	size_t size;
 	struct expr *parent;
-	double **vars;
+	expr_t **vars;
 	struct expr_symset *sset;
 	struct expr_resource *res,*tail;
 	size_t length,vsize,vlength;
 	const struct expr_memtool *restrict mtl;
 	// the restrict in field may be ignored, might work in the future
 	union {
-		double args[EXPR_SYSAM];
+		expr_t args[EXPR_SYSAM];
 		struct {
 			struct expr_inst endinst[1];
-			double val;
+			expr_t val;
 		} end[1];
 	} un;
 	int error;
@@ -1450,4 +1537,3 @@ struct expr {
 	unsigned int freeable:2,sset_shouldfree:1,isconst:1;
 	char errinfo[EXPR_SYMLEN];
 };
-typedef struct expr expr_t[1];

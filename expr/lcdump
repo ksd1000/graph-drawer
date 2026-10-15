@@ -1,4 +1,7 @@
 #! /bin/bash
+echo typedef expr_t = double\;
+echo typedef expr_it = long\;
+echo typedef expr_ut = ulong\;
 echo typedef expr_reader = void *\;
 echo typedef expr_writer = void *\;
 echo typedef expr_argfetch = void *\;

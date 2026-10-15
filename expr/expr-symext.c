@@ -44,26 +44,6 @@ const struct expr_builtin_symbol *expr_builtin_symbol_rsearch(const struct expr_
 	}
 	return NULL;
 }
-ssize_t expr_builtin_symbol_addalls(struct expr_symset *restrict esp,const struct expr_builtin_symbol *syms,...){
-	ssize_t r=0;
-	ssize_t fail=0;
-	va_list ap;
-	va_start(ap,syms);
-	do {
-		for(;syms->str;++syms){
-			if(likely(expr_builtin_symbol_add(esp,syms)))
-				++r;
-			else
-				--fail;
-		}
-		syms=va_arg(ap,const struct expr_builtin_symbol *);
-	}while(syms);
-	va_end(ap);
-	return fail?fail:r;
-}
-ssize_t expr_builtin_symbol_addall(struct expr_symset *restrict esp,const struct expr_builtin_symbol *syms){
-	return expr_builtin_symbol_addalls(esp,syms,NULL);
-}
 struct expr_symset *expr_builtin_symbol_converts_r(const struct expr_memtool *restrict mtl,const struct expr_builtin_symbol *syms,...){
 	struct expr_symset *esp=expr_symset_new_r(mtl);
 	va_list ap;

@@ -30,9 +30,9 @@ struct expr_memtool mtl[1];
 //and https://raw.githubusercontent.com/codeplea/tinyexpr/refs/heads/master/tinyexpr.c
 //patch the malloc by include
 
-//compile command: gcc -I  ../../expr -I ../expr -I ../../tinyexpr compare.c (graph-drawer build path)/expr/libexpr.a -lm -Wall -Wextra -O3 -o compare
+//compile command: gcc -I  ../../expr -I ../expr -I ../../tinyexpr compare.c -lm -Wall -Wextra -o compare ../expr/expr-core.c ../expr/expr-internal.c ../expr/expr-alloc.c -O3
 
-const char *expression="x0+5+3+(0.75+1.5)+7.012345689+x1";
+const char *expression="x0+5+3+(0.75+1.5)+7.0123456891011121314151617181920+x1";
 //tinyexpr does not allow bitwise and/or.
 
 double dtime(void){

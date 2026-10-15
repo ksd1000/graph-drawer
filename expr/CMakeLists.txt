@@ -14,8 +14,6 @@ set(CMAKE_C_FLAGS_RELWITHDEBINFO "-O2 -g")
 add_compile_options(-Wall -Wextra -Werror -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wcast-qual -Wstrict-prototypes -Wnull-dereference)
 #set(LIBRARY_OUTPUT_PATH .)
 add_library(expr
-	expr-global.c
-	expr-builtin.c
 	expr-core.c
 	expr-symext.c
 	expr-buffered.c
@@ -24,7 +22,11 @@ add_library(expr
 	expr-internal.c
 )
 target_compile_options(expr PRIVATE -ffreestanding)
-link_libraries(expr m)
+add_library(expr-lc
+	expr-global.c
+	expr-builtin.c
+)
+link_libraries(expr expr-lc m)
 add_executable(expr-version expr-version.c)
 if(EXPR_CHECK)
 	add_link_options(-fsanitize=address)

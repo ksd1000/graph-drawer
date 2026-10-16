@@ -26,6 +26,7 @@ add_library(expr-lc
 	expr-global.c
 	expr-builtin.c
 )
+target_link_libraries(expr-lc PUBLIC expr)
 link_libraries(expr expr-lc m)
 add_executable(expr-version expr-version.c)
 if(EXPR_CHECK)

@@ -47,7 +47,9 @@ ssize_t expr_writec(expr_writer writer,intptr_t fd,size_t count,int c){
 }
 #define writeext expr_writec
 
-#define flag_plusorspace(_f) ((_f)->bit&(UINT64_C(3)<<62))
+//#define flag_plusorspace(_f) ((_f)->bit&(UINT64_C(3)<<62))
+#define flag_plus(_f) ((_f)->plus)
+#define flag_space(_f) ((_f)->space)
 #define flag_width(_f,_dflt) ((_f)->width_set?(_f)->width:(_dflt))
 #define flag_digit(_f,_dflt) ((_f)->digit_set?(size_t)(_f)->digit:(_dflt))
 
@@ -101,8 +103,10 @@ static ssize_t converter_d(expr_writer writer,intptr_t fd,const union expr_argf 
 		*(--p)='0';
 	switch(minus){
 		case 0:
-			if(flag_plusorspace(flag))
+			if(flag_plus(flag))
 				*(--p)='+';
+			else if(flag_space(flag))
+				*(--p)=' ';
 			break;
 		case 1:
 			*(--p)='-';
@@ -172,8 +176,10 @@ no_digit:
 		*(--p)='0';
 	switch(minus){
 		case 0:
-			if(flag_plusorspace(flag))
+			if(flag_plus(flag))
 				*(--p)='+';
+			else if(flag_space(flag))
+				*(--p)=' ';
 			break;
 		case 1:
 			*(--p)='-';
@@ -187,62 +193,68 @@ no_digit:
 	}
 	cwrite_common(p,(endp-p));
 }
-#define conv_x(name,base,bufsz) \
-static ssize_t converter_##name(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){\
-	char nbuf[bufsz];\
-	size_t val=arg->zint;\
-	char *endp=nbuf+bufsz;\
-	char *p=endp;\
-	ssize_t ext,sum,r,sz;\
-	int positive;\
-	const char *conv_str=flag->cap?conv_btoX:conv_btox;\
-	if(val){\
-		positive=1;\
-		do {\
-			*(--p)=(char)conv_str[val%base];\
-			val/=base;\
-		}while(val);\
-	}else {\
-		positive=0;\
-		*(--p)='0';\
-	}\
-	if(base==16){\
-		if(flag->sharp){\
-			*(--p)=conv_str[base];\
-			*(--p)='0';\
-		}\
-	}\
-	switch(positive){\
-		case 1:\
-			if(flag_plusorspace(flag))\
-				*(--p)='+';\
-			break;\
-		case 0:\
-			if(flag->plus)\
-				*(--p)='+';\
-			break;\
-		default:\
-			__builtin_unreachable();\
-	}\
-	cwrite_common(p,(endp-p));\
-}
 static const char conv_btox[]={"0123456789abcdefx"};
 static const char conv_btoX[]={"0123456789ABCDEFX"};
-conv_x(x81,16,32);
-conv_x(x82,2,72);
-conv_x(x83,3,48);
-conv_x(x84,4,48);
-conv_x(x85,5,32);
-conv_x(x86,6,32);
-conv_x(x87,7,32);
-conv_x(x88,8,32);
-conv_x(x89,9,32);
-conv_x(x8a,10,32);
-conv_x(x8b,11,32);
-conv_x(x8c,12,32);
-conv_x(x8d,13,32);
-conv_x(x8e,14,32);
-conv_x(x8f,15,32);
+static ssize_t converter_xu(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag,uint32_t base){
+	char nbuf[72];
+	size_t val=arg->zint,mod;
+	char *endp=nbuf+72;
+	char *p=endp;
+	ssize_t ext,sum,r,sz;
+	int positive;
+	const char *conv_str=flag->cap?conv_btoX:conv_btox;
+	if(val){
+		positive=1;
+		do {
+			mod=val%base;
+			val/=base;
+			*(--p)=(char)conv_str[mod];
+		}while(val);
+	}else {
+		positive=0;
+		*(--p)='0';
+	}
+	if(base==16){
+		if(flag->sharp){
+			*(--p)=conv_str[base];
+			*(--p)='0';
+		}
+	}
+	switch(positive){
+		case 1:
+			if(flag_plus(flag))
+				*(--p)='+';
+			else if(flag_space(flag))
+				*(--p)=' ';
+			break;
+		case 0:
+			if(flag->plus)
+				*(--p)='+';
+			break;
+		default:
+			__builtin_unreachable();
+	}
+	cwrite_common(p,(endp-p));
+}
+#define conv_x(name,base) \
+static ssize_t converter_##name(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){\
+	return converter_xu(writer,fd,arg,flag,base);\
+}
+conv_x(x81,16);
+conv_x(x82,2);
+conv_x(x83,3);
+conv_x(x84,4);
+conv_x(x85,5);
+conv_x(x86,6);
+conv_x(x87,7);
+conv_x(x88,8);
+conv_x(x89,9);
+conv_x(x8a,10);
+conv_x(x8b,11);
+conv_x(x8c,12);
+conv_x(x8d,13);
+conv_x(x8e,14);
+conv_x(x8f,15);
 
 #define extint_left(i,l,b) expr_extint_left(i,(size_t)(l),(uint64_t)(b))
 #define extint_right(i,l,b) expr_extint_right(i,(size_t)(l),(uint64_t)(b))
@@ -261,9 +273,8 @@ conv_x(x8f,15,32);
 	}\
 })
 // warning on gcc 13.3.0 if no volatile
-#define conv_f0s(_start,_name,_base,_shift,_nsize,_how,_before_how) \
-static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){\
-	expr_static_assert(__builtin_constant_p((_nsize)));\
+#define conv_fu(_start,_name,_nsize,_how,_before_how) \
+static ssize_t converteru_##_name(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag,uint32_t base,int64_t shouldleft){\
 	double val=arg->dbl;\
 	struct {\
 		uint64_t w[69];\
@@ -278,7 +289,9 @@ static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr
 	ssize_t ext,sum,r,sz,fsz;\
 	size_t digit,width,ds;\
 	const char *_conv_str=flag->cap?conv_btoX:conv_btox;\
+	uint32_t baseodd;\
 	_start;\
+	expr_static_assert(__builtin_constant_p((_nsize)));\
 	if(unlikely(!expr_isfinite(val))){\
 		p=nbuf;\
 		write_sign_to_p(EXPR_EDSIGN(&val));\
@@ -320,13 +333,13 @@ static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr
 			}\
 		}else\
 			r=1;\
-		np-=extint_ascii_rev(iival,(size_t)r,conv_btox,np,_base);\
+		np-=extint_ascii_rev(iival,(size_t)r,conv_btox,np,base);\
 	}else {\
 		*(--np)='0';\
 	}\
-	if(_base==16){\
+	if(base==16){\
 		if(flag->sharp){\
-			*(--np)=_conv_str[_base];\
+			*(--np)=_conv_str[base];\
 			*(--np)='0';\
 		}\
 	}\
@@ -341,8 +354,16 @@ static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr
 			*ival=EXPR_EDBASE(&val)<<1;\
 		ext=1075-fsz;\
 		r=1;\
-		_shift;\
-		fsz=(ssize_t)extint_ascii_rev(ival,(size_t)r,_conv_str,p,_base);\
+		baseodd=base>>(uint32_t)ctz32(base);\
+		if(baseodd>1&&ext){\
+			r=(ssize_t)expr_extint_mulnp(ival,(size_t)r,baseodd,(uint32_t)ext,workspace);\
+		}\
+		if(shouldleft>0){\
+			r=(ssize_t)expr_extint_left(ival,(size_t)r,(uint64_t)shouldleft);\
+		}else if(shouldleft<0){\
+			r=(ssize_t)expr_extint_right(ival,(size_t)r,(uint64_t)-shouldleft);\
+		}\
+		fsz=(ssize_t)extint_ascii_rev(ival,(size_t)r,_conv_str,p,base);\
 		p-=fsz;\
 		ext-=fsz;\
 		if(ext>0){\
@@ -368,8 +389,14 @@ static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr
 	}\
 	return sum;\
 }
-#define conv_f0(_name,_base,_shift,_nsize,_how,_before_how) conv_f0s(,_name,_base,_shift,_nsize,_how,_before_how)
-#define conv_f(_name,_base,_shift,_nsize) conv_f0(_name,_base,_shift,_nsize,{\
+
+
+
+
+//#define conv_f0s(_start,_name,_base,_shift,_nsize,_how,_before_how) 
+//#define conv_f0(_name,_base,_shift,_nsize,_how,_before_how) conv_f0s(,_name,_base,_shift,_nsize,_how,_before_how)
+//#define conv_f0s(_start,_name,_base,_shift,_nsize,_how,_before_how) 
+#define conv_fu0(_name,_nsize) conv_fu(,_name,_nsize,{\
 	c_trywrite(np,ds);\
 	if(fsz){\
 		c_trywrite(p,fsz);\
@@ -395,7 +422,8 @@ static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr
 	sz=(ssize_t)ds+(f58?fsz:ext);\
 	debug("set sz=%zd",sz);\
 )
-#define conv_fe(_name,_base,_shift,_nsize,_e) conv_f0(_name,_base,_shift,_nsize,\
+
+#define conv_fue(_name,_nsize) conv_fu(,_name,_nsize,\
 	if(r1<0){\
 		if(fsz){\
 			c_trywrite(p,1);\
@@ -498,7 +526,7 @@ onzero:\
 		--fsz;\
 		--endp;\
 	}\
-	*ebuf=(_e);\
+	*ebuf=(flag->cap?'E':'e');\
 	r2=r1;\
 	if(r2<0){\
 		ebuf[1]='-';\
@@ -537,6 +565,14 @@ onzero:\
 		sz=SSIZE_MAX;\
 	debug("set sz=%zd",sz);\
 })
+#define conv_f(_name,_base,_shift) \
+static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){\
+	return converteru_plain(writer,fd,arg,flag,_base,_shift);\
+}
+#define conv_fe(_name,_base,_shift) \
+static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){\
+	return converteru_expo(writer,fd,arg,flag,_base,_shift);\
+}
 #define writeext_f \
 	debug("width=%zu,sz=%zd",width,sz);\
 	ext=(ssize_t)width-sz;\
@@ -547,103 +583,46 @@ onzero:\
 		if(_neg){\
 			*(p++)='-';\
 		}else {\
-			if(flag_plusorspace(flag))\
+			if(flag_plus(flag))\
 				*(p++)='+';\
+			else if(flag_space(flag))\
+				*(p++)=' ';\
 		}
 #define write_sign_to_np(_neg) \
 		if(_neg){\
 			*(--np)='-';\
 		}else {\
-			if(flag_plusorspace(flag))\
+			if(flag_plus(flag))\
 				*(--np)='+';\
+			else if(flag_space(flag))\
+				*(--np)=' ';\
 		}
 #define vbuf (bufst.v)
 #define nbuf (bufst.n)
 #define ival (bufst.i)
 #define iival (bufst.ii)
 #define workspace (bufst.w)
-#define ival_mul_pow(n,M) \
-		for(int i=(int)fsz/(n);i;--i)\
-			r=(ssize_t)extint_mul(ival,r,M,workspace);\
-		fsz%=(n)
-#define ival_mul_pow_nl(n,M) \
-		if((int)fsz>=(n)){\
-			r=(ssize_t)extint_mul(ival,r,M,workspace);\
-			fsz-=(n);\
-		}
-#define ival_mul_pow_nlm(n,M) \
-		if((int)fsz>=(n)){\
-			r=(ssize_t)extint_mul(ival,r,M,workspace);\
-		}
-#define ival_mul5p \
-		fsz=ext;\
-		ival_mul_pow(13,UINT32_C(1220703125));\
-		ival_mul_pow_nl(8,UINT32_C(390625));\
-		ival_mul_pow_nl(4,625);\
-		ival_mul_pow_nl(2,25);\
-		ival_mul_pow_nlm(1,5)
-#define ival_mul3p \
-		fsz=ext;\
-		ival_mul_pow(20,UINT32_C(3486784401));\
-		ival_mul_pow_nl(16,UINT32_C(43046721));\
-		ival_mul_pow_nl(8,6561);\
-		ival_mul_pow_nl(4,81);\
-		ival_mul_pow_nl(2,9);\
-		ival_mul_pow_nlm(1,3)
-#define ival_mul7p \
-		fsz=ext;\
-		ival_mul_pow(11,UINT32_C(1977326743));\
-		ival_mul_pow_nl(8,UINT32_C(5764801));\
-		ival_mul_pow_nl(4,2401);\
-		ival_mul_pow_nl(2,49);\
-		ival_mul_pow_nlm(1,7)
-#define ival_mul9p \
-		fsz=ext;\
-		ival_mul_pow(10,UINT32_C(3486784401));\
-		ival_mul_pow_nl(8,UINT32_C(43046721));\
-		ival_mul_pow_nl(4,6561);\
-		ival_mul_pow_nl(2,81);\
-		ival_mul_pow_nlm(1,9)
-#define ival_mul11p \
-		fsz=ext;\
-		ival_mul_pow(9,UINT32_C(2357947691));\
-		ival_mul_pow_nl(8,UINT32_C(214358881));\
-		ival_mul_pow_nl(4,14641);\
-		ival_mul_pow_nl(2,121);\
-		ival_mul_pow_nlm(1,11)
-#define ival_mul13p \
-		fsz=ext;\
-		ival_mul_pow(8,UINT32_C(815730721));\
-		ival_mul_pow_nl(4,28561);\
-		ival_mul_pow_nl(2,169);\
-		ival_mul_pow_nlm(1,13)
-#define ival_mul15p \
-		fsz=ext;\
-		ival_mul_pow(8,UINT32_C(2562890625));\
-		ival_mul_pow_nl(4,UINT32_C(50625));\
-		ival_mul_pow_nl(2,225);\
-		ival_mul_pow_nlm(1,15)
 #define nbuf_size(x) (((x)+23u)&~7u)
-#define fconvs(pref) \
-conv_f(expr_combine(pref,1),16,r=(ssize_t)extint_left(ival,r,3*ext),nbuf_size(256));\
-conv_f(expr_combine(pref,2),2,,nbuf_size(1024));\
-conv_f(expr_combine(pref,3),3,ival_mul3p;r=(ssize_t)extint_right(ival,r,ext),nbuf_size(646));\
-conv_f(expr_combine(pref,4),4,r=(ssize_t)extint_left(ival,r,ext),nbuf_size(512));\
-conv_f(expr_combine(pref,5),5,ival_mul5p;r=(ssize_t)extint_right(ival,r,ext),nbuf_size(441));\
-conv_f(expr_combine(pref,6),6,ival_mul3p,nbuf_size(396));\
-conv_f(expr_combine(pref,7),7,ival_mul7p;r=(ssize_t)extint_right(ival,r,ext),nbuf_size(364));\
-conv_f(expr_combine(pref,8),8,r=(ssize_t)extint_left(ival,r,2*ext),nbuf_size(342));\
-conv_f(expr_combine(pref,9),9,ival_mul9p;r=(ssize_t)extint_right(ival,r,ext),nbuf_size(323));\
-conv_f(expr_combine(pref,a),10,ival_mul5p,nbuf_size(308));\
-conv_f(expr_combine(pref,b),11,ival_mul11p;r=(ssize_t)extint_right(ival,r,ext),nbuf_size(296));\
-conv_f(expr_combine(pref,c),12,ival_mul3p;r=(ssize_t)extint_left(ival,r,2*ext),nbuf_size(285));\
-conv_f(expr_combine(pref,d),13,ival_mul13p;r=(ssize_t)extint_right(ival,r,ext),nbuf_size(276));\
-conv_f(expr_combine(pref,e),14,ival_mul7p;r=(ssize_t)extint_left(ival,r,ext),nbuf_size(268));\
-conv_f(expr_combine(pref,f),15,ival_mul15p;r=(ssize_t)extint_right(ival,r,ext),nbuf_size(262))
-fconvs(xa);
+conv_fu0(plain,nbuf_size(1024));
+conv_fue(expo,nbuf_size(1024));//old 308
+conv_f(xa1,16,+3);
+conv_f(xa2,2,0);
+conv_f(xa3,3,-1);
+conv_f(xa4,4,+1);
+conv_f(xa5,5,-1);
+conv_f(xa6,6,0);
+conv_f(xa7,7,-1);
+conv_f(xa8,8,+2);
+conv_f(xa9,9,-1);
+conv_f(xaa,10,0);
+conv_f(xab,11,-1);
+conv_f(xac,12,+2);
+conv_f(xad,13,-1);
+conv_f(xae,14,0);
+conv_f(xaf,15,-1);
 
-conv_fe(fe,10,ival_mul5p,nbuf_size(308),flag->cap?'E':'e');
-//5-441,396,364,8,323,10,296,285,276,268,262;
+conv_fe(fe,10,0);
+//256,1024,646,512,441,396,364,342,323,308,296,285,276,268,262;
 #undef nbuf
 #undef vbuf
 #undef ival

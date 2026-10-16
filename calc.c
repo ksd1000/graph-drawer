@@ -709,6 +709,10 @@ break3:
 	expr_symset_add(es,"printf",EXPR_MDFUNCTION,EXPR_SUNSAFE,d_printf,(size_t)0);
 	expr_symset_add(es,"printl",EXPR_MDFUNCTION,EXPR_SUNSAFE,d_printl,(size_t)2);
 	expr_symset_add(es,"printc",EXPR_MDFUNCTION,EXPR_SUNSAFE,d_printc,(size_t)2);
+	expr_symset_add(es,"1+1",EXPR_CONSTANT,0,3.0);
+	expr_symset_add(es,"2+2",EXPR_FUNCTION,EXPR_SPURE,expr_internal_sqrt);
+	expr_symset_add(es,"qqq",EXPR_FUNCTION,EXPR_SPURE,expr_internal_sqrt);
+	expr_symset_add(es,"ppp",EXPR_CONSTANT,0,3.0);
 	if(adbt||!nobt)
 		expr_builtin_symbol_addalls(es,expr_symbols_ess);
 	if(summary){

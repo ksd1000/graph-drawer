@@ -397,7 +397,7 @@ EXPR_END
 #ifndef EXPR_SYMLEN
 #define EXPR_SYMLEN 64
 #endif
-//the value limits the length of symbol name in the errinfo and the infile structure.
+//the value limits the length of symbol name in the errinfo.
 //in some older versions, the value meant the maximal support length of a symbol name, which is "unlimited" now.
 
 #ifndef EXPR_SYMNEXT
@@ -1097,7 +1097,6 @@ union expr_symvalue {
 	const struct expr_builtin_symbol *bsyms;
 	const struct expr_symset *sset;
 };
-_Static_assert(EXPR_SYMLEN<=64,"EXPR_SYMLEN is more than 6 bits");
 #define EXPR_SYMBOL_DEPTHM1_WIDTH 54
 struct expr_symbol {
 	struct expr_symbol *next[EXPR_SYMNEXT];

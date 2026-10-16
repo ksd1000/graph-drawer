@@ -117,8 +117,6 @@ static ssize_t converter_d(expr_writer writer,intptr_t fd,const union expr_argf 
 	cwrite_common(p,(endp-p));
 }
 static ssize_t converter_size(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
-	static const char dimc[]={"bkmgtpe"};
-	static const char dimC[]={"BKMGTPE"};
 	char nbuf[64];
 	char dbuf[32];
 	int64_t val=(int64_t)arg->tint;
@@ -138,7 +136,7 @@ static ssize_t converter_size(expr_writer writer,intptr_t fd,const union expr_ar
 		size_t dig;
 		dim=(63-clz64((uint64_t)val))/10;
 		if(dim||flag->sharp)
-			*(--p)=(flag->cap?dimC:dimc)[dim];
+			*(--p)=(flag->cap?"BKMGTPE":"bkmgtpe")[dim];
 		dim*=10;
 		dig=(size_t)flag_digit(flag,0);
 		if(unlikely(dig>32))

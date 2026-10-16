@@ -397,6 +397,8 @@ EXPR_END
 #ifndef EXPR_SYMLEN
 #define EXPR_SYMLEN 64
 #endif
+//the value limits the length of symbol name in the errinfo and the infile structure.
+//in some older versions, the value meant the maximal support length of a symbol name, which is "unlimited" now.
 
 #ifndef EXPR_SYMNEXT
 #define EXPR_SYMNEXT 14

@@ -1137,7 +1137,7 @@ struct expr_symset {
 	size_t size_m;//amount of all symbols with removed
 	size_t removed;//amount of removed symbols starting from the
 		       //latest expr_symset_vaddl(),expr_symset_addcopy(),
-		       //expr_symset_insert() or expr_symset_remove()
+		       //expr_symset_[re]insert() or expr_symset_remove()
 		       //that increases this->depth.
 		       //expr_symset_wipe(this) will set it to 0.
 	size_t removed_m;//amount of all removed symbols

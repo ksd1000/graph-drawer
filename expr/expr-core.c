@@ -1542,6 +1542,7 @@ static const struct expr_symbol *alias_target(struct expr *restrict ep,const str
 		}
 	}
 }
+/*
 static expr_t *alias_scan(struct expr *restrict ep,const struct expr_symbol *alias,const char *asym,size_t asymlen){
 	size_t len;
 	const char *p;
@@ -1560,6 +1561,7 @@ static expr_t *alias_scan(struct expr *restrict ep,const struct expr_symbol *ali
 	expr_symset_free(esp);
 	return v0;
 }
+*/
 static void *readsymbol(struct expr *restrict ep,const char *symbol,size_t symlen,int follow,int symerr){
 	int flag,type;
 	union {
@@ -1687,8 +1689,10 @@ static expr_t *getvalue(struct expr *restrict ep,const char *e,const char *endp,
 		struct branch *b;
 		struct expr_symset *esp;
 		void *uaddr;
+		const char *ccp;
 	} sym;
 	union {
+		const char *ccp;
 		char **vv;
 		struct expr_symbol *es;
 		const struct expr_symbol *ces;
@@ -2450,7 +2454,14 @@ flpm:
 					goto c_fail;
 				}
 				cknp(ep,expr_detach(ep)>=0,goto c_fail);
-				un.ebp=expr_symset_addl(ep->sset,sym.vv[0],dim,EXPR_ALIAS,0,sym.vv[1]);
+				sv.i=strlenv(sym.vv[1]);
+				if(sv.i>2&&*sym.vv[1]=='\"'&&(p4=findpair_dmark(sym.vv[1],sym.vv[1]+sv.i))&&p4!=sym.vv[1]+1){
+					p4=expr_astrscan(sym.vv[1]+1,(size_t)(p4-(sym.vv[1]+1)),&sv.i);
+					cknp(ep,p4,goto c_fail);
+					un.ebp=expr_symset_addl(ep->sset,sym.vv[0],dim,EXPR_ALIAS,EXPR_SPURE,p4,sv.i);
+					xfree((void *)(uintptr_t)p4);
+				}else
+					un.ebp=expr_symset_addl(ep->sset,sym.vv[0],dim,EXPR_ALIAS,EXPR_SPURE,sym.vv[1],strlenv(sym.vv[1]));
 				vfree2(sym.vv);
 				cknp(ep,un.ebp,return NULL);
 				v0=EXPR_VOID;
@@ -3074,11 +3085,16 @@ fok:
 			e=p+1;
 			goto vend;
 		case EXPR_ALIAS:
+			seterr(ep,EXPR_EANT);
+			serrinfo(ep->errinfo,sym.es->str,sym.es->strlen);
+			return NULL;
+			/*
 			v0=alias_scan(ep,sym.es,asym,asymlen);
 			if(unlikely(!v0))
 				return NULL;
 			e=p;
 			goto vend;
+			*/
 		default:
 			goto_symerr;
 	}
@@ -3526,8 +3542,7 @@ envp:
 					serrinfo(ep->errinfo,e,(size_t)(p1-e));
 					goto tnv;
 				}
-				if(ep->sset)
-					esp=expr_symset_search(ep->sset,e,(size_t)(p1-e));
+				esp=readsymbol(ep,e,(size_t)(p1-e),1,0);
 				if(unlikely(!esp)){
 					serrinfo(ep->errinfo,e,(size_t)(p1-e));
 					seterr(ep,EXPR_ESYMBOL);
@@ -4290,6 +4305,8 @@ struct expr_symbol *expr_symbol_vcreatel_r(const char *sym,size_t symlen,int typ
 		case EXPR_CONSTANT:
 			if(flag&EXPR_SPACKAGE)
 				expr_symbol_un(esp)->uaddr=va_arg(ap,void *);
+			else if(flag&EXPR_SWRITEIP)
+				expr_symbol_un(esp)->size=va_arg(ap,size_t);
 			else
 				expr_symbol_un(esp)->value=va_arg(ap,expr_t);
 			break;

@@ -15,12 +15,14 @@ double dtime(void){
 	clock_gettime(CLOCK_MONOTONIC,&ts);
 	return (double)ts.tv_sec+ts.tv_nsec/1000000000.0;
 }
+/*
 void add_common_symbols(struct expr_symset *es);
 volatile sig_atomic_t vssuc;
 volatile sig_atomic_t vsi;
 void psig(int sig){
 	fprintf(stderr,"final %d/%d\n",vssuc,vsi);
 }
+*/
 #include <sys/sysinfo.h>
 double freemem(void){
 	struct sysinfo si;
@@ -60,9 +62,10 @@ void randstr(char *buf,size_t sz){
 	}
 	*buf=0;
 }
+struct expr_memtool expr_defmtl[1];
 #define rct for(ct=0.0,st=dtime();ct==0.0;ct=dtime())
-expr_globals_define();
-int main(int argc,char **argv){
+//int argc,char **argv
+int main(void){
 	size_t bufsize=UINT64_C(1024)*1024*1024*4;
 	char *heap=malloc(bufsize);
 	assert(bufsize);
@@ -70,11 +73,11 @@ int main(int argc,char **argv){
 	struct expr_symset *esp=expr_symset_new();
 	assert(esp);
 	char buf[32+1];
-	size_t count=20000000;
+	size_t count=1000000;
 	printf("adding %zu elements.\n",count);
 	size_t symsize=8;
 	size_t ok=0;
-	//seed=expr_seed48((int64_t)(dtime()*10));
+	seed=expr_seed48((int64_t)(dtime()*10));
 	double ct,st;
 	rct for(size_t i=0;i<count;++i){
 		randstr(buf,symsize);
@@ -91,8 +94,9 @@ int main(int argc,char **argv){
 		}
 	}
 	printf("%zu ok. time=%.4lfms\n",ok,100*(ct-st));
-#define pes(es) fprintf(stderr,"size:%zu,size_m:%zu,length:%zu,length_m:%zu,alength:%zu,alength_m:%zu,removed:%zu,removed_m:%zu,depth:%zu,depth_n:%zu,depth_nm:%zu " "\n",es->size,es->size_m,es->length,es->length_m,es->alength,es->alength_m,es->removed,es->removed_m,es->depth,es->depth_n,es->depth_nm)
+#define pes(es) fprintf(stdout,"size:%zu,size_m:%zu,length:%zu,length_m:%zu,alength:%zu,alength_m:%zu,removed:%zu,removed_m:%zu,depth:%zu,depth_n:%zu,depth_nm:%zu " "\n",es->size,es->size_m,es->length,es->length_m,es->alength,es->alength_m,es->removed,es->removed_m,es->depth,es->depth_n,es->depth_nm)
 	pes(esp);
+	fprintf(stderr,"sqrt(depth*length)=%.2lf\tEXPR_SYMNEXT=%d\n",expr_internal_sqrt((double)esp->depth*(double)esp->length),EXPR_SYMNEXT);
 	free(heap);
 	return EXIT_SUCCESS;
 }

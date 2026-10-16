@@ -3827,8 +3827,10 @@ void expr_symset_wipe(struct expr_symset *restrict esp){
 void expr_symset_wipe_s(struct expr_symset *restrict esp,void *stack){
 	WIPE_SYMSET;
 }
-static long firstdiff(const char *restrict s1,const char *restrict s2,size_t len1,size_t len2){
-	long r,r0;
+typedef int expr_strdiff_t;
+static expr_strdiff_t firstdiff(const char *restrict s1,const char *restrict s2,size_t len1,size_t len2){
+	int64_t r0;
+	int r;
 	int64_t ampl=INT64_C(0x330e)*EXPR_MAGIC48_A+EXPR_MAGIC48_B;
 	do {
 		ampl=expr_next48v(ampl);
@@ -3839,24 +3841,24 @@ static long firstdiff(const char *restrict s1,const char *restrict s2,size_t len
 		--len2;
 	}while(len1&&len2);
 	if(len1&&!len2){
-		r=(int32_t)(unsigned char)*s1;
+		r=(int)(unsigned char)*s1;
 	}else if(!len1&&len2){
-		r=-(int32_t)(unsigned char)*s2;
+		r=-(int)(unsigned char)*s2;
 	}
-	//r0=(r*ampl)>>48;
-	r0=(int64_t)((expr_t)r*(expr_t)expr_ltod48(ampl));
+	r0=((int64_t)r*expr_lto48(ampl))>>48;
+	//r0=(int64_t)((expr_t)r*(expr_t)expr_ltod48(ampl));
 	//return r==0?0:(r>0?r0+1:r0-1);
-	return r0?r0:r;
+	return r0?(expr_strdiff_t)r0:(expr_strdiff_t)r;
 }
-static long strdiff(const char *restrict s1,size_t len1,const char *restrict s2,size_t len2,long *sum){
-	long r=firstdiff(s1,s2,len1,len2);
+static expr_strdiff_t strdiff(const char *restrict s1,size_t len1,const char *restrict s2,size_t len2,expr_strdiff_t *sum){
+	expr_strdiff_t r=firstdiff(s1,s2,len1,len2);
 	if(unlikely(!r))
 		return 0;
 	*sum=r;
 	return 1;
 }
 #define modi(d) ({\
-	long t=(d);\
+	expr_strdiff_t t=(d);\
 	if(t<0)\
 		t+=EXPR_SYMNEXT*((-t)/EXPR_SYMNEXT+1);\
 	t%EXPR_SYMNEXT;\
@@ -3864,7 +3866,7 @@ static long strdiff(const char *restrict s1,size_t len1,const char *restrict s2,
 struct expr_symbol **expr_symset_findtail(struct expr_symset *restrict esp,const char *sym,size_t symlen,size_t *depth){
 	struct expr_symbol *p;
 	size_t dep;
-	long r;
+	expr_strdiff_t r;
 	if(unlikely(!esp->syms)){
 		*depth=1;
 		return &esp->syms;
@@ -3951,7 +3953,7 @@ struct expr_symbol *expr_symset_addcopy(struct expr_symset *restrict esp,const s
 	return ep;
 }
 struct expr_symbol **expr_symset_search0(const struct expr_symset *restrict esp,const char *sym,size_t sz){
-	long r;
+	expr_strdiff_t r;
 	for(struct expr_symbol *p=esp->syms;p;){
 		if(unlikely(!strdiff(sym,sz,p->str,p->strlen,&r))){
 			return p->tail;
@@ -3962,7 +3964,7 @@ struct expr_symbol **expr_symset_search0(const struct expr_symset *restrict esp,
 	return NULL;
 }
 struct expr_symbol *expr_symset_search(const struct expr_symset *restrict esp,const char *sym,size_t sz){
-	long r;
+	expr_strdiff_t r;
 	for(struct expr_symbol *p=esp->syms;p;){
 		if(unlikely(!strdiff(sym,sz,p->str,p->strlen,&r))){
 			return p;
@@ -3973,7 +3975,7 @@ struct expr_symbol *expr_symset_search(const struct expr_symset *restrict esp,co
 	return NULL;
 }
 struct expr_symbol *expr_symset_searchd(const struct expr_symset *restrict esp,const char *sym,size_t sz,size_t *depth){
-	long r;
+	expr_strdiff_t r;
 	size_t dep=1;
 	for(struct expr_symbol *p=esp->syms;p;){
 		if(unlikely(!strdiff(sym,sz,p->str,p->strlen,&r))){

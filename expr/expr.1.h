@@ -621,6 +621,10 @@ EXPR_END
 #define expr_ltod48(_l) (expr_cast((((_l)&INT64_C(0xffffffffffff))<<4)|INT64_C(0x3ff0000000000000),double)-1.0)
 #define expr_ltol48(_l) ((int32_t)(((_l)&INT64_C(0xffffffff0000))>>17))
 #define expr_ltom48(_l) ((int32_t)(((_l)&INT64_C(0xffffffff0000))>>16))
+#define expr_lto48(_l) ({\
+	uint64_t __l=(_l);\
+	(int64_t)((__l>>32)|((__l&UINT64_C(0xffff0000)))|((__l&UINT64_C(0xffff))<<32));\
+})
 
 #define expr_next48v(_val) (((EXPR_MAGIC48_A)*(_val)+(EXPR_MAGIC48_B))&INT64_C(0xffffffffffff))
 #define expr_next48(_seedp) ({\

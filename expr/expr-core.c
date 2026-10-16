@@ -561,7 +561,7 @@ static void setunsafe(struct expr *restrict ep){
 }
 #define EXPAND_SIZE EXPR_EXPAND_SIZE
 #define expr_addop(ep,dst,src,op,flag) expr_addop_i(ep,dst,(uintptr_t)(src),op,flag)
-static inline struct expr_inst *expr_addop_i(struct expr *restrict ep,void *dst,uintptr_t src,enum expr_op op,int flag){
+static struct expr_inst *expr_addop_i(struct expr *restrict ep,void *dst,uintptr_t src,enum expr_op op,int flag){
 	struct expr_inst *ip;
 	ip=xautoadd((void **)&ep->data,&ep->size,&ep->length,sizeof(struct expr_inst),EXPAND_SIZE,ep->mtl);
 	if(unlikely(!ip))
@@ -611,7 +611,7 @@ struct sepstr {
 #define strlenv(p) (((const struct sepstr *)((p)-ssoff))->s)
 #define strendv(p) ({const struct sepstr *_ssp=(const struct sepstr *)((p)-ssoff);_ssp->c+_ssp->s;})
 #define ssoff offsetof(struct sepstr,c)
-static inline void vfree2_mtl(char **buf,const struct expr_memtool *restrict mtl){
+static void vfree2_mtl(char **buf,const struct expr_memtool *restrict mtl){
 	for(char **p=buf;*p;++p){
 		xfree(*p-ssoff);
 	}
@@ -727,7 +727,7 @@ static int expr_createhot(struct expr *restrict ep,const char *symbol,size_t sym
 	return expr_symset_addl(ep->sset,symbol,symlen,type,flag|EXPR_SPURE,hotexpr,hotlen)?
 	0:-1;
 }
-static inline const char *findpair(const char *c,const char *endp){
+static const char *findpair(const char *c,const char *endp){
 	size_t lv=0;
 	if(*c!='(')
 		goto err;
@@ -749,7 +749,7 @@ static inline const char *findpair(const char *c,const char *endp){
 err:
 	return NULL;
 }
-static inline const char *findpair_bracket(const char *c,const char *endp){
+static const char *findpair_bracket(const char *c,const char *endp){
 	size_t lv=0;
 	if(*c!='[')
 		goto err;
@@ -771,7 +771,7 @@ static inline const char *findpair_bracket(const char *c,const char *endp){
 err:
 	return NULL;
 }
-static inline const char *findpair_brace(const char *c,const char *endp){
+static const char *findpair_brace(const char *c,const char *endp){
 	size_t lv=0;
 	if(*c!='{')
 		goto err;
@@ -793,7 +793,7 @@ static inline const char *findpair_brace(const char *c,const char *endp){
 err:
 	return NULL;
 }
-static inline const char *unfindpair(const char *e,const char *c){
+static const char *unfindpair(const char *e,const char *c){
 	size_t lv=0;
 	if(*c!=')')
 		goto err;
@@ -815,7 +815,7 @@ static inline const char *unfindpair(const char *e,const char *c){
 err:
 	return NULL;
 }
-static inline const char *getsym_p(const char *c,const char *endp){
+static const char *getsym_p(const char *c,const char *endp){
 	const char *p;
 	while(c<endp){
 		if(*c=='('){
@@ -829,7 +829,7 @@ static inline const char *getsym_p(const char *c,const char *endp){
 	}
 	return c;
 }
-static inline const char *getsym(const char *c,const char *endp){
+static const char *getsym(const char *c,const char *endp){
 	while(c<endp&&!expr_operator(*c))
 		++c;
 	return c;
@@ -3243,7 +3243,7 @@ static struct vnode *vnadd(struct expr *restrict ep,struct vnode *vp,expr_t *v,e
 	p->next->next=NULL;
 	return vp;
 }
-static inline int do_unary_forone(struct expr *restrict ep,struct vnode *p){
+static int do_unary_forone(struct expr *restrict ep,struct vnode *p){
 redo:
 	switch(p->unary&7){
 		case 1:
@@ -3267,7 +3267,7 @@ redo:
 	p->unary>>=3;
 	goto redo;
 }
-static inline int do_unary_forvar(struct expr *restrict ep,struct vnode *ev,expr_t *v){
+static int do_unary_forvar(struct expr *restrict ep,struct vnode *ev,expr_t *v){
 	for(struct vnode *p=ev;p;p=p->next){
 		if(p->v==v)
 			return do_unary_forone(ep,p);
@@ -6693,7 +6693,7 @@ int expr_step(const struct expr *restrict ep,expr_t input,expr_t *restrict outpu
 #pragma GCC diagnostic pop
 
 #undef eval
-#define eval(_ep,_input) expr_callback_static(_ep,_input,ec)
+#define eval(_ep,_input) expr_callback(_ep,_input,ec)
 #define EXPR_CALLBACK_BODY \
 	EXPR_EVALVARS;\
 	struct expr_inst *old_ip;\
@@ -6711,9 +6711,6 @@ end:\
 		ec->after(ep,old_ip,ec->arg);\
 	return out
 __attribute__((noinline))
-static expr_t expr_callback_static(const struct expr *restrict ep,expr_t input,const struct expr_callback *ec){
-	EXPR_CALLBACK_BODY;
-}
 expr_t expr_callback(const struct expr *restrict ep,expr_t input,const struct expr_callback *ec){
 	EXPR_CALLBACK_BODY;
 }

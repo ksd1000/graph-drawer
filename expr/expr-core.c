@@ -3843,33 +3843,43 @@ void expr_symset_wipe_s(struct expr_symset *restrict esp,void *stack){
 	WIPE_SYMSET;
 }
 typedef int expr_strdiff_t;
-static expr_strdiff_t firstdiff(const char *restrict s1,const char *restrict s2,size_t len1,size_t len2){
-	int64_t r0;
+static int strdiff(const char *restrict s1,size_t len1,const char *restrict s2,size_t len2,expr_strdiff_t *sumout){
+	int64_t r0,sum=0;
 	int r;
 	int64_t ampl=INT64_C(0x330e)*EXPR_MAGIC48_A+EXPR_MAGIC48_B;
-	do {
+	while(len1&&len2){
 		ampl=expr_next48v(ampl);
 		r=(int)(unsigned char)*(s1++)-(int)(unsigned char)*(s2++);
-		if(r)
-			break;
+		if(r){
+#define sum_add_r \
+			if(!sum||(sum<0)==(r<0))\
+				sum+=(int64_t)r;\
+			else\
+				sum-=(int64_t)r
+			sum_add_r;
+		}
 		--len1;
 		--len2;
-	}while(len1&&len2);
-	if(len1&&!len2){
-		r=(int)(unsigned char)*s1;
-	}else if(!len1&&len2){
-		r=-(int)(unsigned char)*s2;
 	}
-	r0=((int64_t)r*expr_lto48(ampl))>>48;
+	if(len1&&!len2){
+		do {
+			ampl=expr_next48v(ampl);
+			r=(int)(unsigned char)*s1+(int)(UCHAR_MAX/2);
+			sum_add_r;
+		}while(--len1);
+	}else if(!len1&&len2){
+		do {
+			ampl=expr_next48v(ampl);
+			r=-(int)(unsigned char)*s2-(int)(UCHAR_MAX/2);
+			sum_add_r;
+		}while(--len2);
+	}
+	if(unlikely(!sum))
+		return 0;
+	r0=(sum*expr_lto48(ampl))>>48;
 	//r0=(int64_t)((expr_t)r*(expr_t)expr_ltod48(ampl));
 	//return r==0?0:(r>0?r0+1:r0-1);
-	return r0?(expr_strdiff_t)r0:(expr_strdiff_t)r;
-}
-static expr_strdiff_t strdiff(const char *restrict s1,size_t len1,const char *restrict s2,size_t len2,expr_strdiff_t *sum){
-	expr_strdiff_t r=firstdiff(s1,s2,len1,len2);
-	if(unlikely(!r))
-		return 0;
-	*sum=r;
+	*sumout=likely(r0)?(expr_strdiff_t)r0:(expr_strdiff_t)sum;
 	return 1;
 }
 #define modi(d) ({\

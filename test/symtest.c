@@ -73,7 +73,7 @@ int main(void){
 	struct expr_symset *esp=expr_symset_new();
 	assert(esp);
 	char buf[32+1];
-	size_t count=1000000;
+	size_t count=2000000;
 	printf("adding %zu elements.\n",count);
 	size_t symsize=8;
 	size_t ok=0;

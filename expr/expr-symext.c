@@ -279,14 +279,14 @@ ssize_t expr_symset_write_s(const struct expr_symset *restrict esp,expr_writer w
 		goto end;
 	++count;
 	expr_symset_foreach4(sp,esp,stack,EXPR_SYMNEXT/2){
-		if(unlikely(sp->strlen>=EXPR_SYMLEN-1))
+		if(unlikely(sp->strlen-1>=63))
 			return PTRDIFF_MIN+3;
 		off=sp->length;
 		maxlen=off-EXPR_SYMBOL_EXTRA;
 		if(unlikely(maxlen>UINT32_MAX))
 			return PTRDIFF_MIN+3;
 		temp->length=le32(maxlen);
-		temp->strlen=(uint16_t)sp->strlen;
+		temp->strlen=(uint16_t)(sp->strlen-1);
 		temp->type=sp->type;
 		temp->flag=sp->flag;
 		temp->unused=0;
@@ -319,20 +319,22 @@ ssize_t expr_symset_read(struct expr_symset *restrict esp,const void *buf,size_t
 	while(count){
 		if(unlikely(size<=off_sin))
 			break;
-		if(unlikely(ebi->length<=off_sin))
+		if(unlikely(ebi->length<off_sin))
 			break;
-		if(unlikely(ebi->length>size))
+		if(unlikely(ebi->length>=size))
 			return PTRDIFF_MIN+2;
 		len=ebi->length+EXPR_SYMBOL_EXTRA;
 		sp=xmalloc(len);
 		if(unlikely(!sp))
 			return PTRDIFF_MIN+1;
 		sp->length=len;
-		sp->strlen=ebi->strlen;
+		sp->strlen=(size_t)ebi->strlen+1;
 		sp->type=ebi->type;
 		sp->flag=ebi->flag;
 		sp->saved=0;
 		memcpy(sp->str,ebi->str,ebi->length-off_sin);
+		if(unlikely(sp->str[sp->strlen]))
+			return PTRDIFF_MIN+5;
 		if(unlikely(expr_symset_insert(esp,sp)<0)){
 			xfree(sp);
 		}else {
@@ -369,7 +371,7 @@ ssize_t expr_symset_readfd(struct expr_symset *restrict esp,expr_reader reader,i
 			goto errr;
 		if(unlikely((size_t)r<off_sin))
 			goto err2;
-		len=le32(ebi->length);
+		len=le32(ebi->length+1);
 		if(unlikely(len<=off_sin))
 			goto err2;
 		if(unlikely(len>maxlen))
@@ -377,20 +379,22 @@ ssize_t expr_symset_readfd(struct expr_symset *restrict esp,expr_reader reader,i
 		len+=EXPR_SYMBOL_EXTRA;
 		if(unlikely(len<=sizeof(struct expr_symbol)))
 			goto err2;
-		r=reader(fd,(void *)((uintptr_t)ebi+off_sin),ebi->length-off_sin);
+		r=reader(fd,(void *)((uintptr_t)ebi+off_sin),ebi->length+1-off_sin);
 		if(unlikely(r<0))
 			goto errr;
-		if(unlikely((size_t)r<ebi->length-off_sin))
+		if(unlikely((size_t)r<=ebi->length-off_sin))
 			goto err2;
 		sp=xmalloc(len);
 		if(unlikely(!sp))
 			goto err;
 		sp->length=len;
-		sp->strlen=ebi->strlen;
+		sp->strlen=(size_t)ebi->strlen+1;
 		sp->type=ebi->type;
 		sp->flag=ebi->flag;
 		sp->saved=0;
-		memcpy(sp->str,ebi->str,ebi->length-off_sin);
+		memcpy(sp->str,ebi->str,ebi->length+1-off_sin);
+		if(unlikely(sp->str[sp->strlen]))
+			return PTRDIFF_MIN+5;
 		if(unlikely(expr_symset_insert(esp,sp)<0)){
 			xfree(sp);
 		}else {

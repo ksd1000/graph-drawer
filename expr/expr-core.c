@@ -3993,8 +3993,8 @@ int expr_symbol_check(const struct expr_symbol *restrict esp){
 	ssize_t data;
 	size_t expect;
 	const char *p;
-	if(unlikely(esp->strlen>=EXPR_SYMLEN-1))
-		return -1;
+//	if(unlikely(esp->strlen>=EXPR_SYMLEN-1))
+//		return -1;
 	if(unlikely(esp->length<=off_str))
 		return -2;
 	data=(ssize_t)((esp->length-off_str)-(esp->strlen+1));

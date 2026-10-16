@@ -212,7 +212,7 @@ const char *expr_error(int error){
 #define expr_reallocator(old,size) (xmtl->reallocate((old),(size),xmtl->arg))
 #define expr_deallocator(old) (xmtl->deallocate((old),xmtl->arg))
 #define xmtl mtl
-static inline void *xautoadd(void **restrict old,size_t *restrict size,size_t *restrict length,size_t n,size_t expand,const struct expr_memtool *restrict mtl){
+static void *xautoadd(void **restrict old,size_t *restrict size,size_t *restrict length,size_t n,size_t expand,const struct expr_memtool *restrict mtl){
 	void *r;
 	size_t old_size=*size,new_length;
 	if(old_size<*length){
@@ -397,7 +397,7 @@ ssize_t expr_builtin_symbol_addall(struct expr_symset *restrict esp,const struct
 	return expr_builtin_symbol_addalls(esp,syms,NULL);
 }
 
-static inline const char *findpair_dmark(const char *c,const char *endp){
+static const char *findpair_dmark(const char *c,const char *endp){
 	for(++c;c<endp;++c){
 		if(*c=='\"'&&c[-1]!='\\')
 			return c;
@@ -417,14 +417,14 @@ static inline const char *findpair_dmark(const char *c,const char *endp){
 	}\
 	_buf;\
 })
-static inline void freesuminfo(struct expr_suminfo *p,int flag,const struct expr_memtool *restrict mtl){
+static void freesuminfo(struct expr_suminfo *p,int flag,const struct expr_memtool *restrict mtl){
 	expr_free2mtl_r(p->ep,flag,mtl);
 	expr_free2mtl_r(p->fromep,flag,mtl);
 	expr_free2mtl_r(p->toep,flag,mtl);
 	expr_free2mtl_r(p->stepep,flag,mtl);
 	xfree(p);
 }
-static inline void freevmdinfo(struct expr_vmdinfo *p,int flag,const struct expr_memtool *restrict mtl){
+static void freevmdinfo(struct expr_vmdinfo *p,int flag,const struct expr_memtool *restrict mtl){
 	expr_free2mtl_r(p->ep,flag,mtl);
 	expr_free2mtl_r(p->fromep,flag,mtl);
 	expr_free2mtl_r(p->toep,flag,mtl);
@@ -433,13 +433,13 @@ static inline void freevmdinfo(struct expr_vmdinfo *p,int flag,const struct expr
 		xfree(p->args);
 	xfree(p);
 }
-static inline void freebranchinfo(struct expr_branchinfo *p,int flag,const struct expr_memtool *restrict mtl){
+static void freebranchinfo(struct expr_branchinfo *p,int flag,const struct expr_memtool *restrict mtl){
 	expr_free2mtl_r(p->cond,flag,mtl);
 	expr_free2mtl_r(p->body,flag,mtl);
 	expr_free2mtl_r(p->value,flag,mtl);
 	xfree(p);
 }
-static inline void freemdinfo(struct expr_mdinfo *p,int flag,const struct expr_memtool *restrict mtl){
+static void freemdinfo(struct expr_mdinfo *p,int flag,const struct expr_memtool *restrict mtl){
 	for(size_t i=0;i<p->dim;++i)
 		expr_free2mtl_r(p->eps+i,flag,mtl);
 	xfree(p->eps);
@@ -449,7 +449,7 @@ static inline void freemdinfo(struct expr_mdinfo *p,int flag,const struct expr_m
 		xfree(p->e);
 	xfree(p);
 }
-static inline void freehmdinfo(struct expr_hmdinfo *p,int flag,const struct expr_memtool *restrict mtl){
+static void freehmdinfo(struct expr_hmdinfo *p,int flag,const struct expr_memtool *restrict mtl){
 	for(size_t i=0;i<p->dim;++i)
 		expr_free2mtl_r(p->eps+i,flag,mtl);
 	xfree(p->eps);
@@ -485,7 +485,7 @@ static inline void expr_freedata(struct expr_inst *restrict data,size_t size,int
 	}
 	xfree(data);
 }
-static inline void expr_free_keepres(struct expr *restrict ep,int flag,const struct expr_memtool *restrict mtl){
+static void expr_free_keepres(struct expr *restrict ep,int flag,const struct expr_memtool *restrict mtl){
 	if(!ep->isconst){
 		if(likely(ep->data))
 			expr_freedata(ep->data,ep->size,flag,mtl);
@@ -549,7 +549,7 @@ void expr_free2(struct expr *restrict ep,int flag){
 void expr_free(struct expr *restrict ep){
 	expr_free2mtl_r(ep,0,ep->mtl);
 }
-static inline void setunsafe(struct expr *restrict ep){
+static void setunsafe(struct expr *restrict ep){
 	struct expr *p;
 	if(ep->parent){
 		p=ep->parent;
@@ -572,27 +572,13 @@ static inline struct expr_inst *expr_addop_i(struct expr *restrict ep,void *dst,
 	ip->flag=flag;
 	return ip;
 }
-static inline struct expr_inst *expr_addread(struct expr *restrict ep,expr_t *dst,expr_t *src){
-	return expr_addop(ep,dst,src,EXPR_READ,0);
-}
-static inline struct expr_inst *expr_addwrite(struct expr *restrict ep,expr_t *dst,expr_t *src){
-	return expr_addop(ep,dst,src,EXPR_WRITE,0);
-}
-static inline struct expr_inst *expr_addoff(struct expr *restrict ep,expr_t *dst,expr_t *src){
-	return expr_addop(ep,dst,src,EXPR_OFF,0);
-}
-static inline struct expr_inst *expr_addcopy(struct expr *restrict ep,expr_t *dst,expr_t *src){
-	return expr_addop(ep,dst,src,EXPR_COPY,0);
-}
-static inline struct expr_inst *expr_addcall(struct expr *restrict ep,expr_t *dst,expr_t (*func)(expr_t),int flag){
-	return expr_addop(ep,dst,func,EXPR_BL,flag);
-}
-static inline struct expr_inst *expr_addlj(struct expr *restrict ep,expr_t *dst,expr_t *src){
-	return expr_addop(ep,dst,src,EXPR_LJ,0);
-}
-static inline struct expr_inst *expr_addun(struct expr *restrict ep,expr_t *dst,enum expr_op op){
-	return expr_addop(ep,dst,NULL,op,0);
-}
+#define expr_addread(ep,dst,src) expr_addop(ep,dst,src,EXPR_READ,0)
+#define expr_addwrite(ep,dst,src) expr_addop(ep,dst,src,EXPR_WRITE,0)
+#define expr_addoff(ep,dst,src) expr_addop(ep,dst,src,EXPR_OFF,0)
+#define expr_addcopy(ep,dst,src) expr_addop(ep,dst,src,EXPR_COPY,0)
+#define expr_addcall(ep,dst,src,flag) expr_addop(ep,dst,src,EXPR_BL,flag)
+#define expr_addlj(ep,dst,src) expr_addop(ep,dst,src,EXPR_LJ,0)
+#define expr_addun(ep,dst,op) expr_addop(ep,dst,NULL,op,0)
 #define expr_addsj(ep,dst) expr_addun(ep,dst,EXPR_SJ)
 #define expr_addneg(ep,dst) expr_addun(ep,dst,EXPR_NEG)
 #define expr_addnot(ep,dst) expr_addun(ep,dst,EXPR_NOT)
@@ -603,48 +589,21 @@ static inline struct expr_inst *expr_addun(struct expr *restrict ep,expr_t *dst,
 #define expr_addend(ep,dst) expr_addun(ep,dst,EXPR_END)
 #define expr_addnex0(ep,dst) expr_addun(ep,dst,EXPR_NEX0)
 #define expr_adddif0(ep,dst) expr_addun(ep,dst,EXPR_DIF0)
-static inline struct expr_inst *expr_addip(struct expr *restrict ep,expr_t *dst,size_t mode){
-	return expr_addop(ep,dst,(void *)mode,EXPR_IP,0);
-}
-static inline struct expr_inst *expr_addza(struct expr *restrict ep,expr_t *dst,expr_t (*zafunc)(void),int flag){
-	return expr_addop(ep,dst,zafunc,EXPR_ZA,flag);
-}
-static inline struct expr_inst *expr_addmd(struct expr *restrict ep,expr_t *dst,struct expr_mdinfo *em,int flag){
-	return expr_addop(ep,dst,em,EXPR_MD,flag);
-}
-static inline struct expr_inst *expr_addme(struct expr *restrict ep,expr_t *dst,struct expr_mdinfo *em,int flag){
-	return expr_addop(ep,dst,em,EXPR_ME,flag);
-}
-static inline struct expr_inst *expr_addmep(struct expr *restrict ep,expr_t *dst,struct expr_mdinfo *em,int flag){
-	return expr_addop(ep,dst,em,EXPR_MEP,flag);
-}
-static inline struct expr_inst *expr_addhot(struct expr *restrict ep,expr_t *dst,struct expr *hot,int flag){
-	return expr_addop(ep,dst,hot,EXPR_HOT,flag);
-}
-static inline struct expr_inst *expr_addsvc(struct expr *restrict ep,expr_t *dst,int flag){
-	return expr_addop(ep,dst,NULL,EXPR_SVC,flag);
-}
-static inline struct expr_inst *expr_addsvcp(struct expr *restrict ep,expr_t *dst,expr_t *src,int flag){
-	return expr_addop(ep,dst,src,EXPR_SVCP,flag);
-}
-/*
-static inline struct expr_inst *expr_addep(struct expr *restrict ep,expr_t *dst,struct expr *hot,int flag){
-	return expr_addop(ep,dst,hot,EXPR_EP,flag);
-}
-*/
-static inline struct expr_inst *expr_addhmd(struct expr *restrict ep,expr_t *dst,struct expr_hmdinfo *eh,int flag){
-	return expr_addop(ep,dst,eh,EXPR_HMD,flag);
-}
-static inline struct expr_inst *expr_addconst(struct expr *restrict ep,expr_t *dst,expr_t val){
-	return expr_addop(ep,dst,cast(val,void *),EXPR_CONST,0);
-}
-static inline struct expr_inst *expr_addconst_i(struct expr *restrict ep,expr_t *dst,expr_t val){
+#define expr_addip(ep,dst,src) expr_addop(ep,dst,(void *)(src),EXPR_IP,0)
+#define expr_addza(ep,dst,src,flag) expr_addop(ep,dst,src,EXPR_ZA,flag)
+#define expr_addmd(ep,dst,src,flag) expr_addop(ep,dst,src,EXPR_MD,flag)
+#define expr_addme(ep,dst,src,flag) expr_addop(ep,dst,src,EXPR_ME,flag)
+#define expr_addmep(ep,dst,src,flag) expr_addop(ep,dst,src,EXPR_MEP,flag)
+#define expr_addmeu(ep,dst,src,flag,type) expr_addop(ep,dst,src,type,flag)
+#define expr_addhot(ep,dst,src,flag) expr_addop(ep,dst,src,EXPR_HOT,flag)
+#define expr_addsvc(ep,dst,flag) expr_addop(ep,dst,NULL,EXPR_SVC,flag)
+#define expr_addsvcp(ep,dst,src,flag) expr_addop(ep,dst,src,EXPR_SVCP,flag)
+#define expr_addhmd(ep,dst,src,flag) expr_addop(ep,dst,src,EXPR_HMD,flag)
+#define expr_addconst(ep,dst,val) expr_addop(ep,dst,cast(val,void *),EXPR_CONST,0)
+#define expr_addconst_i(ep,dst,val) expr_addop(ep,dst,cast(val,void *),EXPR_CONST,EXPR_SPURE)
 //	the address of a variable may be used so it cannot be optimized out.
-	return expr_addop(ep,dst,cast(val,void *),EXPR_CONST,EXPR_SPURE);
-}
-static inline struct expr_inst *expr_addalo(struct expr *restrict ep,expr_t *dst,size_t zu){
-	return expr_addop(ep,dst,cast(zu,void *),EXPR_ALO,0);
-}
+#define expr_addalo(ep,dst,zu) expr_addop(ep,dst,cast(zu,void *),EXPR_ALO,0)
+
 struct sepstr {
 	size_t s;
 	char c[];
@@ -3109,8 +3068,7 @@ fok:
 					cknp(ep,expr_addmd(ep,v0,un.em,flag),freemdinfo(un.em,0,xmtl);return NULL);
 					break;
 				case EXPR_MDEPFUNCTION:
-					cknp(ep,(flag&EXPR_SWRITEIP?expr_addmep:expr_addme)
-					(ep,v0,un.em,flag),freemdinfo(un.em,0,xmtl);return NULL);
+					cknp(ep,expr_addmeu(ep,v0,un.em,flag,(flag&EXPR_SWRITEIP)?EXPR_MEP:EXPR_ME),freemdinfo(un.em,0,xmtl);return NULL);
 					break;
 			}
 			e=p+1;

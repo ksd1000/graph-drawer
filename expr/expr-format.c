@@ -604,7 +604,7 @@ static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr
 #define workspace (bufst.w)
 #define nbuf_size(x) (((x)+23u)&~7u)
 conv_fu0(plain,nbuf_size(1024));
-conv_fue(expo,nbuf_size(1024));//old 308
+conv_fue(expo,nbuf_size(1024)+8);//old 308
 conv_f(xa1,16,+3);
 conv_f(xa2,2,0);
 conv_f(xa3,3,-1);

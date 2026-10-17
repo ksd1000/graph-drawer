@@ -127,7 +127,7 @@ struct header_wav {
 	}\
 	if(r<(ssize_t)(size)){\
 		if(r<0&&r!=PTRDIFF_MIN){\
-			err(EXIT_FAILURE,"write error");\
+			err(EXIT_FAILURE,"write error:");\
 		}else {\
 			errx(EXIT_FAILURE,"write error");\
 		}\

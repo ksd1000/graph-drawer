@@ -11,18 +11,18 @@
 #include <getopt.h>
 #include <ctype.h>
 const struct expr_libinfo expr_libinfo[1]={{
-	.version="pre-release",
+	.version="1.0.0",
 	.compiler_version=
 #ifdef __VERSION__
 		__VERSION__,
 #else
 		"Unknown",
 #endif
-	.platform=EXPR_ARCHN " "
+	.platform=EXPR_ARCHN
 #ifdef __linux__
-		"Linux",
+		" Linux",
 #else
-		"Unknown",
+		" Unknown system",
 #endif
 	.date=__DATE__,
 	.time=__TIME__,

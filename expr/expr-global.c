@@ -74,6 +74,25 @@ typedef _Atomic(uint32_t) mutex_t;
 #define EXPR_INLIB 1
 #include "expr.h"
 
+const struct expr_libinfo expr_libinfo_current[1]={{
+	.version="1.0.2",
+	.compiler_version=
+#ifdef __VERSION__
+		__VERSION__,
+#else
+		"Unknown",
+#endif
+	.platform=EXPR_ARCHN
+#ifdef __linux__
+		" Linux",
+#else
+		" Unknown system",
+#endif
+	.date=__DATE__,
+	.time=__TIME__,
+	.license="GPL v3+",
+}};
+
 expr_globals_define();
 
 __attribute__((noreturn)) void expr_explode(void){

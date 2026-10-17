@@ -1749,6 +1749,7 @@ intptr_t expr_warped_syscall6(int num,intptr_t a0,intptr_t a1,intptr_t a2,intptr
 intptr_t expr_warped_syscall7(int num,intptr_t a0,intptr_t a1,intptr_t a2,intptr_t a3,intptr_t a4,intptr_t a5,intptr_t a6);
 int expr_setup_mtl(int flag);
 //global externs of expr-global.c :
+extern const struct expr_libinfo expr_libinfo_current[1];
 extern int expr_mtl_setup;
 //global functions of expr-internal.c :
 size_t expr_strscan(const char *restrict s,size_t sz,char *restrict buf,size_t outsz);

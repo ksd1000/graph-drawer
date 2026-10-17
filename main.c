@@ -178,7 +178,7 @@ int a_ratio(char *cnt){
 }
 int no_connect=0;
 char *frombmp=NULL,*frombuf=NULL,*file=NULL;
-int printhelp(void);
+void printhelp(void);
 #define ARG(a1,a2,dst,t,p,d) {.name=a1,.alias=a2,.desc=d,.un={.uval=dst},.type=t,.period=p,}
 const struct argtype ats[]={
 	ARG("thread","T",&thread,AT_INT,0,"count -- how many threads used"),
@@ -205,7 +205,7 @@ const struct argtype ats[]={
 	ARG(NULL,NULL,NULL,0,0,NULL)
 //	ARG("",,&,AT_,0),
 };
-int printhelp(void){
+void printhelp(void){
 	char name[16],alias[16];
 	for(const struct argtype *atp=ats;atp->name||atp->alias;++atp){
 		if(atp->name){
@@ -220,15 +220,17 @@ int printhelp(void){
 		}
 		fprintf(stderr,"%-12s%-8s%s\n",name,alias,atp->desc);
 	}
-	exit(EXIT_SUCCESS);
 }
 int main(int argc,char **argv){
 	intptr_t fromfd;
 	size_t fromsize=0;
 	barlen=wsize.ws_col>28?wsize.ws_col-28:0;
 	expr_symset_init(es);
-	if(argc<2)
+	if(argc<2){
 		printhelp();
+		fprintf(stderr,"version :%s\n",expr_libinfo_current->version);
+		return EXIT_SUCCESS;
+	}
 	if(argscan(argc-1,argv+1,0,ats,NULL)<0)
 		exit(EXIT_FAILURE);
 	if(!file)

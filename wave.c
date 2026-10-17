@@ -826,12 +826,13 @@ show_help:
 #endif
 				"format: [s|u]8 [s|u][16|32][le|be]\n"
 				"ffplay is required in play mode.\n"
+				"version: %s\n"
 				"compiled on " __DATE__ " "  __TIME__ "\n"
 				,argv[0],sample_freq,bminterval,bm_freq_lowest,bm_freq_functor,bmratio
 #ifdef TEXT_ENABLED
 				,tfinterval,freq_lowest,freq_functor,ratio,tinterval,(int32_t)TEXT_HEIGHT
 #endif
-				);
+				,expr_libinfo_current->version);
 		return EXIT_SUCCESS;
 	}
 	opterr=1;

@@ -10,24 +10,6 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <ctype.h>
-const struct expr_libinfo expr_libinfo[1]={{
-	.version="1.0.1",
-	.compiler_version=
-#ifdef __VERSION__
-		__VERSION__,
-#else
-		"Unknown",
-#endif
-	.platform=EXPR_ARCHN
-#ifdef __linux__
-		" Linux",
-#else
-		" Unknown system",
-#endif
-	.date=__DATE__,
-	.time=__TIME__,
-	.license="GPL v3+",
-}};
 void show(const struct expr_libinfo *el){
 	fprintf(stdout,"expr version:%s\n",el->version);
 	fprintf(stdout,"compiler:%s\n",el->compiler_version);
@@ -195,7 +177,7 @@ int main(int argc,char **argv){
 		}
 	}
 break2:
-	show(expr_libinfo);
+	show(expr_libinfo_current);
 	return EXIT_SUCCESS;
 bu:
 	__builtin_unreachable();

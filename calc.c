@@ -588,8 +588,8 @@ void show_help(const char *a0){
 			"\tprintc(c,n)\n"
 			"\tdestructor(val)\n"
 			"example:\n"
-			"\t%s 3**2+sin(pi/6)\n"
-			,a0,a0);
+			"\t%s 3**2+sin(pi/6)\nversion: %s\n"
+			,a0,a0,expr_libinfo_current->version);
 	exit(EXIT_SUCCESS);
 }
 int main(int argc,char **argv){

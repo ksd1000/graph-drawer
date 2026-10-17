@@ -476,15 +476,6 @@ void printdouble(double val){
 }
 struct expr_symset *es=NULL;
 char *rbuf=NULL;
-double atod2(const char *str){
-	double r;
-	int error=0;
-	char err[EXPR_SYMLEN];
-	r=expr_calc5(str,&error,err,NULL,EXPR_IPROTECT|EXPR_INOKEYWORD);
-	if(error)
-		errx(EXIT_FAILURE,"invaild expression: %s (%s:%s)",str,expr_error(error),err);
-	return r;
-}
 void atend(void){
 	if(es)
 		expr_symset_free(es);

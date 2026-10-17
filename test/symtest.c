@@ -8,6 +8,7 @@
 #include <time.h>
 #include <err.h>
 #include <assert.h>
+#include <getopt.h>
 #include <sys/random.h>
 #include <sys/time.h>
 double dtime(void){
@@ -64,19 +65,44 @@ void randstr(char *buf,size_t sz){
 }
 struct expr_memtool expr_defmtl[1];
 #define rct for(ct=0.0,st=dtime();ct==0.0;ct=dtime())
-//int argc,char **argv
-int main(void){
+long atol2(const char *str){
+	long r;
+	char *c;
+	r=strtol(str,&c,10);
+	if(c==str||*c)
+		errx(EXIT_FAILURE,"invaild integer: %s",str);
+	return r;
+}
+int main(int argc,char **argv){
 	size_t bufsize=UINT64_C(1024)*1024*1024*4;
+	char buf[1024];
+	size_t count=2000000;
+	size_t symsize=8;
+	size_t ok=0;
+	opterr=1;
+	for(;;){
+		switch(getopt(argc,argv,"n:s:")){
+			case 'n':
+				count=(size_t)atol2(optarg);
+				break;
+			case 's':
+				assert(symsize<sizeof(buf));
+				symsize=(size_t)atol2(optarg);
+				break;
+			case -1:
+				goto break2;
+			default:
+				break;
+		}
+	}
+break2:
+	;
 	char *heap=malloc(bufsize);
 	assert(bufsize);
 	expr_setup_heapmtl(expr_defmtl,heap,bufsize);
 	struct expr_symset *esp=expr_symset_new();
 	assert(esp);
-	char buf[32+1];
-	size_t count=2000000;
 	printf("adding %zu elements.\n",count);
-	size_t symsize=8;
-	size_t ok=0;
 	seed=expr_seed48((int64_t)(dtime()*10));
 	double ct,st;
 	rct for(size_t i=0;i<count;++i){

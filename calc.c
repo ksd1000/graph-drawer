@@ -728,7 +728,7 @@ break3:
 			errx(EXIT_FAILURE,"buffer too small");
 		defmtl=&mtl;
 	}
-	if(expr_init_r(ep,e,"t",es,flag,defmtl)<0){
+	if(expr_init_r(ep,e,"t",es,flag|EXPR_ISCANCACHE,defmtl)<0){
 		if(*ep->errinfo)
 			errx(EXIT_FAILURE,"expression error:%s \"%s\"",expr_error(ep->error),ep->errinfo);
 		else

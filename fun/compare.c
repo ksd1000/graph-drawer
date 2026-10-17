@@ -32,7 +32,7 @@ struct expr_memtool mtl[1];
 
 //compile command: gcc -I  ../../expr -I ../expr -I ../../tinyexpr compare.c -lm -Wall -Wextra -o compare ../expr/expr-core.c ../expr/expr-internal.c ../expr/expr-alloc.c -O3
 
-const char *expression="x0+5+3+(0.75+1.5)+7.0123456891011121314151617181920+x1";
+const char *expression="x0+5+5+5+5+3+(0.75+1.5)+7.0123456891011121314151617181920+x1";
 //tinyexpr does not allow bitwise and/or.
 
 double dtime(void){
@@ -208,17 +208,14 @@ int main(int argc,char **argv){
 	printf(name " uses %.2lf ms\n",(ct-st)*1000)
 	test_ief(eval_z(0),"zserge_expr");
 	test_ief(eval_t(0),"tinyexpr");
-	test_ief(eval(0,EXPR_INOOPTIMIZE|EXPR_INOSHRINK),"expr(no optimize)");
+	test_ief(eval(0,EXPR_INOOPTIMIZE|EXPR_INOSHRINK|EXPR_ISCANCACHE),"expr(no optimize)");
 	test_ief(eval(0,0),"expr(optimized)");
 
 	printf("\ninit+eval(once)+free %u times\n",count);
 
-#define test_ief(func,name) \
-	rct for(unsigned int i=0;i<count;++i)(func);\
-	printf(name " uses %.2lf ms\n",(ct-st)*1000)
 	test_ief(eval_z(1),"zserge_expr");
 	test_ief(eval_t(1),"tinyexpr");
-	test_ief(eval(1,EXPR_INOOPTIMIZE|EXPR_INOSHRINK),"expr(no optimize)");
+	test_ief(eval(1,EXPR_INOOPTIMIZE|EXPR_INOSHRINK|EXPR_ISCANCACHE),"expr(no optimize)");
 	test_ief(eval(1,0),"expr(optimized)");
 
 	expr_symset_free(es);

@@ -11,7 +11,7 @@
 #include <getopt.h>
 #include <ctype.h>
 const struct expr_libinfo expr_libinfo[1]={{
-	.version="1.0.0",
+	.version="1.0.1",
 	.compiler_version=
 #ifdef __VERSION__
 		__VERSION__,

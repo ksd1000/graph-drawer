@@ -42,7 +42,8 @@
 #define cknp(ep,v,act) \
 ({\
 	if(unlikely(!(v))){\
-		seterr(ep,EXPR_EMEM);\
+		if(!ep->error)\
+			seterr(ep,EXPR_EMEM);\
 		act;\
 	}\
 })
@@ -834,17 +835,20 @@ static const char *getsym(const char *c,const char *endp){
 		++c;
 	return c;
 }
-static inline int atod(const char *str,size_t sz,expr_t *dst,const char **endptr,const struct expr_memtool *restrict mtl){
+static inline int atod(struct expr *restrict ep,const char *str,size_t sz,expr_t *restrict dst,const char **endptr,const struct expr_memtool *restrict mtl){
 	size_t s;
 	*dst=expr_tscan(str,sz,&s,mtl);
 	if(unlikely(!s))
 		return 0;
 	else if(unlikely(s==SIZE_MAX))
 		return 2;
-	else {
-		*endptr=str+s;
-		return 1;
+	*endptr=str+s;
+	if(ep->iflag&EXPR_ISCANCACHE){
+		expr_createconst(ep,str,s,*dst);
+		if(ep->error)
+			return 3;
 	}
+	return 1;
 }
 static char *expr_tok(char *restrict str,char *endp,char **restrict saveptr,size_t *size){
 	char *s0=(char *)str;
@@ -3099,7 +3103,7 @@ fok:
 			goto_symerr;
 	}
 number:
-	r0=atod(e,(size_t)(endp-e),&un.v,&p,xmtl);
+	r0=atod(ep,e,(size_t)(endp-e),&un.v,&p,xmtl);
 	switch(r0){
 		case 0:
 			if(!dol)
@@ -3116,6 +3120,8 @@ number:
 			goto vend;
 		case 2:
 			seterr(ep,EXPR_EMEM);
+			return NULL;
+		case 3:
 			return NULL;
 		default:
 			__builtin_unreachable();

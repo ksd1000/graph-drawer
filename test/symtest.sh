@@ -1,5 +1,13 @@
 #! /bin/bash
+if [ $# -gt 1 ];then
+	rm -vf expr-aci.so symtest
+	exit $?
+fi
 gcc -Wall -Wextra -I ../expr -o expr-aci.so -shared -fPIC ../expr/expr-internal.c ../expr/expr-alloc.c -O3
+if [ $# -eq 1 ];then
+	gcc -Wall -Wextra -DEXPR_SYMNEXT="$1" -I ../expr symtest.c ../expr/expr-core.c -o symtest "$PWD/expr-aci.so" -O3
+	exit $?
+fi
 for i in {2..100}
 do
 #	gcc -Wall symtest.c common_symbols.c -o symtest expr.c -lc -lm

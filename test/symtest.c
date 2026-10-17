@@ -81,13 +81,16 @@ int main(int argc,char **argv){
 	size_t ok=0;
 	opterr=1;
 	for(;;){
-		switch(getopt(argc,argv,"n:s:")){
+		switch(getopt(argc,argv,"n:s:b:")){
 			case 'n':
 				count=(size_t)atol2(optarg);
 				break;
 			case 's':
 				assert(symsize<sizeof(buf));
 				symsize=(size_t)atol2(optarg);
+				break;
+			case 'b':
+				bufsize=(size_t)atol2(optarg);
 				break;
 			case -1:
 				goto break2;

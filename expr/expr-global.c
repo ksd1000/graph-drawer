@@ -76,37 +76,9 @@ typedef _Atomic(uint32_t) mutex_t;
 
 expr_globals_define();
 
-#ifndef PAGE_SIZE
-#define PAGE_SIZE 4096
-#endif
-void expr_contract(void *buf,size_t size){
-	volatile char *p=(volatile char *)buf,*endp=(volatile char *)buf+size;
-	while(p<endp){
-		*p=0;
-		p+=PAGE_SIZE;
-	}
-	*endp=0;
-	//treat the case like [0,1,...,endp->4094,p->4095] 
-}
-__attribute__((noreturn)) void expr_explode_r(void (*contractor)(void *,size_t),const struct expr_memtool *restrict mtl,size_t max){
-	void *r;
-	do {
-		while((r=mtl->allocate(max,mtl->arg))){
-			contractor(r,max);
-			//if do not contract,
-			//the virtual memory
-			//has not physical
-			//memory and the OOM
-			//will not be called.
-		}
-		max>>=1;
-	}while(max);
-	abort();
-//the abort() is usually unreachable,should
-//be killed by kernel before sz reaches 0
-}
 __attribute__((noreturn)) void expr_explode(void){
 	expr_explode_r(expr_contract,expr_defmtl,expr_allocate_max);
+	__builtin_unreachable();
 }
 __attribute__((noreturn)) void expr_trap(void){
 	__builtin_trap();

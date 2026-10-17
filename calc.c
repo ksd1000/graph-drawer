@@ -536,6 +536,15 @@ double stepmode(struct expr *ep,double input){
 	}while(!expr_step(ep,input,&r,&ip));
 	return r;
 }
+double atod2(const char *str){
+	double r;
+	int error=0;
+	char err[EXPR_SYMLEN];
+	r=expr_calc5(str,&error,err,NULL,EXPR_IPROTECT|EXPR_INOKEYWORD);
+	if(error)
+		errx(EXIT_FAILURE,"invaild expression: %s (%s:%s)",str,expr_error(error),err);
+	return r;
+}
 const struct option ops[]={
 	{"safe",0,NULL,'p'},
 	{"no-optimize",0,NULL,'n'},

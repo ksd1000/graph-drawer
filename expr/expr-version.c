@@ -179,6 +179,7 @@ int main(int argc,char **argv){
 				if(optarg)
 					expr_allocate_max=(size_t)atol(optarg);
 				expr_explode_r(contract_hook,expr_defmtl,expr_allocate_max);
+				abort();
 			case 't':
 				__builtin_trap();
 			case 's':

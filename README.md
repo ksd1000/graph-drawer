@@ -27,12 +27,12 @@ compare with [zserge's expr](https://github.com/zserge/expr)
 |Number parse|Digit accumulate|Digit accumulate|Pseudo strtod|
 |Number parse speed|Fast-Medium|Fast|Slow|
 |libc required|Yes|Yes|No for core. But builtin symbols needs.|
-|Core arch independence|Yes|Yes|x86/arm64|
+|Core arch independence|Yes|Yes|x86/arm64 for mem* and syscall|
 |Non-unix support|Untested|Untested|Yes(\*.exe in Release)|
 |User variable defined in code|Yes|Yes|Yes|
-|User variable defined in expr|Yes(Auto)|No|Yes(value--\>a/a=:value/var(a))|
-|Allow write variables in expr|Yes(=)|No|Yes(--\>,-\>)|
-|User constant|No|No(only zero args pure function)|\es|
+|User variable defined in expr|Yes(Auto)|No|Yes(value-->a/a=:value/var(a,[value]))|
+|Allow write variables in expr|Yes(=)|No|Yes(--\>,\->)|
+|User constant|No|No(only zero args pure function)|Yes|
 |Active|No (Latest 2017-12-3)|Yes|Yes|
 |Amount of bugs|Few-Medium|Few|Many|
 |Size|Lightweight|Lightweight|Bloated|
@@ -42,8 +42,23 @@ compare with [zserge's expr](https://github.com/zserge/expr)
 |Amount of file|Single header file|Single .c file+header|Multi-file|
 |Hot function|Yes|No|Yes|
 |Optimize|No|Yes|Yes|
+|Symbol system|struct expr_var_list(one-next list)/struct expr_func(array)|te_variable(array)|struct expr_symset(multi-next list)/struct expr_builtin_symbol(array)|
+|Symbol create API|expr_var()|No|expr_symset_add()|
+|Eval API|expr_eval()|te_eval()|expr_eval()|
+|One-shot API|No|te_interp()|expr_calc()|
+|Custom memory allocator|Yes(global variable required,patch before header)|Yes(global variable required,patch before header)|Yes(global+non-global)|
+|MT-safe for same object|Yes(except = and context)|Yes|No(an object only for one thread)|
+|Reuseability|No(allocate/free require global variable)|No(similarly)|Yes(*_r)|
+|JIT support|Yes|No|No|
+|Branch and loop|No|No|Yes|
+|Syscall support|No|No|Yes|
+|AST|Yes|Yes|No|
+|Project type|standalone library|standalone library|bundled library for graph-drawer|
+|Bugfix speed|Unactive|Fast|Slow|
 |Code readability|Clear|Clear|Chaos|
+|Popularity|Medium|High|Low|
 |License|MIT|Zlib|GPL v3+|
+
 
 
 For older versions of this project, see [xgraph](https://github.com/ksd1000/xgraph) and [xgraph-front](https://github.com/ksd1000/xgraph-front)

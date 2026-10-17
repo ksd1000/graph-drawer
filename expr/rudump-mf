@@ -1,4 +1,4 @@
 #! /bin/bash
-grep 'const struct expr_memtool \*restrict mtl' expr.h |grep '^[^_].*_r(' |sed -f rudump-mf.sed
+grep 'const struct expr_memtool \*restrict mtl' expr.h|grep 'explode' -v|grep '^[^_].*_r(' |sed -f rudump-mf.sed
 #grep 'const uint8_t \*restrict table' expr.h |grep '^[^_].*_r(' |sed -f rudump-fmt-mf.sed
 

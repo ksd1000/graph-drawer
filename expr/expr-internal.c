@@ -187,6 +187,34 @@ void expr_memswap(void *restrict s1,void *restrict s2,size_t size){
 		*(int8_t *)(uintptr_t)s2=un.swapbuf8;
 	}
 }
+#ifndef PAGE_SIZE
+#define PAGE_SIZE 4096
+#endif
+void expr_contract(void *buf,size_t size){
+	volatile char *p=(volatile char *)buf,*endp=(volatile char *)buf+size;
+	while(p<endp){
+		*p=0;
+		p+=PAGE_SIZE;
+	}
+	*endp=0;
+	//treat the case like [0,1,...,endp->4094,p->4095] 
+}
+void expr_explode_r(void (*contractor)(void *,size_t),const struct expr_memtool *restrict mtl,size_t max){
+	void *r;
+	do {
+		while((r=mtl->allocate(max,mtl->arg))){
+			contractor(r,max);
+			//if do not contract,
+			//the virtual memory
+			//has not physical
+			//memory and the OOM
+			//will not be called.
+		}
+		max>>=1;
+	}while(max);
+//the abort() is usually unreachable,should
+//be killed by kernel before sz reaches 0
+}
 static uint32_t oldpow32(uint32_t x,uint32_t y){
 	uint32_t r;
 	if(y){
@@ -2096,9 +2124,6 @@ int expr_internal_memcmp(const void *s0,const void *s1,size_t size){
 	}
 	return 0;
 }
-#ifndef PAGE_SIZE
-#define PAGE_SIZE 4096
-#endif
 void *expr_internal_memchr2(const void *buf,int c){
 	const uint8_t *p=buf,*s=buf,*q;
 	size_t ava;

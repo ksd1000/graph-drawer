@@ -136,44 +136,70 @@ size_t area_size(struct expr_area *a){
 struct expr_var_list vars={0};
 struct expr_var *a=NULL;
 double tx0=4,tx1=6;
-double x0=4,x1=6;
+volatile double x0=4,x1=6;
 te_variable tvars[]={{"x0",&tx0,TE_VARIABLE,NULL},{"x1",&tx1,TE_VARIABLE,NULL}};
 struct expr_symset es[1]={EXPR_SYMSET_INITIALIZER(mtl)};
-double eval_t(unsigned int count){
-	int err;
-	struct te_expr *ep=te_compile(expression,tvars,2,&err);
+double eval_g(unsigned int count){
+	volatile double r=0;
+	while(count--)
+		r=x0+5+5+5+5+3+(0.75+1.5)+7.0123456891011121314151617181920+x1;
+	mem_cur=area_size((struct expr_area *)mtl->arg);
+	return r;
+}
+double eval_t(struct te_expr *ep,unsigned int count){
+	int err=0;
+	int fr=0;
 	double r=0;
+	if(!ep){
+		ep=te_compile(expression,tvars,2,&err);
+		fr=1;
+	}
 	assert(ep);
 	while(count--)
 		r=te_eval(ep);
 	mem_cur=area_size((struct expr_area *)mtl->arg);
-	te_free(ep);
+	if(fr)
+		te_free(ep);
 	return r;
 }
-float eval_z(unsigned int count){
-	struct expr_z *ep=expr_create(expression,strlen(expression),&vars,NULL);
+float eval_z(struct expr_z *ep,unsigned int count){
 	float r=0;
+	int fr=0;
+	if(!ep){
+		ep=expr_create(expression,strlen(expression),&vars,NULL);
+		fr=1;
+	}
 	assert(ep);
 	while(count--)
 		r=expr_eval_z(ep);
 	mem_cur=area_size((struct expr_area *)mtl->arg);
-	expr_destroy(ep,NULL);
+	if(fr)
+		expr_destroy(ep,NULL);
 	return r;
 }
-double eval(unsigned int count,int flag){
-	struct expr *ep=expr_new4_r(expression,NULL,es,flag,mtl);
+double eval(struct expr *ep,unsigned int count,int flag){
 	double r=0;
+	int fr=0;
+	if(!ep){
+		ep=expr_new4_r(expression,NULL,es,flag,mtl);
+		fr=1;
+	}
 	assert(ep);
 	while(count--)
 		r=expr_eval(ep,0.0);
 	mem_cur=area_size((struct expr_area *)mtl->arg);
-	expr_free(ep);
+	if(fr)
+		expr_free(ep);
 	return r;
 }
 #define rct for(ct=0.0,st=dtime();ct==0.0;ct=dtime())
 int main(int argc,char **argv){
 	unsigned int count=50000000;
 	double ct,st,r=0;
+	struct expr *ep;
+	struct expr_z *ezp;
+	te_expr *tp;
+	int err;
 	if(argc>1)
 		expression=argv[1];
 	assert(!expr_setup_heapmtl4(mtl,internal_heap,sizeof(internal_heap),EXPR_ADEFAULT));
@@ -187,17 +213,21 @@ int main(int argc,char **argv){
 	assert(expr_symset_add(es,"x1",EXPR_VARIABLE,0,&x1));
 	mem_old=area_size((struct expr_area *)mtl->arg);
 	printf("eval %s %u times\n",expression,count);
-#define test_eval(func,name) \
+#define test_eval(p,init,free,func,name) \
 	mem_used=0;\
+	p=init;\
+	assert(p);\
 	mem_max=0;\
 	expr_area_reset_monotonic((struct expr_area *)mtl->arg);\
 	rct r=(double)(func);\
+	free;\
 	printf(name " uses %.2lf ms,result=%.16lf,mem=%zu/%zu/%zu\n",(ct-st)*1000,r,mem_cur-mem_old,mem_used,mem_max);\
 	area_show((struct expr_area *)mtl->arg)
-	test_eval(eval_z(count),"zserge_expr");
-	test_eval(eval_t(count),"tinyexpr");
-	test_eval(eval(count,EXPR_INOOPTIMIZE|EXPR_INOSHRINK),"expr(no optimize)");
-	test_eval(eval(count,0),"expr(optimized)");
+	test_eval(ezp,expr_create(expression,strlen(expression),&vars,NULL),expr_destroy(ezp,NULL),eval_z(ezp,count),"zserge_expr");
+	test_eval(tp,te_compile(expression,tvars,2,&err),te_free(tp),eval_t(tp,count),"tinyexpr");
+	test_eval(ep,expr_new4_r(expression,NULL,es,EXPR_INOOPTIMIZE|EXPR_INOSHRINK,mtl),expr_free(ep),eval(ep,count,EXPR_INOOPTIMIZE|EXPR_INOSHRINK),"expr(no optimize)");
+	test_eval(ep,expr_new4_r(expression,NULL,es,0,mtl),expr_free(ep),eval(ep,count,0),"expr(optimized)");
+	test_eval(ezp,(void *)1,,eval_g(count),"gcc");
 
 
 	count=500000;
@@ -206,17 +236,17 @@ int main(int argc,char **argv){
 #define test_ief(func,name) \
 	rct for(unsigned int i=0;i<count;++i)(func);\
 	printf(name " uses %.2lf ms\n",(ct-st)*1000)
-	test_ief(eval_z(0),"zserge_expr");
-	test_ief(eval_t(0),"tinyexpr");
-	test_ief(eval(0,EXPR_INOOPTIMIZE|EXPR_INOSHRINK|EXPR_ISCANCACHE),"expr(no optimize)");
-	test_ief(eval(0,0),"expr(optimized)");
+	test_ief(eval_z(NULL,0),"zserge_expr");
+	test_ief(eval_t(NULL,0),"tinyexpr");
+	test_ief(eval(NULL,0,EXPR_INOOPTIMIZE|EXPR_INOSHRINK|EXPR_ISCANCACHE),"expr(no optimize)");
+	test_ief(eval(NULL,0,0),"expr(optimized)");
 
 	printf("\ninit+eval(once)+free %u times\n",count);
 
-	test_ief(eval_z(1),"zserge_expr");
-	test_ief(eval_t(1),"tinyexpr");
-	test_ief(eval(1,EXPR_INOOPTIMIZE|EXPR_INOSHRINK|EXPR_ISCANCACHE),"expr(no optimize)");
-	test_ief(eval(1,0),"expr(optimized)");
+	test_ief(eval_z(NULL,1),"zserge_expr");
+	test_ief(eval_t(NULL,1),"tinyexpr");
+	test_ief(eval(NULL,1,EXPR_INOOPTIMIZE|EXPR_INOSHRINK|EXPR_ISCANCACHE),"expr(no optimize)");
+	test_ief(eval(NULL,1,0),"expr(optimized)");
 
 	expr_symset_free(es);
 	expr_destroy(NULL,&vars);

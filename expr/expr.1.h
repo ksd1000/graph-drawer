@@ -91,12 +91,15 @@ extern size_t expr_allocate_max;
 #define expr_globals_define() \
 size_t expr_allocate_max=SSIZE_MAX;\
 void *expr_allocator_default(size_t size,intptr_t arg){\
+	(void)arg;\
 	return size>=expr_allocate_max?NULL:malloc(size);\
 }\
 void *expr_reallocator_default(void *old,size_t size,intptr_t arg){\
+	(void)arg;\
 	return size>=expr_allocate_max?NULL:realloc(old,size);\
 }\
 void expr_deallocator_default(void *old,intptr_t arg){\
+	(void)arg;\
 	free(old);\
 }\
 struct expr_memtool expr_defmtl[1]={{\

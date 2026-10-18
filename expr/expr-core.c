@@ -4560,6 +4560,9 @@ struct expr *expr_new3_r(const char *e,const char *asym,int flag,const struct ex
 struct expr *expr_new2_r(const char *e,const char *asym,const struct expr_memtool *restrict mtl){
 	return expr_new10(e,len,asym,asymlen,NULL,EXPR_IPROTECT,1,NULL,NULL,NULL,mtl);
 }
+struct expr *expr_new1_r(const char *e,const struct expr_memtool *restrict mtl){
+	return expr_new10(e,len,NULL,0,NULL,EXPR_IPROTECT,1,NULL,NULL,NULL,mtl);
+}
 #undef len
 #undef asymlen
 expr_t expr_calc5_r(const char *e,int *error,char errinfo[EXPR_SYMLEN],struct expr_symset *esp,int flag,const struct expr_memtool *restrict mtl){

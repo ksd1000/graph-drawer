@@ -91,12 +91,15 @@ extern size_t expr_allocate_max;
 #define expr_globals_define() \
 size_t expr_allocate_max=SSIZE_MAX;\
 void *expr_allocator_default(size_t size,intptr_t arg){\
+	(void)arg;\
 	return size>=expr_allocate_max?NULL:malloc(size);\
 }\
 void *expr_reallocator_default(void *old,size_t size,intptr_t arg){\
+	(void)arg;\
 	return size>=expr_allocate_max?NULL:realloc(old,size);\
 }\
 void expr_deallocator_default(void *old,intptr_t arg){\
+	(void)arg;\
 	free(old);\
 }\
 struct expr_memtool expr_defmtl[1]={{\
@@ -1673,6 +1676,7 @@ struct expr *expr_new_r(const char *e,const char *asym,struct expr_symset *esp,i
 struct expr *expr_new4_r(const char *e,const char *asym,struct expr_symset *esp,int flag,const struct expr_memtool *restrict mtl);
 struct expr *expr_new3_r(const char *e,const char *asym,int flag,const struct expr_memtool *restrict mtl);
 struct expr *expr_new2_r(const char *e,const char *asym,const struct expr_memtool *restrict mtl);
+struct expr *expr_new1_r(const char *e,const struct expr_memtool *restrict mtl);
 expr_t expr_calc5_r(const char *e,int *error,char errinfo[EXPR_SYMLEN],struct expr_symset *esp,int flag,const struct expr_memtool *restrict mtl);
 expr_t expr_calc4_r(const char *e,int *error,char errinfo[EXPR_SYMLEN],struct expr_symset *esp,const struct expr_memtool *restrict mtl);
 expr_t expr_calc3_r(const char *e,int *error,char errinfo[EXPR_SYMLEN],const struct expr_memtool *restrict mtl);
@@ -1823,6 +1827,7 @@ extern const uint8_t expr_number_table[256];
 #define expr_new4(e,asym,esp,flag) expr_new4_r(e,asym,esp,flag,expr_defmtl)
 #define expr_new3(e,asym,flag) expr_new3_r(e,asym,flag,expr_defmtl)
 #define expr_new2(e,asym) expr_new2_r(e,asym,expr_defmtl)
+#define expr_new1(e) expr_new1_r(e,expr_defmtl)
 #define expr_calc5(e,error,errinfo,esp,flag) expr_calc5_r(e,error,errinfo,esp,flag,expr_defmtl)
 #define expr_calc4(e,error,errinfo,esp) expr_calc4_r(e,error,errinfo,esp,expr_defmtl)
 #define expr_calc3(e,error,errinfo) expr_calc3_r(e,error,errinfo,expr_defmtl)

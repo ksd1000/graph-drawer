@@ -1,23 +1,45 @@
-# graph-drawer
-
 ![logo](https://raw.githubusercontent.com/ksd1000/graph-drawer/refs/heads/main/logo.png)
 
+# graph-drawer
+
 Example:
+
+draw a graph of sin(t) to 1.bmp:
 ```
 ./draw -o 1.bmp 'sin(t)'
 ```
-draw a graph of sin(t) to 1.bmp
 
+output the sum from 1 to 100:
 ```
 ./calc 'sum(n,1,100,1,n)'
 ```
-output the sum from 1 to 100
 
+generate a 1s 440Hz sound .wav file:
 ```
 ./wave 'sin(440*2*pi*t)' -c 1 -o 1.wav
 ```
-generate a 1s 440Hz sound .wav file
 
+An example of API of graph-drawer expr:
+```C
+#define _GNU_SOURCE
+#include <stdio.h>
+#include <stdlib.h>
+#include <assert.h>
+#include "expr.h"
+expr_globals_define();
+int main(void){
+	struct expr *ep;
+	ep=expr_new2("t+1","t");
+	assert(ep);
+	printf("result:%lf\n",expr_eval(ep,2.0));
+	expr_free(ep);
+	return EXIT_SUCCESS;
+}
+```
+## Speed
+720%-2870% slower than native C.
+
+## Compare with other expr libs
 compare with [zserge's expr](https://github.com/zserge/expr)
 
 ||zserge expr|tinyexpr|graph-drawer expr|
@@ -32,8 +54,8 @@ compare with [zserge's expr](https://github.com/zserge/expr)
 |Core arch independence|Yes|Yes|x86/arm64 for mem* and syscall|
 |Non-unix support|Untested|Untested(the author tested Yes)|Yes(\*.exe in Release)|
 |User variable defined in code|Yes|Yes|Yes|
-|User variable defined in expr|Yes(Auto)|No|Yes(value-->a/a=:value/var(a,[value]))|
-|Allow write variables in expr|Yes(=)|No|Yes(--\>,\->)|
+|User variable defined in expr|Yes(Auto)|No|Yes(value--\>a/a=:value/var(a,[value]))|
+|Allow write variables in expr|Yes(=)|No|Yes(--\>,-\>)|
 |User constant|No|No(only zero args pure function)|Yes|
 |Active|No (Latest 2017-12-3)|Yes|Yes|
 |Amount of bugs|Few-Medium|Few|Many|
@@ -44,13 +66,13 @@ compare with [zserge's expr](https://github.com/zserge/expr)
 |Amount of file|Single header file|Single .c file+header|Multi-file|
 |Hot function|Yes|No|Yes|
 |Optimize|No|Yes|Yes|
-|Symbol system|struct expr_var_list(one-next list)/struct expr_func(array)|te_variable(array)|struct expr_symset(multi-next list)/struct expr_builtin_symbol(array)|
-|Symbol create API|expr_var()|No|expr_symset_add()|
-|Eval API|expr_eval()|te_eval()|expr_eval()|
-|One-shot API|No|te_interp()|expr_calc()|
+|Symbol system|struct expr\_var\_list(one-next list)/struct expr\_func(array)|te\_variable(array)|struct expr\_symset(multi-next list)/struct expr\_builtin\_symbol(array)|
+|Symbol create API|expr\_var()|No|expr\_symset\_add()|
+|Eval API|expr\_eval()|te\_eval()|expr\_eval()|
+|One-shot API|No|te\_interp()|expr\_calc()|
 |Custom memory allocator|Yes(global variable required,patch before header)|Yes(global variable required,patch before header)|Yes(global+non-global)|
 |MT-safe for same object|Yes(except = and context)|Yes|No(an object only for one thread)|
-|Reuseability|No(allocate/free require global variable)|No(similarly)|Yes(*_r)|
+|Reuseability|No(allocate/free require global variable)|No(similarly)|Yes(\*\_r)|
 |JIT support|Yes|No|No|
 |Branch and loop|No|No|Yes|
 |Syscall support|No|No|Yes|

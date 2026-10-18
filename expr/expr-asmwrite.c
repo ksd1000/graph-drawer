@@ -12,6 +12,7 @@
 #include "expr.h"
 
 // WARNING: this file is not completed, and may not be completed for quite some time, because of the huge difficulty of it to me.
+// the expr_asmwrite will most likely support only some simple opcodes of enum expr_op, such as copy,add,sub,mul,div,call to 0/1 argument functions.
 
 #if defined(__aarch64__)
 ssize_t asmwrite_copy(uintptr_t buf,uintptr_t endptr,void *dst,const void *src){
@@ -28,7 +29,7 @@ ssize_t expr_asmwrite(const struct expr *restrict ep,void *outbuf,size_t size){
 	(void)ep;
 	(void)outbuf;
 	(void)size;
-	return SSIZE_MIN:
+	return SSIZE_MIN;
 }
 #endif
 #if !defined(ASMWRITE_INVAILDARCH)||!(ASMWRITE_INVAILDARCH)

@@ -23,6 +23,7 @@ struct graph {
 };
 
 void graph_setpixel_bold(struct graph *restrict gp,uint32_t color,int32_t bold,int32_t x,int32_t y);
+int32_t graph_drawchar(struct graph *restrict gp,uint32_t color,int32_t bold,int c,int32_t height,int32_t x,int32_t y,int test);
 int32_t graph_draw_text_pixel(struct graph *restrict gp,uint32_t color,int32_t bold,const char *s,int32_t gap,int32_t height,int32_t x,int32_t y);
 int32_t graph_textlen(struct graph *restrict gp,const char *s,int32_t gap,int32_t height);
 int32_t graph_text_height(void);

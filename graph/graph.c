@@ -99,7 +99,7 @@ void graph_setpixel_bold(struct graph *restrict gp,uint32_t color,int32_t bold,i
 		setpixel(x,y);
 	//graph_setpixel(gp,color,x,y);
 }
-static int32_t graph_drawchar(struct graph *restrict gp,uint32_t color,int32_t bold,int c,int32_t height,int32_t x,int32_t y,int test){
+int32_t graph_drawchar(struct graph *restrict gp,uint32_t color,int32_t bold,int c,int32_t height,int32_t x,int32_t y,int test){
 	const struct sbmp *text=text_getsbmp(c);
 	int32_t md1,md2;
 	int32_t width;
@@ -211,11 +211,12 @@ int init_graph_frombmp(struct graph *restrict gp,const void *bmp,size_t size,dou
 }
 int init_graph(struct graph *restrict gp,int32_t width,int32_t height,uint16_t bpp,double minx,double maxx,double miny,double maxy){
 	gp->byte_width=((width*bpp+31)>>5)<<2;
-	if(xisnan(&minx)||xisnan(&maxx)||xisnan(&miny)||xisnan(&maxy))return -1;
+	if(xisnan(&minx)||xisnan(&maxx)||xisnan(&miny)||xisnan(&maxy))
+		return -1;
 	if(width<=0||height<=0||bpp<8||bpp&7||minx>=maxx||miny>=maxy)
 		return -1;
 	gp->hsize=54;
-	if((gp->bm=malloc(gp->hsize+gp->byte_width*height))==NULL)
+	if(!(gp->bm=malloc(gp->hsize+gp->byte_width*height)))
 		return -2;
 	if((gp->textbuf=malloc(TEXT_MAXOSIZE))==NULL){
 		free(gp->buf);
@@ -359,12 +360,7 @@ void graph_draw_mt(struct graph *restrict gp,uint32_t color,int32_t bold,double 
 	}
 	return;
 #else
-	if(thread<2){
-		graph_draw(gp,color,bold,x,y,arg_x,arg_y,from,to,step,currents);
-		return;
-	}
-	fprintf(stderr,"multi_thread is not implemented\n");
-	abort();
+	graph_draw(gp,color,bold,x,y,arg_x,arg_y,from,to,step,currents);
 #endif
 }
 static void graph_connect_pixel_x(struct graph *restrict gp,uint32_t color,int32_t bold,int32_t x1,int32_t y1,int32_t x2,int32_t y2){

@@ -36,6 +36,7 @@ ssize_t expr_asmwrite(const struct expr *restrict ep,void *outbuf,size_t size){
 	uintptr_t buf=(uintptr_t)outbuf;
 	uintptr_t endptr=buf+size;
 	ssize_t r;
+	// the caller should ensure the outbuf is executable.
 	for(struct expr_inst *ip=ep->data;;){
 		switch(ip->op){
 			case EXPR_COPY:

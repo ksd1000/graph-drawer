@@ -75,7 +75,7 @@ typedef _Atomic(uint32_t) mutex_t;
 #include "expr.h"
 
 const struct expr_libinfo expr_libinfo_current[1]={{
-	.version="1.0.3",
+	.version="1.0.4",
 	.compiler_version=
 #ifdef __VERSION__
 		__VERSION__,

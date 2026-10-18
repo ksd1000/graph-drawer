@@ -3,12 +3,10 @@
  *License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>*
  *This is free software: you are free to change and redistribute it.           *
  *******************************************************************************/
+// compile command: gcc -I ../graph-drawer/graph ../graph-drawer/logo.c graph/libgraph.a -lm -o logo -Wall -Wextra
 #define _GNU_SOURCE
-#include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include <string.h>
-#include <errno.h>
 #include <assert.h>
 #include "graph.h"
 #ifdef __unix__
@@ -40,6 +38,70 @@ double evalcosh(double input,void *arg){
 	(void)arg;
 	return cosh(input);
 }
+double evalfish(double input,void *arg){
+	double y=*(double *)arg;
+	if(input<1.0){
+		return y+input;
+	}else if(input<2.0){
+		return y+1.0-(input-1.0)*2;
+	}else if(input<3.0){
+		return y-1.0+(input-2.0);
+	}else if(input<4.0){
+		return y+0.125*sin((input-3.0)*2.0*M_PI);
+	}else if(input<5.0){
+		return y+0.5*sin(((input-4.0)*0.25-0.125)*2.0*M_PI);
+	}else if(input<6.0){
+		return y+0.5*(input-5.0);
+	}else if(input<7.0){
+		return y+0.5-(input-6.0);
+	}else if(input<8.0){
+		return y-0.5+0.5*(input-7.0);
+	}else if(input<9.0){
+		return y-0.625+1.25*(input-8.0);
+	}else if(input<10.0){
+		return y-0.875+1.75*(input-9.0);
+	}
+	return NAN;
+}
+double evalfishx(double input,void *arg){
+	double x=*(double *)arg;
+	if(input<1.0){
+		return x+input;
+	}else if(input<2.0){
+		return x+1.0;
+	}else if(input<3.0){
+		return x+1.0-(input-2.0);
+	}else if(input<4.0){
+		return x+0.25+0.125*cos((input-3.0)*2.0*M_PI);
+	}else if(input<5.0){
+		return x+0.5*cos(((input-4.0)*0.25-0.125)*2.0*M_PI);
+	}else if(input<6.0){
+		return x+1.0+0.5*(input-5.0);
+	}else if(input<7.0){
+		return x+1.5;
+	}else if(input<8.0){
+		return x+1.5-0.5*(input-7.0);
+	}else if(input<9.0){
+		return x+0.625+0.0625*sin(4.0*M_PI*(input-8.0));
+	}else if(input<10.0){
+		return x+0.875+0.0625*sin(4.0*M_PI*(1.45*(input-9.0)-0.25));
+	}
+	return NAN;
+}
+double evalfishx_rev(double input,void *arg){
+	double x=*(double *)arg,z=0.0;
+	return x+1.5-evalfishx(input,&z);
+}
+void graph_draw_fish(struct graph *restrict gp,uint32_t color,int32_t bold,double x,double y,int reverse){
+	volatile double current;
+	if(reverse){
+		graph_draw(gp,color,bold,evalfishx_rev,evalfish,&x,&y,0,10.0,8.0/1280.0,&current);
+		graph_draw_point(gp,color,bold+5,x+1.25,y-0.04);
+	}else {
+		graph_draw(gp,color,bold,evalfishx,evalfish,&x,&y,0,10.0,8.0/1280.0,&current);
+		graph_draw_point(gp,color,bold+5,x+0.25,y-0.04);
+	}
+}
 #define FBOLD 0
 #define RATIO 4.0
 #define RESIZE *3/4
@@ -57,6 +119,9 @@ int main(void){
 	graph_draw(gp,0xff7f00,FBOLD,evalx,evallog,NULL,NULL,-4,4.25,8.0/1280.0,&current);
 	graph_draw(gp,0x7fff00,FBOLD,evalx,evalsqrt,NULL,NULL,-4,4.25,8.0/1280.0,&current);
 	graph_draw(gp,0x00ff7f,FBOLD,evalx,evalcosh,NULL,NULL,-4,4.25,8.0/1280.0,&current);
+	gp->connect=0;
+	graph_draw_fish(gp,0x87cefa,FBOLD+1,2.0,1.5,0);
+	graph_draw_fish(gp,0x9400d3,FBOLD+1,-3.75,-1.0,1);
 	graph_draw_text_pixel(gp,0xff0000,0,"Graph",4 RESIZE,320 RESIZE,96 RESIZE,392 RESIZE);
 	graph_draw_text_pixel(gp,0x0000ff,0,"Drawer",4 RESIZE,320 RESIZE,288 RESIZE,64 RESIZE);
 	graph_draw_text_pixel(gp,0x006400,0,"Expression-to-image-and-audio converter",4 RESIZE,72 RESIZE,12 RESIZE,16 RESIZE);

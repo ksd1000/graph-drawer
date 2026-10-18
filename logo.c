@@ -42,11 +42,12 @@ double evalcosh(double input,void *arg){
 }
 #define FBOLD 0
 #define RATIO 4.0
+#define RESIZE *3/4
 int main(void){
 	struct graph gp[1];
 	intptr_t tofd;
 	volatile double current;
-	assert(!init_graph(gp,1280,720,24,-RATIO,RATIO,-(RATIO*720/1080),(RATIO*720/1080)));
+	assert(!init_graph(gp,1280 RESIZE,720 RESIZE,24,-RATIO,RATIO,-(RATIO*720/1080),(RATIO*720/1080)));
 	graph_fill(gp,0xffffff);
 	gp->draw_value=0;
 	graph_draw_grid(gp,0xbfbfbf,0,1.0,1.0);
@@ -56,11 +57,11 @@ int main(void){
 	graph_draw(gp,0xff7f00,FBOLD,evalx,evallog,NULL,NULL,-4,4.25,8.0/1280.0,&current);
 	graph_draw(gp,0x7fff00,FBOLD,evalx,evalsqrt,NULL,NULL,-4,4.25,8.0/1280.0,&current);
 	graph_draw(gp,0x00ff7f,FBOLD,evalx,evalcosh,NULL,NULL,-4,4.25,8.0/1280.0,&current);
-	//graph_drawchar(gp,0xff0000,0,'g',32,0,128,0);
-	graph_draw_text_pixel(gp,0xff0000,0,"Graph",4,320,96,392);
-	graph_draw_text_pixel(gp,0x0000ff,0,"Drawer",4,320,288,64);
-	graph_draw_text_pixel(gp,0x006400,0,"Expression-to-image-and-audio converter",4,72,12,16);
+	graph_draw_text_pixel(gp,0xff0000,0,"Graph",4 RESIZE,320 RESIZE,96 RESIZE,392 RESIZE);
+	graph_draw_text_pixel(gp,0x0000ff,0,"Drawer",4 RESIZE,320 RESIZE,288 RESIZE,64 RESIZE);
+	graph_draw_text_pixel(gp,0x006400,0,"Expression-to-image-and-audio converter",4 RESIZE,72 RESIZE,12 RESIZE,16 RESIZE);
 	tofd=open("logo.bmp",O_WRONLY_CREAT);
+	// the logo.png is converted by imagemagick.
 	assert(!fderr(tofd));
 	assert(write(tofd,gp->bm,gp->bm->size)==(ssize_t)gp->bm->size);
 	close(tofd);

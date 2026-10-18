@@ -72,7 +72,7 @@ void sig(int s){
 double dtime(void){
 #ifdef REAL_UNIX
 	struct timespec ts;
-	clock_gettime(CLOCK_REALTIME,&ts);
+	clock_gettime(CLOCK_MONOTONIC,&ts);
 	return (double)ts.tv_sec+ts.tv_nsec/1000000000.0;
 #else
 	return (double)time(NULL);

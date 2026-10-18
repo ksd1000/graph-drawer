@@ -13,7 +13,7 @@
 #include <sys/time.h>
 double dtime(void){
 	struct timespec ts;
-	clock_gettime(CLOCK_MONOTONIC,&ts);
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID,&ts);
 	return (double)ts.tv_sec+ts.tv_nsec/1000000000.0;
 }
 /*

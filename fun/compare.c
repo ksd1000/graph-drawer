@@ -37,7 +37,7 @@ const char *expression="x0+5+5+5+5+3+(0.75+1.5)+7.012345689101112131415161718192
 
 double dtime(void){
 	struct timespec ts;
-	clock_gettime(CLOCK_REALTIME,&ts);
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID,&ts);
 	return (double)ts.tv_sec+ts.tv_nsec/1000000000.0;
 }
 size_t mem_used=0,mem_max=0,mem_cur=0,mem_old=0;

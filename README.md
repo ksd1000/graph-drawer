@@ -1,4 +1,4 @@
-![logo](https://raw.githubusercontent.com/ksd1000/graph-drawer/refs/heads/main/logo.png)
+![logo](logo.png)
 
 # graph-drawer
 

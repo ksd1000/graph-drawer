@@ -139,10 +139,13 @@ double tx0=4,tx1=6;
 volatile double x0=4,x1=6;
 te_variable tvars[]={{"x0",&tx0,TE_VARIABLE,NULL},{"x1",&tx1,TE_VARIABLE,NULL}};
 struct expr_symset es[1]={EXPR_SYMSET_INITIALIZER(mtl)};
+__attribute__((noinline)) double gcc_eval_once(void){
+	return x0+5+5+5+5+3+(0.75+1.5)+7.0123456891011121314151617181920+x1;
+}
 double eval_g(unsigned int count){
 	volatile double r=0;
 	while(count--)
-		r=x0+5+5+5+5+3+(0.75+1.5)+7.0123456891011121314151617181920+x1;
+		r=gcc_eval_once();
 	mem_cur=area_size((struct expr_area *)mtl->arg);
 	return r;
 }

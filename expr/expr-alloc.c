@@ -10,7 +10,7 @@
 #define EXPR_INLIB 1
 #include "expr.h"
 
-#define HBITZ ((size_t)PTRDIFF_MIN)
+#define HBITZ ((size_t)SSIZE_MIN)
 #define UNIT_SIZE (sizeof(struct expr_zoneunit))
 #define zero_from_field(buf,type,field) memset((void *)((uintptr_t)(buf)+offsetof(type,field)),0,sizeof(type)-offsetof(type,field))
 #define zero_fromto_field(buf,type,field,endfield) memset((void *)((uintptr_t)(buf)+offsetof(type,field)),0,offsetof(type,endfield)-offsetof(type,field))
@@ -24,7 +24,7 @@
 	if((_flag)&EXPR_ASTARTADDRALIGN){\
 		uintptr_t alp;\
 		size_t dif;\
-		if(unlikely(size>(size_t)PTRDIFF_MAX)){\
+		if(unlikely(size>(size_t)SSIZE_MAX)){\
 			return -1;\
 		}\
 		alp=zalign((uintptr_t)zone,_flag);\
@@ -35,7 +35,7 @@
 		}\
 	}\
 	sizemu=size-UNIT_SIZE;\
-	if(unlikely(sizemu>((size_t)PTRDIFF_MAX-UNIT_SIZE)))\
+	if(unlikely(sizemu>((size_t)SSIZE_MAX-UNIT_SIZE)))\
 		return -1;\
 	area->data=(struct expr_zoneunit *)zone;\
 	area->data->unprev=size|HBITZ;\
@@ -68,7 +68,7 @@ void expr_area_reset_monotonic(struct expr_area *restrict area){
 }
 int expr_area_resize(struct expr_area *restrict area,size_t size){
 	size_t old_size;
-	if(unlikely(size>(size_t)PTRDIFF_MAX)){
+	if(unlikely(size>(size_t)SSIZE_MAX)){
 		return -1;
 	}
 	old_size=area->data->prev;
@@ -202,7 +202,7 @@ end:\
 })
 #define ALLOC_BODY(_flag) \
 	void *ret;\
-	if(unlikely(size>(size_t)PTRDIFF_MAX)){\
+	if(unlikely(size>(size_t)SSIZE_MAX)){\
 		monoinc(allocate_fail);\
 		return NULL;\
 	}\
@@ -266,7 +266,7 @@ void expr_area_dealloc(struct expr_area *restrict area,void *old){
 		size_t _extra;\
 	} un;\
 	size_t temp_size,temp_prev;\
-	if(unlikely(size>(size_t)PTRDIFF_MAX)){\
+	if(unlikely(size>(size_t)SSIZE_MAX)){\
 		monoinc(expand_fail);\
 		return NULL;\
 	}\

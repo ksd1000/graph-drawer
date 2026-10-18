@@ -1167,7 +1167,7 @@ reflag:
 #define argnext1 ++index;debug("arg index to %zd",index)
 #define argnext(N) index+=(ptrdiff_t)(N);debug("arg index to %zd",index)
 #define argback(N) index-=(ptrdiff_t)(N);debug("arg index back to %zd",index)
-#define goto_argfail {debug("arg failed");return PTRDIFF_MIN;}
+#define goto_argfail {debug("arg failed");return SSIZE_MIN;}
 #define argt(_type) ({register const union expr_argf *__arg;flag->type=(_type);__arg=arg(index,flag,addr);if(unlikely(!__arg)){debug("cannot get arg[%zd]",index);goto_argfail;}__arg;})
 #define arg1 argt(EXPR_FLAGTYPE_ADDR)
 #define get_next_arg64(dest,dtype,_after,_type,_field,_afield) \

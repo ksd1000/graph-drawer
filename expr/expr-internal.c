@@ -777,8 +777,8 @@ overflow:
 		++nptr;
 	}
 	*end_index=(size_t)(nptr-startp);
-	debug("overflow result:%zd",(ssize_t)(neg?PTRDIFF_MIN:PTRDIFF_MAX));
-	return (ssize_t)(neg?PTRDIFF_MIN:PTRDIFF_MAX);
+	debug("overflow result:%zd",(ssize_t)(neg?SSIZE_MIN:SSIZE_MAX));
+	return (ssize_t)(neg?SSIZE_MIN:SSIZE_MAX);
 }
 
 #define set_index(idx) {debug("set index: %zu",(size_t)(idx));if(end_index)*end_index=(idx);}
@@ -1936,7 +1936,7 @@ void expr_internal_memmove(void *dst,const void *src,size_t size){
 		,s=(uintptr_t)src
 		,de,se;
 	size_t v;
-	if(unlikely(!size||d==s||(d|s|size)>=(size_t)PTRDIFF_MAX))
+	if(unlikely(!size||d==s||(d|s|size)>=(size_t)SSIZE_MAX))
 		return;
 	de=d+size;
 	se=s+size;

@@ -18,7 +18,7 @@
 #define expr_deallocator(old) (xmtl->deallocate((old),xmtl->arg))
 #define xmtl fp->mtl
 
-#define CKPDM(v) if(unlikely((v)=PTRDIFF_MIN))fp->flag|=EXPR_BCALLBACK_PDMIN
+#define CKPDM(v) if(unlikely((v)=SSIZE_MIN))fp->flag|=EXPR_BCALLBACK_PDMIN
 
 #define reterr(V) {r=(V);goto err;}
 
@@ -116,7 +116,7 @@ size_le_c:
 		p=xrealloc(fp->buf,i);
 		if(unlikely(!p)){
 			fp->flag|=EXPR_BEMEM;
-			return PTRDIFF_MIN;
+			return SSIZE_MIN;
 		}
 		debug("buffer_size %zu -> %zu",fp->length,i);
 		fp->buf=p;
@@ -183,7 +183,7 @@ ssize_t expr_buffered_read(struct expr_buffered_file *restrict fp,void *buf,size
 		p=xrealloc(fp->buf,i);
 		if(unlikely(!p)){
 			fp->flag|=EXPR_BEMEM;
-			reterr(PTRDIFF_MIN);
+			reterr(SSIZE_MIN);
 		}
 		fp->buf=p;
 		fp->length=i;
@@ -463,7 +463,7 @@ ssize_t expr_buffered_readline(struct expr_buffered_file *restrict fp,int c,void
 		if(unlikely(in==fp->length)){
 #define leninc1 \
 			if(unlikely(fp->dynamic==in||!(p=xrealloc(fp->buf,in+1)))){\
-				return PTRDIFF_MIN;\
+				return SSIZE_MIN;\
 			}\
 			fp->buf=p;\
 			++fp->length

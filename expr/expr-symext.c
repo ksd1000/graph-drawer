@@ -270,7 +270,7 @@ ssize_t expr_symset_write_s(const struct expr_symset *restrict esp,expr_writer w
 	}
 	temp=xmalloc(align(maxlen)-EXPR_SYMBOL_EXTRA);
 	if(unlikely(!temp))
-		return PTRDIFF_MIN+1;
+		return SSIZE_MIN+1;
 	tempesp->size=le64(esp->size);
 	tempesp->maxlen=le32(maxlen);
 	try_write(tempesp,sizeof(struct expr_symset_infile));
@@ -280,11 +280,11 @@ ssize_t expr_symset_write_s(const struct expr_symset *restrict esp,expr_writer w
 	++count;
 	expr_symset_foreach4(sp,esp,stack,EXPR_SYMNEXT/2){
 		if(unlikely(sp->strlen-1>=63))
-			return PTRDIFF_MIN+3;
+			return SSIZE_MIN+3;
 		off=sp->length;
 		maxlen=off-EXPR_SYMBOL_EXTRA;
 		if(unlikely(maxlen>UINT32_MAX))
-			return PTRDIFF_MIN+3;
+			return SSIZE_MIN+3;
 		temp->length=le32(maxlen);
 		temp->strlen=(uint16_t)(sp->strlen-1);
 		temp->type=sp->type;
@@ -301,7 +301,7 @@ err2:
 	return r;
 err3:
 	xfree(temp);
-	return PTRDIFF_MIN+2;
+	return SSIZE_MIN+2;
 }
 ssize_t expr_symset_read(struct expr_symset *restrict esp,const void *buf,size_t size){
 	const struct expr_symset_infile *esi;
@@ -310,7 +310,7 @@ ssize_t expr_symset_read(struct expr_symset *restrict esp,const void *buf,size_t
 	size_t count,len;
 	ssize_t added;
 	if(size<sizeof(struct expr_symset_infile))
-		return PTRDIFF_MIN+2;
+		return SSIZE_MIN+2;
 	esi=(const struct expr_symset_infile *)buf;
 	count=le64(esi->size);
 	ebi=(const struct expr_symbol_infile *)((uintptr_t)buf+sizeof(struct expr_symset_infile));
@@ -322,11 +322,11 @@ ssize_t expr_symset_read(struct expr_symset *restrict esp,const void *buf,size_t
 		if(unlikely(ebi->length<off_sin))
 			break;
 		if(unlikely(ebi->length>=size))
-			return PTRDIFF_MIN+2;
+			return SSIZE_MIN+2;
 		len=ebi->length+EXPR_SYMBOL_EXTRA;
 		sp=xmalloc(len);
 		if(unlikely(!sp))
-			return PTRDIFF_MIN+1;
+			return SSIZE_MIN+1;
 		sp->length=len;
 		sp->strlen=(size_t)ebi->strlen+1;
 		sp->type=ebi->type;
@@ -334,7 +334,7 @@ ssize_t expr_symset_read(struct expr_symset *restrict esp,const void *buf,size_t
 		sp->saved=0;
 		memcpy(sp->str,ebi->str,ebi->length-off_sin);
 		if(unlikely(sp->str[sp->strlen]))
-			return PTRDIFF_MIN+5;
+			return SSIZE_MIN+5;
 		if(unlikely(expr_symset_insert(esp,sp)<0)){
 			xfree(sp);
 		}else {
@@ -344,7 +344,7 @@ ssize_t expr_symset_read(struct expr_symset *restrict esp,const void *buf,size_t
 		ebi=(const struct expr_symbol_infile *)((uintptr_t)ebi+ebi->length);
 		--count;
 	}
-	return unlikely((size_t)added<esi->size)?PTRDIFF_MIN+3:added;
+	return unlikely((size_t)added<esi->size)?SSIZE_MIN+3:added;
 }
 ssize_t expr_symset_readfd(struct expr_symset *restrict esp,expr_reader reader,intptr_t fd){
 	struct expr_symset_infile esi[1];
@@ -356,14 +356,14 @@ ssize_t expr_symset_readfd(struct expr_symset *restrict esp,expr_reader reader,i
 	if(unlikely(r<0))
 		return r;
 	if(unlikely((size_t)r<sizeof(struct expr_symset_infile)))
-		return PTRDIFF_MIN+2;
+		return SSIZE_MIN+2;
 	count=le64(esi->size);
 	maxlen=le32(esi->maxlen);
 	if(unlikely(maxlen<=off_sin))
-		return PTRDIFF_MIN+2;
+		return SSIZE_MIN+2;
 	ebi=xmalloc(maxlen);
 	if(unlikely(!ebi))
-		return PTRDIFF_MIN+1;
+		return SSIZE_MIN+1;
 	added=0;
 	while(count){
 		r=reader(fd,ebi,off_sin);
@@ -394,7 +394,7 @@ ssize_t expr_symset_readfd(struct expr_symset *restrict esp,expr_reader reader,i
 		sp->saved=0;
 		memcpy(sp->str,ebi->str,ebi->length+1-off_sin);
 		if(unlikely(sp->str[sp->strlen]))
-			return PTRDIFF_MIN+5;
+			return SSIZE_MIN+5;
 		if(unlikely(expr_symset_insert(esp,sp)<0)){
 			xfree(sp);
 		}else {
@@ -403,13 +403,13 @@ ssize_t expr_symset_readfd(struct expr_symset *restrict esp,expr_reader reader,i
 		--count;
 	}
 	xfree(ebi);
-	return unlikely(added<(ssize_t)esi->size)?PTRDIFF_MIN+4:added;
+	return unlikely(added<(ssize_t)esi->size)?SSIZE_MIN+4:added;
 err:
 	xfree(ebi);
-	return PTRDIFF_MIN+1;
+	return SSIZE_MIN+1;
 err2:
 	xfree(ebi);
-	return PTRDIFF_MIN+2;
+	return SSIZE_MIN+2;
 errr:
 	xfree(ebi);
 	return r;

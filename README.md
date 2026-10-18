@@ -1,5 +1,7 @@
 # graph-drawer
 
+![logo](https://raw.githubusercontent.com/ksd1000/graph-drawer/refs/heads/main/logo.png)
+
 Example:
 ```
 ./draw -o 1.bmp 'sin(t)'
@@ -26,9 +28,9 @@ compare with [zserge's expr](https://github.com/zserge/expr)
 |bitwise and/or/xor support|Cast to integer|No|Yes|
 |Number parse|Digit accumulate|Digit accumulate|Pseudo strtod|
 |Number parse speed|Fast-Medium|Fast|Slow|
-|libc required|Yes|Yes|No for core. But builtin symbols needs.|
+|libc required|Yes|Yes|No for core. But builtin symbols and frontend needs.|
 |Core arch independence|Yes|Yes|x86/arm64 for mem* and syscall|
-|Non-unix support|Untested|Untested|Yes(\*.exe in Release)|
+|Non-unix support|Untested|Untested(the author tested Yes)|Yes(\*.exe in Release)|
 |User variable defined in code|Yes|Yes|Yes|
 |User variable defined in expr|Yes(Auto)|No|Yes(value-->a/a=:value/var(a,[value]))|
 |Allow write variables in expr|Yes(=)|No|Yes(--\>,\->)|
@@ -53,12 +55,10 @@ compare with [zserge's expr](https://github.com/zserge/expr)
 |Branch and loop|No|No|Yes|
 |Syscall support|No|No|Yes|
 |AST|Yes|Yes|No|
-|Project type|standalone library|standalone library|bundled library for graph-drawer|
+|Project type|standalone library|standalone library|backend library of graph-drawer|
 |Bugfix speed|Unactive|Fast|Slow|
 |Code readability|Clear|Clear|Chaos|
+|Build system|make|make|cmake|
+|Start date|07-08-2016|01-21-2016|02-19-2024|
 |Popularity|Medium|High|Low|
 |License|MIT|Zlib|GPL v3+|
-
-
-
-For older versions of this project, see [xgraph](https://github.com/ksd1000/xgraph) and [xgraph-front](https://github.com/ksd1000/xgraph-front)

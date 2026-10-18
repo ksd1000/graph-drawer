@@ -230,7 +230,7 @@ int main(int argc,char **argv){
 	test_eval(tp,te_compile(expression,tvars,2,&err),te_free(tp),eval_t(tp,count),"tinyexpr");
 	test_eval(ep,expr_new4_r(expression,NULL,es,EXPR_INOOPTIMIZE|EXPR_INOSHRINK,mtl),expr_free(ep),eval(ep,count,EXPR_INOOPTIMIZE|EXPR_INOSHRINK),"expr(no optimize)");
 	test_eval(ep,expr_new4_r(expression,NULL,es,0,mtl),expr_free(ep),eval(ep,count,0),"expr(optimized)");
-	test_eval(ezp,(void *)1,,eval_g(count),"gcc");
+	test_eval(ezp,(void *)1,,eval_g(count),"gcc/clang");
 
 
 	count=500000;

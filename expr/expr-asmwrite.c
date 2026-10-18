@@ -24,7 +24,7 @@ ssize_t asmwrite_copy(uintptr_t buf,uintptr_t endptr,void *dst,const void *src){
 }
 #else
 #define ASMWRITE_INVAILDARCH 1
-#pragma warning "current arch is not supported by expr_asmwrite"
+#pragma message("current arch is not supported by expr_asmwrite")
 ssize_t expr_asmwrite(const struct expr *restrict ep,void *outbuf,size_t size){
 	(void)ep;
 	(void)outbuf;

@@ -6323,6 +6323,17 @@ again:
 int expr_recursive(struct expr *restrict ep,expr_recursive_callback callback,void *arg){
 	struct expr_inst *ip;
 	int r=0,r0;
+	for(struct expr_resource *rp=ep->res;rp;rp=rp->next){
+		if(!rp->un.uaddr)
+			continue;
+		switch(rp->type){
+			case EXPR_HOTFUNCTION:
+				do_recur(rp->un.ep);
+				break;
+			default:
+				break;
+		}
+	}
 	for(ip=ep->data;;++ip){
 		switch(ip->op){
 			case EXPR_END:
@@ -6361,17 +6372,6 @@ int expr_recursive(struct expr *restrict ep,expr_recursive_callback callback,voi
 					do_recur(ip->un.eh->eps+i);
 				}
 				do_recur(ip->un.eh->hotfunc);
-				break;
-			default:
-				break;
-		}
-	}
-	for(struct expr_resource *rp=ep->res;rp;rp=rp->next){
-		if(!rp->un.uaddr)
-			continue;
-		switch(rp->type){
-			case EXPR_HOTFUNCTION:
-				do_recur(rp->un.ep);
 				break;
 			default:
 				break;

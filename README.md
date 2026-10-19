@@ -2,14 +2,16 @@
 
 # Graph Drawer
 
-This is a product able to parse expresions and generate image and audio, with two backend libraries, an expression evaluator and a graph drawing library.
+This is a product able to parse expressions and generate image and audio, with two backend libraries, an expression evaluator and a graph drawing library.
 
 ## Expression Evaluator: libexpr,libexpr-lc
 
 The libexpr is freestanding library able to parse and eval the input expression and return the result to the caller, without libc.
-The libexpr-lc provides the constants the standard libc functions such as e,pi,sin(),exp(), but libc is required by libexpr-lc.
+The libexpr-lc provides the constants such as e,pi and the standard libc functions such as sin(),exp(), but libc is required by libexpr-lc.
 - Can add custom variable,constant and function.
 - Can use custom memory allocator.
+- MT-safe if a struct expr object is for only a thread and the memory allocator is MT-safe.
+- Reuseable if the memory allocator is.
 
 Suitable for:
 - Parse expression once with eval many times.
@@ -29,7 +31,13 @@ The libgraph is able to generate the image of a function . But it supports only 
 ```
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cd build
-make or ninja
+make
+```
+or
+```
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cd build
+ninja
 ```
 
 ## Example
@@ -96,9 +104,14 @@ int main(void){
 	return EXIT_SUCCESS;
 }
 ```
+compile command (assuming the code is written to example.c in the build path):
+```
+gcc example.c -I ../graph-drawer/expr expr/libexpr.a -o example -Wall -Wextra
+```
 
 ## Speed
 720%-2870% slower than native C.
+Tested by fun/compare.c
 
 ## Compare with other expr libs
 

@@ -4285,7 +4285,7 @@ struct expr_symbol *expr_symbol_vcreatel_r(const char *sym,size_t symlen,int typ
 	char *p1;
 	if(unlikely(!symlen))
 		return NULL;
-	len=sizeof(struct expr_symbol)+symlen+1;
+	len=align(sizeof(struct expr_symbol)+symlen+1);
 	switch(type){
 		case EXPR_CONSTANT:
 		case EXPR_VARIABLE:
@@ -4295,7 +4295,7 @@ struct expr_symbol *expr_symbol_vcreatel_r(const char *sym,size_t symlen,int typ
 			break;
 		case EXPR_MDFUNCTION:
 		case EXPR_MDEPFUNCTION:
-			len+=sizeof(union expr_symvalue)+sizeof(size_t);
+			len+=align(sizeof(union expr_symvalue))+sizeof(size_t);
 			break;
 		case EXPR_HOTFUNCTION:
 		case EXPR_ALIAS:

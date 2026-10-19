@@ -10,12 +10,14 @@ The libexpr is freestanding library able to parse and eval the input expression 
 The libexpr-lc provides the constants the standard libc functions such as e,pi,sin(),exp(), but libc is required by libexpr-lc.
 - Can add custom variable,constant and function.
 - Can use custom memory allocator.
+
 Suitable for:
 - Parse expression once with eval many times.
 - Requires branch and loop in expression.
+
 Not suitable for:
 - Parse simple expression once with eval only several times.
-The expression evaluator behaves worse than [tinyexpr](https://github.com/codeplea/tinyexpr/blob/master/README.md) in the cases like this. See the below.
+- The expression evaluator behaves worse than [tinyexpr](https://github.com/codeplea/tinyexpr/blob/master/README.md) in the cases like this. See the below.
 
 
 ## Graph drawing library: libgraph

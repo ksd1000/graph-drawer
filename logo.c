@@ -125,7 +125,7 @@ int main(void){
 	graph_draw_text_pixel(gp,0xffff0000,0,"Graph",4 RESIZE,320 RESIZE,96 RESIZE,392 RESIZE);
 	graph_draw_text_pixel(gp,0xff2020ff,0,"Drawer",4 RESIZE,320 RESIZE,288 RESIZE,64 RESIZE);
 	graph_draw_text_pixel(gp,0xff007f00,0,"Expression-to-image-and-audio converter",4 RESIZE,72 RESIZE,12 RESIZE,16 RESIZE);
-	graph_draw_box_pixel(gp,0xffffffff,0,1,1,gp->width-1,gp->height-1);
+	graph_draw_box_pixel(gp,0xffffffff,0,0,0,gp->width-1,gp->height-1);
 	tofd=open("logo.bmp",O_WRONLY_CREAT);
 	// the logo.png is converted by imagemagick.
 	assert(!fderr(tofd));

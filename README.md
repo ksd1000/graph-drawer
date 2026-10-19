@@ -17,7 +17,7 @@ Suitable for:
 
 Not suitable for:
 - Parse simple expression once with eval only several times.
-- The expression evaluator behaves worse than [tinyexpr](https://github.com/codeplea/tinyexpr/blob/master/README.md) in the cases like this. See the below.
+- The expression evaluator behaves worse than [tinyexpr](https://github.com/codeplea/tinyexpr) in the cases like this. See the below.
 
 
 ## Graph drawing library: libgraph

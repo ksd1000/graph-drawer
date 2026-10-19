@@ -67,6 +67,8 @@ static int shouldconnect(const struct graph *restrict gp,int32_t x1,int32_t y1,i
 }
 #define xtop(x) ((int32_t)(((x)-gp->minx)/(gp->maxx-gp->minx)*gp->width))
 #define ytop(y) ((int32_t)(((y)-gp->miny)/(gp->maxy-gp->miny)*gp->height))
+#define ptox(p) ((double)(p)/(double)gp->width*(gp->maxx-gp->minx)+gp->minx)
+#define ptoy(p) ((double)(p)/(double)gp->height*(gp->maxy-gp->miny)+gp->miny)
 #define inrange(x,y) ((x)>=0&&(x)<gp->width&&(y)>=0&&(y)<gp->height)
 #define setpixel(px,py)\
 	bm_setpixel6(gp->buf,gp->bpp,gp->byte_width,px,py,color)
@@ -186,6 +188,28 @@ void graph_fill6(struct graph *restrict gp,uint32_t color,int32_t x1,int32_t y1,
 	for(;y1<y2;++y1){
 		for(;x1<x2;++x1){
 			setpixel(x1,y1);
+		}
+	}
+}
+void graph_fill_test_pixel(struct graph *restrict gp,int (*test)(int32_t x,int32_t y,uint32_t *color,void *arg),void *arg){
+	uint32_t color;
+	int32_t x,y;
+	for(y=0;y<gp->height;++y){
+		for(x=0;x<gp->width;++x){
+			if(test(x,y,&color,arg)){
+				setpixel(x,y);
+			}
+		}
+	}
+}
+void graph_fill_test(struct graph *restrict gp,int (*test)(double x,double y,uint32_t *color,void *arg),void *arg){
+	uint32_t color;
+	int32_t x,y;
+	for(y=0;y<gp->height;++y){
+		for(x=0;x<gp->width;++x){
+			if(test(ptox(x),ptoy(y),&color,arg)){
+				setpixel(x,y);
+			}
 		}
 	}
 }
@@ -641,6 +665,20 @@ int graph_connect(struct graph *restrict gp,uint32_t color,int32_t bold,double x
 	//printf("at %d,%d,%d,%d\n",xtop(x1),ytop(y1),xtop(x2),ytop(y2));
 	if(xisnan(&x1)||xisnan(&y1)||xisnan(&x2)||xisnan(&y2))return -1;
 	return graph_connect_pixel(gp,color,bold,xtop(x1),ytop(y1),xtop(x2),ytop(y2));
+}
+int graph_draw_box_pixel(struct graph *restrict gp,uint32_t color,int32_t bold,int32_t x1,int32_t y1,int32_t x2,int32_t y2){
+#define box_try_connect(x1,y1,x2,y2) \
+	if(graph_connect_pixel(gp,color,bold,x1,y1,x2,y2)<0)\
+		return -1
+	box_try_connect(x1,y1,x2,y1);
+	box_try_connect(x2,y1,x2,y2);
+	box_try_connect(x2,y2,x1,y2);
+	box_try_connect(x1,y2,x1,y1);
+	return 0;
+}
+int graph_draw_box(struct graph *restrict gp,uint32_t color,int32_t bold,double x1,double y1,double x2,double y2){
+	if(xisnan(&x1)||xisnan(&y1)||xisnan(&x2)||xisnan(&y2))return -1;
+	return graph_draw_box_pixel(gp,color,bold,xtop(x1),ytop(y1),xtop(x2),ytop(y2));
 }
 #define DRAWXVAL if(gp->draw_value){\
 	snprintf(vb,16,"%.5lg",v);\

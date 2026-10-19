@@ -5,6 +5,9 @@
 #include <assert.h>
 #include <time.h>
 #include <assert.h>
+#include <float.h>
+#include <math.h>
+#include <x86intrin.h>
 #include "graph.h"
 #ifdef __unix__
 #define REAL_UNIX
@@ -34,12 +37,15 @@ struct expr_memtool mtl[1];
 
 const char *expression="x0+(5+5+5+5+3+(0.75+1.5))+7.0123456891011121314151617181920+x1";
 //tinyexpr does not allow bitwise and/or.
-
+/*
 double dtime(void){
-	struct timespec ts;
-	clock_gettime(CLOCK_THREAD_CPUTIME_ID,&ts);
-	return (double)ts.tv_sec+ts.tv_nsec/1000000000.0;
+	return (double)__rdtsc();
+//	struct timespec ts;
+//	clock_gettime(CLOCK_THREAD_CPUTIME_ID,&ts);
+//	return (double)ts.tv_sec+ts.tv_nsec/1000000000.0;
 }
+*/
+#define dtime __rdtsc
 double tx0=4,tx1=6;
 volatile double x0=4,x1=6;
 te_variable tvars[]={{"x0",&tx0,TE_VARIABLE,NULL},{"x1",&tx1,TE_VARIABLE,NULL}};
@@ -85,7 +91,7 @@ void draw_curve(double max_time){
 	volatile double current;
 	int32_t l=0;
 	int32_t y0;
-	assert(!init_graph(gp,1280,720,32,-1,MAX_TIMES+0.5,-64,max_time+0.5));
+	assert(!init_graph(gp,1280,720,32,-1,MAX_TIMES+0.5,-max_time/16,max_time+0.5));
 	graph_fill(gp,0x7fffffff);
 	gp->connect=0;
 	graph_draw_grid(gp,0xffbfbfbf,0,MAX_TIMES/16,max_time/8);
@@ -99,7 +105,7 @@ void draw_curve(double max_time){
 //	graph_draw(gp,0xffff0000,FBOLD,evalx,evaly,NULL,cost.expn,0,MAX_TIMES,0.125,&current);
 //	l+=graph_draw_text_pixel(gp,0xffff0000,0,"gdexpr(NO)",4,48,l,y0)+32;
 	graph_draw_text_pixel(gp,0xff000000,0,"eval times",4,32,1024,y0);
-	graph_draw_text_pixel(gp,0xff000000,0,"time cost(ms)",4,32,48,680);
+	graph_draw_text_pixel(gp,0xff000000,0,"time cost(cyc)",4,32,48,680);
 	graph_draw_text_pixel(gp,0xff007f00,0,expression,4,32,48,600);
 //	graph_draw_text_pixel(gp,0xff2020ff,0,"Drawer",4,320,288,64);
 //	graph_draw_text_pixel(gp,0xff007f00,0,"Expression-to-image-and-audio converter",4,72,12,16);
@@ -111,11 +117,19 @@ void draw_curve(double max_time){
 	close(tofd);
 	graph_free(gp);
 }
-#define rct for(ct=0.0,st=dtime();ct==0.0;ct=dtime())
+#define AMPL 8192
+#define rct for(ct=0,st=dtime();ct==0;ct=dtime())
+static int double_compar(const double *restrict x,const double *restrict y){
+	return *x==*y?0:(*x<*y?-1:1);
+}
+void double_sortq(double *restrict v,size_t n){
+	qsort((void *)v,n,sizeof(double),(int (*)(const void *,const void *))double_compar);
+}
+double dbuf[AMPL];
 int main(int argc,char **argv){
-	unsigned int count=8192;
-	double ct,st,tt,et/*,ent*/;
-	double max_time=0.0;
+	unsigned int count=AMPL;
+	uint64_t ct,st;
+	double max_time=0.0,tmp,tt,et;
 	if(argc>1)
 		expression=argv[1];
 	assert(!expr_setup_heapmtl4(mtl,internal_heap,sizeof(internal_heap),EXPR_ADEFAULT));
@@ -123,8 +137,12 @@ int main(int argc,char **argv){
 	assert(expr_symset_add(es,"x1",EXPR_VARIABLE,0,&x1));
 
 #define test_ief(func,tdest) \
-	rct for(unsigned int i=0;i<count;++i)(func);\
-	tdest=(ct-st)*1000.0
+	tdest=0.0;\
+	for(unsigned int i=0;i<count;++i){\
+		rct(func);\
+		tdest+=(double)(ct-st);\
+	}\
+	tdest/=count;
 #define test_once(times)\
 		test_ief(eval_t(NULL,times),tt);\
 		test_ief(eval(NULL,times,EXPR_ISCANCACHE),et)
@@ -133,16 +151,16 @@ int main(int argc,char **argv){
 	test_once(1);
 	for(unsigned int times=0;times<=MAX_TIMES;++times){
 		test_once(times);
-		cost.tiny[times]=tt;
-		cost.expr[times]=et;
-//		cost.expn[times]=ent;
+		cost.tiny[times]=(double)tt;
+		cost.expr[times]=(double)et;
+//		cost.expn[times]=(double)ent;
 //		printf("times=%-6u,t=%-8.2lfms %-2s e=%-8.2lfms %-2s en=%-8.2lfms\n",times,tt,tt<et?"<":">",et,et<ent?"<":">",ent);
-		printf("times=%-6u,t=%-8.2lfms %-2s e=%-8.2lfms\n",times,tt,tt<et?"<":">",et);
+		printf("times=%-6u,t=%-8.2lfcyc %-2s e=%-8.2lfcyc\n",times,tt,tt<et?"<":">",et);
 	}
 	for(unsigned int i=0;i<=(MAX_TIMES+1)*2;++i){
-		ct=((double *)&cost)[i];
-		if(ct>max_time)
-			max_time=ct;
+		tmp=((double *)&cost)[i];
+		if(tmp>max_time)
+			max_time=tmp;
 	}
 		printf("max_time=%.2lf\n",max_time);
 	expr_symset_free(es);

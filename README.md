@@ -28,7 +28,7 @@ Not suitable for:
 
 ![curve](curve.png)
 
-*Test on x86 powersave mode(reduce the CPU heating which may affect thr result).*
+*Test on x86 powersave mode(reduce the CPU heating which may affect the result).*
 
 The library can also be used like a **standalone library**, without building the libgraph and frontend. By the command:
 ```

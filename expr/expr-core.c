@@ -4438,7 +4438,9 @@ static int expr_init8(struct expr *restrict ep,const char *e,size_t len,const ch
 	ep->parent=(struct expr *)parent;
 	ep->mtl=mtl;
 	ep->iflag=flag&~EXPR_IEXTEND_MASK;
-	if(ep->iflag&EXPR_IDETACHSYMSET){
+	if((flag&EXPR_IABSORBSYMSET)&&esp){
+		ep->sset_shouldfree=1;
+	}else if(flag&EXPR_IDETACHSYMSET){
 		cknp(ep,expr_detach(ep)>=0,return -1);
 	}
 	p0=xmalloc(len+1);

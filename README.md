@@ -1,8 +1,36 @@
 ![logo](logo.png)
 
-# graph-drawer
+# Graph Drawer
 
-Example:
+This is a product able to parse expresions and generate image and audio, with two backend libraries, an expression evaluator and a graph drawing library.
+
+## Expression Evaluator: libexpr,libexpr-lc
+
+The libexpr is freestanding library able to parse and eval the input expression and return the result to the caller, without libc.
+The libexpr-lc provides the constants the standard libc functions such as e,pi,sin(),exp(), but libc is required by libexpr-lc.
+- Can add custom variable,constant and function.
+- Can use custom memory allocator.
+Suitable for:
+- Parse expression once with eval many times.
+- Requires branch and loop in expression.
+Not suitable for:
+- Parse simple expression once with eval only several times.
+The expression evaluator behaves worse than [tinyexpr](https://github.com/codeplea/tinyexpr/blob/master/README.md) in the cases like this. See the below.
+
+
+## Graph drawing library: libgraph
+
+The libgraph is able to generate the image of a function . But it supports only .bmp format now. libc is required by libgraph.
+
+## Build guide
+
+```
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cd build
+make or ninja
+```
+
+## Example
 
 draw a graph of sin(t) to 1.bmp:
 ```
@@ -36,11 +64,41 @@ int main(void){
 	return EXIT_SUCCESS;
 }
 ```
+
+Add custom variable and function:
+```C
+#define _GNU_SOURCE
+#include <stdio.h>
+#include <stdlib.h>
+#include <assert.h>
+#include "expr.h"
+expr_globals_define();
+double mul3add1(double x){
+	return x*3.0+1.0;
+}
+int main(void){
+	struct expr *ep;
+	struct expr_symset *esp;
+	volatile double x0=4.0;
+	esp=expr_symset_new();
+	assert(esp);
+	assert(expr_symset_add(esp,"x0",EXPR_VARIABLE,0,&x0));
+	assert(expr_symset_add(esp,"f",EXPR_FUNCTION,0,mul3add1));
+	ep=expr_new4("t+1+x0+f(x0)","t",esp,0);
+	assert(ep);
+	printf("x0=%lf,result:%lf\n",x0,expr_eval(ep,2.0));
+	x0=2.0;
+	printf("x0=%lf,result:%lf\n",x0,expr_eval(ep,2.0));
+	expr_free(ep);
+	expr_symset_free(esp);
+	return EXIT_SUCCESS;
+}
+```
+
 ## Speed
 720%-2870% slower than native C.
 
 ## Compare with other expr libs
-compare with [zserge's expr](https://github.com/zserge/expr)
 
 ||zserge expr|tinyexpr|graph-drawer expr|
 |:---:|:---:|:---:|:---:|
@@ -50,6 +108,7 @@ compare with [zserge's expr](https://github.com/zserge/expr)
 |bitwise and/or/xor support|Cast to integer|No|Yes|
 |Number parse|Digit accumulate|Digit accumulate|Pseudo strtod|
 |Number parse speed|Fast-Medium|Fast|Slow|
+|Number parse cache|No|No|Yes(but still slower than other two)|
 |libc required|Yes|Yes|No for core. But builtin symbols and frontend needs.|
 |Core arch independence|Yes|Yes|x86/arm64 for mem* and syscall|
 |Non-unix support|Untested|Untested(the author tested Yes)|Yes(\*.exe in Release)|
@@ -82,5 +141,6 @@ compare with [zserge's expr](https://github.com/zserge/expr)
 |Code readability|Clear|Clear|Chaos|
 |Build system|make|make|cmake|
 |Start date|07-08-2016|01-21-2016|02-19-2024|
+|Amount of API functions|4|4|\>180|
 |Popularity|Medium|High|Low|
 |License|MIT|Zlib|GPL v3+|

@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.13)
 project(graph-drawer C)
+include(CTest)
 if(NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE Release)
 	set(CBT_ISDEF " (default)")
@@ -27,6 +28,7 @@ if(FUN)
 endif()
 link_libraries(expr-lc expr)
 if(ASAN)
+	add_compile_options(-fsanitize=address,undefined)
 	add_link_options(-fsanitize=address,undefined)
 endif()
 include_directories(graph)
@@ -60,3 +62,7 @@ add_executable(calc calc.c)
 target_link_libraries(calc common_symbols)
 
 file(COPY echo.calc ping.calc uniq.calc DESTINATION ${PROJECT_BINARY_DIR})
+
+#enable_testing()
+#add_test(NAME expr-check COMMAND expr-check)
+

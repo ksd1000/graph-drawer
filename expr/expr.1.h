@@ -1068,6 +1068,7 @@ struct expr_inst {
 		void **uaddr2;
 		expr_t value;
 		double dvalue;
+		intptr_t pvalue;
 		size_t zu;
 		struct expr *hotfunc;
 		struct expr **hotfunc2;

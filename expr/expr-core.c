@@ -4390,7 +4390,18 @@ struct expr *expr_new_const_r(expr_t val,const struct expr_memtool *restrict mtl
 	return r;
 }
 static size_t expr_varofep(const struct expr *restrict ep,expr_t *v);
-static int expr_vcheck_ep(struct expr *restrict ep,struct expr_inst *ip,expr_t *v);
+//static int expr_vcheck_ep(struct expr *restrict ep,struct expr_inst *ip,expr_t *v);
+static int expr_find_recursive_callback(struct expr *restrict ep,void *arg){
+	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
+		if(unlikely(ip->op==EXPR_CONST&&(ip->flag&EXPR_SPURE)&&ip->un.uaddr==arg)){
+			return -1;
+		}
+		if(unlikely(ip->dst.uaddr==arg||ip->un.uaddr==arg)){
+			return -1;
+		}
+	}
+	return 0;
+}
 static int expr_remove_unused_vars(struct expr *restrict ep,const struct expr_memtool *restrict mtl){
 	expr_t **p=ep->vars;
 	expr_t **cp=ep->vars;
@@ -4400,7 +4411,7 @@ static int expr_remove_unused_vars(struct expr *restrict ep,const struct expr_me
 
 		if(!expr_varofep(ep,*p))
 			continue;
-		if(!expr_vcheck_ep(ep,ep->data,*p)){
+		if(!expr_recursive(ep,expr_find_recursive_callback,*p)){
 			xfree(*p);
 			++r;
 			continue;
@@ -6350,6 +6361,17 @@ int expr_recursive(struct expr *restrict ep,expr_recursive_callback callback,voi
 					do_recur(ip->un.eh->eps+i);
 				}
 				do_recur(ip->un.eh->hotfunc);
+				break;
+			default:
+				break;
+		}
+	}
+	for(struct expr_resource *rp=ep->res;rp;rp=rp->next){
+		if(!rp->un.uaddr)
+			continue;
+		switch(rp->type){
+			case EXPR_HOTFUNCTION:
+				do_recur(rp->un.ep);
 				break;
 			default:
 				break;

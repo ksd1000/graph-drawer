@@ -150,13 +150,13 @@ ab:
 }
 void check(const char *e,double expect){
 	double r;
-	struct expr ep[1];
+//	struct expr ep[1];
 	//static int k=0;if(k++==39)exit(0);
 	printf("checking %s --- expect %lg",e,expect);
-	if(expr_init(ep,e,"t",es,EXPR_IINSTANT_FREE)<0){
-		printf("\nerror! %s:%s\n",expr_error(ep->error),ep->errinfo);
-		goto ab;
-	}
+//	if(expr_init(ep,e,"t",es,EXPR_IINSTANT_FREE)<0){
+//		printf("\nerror! %s:%s\n",expr_error(ep->error),ep->errinfo);
+//		goto ab;
+//	}
 	//exit(0);
 	r=expr_calc5(e,NULL,NULL,es,EXPR_INOOPTIMIZE);
 	if(memcmp(&r,&expect,sizeof(double))){

@@ -92,19 +92,19 @@ double evalfishx_rev(double input,void *arg){
 	double x=*(double *)arg,z=0.0;
 	return x+1.5-evalfishx(input,&z);
 }
+#define FBOLD 0
+#define RATIO 3.875
+#define RESIZE *3/4
 void graph_draw_fish(struct graph *restrict gp,uint32_t color,int32_t bold,double x,double y,int reverse){
 	volatile double current;
 	if(reverse){
-		graph_draw(gp,color,bold,evalfishx_rev,evalfish,&x,&y,0,10.0,8.0/1280.0,&current);
+		graph_draw(gp,color,bold,evalfishx_rev,evalfish,&x,&y,0,10.0,RATIO/640.0,&current);
 		graph_draw_point(gp,color,bold+5,x+1.25,y-0.04);
 	}else {
-		graph_draw(gp,color,bold,evalfishx,evalfish,&x,&y,0,10.0,8.0/1280.0,&current);
+		graph_draw(gp,color,bold,evalfishx,evalfish,&x,&y,0,10.0,RATIO/640.0,&current);
 		graph_draw_point(gp,color,bold+5,x+0.25,y-0.04);
 	}
 }
-#define FBOLD 0
-#define RATIO 4.0
-#define RESIZE *3/4
 int main(void){
 	struct graph gp[1];
 	intptr_t tofd;
@@ -114,11 +114,11 @@ int main(void){
 	gp->draw_value=0;
 	graph_draw_grid(gp,0xffbfbfbf,0,1.0,1.0);
 	graph_draw_axis(gp,0xff000000,0,1.0,1.0,8);
-	graph_draw(gp,0xff00ffff,FBOLD,evalx,evalsin,NULL,NULL,-4,4.25,8.0/1280.0,&current);
-	graph_draw(gp,0xff00ff00,FBOLD,evalx,evalexp,NULL,NULL,-4,4.25,8.0/1280.0,&current);
-	graph_draw(gp,0xffff7f00,FBOLD,evalx,evallog,NULL,NULL,-4,4.25,8.0/1280.0,&current);
-	graph_draw(gp,0xff7fff00,FBOLD,evalx,evalsqrt,NULL,NULL,-4,4.25,8.0/1280.0,&current);
-	graph_draw(gp,0xff00ff7f,FBOLD,evalx,evalcosh,NULL,NULL,-4,4.25,8.0/1280.0,&current);
+	graph_draw(gp,0xff00ffff,FBOLD,evalx,evalsin,NULL,NULL,-RATIO,RATIO+0.0625,RATIO/640.0,&current);
+	graph_draw(gp,0xff00ff00,FBOLD,evalx,evalexp,NULL,NULL,-RATIO,RATIO+0.0625,RATIO/640.0,&current);
+	graph_draw(gp,0xffff7f00,FBOLD,evalx,evallog,NULL,NULL,-RATIO,RATIO+0.0625,RATIO/640.0,&current);
+	graph_draw(gp,0xff7fff00,FBOLD,evalx,evalsqrt,NULL,NULL,-RATIO,RATIO+0.0625,RATIO/640.0,&current);
+	graph_draw(gp,0xff00ff7f,FBOLD,evalx,evalcosh,NULL,NULL,-RATIO,RATIO+0.0625,RATIO/640.0,&current);
 	gp->connect=0;
 	graph_draw_fish(gp,0xff87cefa,FBOLD+1,2.0,1.5,0);
 	graph_draw_fish(gp,0xff9400d3,FBOLD+1,-3.75,-1.0,1);

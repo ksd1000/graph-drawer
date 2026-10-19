@@ -20,7 +20,7 @@
 void graph_draw_boxedtext(struct graph *restrict gp,uint32_t color,int32_t bold,const char *text,int32_t x,int32_t y){
 	int32_t l;
 	l=graph_draw_text_pixel(gp,color,bold,text,4 RESIZE,80 RESIZE,x+60 RESIZE,y+12 RESIZE);
-	graph_draw_box_pixel(gp,color,0,x,y,x+l,y+96 RESIZE);
+	graph_draw_box_pixel(gp,color,0,x,y,x+l+100 RESIZE,y+96 RESIZE);
 }
 int main(void){
 	struct graph gp[1];

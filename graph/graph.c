@@ -135,11 +135,12 @@ end:
 	return width;
 }
 int32_t graph_draw_text_pixel(struct graph *restrict gp,uint32_t color,int32_t bold,const char *s,int32_t gap,int32_t height,int32_t x,int32_t y){
+	int32_t x0=x;
 	if(!*s)return x;
 	for(;*s;++s){
 		x+=graph_drawchar(gp,color,bold,*s,height,x,y,0)+gap;
 	}
-	return x-gap;
+	return x-x0-gap;
 }
 int32_t graph_textlen(struct graph *restrict gp,const char *s,int32_t gap,int32_t height){
 	int32_t x=0;
@@ -165,6 +166,12 @@ int32_t graph_ytop(const struct graph *restrict gp,double y){
 	if(xisnan(&y))
 		return INT32_MAX;
 	return ytop(y);
+}
+double graph_ptox(const struct graph *restrict gp,int32_t p){
+	return ptox(p);
+}
+double graph_ptoy(const struct graph *restrict gp,int32_t p){
+	return ptoy(p);
 }
 #define CORRECT(V,_fld) \
 	if(V<0)\

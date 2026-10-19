@@ -24,7 +24,7 @@ Suitable for:
 
 Not suitable for:
 - Parse simple expression once with eval only several times.
-- The expression evaluator behaves worse than [tinyexpr](https://github.com/codeplea/tinyexpr) in the cases like this. See the below.
+- The expression evaluator behaves worse(and may be forever worse) than [tinyexpr](https://github.com/codeplea/tinyexpr) in the cases like this. See the below.
 
 The library can also be used like a **standalone library**, without building the libgraph and frontend. By the command:
 ```
@@ -166,7 +166,7 @@ Tested by fun/compare.c
 ||zserge expr|tinyexpr|graph-drawer expr|
 |:---:|:---:|:---:|:---:|
 |Data type|float|double|double|
-|Data type of expression|struct expr|te\_expr|struct expr|
+|Expression object type|struct expr|te\_expr|struct expr|
 |Initialize speed|Medium 2.3x|Fast 7.8x|Slow 1.0x|
 |Memory cost|Medium 2.3x|Low 1.0x|High 41.7x|
 |bitwise and/or/xor support|Cast to integer|No|Yes|

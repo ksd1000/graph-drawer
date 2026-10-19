@@ -26,6 +26,10 @@ Not suitable for:
 - Parse simple expression once with eval only several times.
 - The expression evaluator behaves worse(and may be forever worse) than [tinyexpr](https://github.com/codeplea/tinyexpr) in the cases like this. See the below.
 
+![curve](curve.png)
+
+*Test on x86 powersave mode(reduce the CPU heating which may affect thr result).*
+
 The library can also be used like a **standalone library**, without building the libgraph and frontend. By the command:
 ```
 cd expr

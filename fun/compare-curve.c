@@ -30,7 +30,7 @@ struct expr_memtool mtl[1];
 //and https://raw.githubusercontent.com/codeplea/tinyexpr/refs/heads/master/tinyexpr.c
 //patch the malloc by include
 
-//compile command: gcc -I ../expr -I ../../tinyexpr compare-curve.c -lm -Wall -Wextra -o compare-curve ../expr/expr-core.c ../expr/expr-internal.c ../expr/expr-alloc.c -O3
+//compile command: gcc -I ../tinyexpr -I ../graph-drawer -I ../graph-drawer/expr -I ../graph-drawer/graph ../graph-drawer/fun/compare-curve.c expr/libexpr.a graph/libgraph.a -lm -o compare-curve -Wall -Wextra -O3
 
 const char *expression="x0+(5+5+5+5+3+(0.75+1.5))+7.0123456891011121314151617181920+x1";
 //tinyexpr does not allow bitwise and/or.
@@ -63,7 +63,7 @@ double eval(struct expr *ep,unsigned int count,int flag){
 	expr_free(ep);
 	return r;
 }
-#define MAX_TIMES 800
+#define MAX_TIMES 1600
 struct {
 	double tiny[MAX_TIMES+1];
 	double expr[MAX_TIMES+1];
@@ -85,7 +85,7 @@ void draw_curve(double max_time){
 	volatile double current;
 	int32_t l=0;
 	int32_t y0;
-	assert(!init_graph(gp,1280,720,32,-1,MAX_TIMES+0.5,-4,max_time+0.5));
+	assert(!init_graph(gp,1280,720,32,-1,MAX_TIMES+0.5,-64,max_time+0.5));
 	graph_fill(gp,0x7fffffff);
 	gp->connect=0;
 	graph_draw_grid(gp,0xffbfbfbf,0,MAX_TIMES/16,max_time/8);
@@ -96,11 +96,11 @@ void draw_curve(double max_time){
 	l+=graph_draw_text_pixel(gp,0xff0000ff,0,"tinyexpr",4,48,l,y0)+32;
 	graph_draw(gp,0xff00ff00,FBOLD,evalx,evaly,NULL,cost.expr,0,MAX_TIMES,0.125,&current);
 	l+=graph_draw_text_pixel(gp,0xff00ff00,0,"gdexpr",4,48,l,y0)+32;
-	graph_draw(gp,0xffff0000,FBOLD,evalx,evaly,NULL,cost.expn,0,MAX_TIMES,0.125,&current);
-	l+=graph_draw_text_pixel(gp,0xffff0000,0,"gdexpr(NO)",4,48,l,y0)+32;
-	graph_draw_text_pixel(gp,0xff000000,0,"eval times",4,32,1024,64);
-	graph_draw_text_pixel(gp,0xff000000,0,"time cost(ms)",4,32,128,680);
-	graph_draw_text_pixel(gp,0xff007f00,0,expression,4,32,128,600);
+//	graph_draw(gp,0xffff0000,FBOLD,evalx,evaly,NULL,cost.expn,0,MAX_TIMES,0.125,&current);
+//	l+=graph_draw_text_pixel(gp,0xffff0000,0,"gdexpr(NO)",4,48,l,y0)+32;
+	graph_draw_text_pixel(gp,0xff000000,0,"eval times",4,32,1024,y0);
+	graph_draw_text_pixel(gp,0xff000000,0,"time cost(ms)",4,32,48,680);
+	graph_draw_text_pixel(gp,0xff007f00,0,expression,4,32,48,600);
 //	graph_draw_text_pixel(gp,0xff2020ff,0,"Drawer",4,320,288,64);
 //	graph_draw_text_pixel(gp,0xff007f00,0,"Expression-to-image-and-audio converter",4,72,12,16);
 	graph_draw_box_pixel(gp,0xffffffff,0,0,0,gp->width-1,gp->height-1);
@@ -113,8 +113,8 @@ void draw_curve(double max_time){
 }
 #define rct for(ct=0.0,st=dtime();ct==0.0;ct=dtime())
 int main(int argc,char **argv){
-	unsigned int count=4096;
-	double ct,st,tt,et,ent;
+	unsigned int count=8192;
+	double ct,st,tt,et/*,ent*/;
 	double max_time=0.0;
 	if(argc>1)
 		expression=argv[1];
@@ -127,18 +127,19 @@ int main(int argc,char **argv){
 	tdest=(ct-st)*1000.0
 #define test_once(times)\
 		test_ief(eval_t(NULL,times),tt);\
-		test_ief(eval(NULL,times,EXPR_ISCANCACHE),et);\
-		test_ief(eval(NULL,times,EXPR_INOOPTIMIZE|EXPR_INOSHRINK|EXPR_ISCANCACHE),ent)
+		test_ief(eval(NULL,times,EXPR_ISCANCACHE),et)
+//		test_ief(eval(NULL,times,EXPR_INOOPTIMIZE|EXPR_INOSHRINK|EXPR_ISCANCACHE),ent)
 	test_once(0);
 	test_once(1);
 	for(unsigned int times=0;times<=MAX_TIMES;++times){
 		test_once(times);
 		cost.tiny[times]=tt;
 		cost.expr[times]=et;
-		cost.expn[times]=ent;
-		printf("times=%-6u,t=%-8.2lfms %-2s e=%-8.2lfms %-2s en=%-8.2lfms\n",times,tt,tt<et?"<":">",et,et<ent?"<":">",ent);
+//		cost.expn[times]=ent;
+//		printf("times=%-6u,t=%-8.2lfms %-2s e=%-8.2lfms %-2s en=%-8.2lfms\n",times,tt,tt<et?"<":">",et,et<ent?"<":">",ent);
+		printf("times=%-6u,t=%-8.2lfms %-2s e=%-8.2lfms\n",times,tt,tt<et?"<":">",et);
 	}
-	for(unsigned int i=0;i<=MAX_TIMES*3;++i){
+	for(unsigned int i=0;i<=(MAX_TIMES+1)*2;++i){
 		ct=((double *)&cost)[i];
 		if(ct>max_time)
 			max_time=ct;

@@ -5,10 +5,11 @@ on:
     paths-ignore:
       - '**.md'
       - '**.png'
+      - '**.cff'
   pull_request:
   workflow_dispatch:
 jobs:
-  test:
+  default:
     name: ${{ matrix.cc }}
     runs-on: ubuntu-24.04
     strategy:
@@ -21,6 +22,35 @@ jobs:
         env:
           CC: ${{ matrix.cc }}
         run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DFUN=ON
+      - name: build
+        run: cmake --build build --parallel
+      - name: test
+        run: ctest --test-dir build --output-on-failure --timeout 180
+  non-unix:
+    name: mingw64/${{ matrix.cc }}
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    strategy:
+      fail-fast: true
+      matrix:
+        cc: [gcc,clang]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: false
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-clang
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+      - name: start
+        env:
+          CC: ${{ matrix.cc }}
+        run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DFUN=OFF
       - name: build
         run: cmake --build build --parallel
       - name: test

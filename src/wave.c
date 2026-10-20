@@ -468,7 +468,7 @@ static void *xrealloc(void *old,size_t size){
 	}
 	return r;
 }
-#include "graph/texts/text.h"
+#include "texts/text.h"
 size_t dcount=0;
 char dbuf[TEXT_MAXOSIZE];
 struct text {

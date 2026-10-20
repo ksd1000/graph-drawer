@@ -1,4 +1,4 @@
-![logo](logo.png)
+![logo](image/logo.png)
 
 # Graph Drawer
 
@@ -9,7 +9,7 @@ This is a product able to parse expressions and generate image and audio, with t
 
 ## Project Structure
 
-![project\_structure](project_structure.png)
+![project\_structure](image/project_structure.png)
 
 ## Expression Evaluator: libexpr,libexpr-lc
 
@@ -29,7 +29,7 @@ Not suitable for:
 - Parse simple expression once with eval only several times.
 - The expression evaluator behaves worse(and may be forever worse) than [tinyexpr](https://github.com/codeplea/tinyexpr) in the cases like this. See the below.
 
-![curve](curve.png)
+![curve](image/curve.png)
 
 *Test on x86*
 

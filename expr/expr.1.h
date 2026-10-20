@@ -186,15 +186,29 @@ struct expr_internal_jmpbuf {
 #endif
 
 #if !(defined(EXPR_LIBC_FMOD_IMPL)&&(EXPR_LIBC_FMOD_IMPL))
+#undef fmod
 #define fmod expr_internal_fmod
 #endif
 #if !(defined(EXPR_LIBC_POW_IMPL)&&(EXPR_LIBC_POW_IMPL))
+#undef pow
 #define pow expr_internal_pow
 #endif
 #if !(defined(EXPR_LIBC_FABS_IMPL)&&(EXPR_LIBC_FABS_IMPL))
+#undef fabs
 #define fabs expr_internal_fabs
 #endif
 #if !(defined(EXPR_LIBC_STRING_IMPL)&&(EXPR_LIBC_STRING_IMPL))
+#undef memchr
+#undef memset
+#undef memcpy
+#undef memmove
+#undef memrchr
+#undef memcmp
+#undef memmem
+#undef memrmem
+#undef strend
+#undef strlen
+#undef strnlen
 #define memchr expr_internal_memchr
 #define memset expr_internal_memset
 #define memcpy expr_internal_memcpy

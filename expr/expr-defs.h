@@ -47,26 +47,29 @@
 #define UINT16_MAX __UINT16_MAX__
 #define UINT8_MAX __UINT8_MAX__
 
+#define EXPR_DEFS_CAT0(a,b) a ## b
+#define EXPR_DEFS_CAT(a,b) EXPR_DEFS_CAT0(a,b)
+
 #if defined(__INT64_C)
 #define INT64_C __INT64_C
 #elif defined(__INT64_C_SUFFIX__)
-#define INT64_C __INT64_C_SUFFIX__
+#define INT64_C(c) EXPR_DEFS_CAT(c,__INT64_C_SUFFIX__)
 #else
-#define INT64_C(c) c ## L
+#define INT64_C(c) EXPR_DEFS_CAT(c,L)
 #endif
 
 #if defined(__UINT64_C)
 #define UINT64_C __UINT64_C
 #elif defined(__UINT64_C_SUFFIX__)
-#define UINT64_C __UINT64_C_SUFFIX__
+#define UINT64_C(c) EXPR_DEFS_CAT(c,__UINT64_C_SUFFIX__)
 #else
-#define UINT64_C(c) c ## UL
+#define UINT64_C(c) EXPR_DEFS_CAT(c,UL)
 #endif
 
 #if defined(__INT32_C)
 #define INT32_C __INT32_C
 #elif defined(__INT32_C_SUFFIX__)
-#define INT32_C __INT32_C_SUFFIX__
+#define INT32_C(c) EXPR_DEFS_CAT(c,__INT32_C_SUFFIX__)
 #else
 #define INT32_C(c) c
 #endif
@@ -74,15 +77,15 @@
 #if defined(__UINT32_C)
 #define UINT32_C __UINT32_C
 #elif defined(__UINT32_C_SUFFIX__)
-#define UINT32_C __UINT32_C_SUFFIX__
+#define UINT32_C(c) EXPR_DEFS_CAT(c,__UINT32_C_SUFFIX__)
 #else
-#define UINT32_C(c) c ## U
+#define UINT32_C(c) EXPR_DEFS_CAT(c,U)
 #endif
 
 #if defined(__INT16_C)
 #define INT16_C __INT16_C
 #elif defined(__INT16_C_SUFFIX__)
-#define INT16_C __INT16_C_SUFFIX__
+#define INT16_C(c) EXPR_DEFS_CAT(c,__INT16_C_SUFFIX__)
 #else
 #define INT16_C(c) c
 #endif
@@ -90,7 +93,7 @@
 #if defined(__UINT16_C)
 #define UINT16_C __UINT16_C
 #elif defined(__UINT16_C_SUFFIX__)
-#define UINT16_C __UINT16_C_SUFFIX__
+#define UINT16_C(c) EXPR_DEFS_CAT(c,__UINT16_C_SUFFIX__)
 #else
 #define UINT16_C(c) c
 #endif
@@ -98,7 +101,7 @@
 #if defined(__INT8_C)
 #define INT8_C __INT8_C
 #elif defined(__INT8_C_SUFFIX__)
-#define INT8_C __INT8_C_SUFFIX__
+#define INT8_C(c) EXPR_DEFS_CAT(c,__INT8_C_SUFFIX__)
 #else
 #define INT8_C(c) c
 #endif
@@ -106,18 +109,11 @@
 #if defined(__UINT8_C)
 #define UINT8_C __UINT8_C
 #elif defined(__UINT8_C_SUFFIX__)
-#define UINT8_C __UINT8_C_SUFFIX__
+#define UINT8_C(c) EXPR_DEFS_CAT(c,__UINT8_C_SUFFIX__)
 #else
 #define UINT8_C(c) c
 #endif
 
-#define INT32_C __INT32_C
-#define INT16_C __INT16_C
-#define INT8_C __INT8_C
-#define UINT64_C __UINT64_C
-#define UINT32_C __UINT32_C
-#define UINT16_C __UINT16_C
-#define UINT8_C __UINT8_C
 #undef SIZE_MAX
 #define SIZE_MAX __SIZE_MAX__
 #undef PTRDIFF_MAX

@@ -7,8 +7,10 @@
 #if (defined(EXPR_LIBC_STRING_IMPL)&&(EXPR_LIBC_STRING_IMPL))
 #include <string.h>
 #endif
+#ifndef _EXPR_DEFS_H_
 #include <float.h>
 #include <math.h>
+#endif
 
 #define EXPR_INLIB 1
 #include "expr.h"

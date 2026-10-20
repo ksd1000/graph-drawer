@@ -3,7 +3,9 @@
  *This is free software: you are free to change and redistribute it.           *
  *******************************************************************************/
 #define _GNU_SOURCE
+#ifndef _EXPR_DEFS_H_
 #include <math.h>
+#endif
 
 #if (defined(EXPR_LIBC_STRING_IMPL)&&(EXPR_LIBC_STRING_IMPL))
 #include <string.h>

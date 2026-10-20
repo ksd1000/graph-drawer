@@ -26,7 +26,8 @@ add_library(expr
 	expr-alloc.c
 	expr-internal.c
 )
-target_compile_options(expr PRIVATE -ffreestanding)
+target_compile_options(expr PRIVATE -ffreestanding -nostdinc -include expr-defs.h)
+target_include_directories(expr PRIVATE .)
 add_library(expr-lc
 	expr-global.c
 	expr-builtin.c
@@ -40,11 +41,11 @@ install(TARGETS expr-lc expr expr-version
 	EXPORT expr
 	RUNTIME DESTINATION bin
 	LIBRARY DESTINATION lib
-	ARCHIVE DESTINATION lib 
+	ARCHIVE DESTINATION lib
 	INCLUDES DESTINATION include
 )
 
-install(FILES expr.h
+install(FILES expr.h expr-defs.h
 	DESTINATION include
 )
 

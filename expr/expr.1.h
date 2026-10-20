@@ -5,11 +5,12 @@
 #ifndef _EXPR_H_
 #define _EXPR_H_
 
+#ifndef _EXPR_DEFS_H_
 #include <stddef.h>
 #include <stdint.h>
 #include <stdarg.h>
 #include <limits.h>
-
+#endif
 #define expr_static_assert(cond) _Static_assert((cond),"static assertion " #cond " failed")
 
 expr_static_assert((!0)==1);

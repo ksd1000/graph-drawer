@@ -119,7 +119,8 @@ void writeprefix(void){
 	if(n)
 		fwrite(prefix,1,n,stdout);
 	*/
-	fprintf(stdout,"%-6ld",level);
+	if(level)
+		fprintf(stdout,"%-6ld",level);
 }
 int xprintf(const char *fmt,...){
 	va_list ap;
@@ -179,7 +180,7 @@ const struct inst_info ii[]={
 [EXPR_COPY]={.name="copy",.st=MEM,},
 [EXPR_INPUT]={.name="input",.st=NUL,},
 [EXPR_CONST]={.name="const",.st=VAL,},
-[EXPR_BL]={.name="bl",.st=ADDR,},
+[EXPR_BL]={.name="call",.st=ADDR,},
 [EXPR_ADD]={.name="add",.st=MEM,},
 [EXPR_SUB]={.name="sub",.st=MEM,},
 [EXPR_MUL]={.name="mul",.st=MEM,},
@@ -310,7 +311,7 @@ const char *od(const struct expr *restrict ep,void *addr){
 		r=sprintf(abuf,"[%zd]",index);
 #define print_nonnan \
 		val=*(double *)addr;\
-		if(!expr_isnan(val))\
+		if(!expr_isnan(val)&&!(ep->iflag&EXPR_INOOPTIMIZE))\
 			sprintf(abuf+r,"=%.3lg",val);\
 		return abuf
 		print_nonnan;

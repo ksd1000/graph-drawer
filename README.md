@@ -75,6 +75,38 @@ output the sum from 1 to 100:
 ./calc 'sum(n,1,100,1,n)'
 ```
 
+Show how the expression evaluator works:
+```
+./calc -Dkd 'sin(t)+1/2+3'
+```
+output:
+```
+={
+1     0:[0]->[0] input [0]   
+1     1:[0]->[1] call  [0]    sin  
+1     2:[0]->[2] add   [0]    [1]=3.5
+1     3:[0]->[3] end   [0]   
+}
+```
+
+```
+./calc -Dkdn 'sin(t)+1/2+3'
+```
+output:
+```
+={
+1     0:[0]->[0] input [0]   
+1     1:[0]->[1] call  [0]    sin  
+1     2:[0]->[2] const [1]    1
+1     3:[0]->[3] const [2]    2
+1     4:[0]->[4] const [3]    3
+1     5:[0]->[5] div   [1]    [2]  
+1     6:[0]->[6] add   [0]    [1]  
+1     7:[0]->[7] add   [0]    [3]  
+1     8:[0]->[8] end   [0]   
+}
+```
+
 generate a 1s 440Hz sound .wav file:
 ```
 ./wave 'sin(440*2*pi*t)' -c 1 -o 1.wav
@@ -191,6 +223,9 @@ Tested by fun/compare.c
 |:---:|:---:|:---:|:---:|
 |Data type|float|double|double|
 |Expression object type|struct expr|te\_expr|struct expr|
+|Namespace|expr\_|te\_|expr\_|
+|Constructor|expr\_create()|te\_compile()|expr\_init()|
+|Destructor|expr\_destroy()|te\_free()|expr\_free()|
 |Initialize speed|Medium 2.3x|Fast 7.8x|Slow 1.0x|
 |Memory cost|Medium 2.3x|Low 1.0x|High 41.7x|
 |bitwise and/or/xor support|Cast to integer|No|Yes|
@@ -199,8 +234,10 @@ Tested by fun/compare.c
 |Number parse cache|No|No|Yes(but still slower than other two)|
 |libc required|Yes|Yes|No for core. But builtin symbols and frontend needs.|
 |Core arch independence|Yes|Yes|x86/arm64 for mem* and syscall|
-|Non-unix support|Untested|Untested(the author tested Yes)|Yes(\*.exe in Release)|
+|Non-unix support|Untested|Yes(tested by CI)|Yes(\*.exe in Release)|
 |User variable defined in code|Yes|Yes|Yes|
+|Memory management|libc|libc|struct expr\_area|
+|Memory allocation entry|calloc()|malloc()|mtl-\>allocate()|
 |User variable defined in expr|Yes(Auto)|No|Yes(value--\>a/a=:value/var(a,[value]))|
 |Allow write variables in expr|Yes(=)|No|Yes(--\>,-\>)|
 |User constant|No|No(only zero args pure function)|Yes|
@@ -228,7 +265,7 @@ Tested by fun/compare.c
 |Bugfix speed|Unactive|Fast|Slow|
 |Code readability|Clear|Clear|Chaos|
 |Build system|make|make|cmake|
-|Commercial use|Yes|Yes|Yes(ensure the accessibility of code to users)|
+|For commercial use|Yes|Yes|Yes(ensure the accessibility of code to users)|
 |Start date|07-08-2016|01-21-2016|02-19-2024|
 |Amount of API functions|4|4|\>180|
 |Popularity|Medium|High|Low|

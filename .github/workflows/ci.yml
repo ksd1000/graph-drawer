@@ -26,6 +26,25 @@ jobs:
         run: cmake --build build --parallel
       - name: test
         run: ctest --test-dir build --output-on-failure --timeout 180
+
+  asan:
+    name: asan/${{ matrix.cc }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        cc: [gcc,clang]
+    steps:
+      - uses: actions/checkout@v4
+      - name: start
+        env:
+          CC: ${{ matrix.cc }}
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DFUN=OFF -DASAN=ON
+      - name: build
+        run: cmake --build build --parallel --target=expr-check
+      - name: test
+        run: ctest --test-dir build --output-on-failure --timeout 180
+
   non-unix:
     name: mingw64/${{ matrix.cc }}
     runs-on: windows-latest
@@ -33,7 +52,7 @@ jobs:
       run:
         shell: msys2 {0}
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         cc: [gcc,clang]
     steps:
@@ -56,3 +75,20 @@ jobs:
       - name: test
         run: ctest --test-dir build --output-on-failure --timeout 180
 
+  non-linux:
+    name: non-linux/${{ matrix.cc }}
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cc: [clang]
+    steps:
+      - uses: actions/checkout@v4
+      - name: start
+        env:
+          CC: ${{ matrix.cc }}
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DFUN=OFF
+      - name: build
+        run: cmake --build build --parallel
+      - name: test
+        run: ctest --test-dir build --output-on-failure --timeout 180

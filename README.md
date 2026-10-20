@@ -129,6 +129,26 @@ int main(void){
 	return EXIT_SUCCESS;
 }
 ```
+
+Use only the memory of stack to parse and eval expression.
+```C
+#define _GNU_SOURCE
+#include <stdio.h>
+#include <stdlib.h>
+#include <assert.h>
+#include "expr.h"
+int main(void){
+	char buf[8192];
+	struct expr *ep;
+	struct expr_memtool mtl;
+	assert(!expr_setup_heapmtl(&mtl,buf,8192));
+	ep=expr_new2_r("t+1","t",&mtl);
+	assert(ep);
+	printf("result:%lf\n",expr_eval(ep,2.0));
+	//expr_free() is not necessary here.
+	return EXIT_SUCCESS;
+}
+```
 compile command (assuming the code is written to example.c in the build path):
 ```
 gcc example.c -I ../graph-drawer/expr expr/libexpr.a -o example -Wall -Wextra
@@ -152,26 +172,6 @@ int main(void){
 	printf("result:%lf\n",expr_eval(ep,1.0));
 	expr_free(ep);
 	expr_symset_free(esp);
-	return EXIT_SUCCESS;
-}
-```
-
-Use only the memory of stack to parse and eval expression.
-```C
-#define _GNU_SOURCE
-#include <stdio.h>
-#include <stdlib.h>
-#include <assert.h>
-#include "expr.h"
-int main(void){
-	char buf[8192];
-	struct expr *ep;
-	struct expr_memtool mtl;
-	assert(!expr_setup_heapmtl(&mtl,buf,8192));
-	ep=expr_new2_r("t+1","t",&mtl);
-	assert(ep);
-	printf("result:%lf\n",expr_eval(ep,2.0));
-	//expr_free() is not necessary here.
 	return EXIT_SUCCESS;
 }
 ```
@@ -219,7 +219,7 @@ Tested by fun/compare.c
 |One-shot API|No|te\_interp()|expr\_calc()|
 |Custom memory allocator|Yes(global variable required,patch before header)|Yes(global variable required,patch before header)|Yes(global+non-global)|
 |MT-safe for same object|Yes(except = and context)|Yes|No(an object only for one thread)|
-|Reenterant|No(allocate/free require global variable)|No(similarly)|Yes(\*\_r)|
+|Reentrant|No(allocate/free require global variable)|No(similarly)|Yes(\*\_r)|
 |JIT support|Yes|No|No|
 |Branch and loop|No|No|Yes|
 |Syscall support|No|No|Yes|

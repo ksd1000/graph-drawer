@@ -35,6 +35,19 @@ target_link_libraries(expr-lc PUBLIC expr)
 link_libraries(expr expr-lc m)
 add_executable(expr-version expr-version.c)
 add_executable(expr-check expr-check.c)
+
+install(TARGETS expr-lc expr expr-version
+	EXPORT expr
+	RUNTIME DESTINATION bin
+	LIBRARY DESTINATION lib
+	ARCHIVE DESTINATION lib 
+	INCLUDES DESTINATION include
+)
+
+install(FILES expr.h
+	DESTINATION include
+)
+
 enable_testing()
 add_test(NAME expr-check COMMAND expr-check)
 set_tests_properties(expr-check PROPERTIES TIMEOUT 120)

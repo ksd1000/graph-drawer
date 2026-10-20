@@ -84,65 +84,79 @@ const struct proj {
 	{"f=(u,v){u+v**2},f(7,4)",23},
 	{"undef(defined_symbol){1},defined_symbol",2304.0},
 	{"alias(x,defined_symbol);x",2304.0},
+	{"alias(x,\"5+6\");x=4;x+2",6},
 	{NULL,0.0}
 
 };
 const struct eproj {
 	const char *e;
 	int expect;
+	const char *ee;
 } eprojs[]={
-	{"2+hshdjxjdjxhxhx",EXPR_ESYMBOL},
-	{"xor(2,3,5,gg,8)",EXPR_ESYMBOL},
-	{"5->sum",EXPR_ESYMBOL},
-	{"sum(",EXPR_EPT},
-	{"sum",EXPR_EFP},
-	{"sqrt()",EXPR_ENVP},
-	{"$e",EXPR_ENUMBER},
-	{"sum(n)",EXPR_ENEA},
-	{"266j",EXPR_EUSN},
-	{"5->pi",EXPR_ETNV},
-	{"5->sqrt",EXPR_ETNV},
-	{"5->e",EXPR_ETNV},
-	{"5->t",EXPR_ETNV},
-	{"2+",EXPR_EEV},
-	{"2->",EXPR_EEV},
-	{"2->+",EXPR_EUO},
-	{"abort(2)",EXPR_EZAFP},
-	{"abort(",EXPR_EZAFP},
-	{"abort",EXPR_EZAFP},
-	{"var(defined_symbol,5),0",EXPR_EDS},
-	{"vmd(k,1,10,1,k,cmp,0)",EXPR_EVMD},
-	{"5-->v,&v[2]c",EXPR_EUSN},
-	{"5-->v,&v[2]7",EXPR_EUSN},
-	{"alloca(t,exp(t))",EXPR_ENC},
-	{"static_assert(t>=2.72)",EXPR_ENC},
-	{"&e",EXPR_ECTA},
-	{"static_assert(e>=2.72)",EXPR_ESAF},
-	{"static_assert(e<2.72)",EXPR_EVD},
-	{"flag(IPROTECT),vmd(k,1,10,1,k,add,0)",EXPR_EVZP},
-	{"undef(sin)",EXPR_EVD},
-	{"flag(IPROTECT),flag(0)",EXPR_EPM},
-	{"flag(IPROTECT),&sin",EXPR_EPM},
-	{"undef(defined_symbol),defined_symbol",EXPR_ESYMBOL},
-	{"undef(defined_symbol){defined_symbol}",EXPR_ESYMBOL},
-	{"flag(IPURE),drand48(&x0)",EXPR_EPURE},
-	{"alias(x,y);alias(y,x);x",EXPR_EANT},
-	{"alias(x,y);alias(y,z);alias(z,y);x",EXPR_EANT},
-	{"error()",EXPR_EUDE},
-	{"error(\"errname\")",EXPR_EUDE},
-	{NULL,0}
+	{"2+hshdjxjdjxhxhx",EXPR_ESYMBOL,"hshdjxjdjxhxhx"},
+	{"xor(2,3,5,gg,8)",EXPR_ESYMBOL,"gg"},
+	{"5->sum",EXPR_ESYMBOL,"sum"},
+	{"sum(",EXPR_EPT,""},
+	{"sum",EXPR_EFP,"sum"},
+	{"sqrt()",EXPR_ENVP,""},
+	{"$e",EXPR_ENUMBER,"e"},
+	{"sum(n)",EXPR_ENEA,"sum"},
+	{"266j",EXPR_EUSN,"j"},
+	{"5->pi",EXPR_ETNV,"pi"},
+	{"5->sqrt",EXPR_ETNV,"sqrt"},
+	{"5->e",EXPR_ETNV,"e"},
+	{"5->t",EXPR_ETNV,"t"},
+	{"2+",EXPR_EEV,""},
+	{"2->",EXPR_EEV,""},
+	{"2->+",EXPR_EUO,"+"},
+	{"abort(2)",EXPR_EZAFP,"abort"},
+	{"abort(",EXPR_EZAFP,"abort"},
+	{"abort",EXPR_EZAFP,"abort"},
+	{"var(defined_symbol,5),0",EXPR_EDS,"defined_symbol"},
+	{"vmd(k,1,10,1,k,cmp,0)",EXPR_EVMD,"cmp"},
+	{"5-->v,&v[2]c",EXPR_EUSN,"c"},
+	{"5-->v,&v[2]7",EXPR_EUSN,"7"},
+	{"alloca(t,exp(t))",EXPR_ENC,"exp(t)"},
+	{"static_assert(t>=2.72)",EXPR_ENC,"t>=2.72"},
+	{"&e",EXPR_ECTA,"e"},
+	{"static_assert(e>=2.72)",EXPR_ESAF,"e>=2.72"},
+	{"static_assert(e<2.72)",EXPR_EVD,""},
+	{"flag(IPROTECT),vmd(k,1,10,1,k,add,0)",EXPR_EVZP,"vmd"},
+	{"undef(sin)",EXPR_EVD,""},
+	{"flag(IPROTECT),flag(0)",EXPR_EPM,"flag"},
+	{"flag(IPROTECT),&sin",EXPR_EPM,"&"},
+	{"undef(defined_symbol),defined_symbol",EXPR_ESYMBOL,"defined_symbol"},
+	{"undef(defined_symbol){defined_symbol}",EXPR_ESYMBOL,"defined_symbol"},
+	{"flag(IPURE),drand48(&x0)",EXPR_EPURE,"drand48"},
+	{"alias(x,y);alias(y,x);x",EXPR_EANT,"x"},
+	{"alias(x,y);alias(y,z);alias(z,y);x",EXPR_EANT,"x"},
+	{"error()",EXPR_EUDE,""},
+	{"error(\"errname\")",EXPR_EUDE,"errname"},
+	{"static_assert(2<1,\"errname\")",EXPR_EUDE,"errname"},
+	{"alias(x,\"5+6\");x=4",EXPR_EVD,""},
+	{"alias(x,\"5+6\");x=4;8-->x",EXPR_EDS,"5+6"},
+	{"throw(EFP)",EXPR_EFP,""},
+	{"throw(EPT,\"12345\")",EXPR_EPT,"12345"},
+	{"throw(9999,\"customerror9999\")",9999,"customerror9999"},
+	{NULL,0,NULL}
 };
-void errcheck(const char *e,int expect){
+void errcheck(const char *e,int expect,const char *expect_errinfo){
 	int error;
+	char errinfo[EXPR_SYMLEN];
 	printf("checking %s --- expect \"%s\"",e,expr_error(expect));
-	if(expr_new(e,"t",es,EXPR_IINSTANT_FREE,&error,NULL)){
+	if(expr_new(e,"t",es,EXPR_IINSTANT_FREE,&error,errinfo)){
 		printf("\nerror! %s should be \"%s\" but ok\n",e,expr_error(expect));
 		goto ab;
-	}else if(error!=expect){
+	}
+	if(error!=expect){
 		printf("\nerror! %s should be \"%s\" but \"%s\"\n",e,expr_error(expect),expr_error(error));
 		goto ab;
 	}
-	printf(" ... ok\n");
+	if(strcmp(errinfo,expect_errinfo)){
+		printf("\nbad errorinfo! should be \"%s\" but is \"%s\"\n",expect_errinfo,errinfo);
+		goto ab;
+	}
+	printf(" ... ok errinfo=\"%s\"\n",errinfo);
 	return;
 ab:
 	printf("ABORTING\n");
@@ -186,7 +200,7 @@ int main(int argc,char **argv){
 	for(const struct proj *p=projs;p->e;++p)
 		check(p->e,p->expect);
 	for(const struct eproj *p=eprojs;p->e;++p)
-		errcheck(p->e,p->expect);
+		errcheck(p->e,p->expect,p->ee);
 	for(const struct expr_builtin_keyword *p=expr_keywords;;++p){
 		if(!p->str){
 			break;

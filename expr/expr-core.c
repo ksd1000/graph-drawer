@@ -301,7 +301,8 @@ const struct expr_builtin_keyword expr_keywords[]={
 #endif
 	REGKEYCN("eval",EXPR_EVAL,2,"eval(ep,input)"),
 	REGKEYSCN("decl",EXPR_ADD,2,"decl(symbol,[constant_expression flag])"),
-	REGKEYSC("static_assert",EXPR_SUB,1,"static_assert(constant_expression cond,[const string])"),
+	REGKEYSC("static_assert",EXPR_SUB,1,"static_assert(constant_expression cond,[const_string errinfo])"),
+	REGKEYSC("throw",EXPR_EQ,1,"throw(constant_expression error,[const_string errinfo])"),
 	REGKEYSN("ip",EXPR_IP,1,"ip([mode])"),
 	REGKEYN("to",EXPR_TO,1,"to(val)"),
 	REGKEYN("to1",EXPR_TO1,1,"to(val)"),
@@ -319,12 +320,12 @@ const struct expr_builtin_keyword expr_keywords[]={
 	REGKEYS("try",EXPR_NEG,1,"try([new_symbol]){body}"),
 	REGKEYC("alias",EXPR_NOT,2,"alias(alias_name,target)"),
 	REGKEYCN("return",EXPR_RET,2,"return(ep,val)"),
-	REGKEY("error",EXPR_TSTL,1,"error(const string)"),
+	REGKEY("error",EXPR_TSTL,1,"error(const_string)"),
 	REGKEYCN("svcp",EXPR_SVCP,3,"svcp(sys_num,arg[],constant_expression n)"),
 	REGKEYCN("svc",EXPR_SVC,EXPR_SYSAM+1,"svc(sys_num,...)"),
 	REGKEY("import",EXPR_NEX0,1,"import(package)"),
 	REGKEY("include",EXPR_DIF0,1,"include(package)"),
-	REGKEY("convert",EXPR_ZA,1,"convert(const string)"),
+	REGKEY("convert",EXPR_ZA,1,"convert(const_string)"),
 	REGKEYS("end",EXPR_MD,1,"end(expression)"),
 	{NULL,0,0,0,0}
 };
@@ -712,6 +713,7 @@ static int expr_createvar4(struct expr *restrict ep,const char *symbol,size_t sy
 }
 static expr_t *expr_createvar(struct expr *restrict ep,const char *symbol,size_t symlen){
 	expr_t *r;
+	debug("createvar(%s,%zu)",symbol,symlen);
 	if(unlikely(!symlen)){
 		seterr(ep,EXPR_EEV);
 		return NULL;
@@ -1920,7 +1922,7 @@ symget:
 		e=p;
 		goto vend;
 	}
-	sym.uaddr=readsymbol(ep,e,(size_t)(p-e),2,0);
+	sym.uaddr=readsymbol(ep,e,(size_t)(p-e),2 /* 2 for alias_scan in old version */,0);
 	if(!sym.uaddr){
 		if(ep->error)
 			return NULL;
@@ -2151,34 +2153,36 @@ use_byte:
 				vfree2(sym.vv);
 				e=p+1;
 				goto vend;
-			case EXPR_SUB:
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
-				sym.vv=expr_sep(ep,e,(size_t)(p-e+1));
-				if(unlikely(!sym.vv))
-					return NULL;
-				for(un.vv1=sym.vv;*un.vv1;++un.vv1);
-				dim=(size_t)(un.vv1-sym.vv);
-				switch(dim){
-					case 2:
-						sv.i=strlenv(sym.vv[1]);
-						if(unlikely(sv.i<1||
-							*sym.vv[1]!='\"'||(un.ccp=sym.vv[1]+sv.i,
-							findpair_dmark(sym.vv[1],un.ccp)!=un.ccp-1))){
-							seterr(ep,EXPR_EPT);
-							goto sa_fail;
-						}
-					case 1:
-						break;
-					default:
-						seterr(ep,EXPR_ENEA);
-sa_fail:
-						serrinfoc(ep->errinfo,"static_assert");
-						goto c_fail;
-				}
-				un.v=consteval(sym.vv[0],strlenv(sym.vv[0]),asym,asymlen,ep->sset,ep);
-				if(unlikely(ep->error))
-					goto c_fail;
+#define AT_COMMON(errin,sa_fail) \
+				sym.vv=expr_sep(ep,e,(size_t)(p-e+1));\
+				if(unlikely(!sym.vv))\
+					return NULL;\
+				for(un.vv1=sym.vv;*un.vv1;++un.vv1);\
+				dim=(size_t)(un.vv1-sym.vv);\
+				switch(dim){\
+					case 2:\
+						sv.i=strlenv(sym.vv[1]);\
+						if(unlikely(sv.i<1||\
+							*sym.vv[1]!='\"'||(un.ccp=sym.vv[1]+sv.i,\
+							findpair_dmark(sym.vv[1],un.ccp)!=un.ccp-1))){\
+							seterr(ep,EXPR_EPT);\
+							goto sa_fail;\
+						}\
+					case 1:\
+						break;\
+					default:\
+						seterr(ep,EXPR_ENEA);\
+sa_fail:\
+						serrinfoc(ep->errinfo,errin);\
+						goto c_fail;\
+				}\
+				un.v=consteval(sym.vv[0],strlenv(sym.vv[0]),asym,asymlen,ep->sset,ep);\
+				if(unlikely(ep->error))\
+					goto c_fail
+			case EXPR_SUB:
+				AT_COMMON("static_assert",sa_fail);
 				if(unlikely(un.v==EXPR_ZERO)){
 					if(dim==1){
 						seterr(ep,EXPR_ESAF);
@@ -2189,12 +2193,27 @@ sa_fail:
 					dim=sv.i-2;
 					if(dim)
 						expr_strscan(sym.vv[1]+1,dim,ep->errinfo,EXPR_SYMLEN);
+					else
+						*ep->errinfo=0;
 					goto c_fail;
 				}
 				vfree2(sym.vv);
 				v0=EXPR_VOID;
 				e=p+1;
 				goto vend;
+			case EXPR_EQ:
+				AT_COMMON("throw",th_fail);
+				seterr(ep,(int)un.v);
+				if(dim==1){
+					*ep->errinfo=0;
+					goto c_fail;
+				}
+				dim=sv.i-2;
+				if(dim)
+					expr_strscan(sym.vv[1]+1,dim,ep->errinfo,EXPR_SYMLEN);
+				else
+					*ep->errinfo=0;
+				goto c_fail;
 #pragma GCC diagnostic pop
 			case EXPR_DIV:
 				if(!ep->sset||!(sym.es=expr_symset_search(ep->sset,e+1,(size_t)(p-e-1)))){
@@ -3089,9 +3108,14 @@ fok:
 			e=p+1;
 			goto vend;
 		case EXPR_ALIAS:
-			seterr(ep,EXPR_EANT);
-			serrinfo(ep->errinfo,sym.es->str,sym.es->strlen);
-			return NULL;
+			if(p>=endp||*p!='='){
+				seterr(ep,EXPR_EANT);
+				serrinfo(ep->errinfo,sym.es->str,sym.es->strlen);
+				return NULL;
+			}
+			p2=expr_symbol_hot(sym.es);
+			sv.i=HOTLEN(sym.es);
+			goto p2sget;
 			/*
 			v0=alias_scan(ep,sym.es,asym,asymlen);
 			if(unlikely(!v0))
@@ -3136,6 +3160,26 @@ sym_notfound:
 	if(unlikely(p+1>=endp||*p!='='))
 		goto_symerr;
 	p2=e;
+	sv.i=(size_t)(p-e);
+p2sget:
+	/*
+	if(ep->sset&&(sym.es=expr_symset_search(ep->sset,p2,sv.i))){
+		if(likely(sym.es->type==EXPR_ALIAS)){
+			sym.es=alias_target(ep,sym.es,2);
+			if(unlikely(!sym.es))
+				return NULL;
+			p2=sym.es->str;
+			sv.i=sym.es->strlen;
+			if(unlikely(sym.es->type!=EXPR_ALIAS)){
+				goto eds;
+			}
+		}else {
+eds:
+			serrinfo(ep->errinfo,p2,sv.i);
+			seterr(ep,EXPR_EDS);
+		}
+	}
+	*/
 	++p;
 	if(*p==':'){
 		++p;
@@ -3143,13 +3187,12 @@ sym_notfound:
 	}else
 		type=0;
 	e=p;
-	p4=p;
 	switch(*p){
 		case '{':
 			p=findpair_brace(e,endp);
 			if(unlikely(!p))
 				goto pterr;
-			r0=expr_createhot(ep,p2,(size_t)(p4-1-p2),e+1,(size_t)(p-e-1),EXPR_ALIAS,0);
+			r0=expr_createhot(ep,p2,sv.i,e+1,(size_t)(p-e-1),EXPR_ALIAS,0);
 			cknp(ep,!r0,return NULL);
 			v0=EXPR_VOID;
 			e=p+1;
@@ -3172,7 +3215,7 @@ sym_notfound:
 				goto pterr;
 			if(!flag)
 				++p;
-			r0=expr_createhot(ep,p2,(size_t)(p4-1-p2),e,(size_t)(p-e),EXPR_HOTFUNCTION,flag);
+			r0=expr_createhot(ep,p2,sv.i,e,(size_t)(p-e),EXPR_HOTFUNCTION,flag);
 			cknp(ep,!r0,return NULL);
 			v0=EXPR_VOID;
 			e=p;
@@ -3190,9 +3233,9 @@ constant:
 			if(unlikely(ep->error))
 				return NULL;
 			if(type)
-				r0=expr_createvar4(ep,p2,(size_t)(e-2-p2),un.v);
+				r0=expr_createvar4(ep,p2,sv.i,un.v);
 			else
-				r0=expr_createconst(ep,p2,(size_t)(e-1-p2),un.v);
+				r0=expr_createconst(ep,p2,sv.i,un.v);
 			cknp(ep,!r0,return NULL);
 			v0=EXPR_VOID;
 			e=p;
@@ -3548,10 +3591,10 @@ envp:
 					serrinfo(ep->errinfo,e,(size_t)(p1-e));
 					goto tnv;
 				}
-				esp=readsymbol(ep,e,(size_t)(p1-e),1,0);
+				esp=readsymbol(ep,e,(size_t)(p1-e),1,1);
 				if(unlikely(!esp)){
-					serrinfo(ep->errinfo,e,(size_t)(p1-e));
-					seterr(ep,EXPR_ESYMBOL);
+					//serrinfo(ep->errinfo,e,(size_t)(p1-e));
+					//seterr(ep,EXPR_ESYMBOL);
 					goto err;
 				}
 				e1=e;
@@ -3592,14 +3635,16 @@ multi_dim:
 					switch(esp->type){
 						case EXPR_VARIABLE:
 							break;
+						/*
+						case EXPR_ALIAS:
 							esp=alias_target(ep,esp,1);
 							if(unlikely(!esp))
 								goto err;
 							if(likely(esp->type==EXPR_VARIABLE))
 								break;
-						case EXPR_ALIAS:
+						*/
 						default:
-							serrinfo(ep->errinfo,e1,(size_t)(p1-e1));
+							serrinfo(ep->errinfo,esp->str,esp->strlen);
 tnv:
 							seterr(ep,EXPR_ETNV);
 							goto err;
@@ -3614,7 +3659,7 @@ bracket_end:
 			}else if(e+2<endp&&e[1]=='-'&&e[2]=='>'){
 				const char *p1;
 				expr_t *v2;
-				struct expr_symbol *esp;
+				const struct expr_symbol *esp;
 				if(unlikely(expr_void(v1)))
 					goto evd;
 				e+=3;
@@ -3635,11 +3680,22 @@ bracket_end:
 				}
 				if(ep->sset&&(esp=expr_symset_search(ep->sset,e,(size_t)(p1-e)))
 				){
+					if(likely(esp->type==EXPR_ALIAS)){
+						esp=alias_target(ep,esp,2);
+						if(unlikely(!esp))
+							goto err;
+						if(likely(esp->type==EXPR_ALIAS)){
+							v2=expr_createvar(ep,expr_symbol_hot(esp),HOTLEN(esp));
+							cknp(ep,v2,goto err);
+							goto v2_get;
+						}
+					}
 					seterr(ep,EXPR_EDS);
-					serrinfo(ep->errinfo,e,(size_t)(p1-e));
+					serrinfo(ep->errinfo,esp->str,esp->strlen);
 					goto err;
 				}else {
 					v2=expr_createvar(ep,e,(size_t)(p1-e));
+v2_get:
 					cknp(ep,v2,goto err);
 				}
 				unary_for(v1);

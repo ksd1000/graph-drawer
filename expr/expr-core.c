@@ -5369,7 +5369,7 @@ static int expr_constexpr(const struct expr *restrict ep,expr_t *except){
 #define _args (un.sv.__args)
 #define inited (un.s0._inited)
 
-__attribute__((noinline))
+expr_noinline
 static expr_t vmdeval(struct expr_vmdinfo *restrict ev,expr_t input){
 	EXPR_EVALVARS;
 	return vmdeval_def(ev,input);
@@ -6797,14 +6797,14 @@ break2:
 	for(struct expr_inst *ip=ep->data;;){\
 		EXPR_EVALSTEP(return *ip->dst.dst);\
 	}
-__attribute__((noinline))
+expr_noinline
 expr_t expr_eval(const struct expr *restrict ep,expr_t input){
 	EXPR_EVAL_BODY;
 }
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wfloat-overflow-conversion"
-__attribute__((noinline))
+expr_noinline
 int expr_step(const struct expr *restrict ep,expr_t input,expr_t *restrict output,struct expr_inst **restrict saveip){
 	EXPR_EVALVARS;
 	struct expr_inst *ip=*saveip;
@@ -6832,7 +6832,7 @@ end:\
 	if(ec->after)\
 		ec->after(ep,old_ip,ec->arg);\
 	return out
-__attribute__((noinline))
+expr_noinline
 expr_t expr_callback(const struct expr *restrict ep,expr_t input,const struct expr_callback *ec){
 	EXPR_CALLBACK_BODY;
 }

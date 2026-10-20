@@ -38,6 +38,11 @@ expr_static_assert(sizeof(ssize_t)==sizeof(ptrdiff_t));
 expr_static_assert(sizeof(size_t)==sizeof(ptrdiff_t));
 expr_static_assert(sizeof(void *)==sizeof(ptrdiff_t));
 
+#ifndef expr_noinline
+#define expr_noinline __attribute__((noinline))
+#endif
+
+
 #ifndef expr_t
 #define expr_t double
 #define expr_ti int64_t

@@ -2,6 +2,8 @@
 
 # Graph Drawer
 
+![CI](https://github.com/ksd1000/graph-drawer/actions/workflows/ci.yml/badge.svg)
+
 This is a product able to parse expressions and generate image and audio, with two backend libraries, an expression evaluator and a graph drawing library.
 
 ## Project Structure

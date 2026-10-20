@@ -1423,7 +1423,7 @@ yinf:
 			x=x*x;
 		}
 	}
-	if(!uzero(vx.uval)){
+	if(!uzero(vy.uval)){
 		uint64_t my;
 		int ey;
 		fetch_base_exp(vy,my,ey);

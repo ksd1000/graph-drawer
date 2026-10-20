@@ -1575,7 +1575,7 @@ static void *readsymbol(struct expr *restrict ep,const char *symbol,size_t symle
 	if(!ep->sset||!(sym.es=expr_symset_search(ep->sset,symbol,symlen))){
 		goto esymbol;
 	}
-//	debug("reading:%s -- ",symbol);
+	debug("reading:%s -- %zu",symbol,symlen);
 alias_found:
 	type=sym.es->type;
 	flag=sym.es->flag;
@@ -4285,17 +4285,17 @@ struct expr_symbol *expr_symbol_vcreatel_r(const char *sym,size_t symlen,int typ
 	char *p1;
 	if(unlikely(!symlen))
 		return NULL;
-	len=align(sizeof(struct expr_symbol)+symlen+1);
+	len=sizeof(struct expr_symbol)+symlen+1;
 	switch(type){
 		case EXPR_CONSTANT:
 		case EXPR_VARIABLE:
 		case EXPR_FUNCTION:
 		case EXPR_ZAFUNCTION:
-			len+=sizeof(union expr_symvalue);
+			len=align(len)+sizeof(union expr_symvalue);
 			break;
 		case EXPR_MDFUNCTION:
 		case EXPR_MDEPFUNCTION:
-			len+=align(sizeof(union expr_symvalue))+sizeof(size_t);
+			len=align(align(len)+sizeof(union expr_symvalue))+sizeof(size_t);
 			break;
 		case EXPR_HOTFUNCTION:
 		case EXPR_ALIAS:
@@ -4325,6 +4325,7 @@ struct expr_symbol *expr_symbol_vcreatel_r(const char *sym,size_t symlen,int typ
 				expr_symbol_un(esp)->size=va_arg(ap,size_t);
 			else
 				expr_symbol_un(esp)->value=va_arg(ap,expr_t);
+			debug("expr_symbol_un(esp)->value=%lf",expr_symbol_un(esp)->value);
 			break;
 		case EXPR_VARIABLE:
 			expr_symbol_un(esp)->addr=va_arg(ap,expr_t *);
@@ -4348,6 +4349,7 @@ struct expr_symbol *expr_symbol_vcreatel_r(const char *sym,size_t symlen,int typ
 			p1=esp->str+symlen+1;
 			memcpy(p1,p,len_expr);
 			p1[len_expr]=0;
+			debug("alias %s=%s",esp->str,p1);
 			break;
 		default:
 			__builtin_unreachable();

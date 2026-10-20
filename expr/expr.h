@@ -625,8 +625,8 @@ EXPR_END
 #define expr_align(x) (((x)+(EXPR_ALIGN-1))&~(EXPR_ALIGN-1))
 #define expr_align_up(x) (((x)+(EXPR_ALIGN))&~(EXPR_ALIGN-1))
 #define EXPR_ALIGN (sizeof(void *))
-#define EXPR_MAGIC48_A 0x5deece66d
-#define EXPR_MAGIC48_B 0xb
+#define EXPR_MAGIC48_A UINT64_C(0x5deece66d)
+#define EXPR_MAGIC48_B UINT64_C(0xb)
 
 #define expr_ltod48(_l) (expr_cast((((_l)&INT64_C(0xffffffffffff))<<4)|INT64_C(0x3ff0000000000000),double)-1.0)
 #define expr_ltol48(_l) ((int32_t)(((_l)&INT64_C(0xffffffff0000))>>17))
@@ -636,7 +636,7 @@ EXPR_END
 	(int64_t)((__l>>32)|((__l&INT64_C(0xffff0000)))|((__l&INT64_C(0xffff))<<32));\
 })
 
-#define expr_next48v(_val) (((EXPR_MAGIC48_A)*(_val)+(EXPR_MAGIC48_B))&INT64_C(0xffffffffffff))
+#define expr_next48v(_val) ((int64_t)(((EXPR_MAGIC48_A)*(uint64_t)(_val)+(EXPR_MAGIC48_B))&UINT64_C(0xffffffffffff)))
 #define expr_next48(_seedp) ({\
 	int64_t *_next48_seed=(_seedp);\
 	*_next48_seed=expr_next48v(*_next48_seed);\
@@ -690,7 +690,7 @@ EXPR_END
 #define expr_symbol_hot(_esp) ({const struct expr_symbol *__esp=(_esp);(char *)(uintptr_t)(__esp->str+__esp->strlen+1);})
 #define expr_symbol_hotlen(_esp) ({const struct expr_symbol *__esp=(_esp);(size_t)__esp->length-(size_t)__esp->strlen-sizeof(struct expr_symbol)-2;})
 #define expr_symbol_un(_esp) ({const struct expr_symbol *__esp=(_esp);(union expr_symvalue *)(uintptr_t)(__esp->str+expr_align(__esp->strlen+1));})
-#define expr_symbol_dim(_esp) ({const struct expr_symbol *__esp=(_esp);(size_t *)(uintptr_t)(__esp->str+expr_align(__esp->strlen+1+sizeof(union expr_symvalue)));})
+#define expr_symbol_dim(_esp) ({const struct expr_symbol *__esp=(_esp);(size_t *)(uintptr_t)(__esp->str+expr_align(expr_align(__esp->strlen+1)+sizeof(union expr_symvalue)));})
 #define expr_assume(cond) if(cond);else __builtin_unreachable()
 #define expr_likely(cond) __builtin_expect(!!(cond),1)
 #define expr_unlikely(cond) __builtin_expect(!!(cond),0)

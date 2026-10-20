@@ -1389,7 +1389,7 @@ struct expr_strtod_workspace {
 
 #endif
 
-#ifdef EXPR_SYSIN
+#if defined(EXPR_SYSIN)&&!(defined(EXPR_NOSYSCALL)&&(EXPR_NOSYSCALL))
 #define expr_internal_syscalln(N,num,a0,a1,a2,a3,a4,a5,a6) expr_internal_syscall_reg##N(num,a0,a1,a2,a3,a4,a5,a6,EXPR_SYSID,EXPR_SYSA0,EXPR_SYSA1,EXPR_SYSA2,EXPR_SYSA3,EXPR_SYSA4,EXPR_SYSA5,EXPR_SYSA6,EXPR_SYSRE,EXPR_SYSE0,EXPR_SYSE1,EXPR_SYSE2,EXPR_SYSE3,EXPR_SYSE4,EXPR_SYSE5,EXPR_SYSE6,EXPR_SYSE7)
 #else
 #define expr_internal_syscalln(N,num,a0,a1,a2,a3,a4,a5,a6) ((intptr_t)0)

@@ -424,16 +424,16 @@ int expr_setup_heapmtl4(struct expr_memtool *restrict mtl,void *heap,size_t size
 	if(flag&EXPR_ASTARTADDRALIGN){
 		uintptr_t alp;
 		size_t dif;
-		alp=align_size((uintptr_t)heap,sizeof(struct expr_area));
+		alp=align_size((uintptr_t)heap,UNIT_SIZE);
 		dif=alp-(uintptr_t)heap;
 		if(dif){
 			size-=dif;
 			heap=(void *)alp;
 		}
 	}
-	if(unlikely((ssize_t)size<(ssize_t)sizeof(struct expr_area)))
+	if(unlikely((ssize_t)size<(ssize_t)UNIT_SIZE))
 		return -1;
-	if(unlikely(expr_area_init4((struct expr_area *)heap,expr_zoneof(heap),size-sizeof(struct expr_area),flag))<0)
+	if(unlikely(expr_area_init4((struct expr_area *)heap,expr_zoneof(heap),size-UNIT_SIZE,flag))<0)
 		return -1;
 	mtl->allocate=expr_heapmtl_malloc;
 	mtl->reallocate=expr_heapmtl_realloc;

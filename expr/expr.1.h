@@ -666,13 +666,20 @@ EXPR_END
 
 #define expr_get48(_addr) ({\
 	const uint16_t *_get48_addr=(_addr);\
+	(uintptr_t)_get48_addr&3?\
+	(int64_t)(*(const uint32_t *)(_get48_addr+1)<<16)|((int64_t)*_get48_addr):\
 	(int64_t)*(const uint32_t *)_get48_addr|((int64_t)_get48_addr[2]<<32);\
 })
 #define expr_set48(_addr,_val) ({\
 	uint16_t *_set48_addr=(_addr);\
 	int64_t _set48_val=(_val);\
-	*(uint32_t *)_set48_addr=(uint32_t)_set48_val;\
-	_set48_addr[2]=(uint16_t)(_set48_val>>32);\
+	if((uintptr_t)_set48_addr&3){\
+		*(uint32_t *)(_set48_addr+1)=(uint32_t)(_set48_val>>16);\
+		*_set48_addr=(uint16_t)(_set48_val);\
+	}else {\
+		*(uint32_t *)_set48_addr=(uint32_t)_set48_val;\
+		_set48_addr[2]=(uint16_t)(_set48_val>>32);\
+	}\
 })
 
 #define expr_ssnext48(_ss,_sz) ({\
@@ -841,6 +848,7 @@ struct expr_libinfo {
 struct expr_writeflag {
 	size_t width;
 	ssize_t digit;
+	const struct expr_memtool *restrict mtl;
 	union {
 		uint64_t bit;
 		struct {
@@ -929,6 +937,7 @@ union expr_argf {
 	ssize_t *taddr;
 	const char *str;
 	union expr_argf *aaddr;
+	char ch;
 #if __SIZEOF_POINTER__<8
 #define expr_umaxf_t uint64_t
 #define expr_imaxf_t int64_t
@@ -955,13 +964,17 @@ struct expr_ftable {
 	char fph,digit,bitwidth,readarg,readarg2;
 	char unused[3];
 };
+struct expr_memfd {
+	void *buf;
+	size_t size;
+};
 
 #define expr_iprintf(fmt,...) expr_idprintf(STDOUT_FILENO,fmt,##__VA_ARGS__)
 #define expr_ieprintf(fmt,...) expr_idprintf(STDERR_FILENO,fmt,##__VA_ARGS__)
 #define expr_idprintf(fd,fmt,...) expr_idwprintf(fd,write,fmt,##__VA_ARGS__)
 #define expr_ibprintf(fd,fmt,...) expr_idwprintf(fd,expr_buffered_write,fmt,##__VA_ARGS__)
-#define expr_ilprintf(fd,fmt,...) expr_idwprintf(fd,expr_buffered_write_iolbf,fmt,##__VA_ARGS__)
-#define expr_idwprintf(fd,writer,fmt,...) expr_apwritef(fmt,sizeof(fmt)-1,(expr_writer)(const void *)(writer),(intptr_t)(fd),##__VA_ARGS__)
+#define expr_ilprintf(fd,fmt,...) expr_idwprintf(fd,expr_buffered_write_iolbf_warped,fmt,##__VA_ARGS__)
+#define expr_idwprintf(fd,writer,fmt,...) expr_apwritef(fmt,sizeof(fmt)-1,(expr_writer)(uintptr_t)(writer),(intptr_t)(fd),##__VA_ARGS__)
 
 #define EXPR_BZERO 1
 #define EXPR_BTRUNC 2

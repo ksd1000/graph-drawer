@@ -75,7 +75,7 @@ typedef _Atomic(uint32_t) mutex_t;
 #include "expr.h"
 
 const struct expr_libinfo expr_libinfo_current[1]={{
-	.version="1.0.9",
+	.version="1.0.10",
 	.compiler_version=
 #ifdef __VERSION__
 		__VERSION__,
@@ -279,6 +279,42 @@ int expr_setup_mtl(int flag){
 		expr_mtl_setup=1;
 		return 0;
 	}
+}
+
+void *expr_heapmtl_malloc_nonnull(size_t size,intptr_t arg){
+	void *r=expr_area_malloc((struct expr_area *)arg,size);
+	if(unlikely(!r))
+		r_fail;
+	return r;
+}
+void *expr_heapmtl_realloc_nonnull(void *old,size_t size,intptr_t arg){
+	void *r=expr_area_realloc((struct expr_area *)arg,old,size);
+	if(unlikely(!r))
+		r_fail;
+	return r;
+}
+#define align_size(val,const_size) (((val)+((const_size)-1))/(const_size))*(const_size)
+int expr_setup_heapmtl4_nonnull(struct expr_memtool *restrict mtl,void *heap,size_t size,int flag){
+	if(flag&EXPR_ASTARTADDRALIGN){
+		uintptr_t alp;
+		size_t dif;
+		alp=align_size((uintptr_t)heap,sizeof(struct expr_zoneunit));
+		dif=alp-(uintptr_t)heap;
+		if(dif){
+			size-=dif;
+			heap=(void *)alp;
+		}
+	}
+	if(unlikely((ssize_t)size<(ssize_t)sizeof(struct expr_zoneunit)))
+		return -1;
+	if(unlikely(expr_area_init4((struct expr_area *)heap,expr_zoneof(heap),size-sizeof(struct expr_zoneunit),flag))<0)
+		return -1;
+	mtl->allocate=expr_heapmtl_malloc_nonnull;
+	mtl->reallocate=expr_heapmtl_realloc_nonnull;
+	mtl->deallocate=expr_heapmtl_dealloc;
+	mtl->test=NULL;
+	mtl->arg=(intptr_t)heap;
+	return 0;
 }
 
 #endif

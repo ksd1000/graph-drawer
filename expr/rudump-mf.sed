@@ -15,3 +15,4 @@ s/\.\.\.,expr_defmtl/expr_defmtl,##__VA_ARGS__/
 s/syms,expr_defmtl,##__VA_ARGS__/expr_defmtl,syms,##__VA_ARGS__/g
 s/void,//
 s/(void)/()/
+s/ap,expr_defmtl/expr_defmtl,ap/

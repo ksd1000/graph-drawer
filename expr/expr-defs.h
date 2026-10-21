@@ -181,7 +181,7 @@
 #define INT_MAX __INT_MAX__
 #endif
 #ifndef UINT_MAX 
-#define UINT_MAX ((unsigned int)((INT_MAX<<1)|(1)))
+#define UINT_MAX (((unsigned int)INT_MAX<<1)|(unsigned int)1)
 #endif
 #ifndef NULL 
 #define NULL ((void *)0)

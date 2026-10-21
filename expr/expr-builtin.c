@@ -63,9 +63,9 @@ void expr_memfry48(void *restrict buf,size_t size,size_t n,int64_t seed){
 	for(size_t i=0;i<n;++i){
 		r=(size_t)expr_ltol48(expr_next48(&seed))%n;
 		if(likely(r!=i))
-			expr_memswap((char *)buf+i*size,(char *)buf+r*size,size);
+			expr_internal_memswap((char *)buf+i*size,(char *)buf+r*size,size);
 		else if(i<n-1){
-			expr_memswap((char *)buf+i*size,(char *)buf+(i+1)*size,size);
+			expr_internal_memswap((char *)buf+i*size,(char *)buf+(i+1)*size,size);
 		}
 	}
 }

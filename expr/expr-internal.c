@@ -152,43 +152,6 @@ no_enough_size:
 	return (size_t)(buf-buf0);
 }
 
-void expr_memswap(void *restrict s1,void *restrict s2,size_t size){
-	register union {
-		int64_t swapbuf;
-		int32_t swapbuf32;
-		int16_t swapbuf16;
-		int8_t swapbuf8;
-	} un;
-	while(size>=8){
-		un.swapbuf=*(int64_t *)(uintptr_t)s1;
-		*(int64_t *)(uintptr_t)s1=*(int64_t *)(uintptr_t)s2;
-		*(int64_t *)(uintptr_t)s2=un.swapbuf;
-		size-=8;
-		++(*(int64_t **)(uintptr_t)&s1);
-		++(*(int64_t **)(uintptr_t)&s2);
-	}
-	if(size>=4){
-		un.swapbuf32=*(int32_t *)(uintptr_t)s1;
-		*(int32_t *)(uintptr_t)s1=*(int32_t *)(uintptr_t)s2;
-		*(int32_t *)(uintptr_t)s2=un.swapbuf32;
-		size-=4;
-		++(*(int32_t **)(uintptr_t)&s1);
-		++(*(int32_t **)(uintptr_t)&s2);
-	}
-	if(size>=2){
-		un.swapbuf16=*(int16_t *)(uintptr_t)s1;
-		*(int16_t *)(uintptr_t)s1=*(int16_t *)(uintptr_t)s2;
-		*(int16_t *)(uintptr_t)s2=un.swapbuf16;
-		size-=2;
-		++(*(int16_t **)(uintptr_t)&s1);
-		++(*(int16_t **)(uintptr_t)&s2);
-	}
-	if(size){
-		un.swapbuf8=*(int8_t *)(uintptr_t)s1;
-		*(int8_t *)(uintptr_t)s1=*(int8_t *)(uintptr_t)s2;
-		*(int8_t *)(uintptr_t)s2=un.swapbuf8;
-	}
-}
 #ifndef PAGE_SIZE
 #define PAGE_SIZE 4096
 #endif
@@ -441,6 +404,9 @@ int expr_extint_cmpsub(uint64_t *restrict buf,size_t size,const uint64_t *restri
 	*outsize=expr_extint_sub2(buf,size,buf1,buf1size);
 	return 1;
 }
+#if defined(__BIG_ENDIAN__)&&(__BIG_ENDIAN__)
+#error "in big endian"
+#endif
 // WARNING: the expr_extint_mul is old
 size_t expr_extint_mul(uint64_t *buf,size_t size,uint32_t factor,uint64_t *workspace){
 	uint32_t *restrict p;
@@ -509,24 +475,40 @@ size_t expr_extint_mul2(uint64_t *buf,size_t bufsize,const uint64_t *factor_buf,
 	return (size_t)(endp-buf+1);
 }
 size_t expr_extint_div(uint64_t *buf,size_t size,uint32_t divisor,uint32_t *mod){
+	//the caller must ensure divisor!=0
 	uint32_t *p=(uint32_t *)(buf+size);
 	uint64_t v;
 	size_t rsize=0;
-	uint32_t backup=0;
-	*(uint32_t *)p=0;
-	do {
+	uint32_t backup,rem;
+	if(unlikely(!size)){
+		if(mod)
+			*mod=0;
+	}
+	--p;
+	v=(uint64_t)*p;
+	rem=(uint32_t)(v%divisor);
+	v/=divisor;
+	*p=rem;
+	backup=(uint32_t)v;
+	if(v){
+		if(!rsize)
+			rsize=(size_t)((p-(uint32_t *)buf)+1);
+	}
+	while(p>(uint32_t *)buf){
 		--p;
-		v=*(uint64_t *)p/divisor;
-		*(uint64_t *)p%=divisor;
-		((uint32_t *)p)[1]=backup;
+		v=((uint64_t)*p|((uint64_t)p[1]<<32));
+		rem=(uint32_t)(v%divisor);
+		v/=divisor;
+		*p=rem;
+		p[1]=backup;
 		backup=(uint32_t)v;
 		if(!v)
 			continue;
 		if(!rsize)
 			rsize=(size_t)((p-(uint32_t *)buf)+1);
-	}while(p>(uint32_t *)buf);
+	}
 	if(mod)
-		*mod=*(uint32_t *)buf;
+		*mod=rem;
 	*(uint32_t *)buf=backup;
 	if(rsize)
 		return (rsize+1)>>1;
@@ -1108,14 +1090,15 @@ e2inf:
 	}
 	return val.val;//completed ?
 }
-double expr_internal_strtod(const char *restrict nptr,size_t nsize,size_t *restrict end_index){
-	struct expr_strtod_workspace ws[1];
-	return expr_internal_strtod4(nptr,nsize,end_index,ws);
-}
 #define expr_allocator(size) (xmtl->allocate((size),xmtl->arg))
 #define expr_reallocator(old,size) (xmtl->reallocate((old),(size),xmtl->arg))
 #define expr_deallocator(old) (xmtl->deallocate((old),xmtl->arg))
 #define xmtl mtl
+#if !(defined(EXPR_NOSTACKWORKSPACE)&&(EXPR_NOSTACKWORKSPACE))
+double expr_internal_strtod(const char *restrict nptr,size_t nsize,size_t *restrict end_index){
+	struct expr_strtod_workspace ws[1];
+	return expr_internal_strtod4(nptr,nsize,end_index,ws);
+}
 double expr_internal_strtod_mtl_auto(const char *restrict nptr,size_t nsize,size_t *restrict end_index,const struct expr_memtool *restrict mtl){
 	struct expr_strtod_workspace *ws;
 	ws=xmalloc(sizeof(struct expr_strtod_workspace));
@@ -1129,6 +1112,7 @@ double expr_internal_strtod_mtl_auto(const char *restrict nptr,size_t nsize,size
 		return expr_internal_strtod4(nptr,nsize,end_index,ws);
 	}
 }
+#endif
 double expr_internal_strtod_mtl_force(const char *restrict nptr,size_t nsize,size_t *restrict end_index,const struct expr_memtool *restrict mtl){
 	struct expr_strtod_workspace *ws;
 	ws=xmalloc(sizeof(struct expr_strtod_workspace));
@@ -1926,6 +1910,72 @@ void expr_internal_memcpy(void *dst,const void *src,size_t size){
 		end=(uintptr_t)bp+size;
 		for(;;){
 			*bp=*sbp;
+			++bp;
+			if(bp==(uint8_t *)end)
+				break;
+			++sbp;
+		}
+	}
+}
+void expr_internal_memswap(void *dst,void *src,size_t size){
+	uint8_t *bp,*sbp,*tmp;
+	uintptr_t end;
+	size_t tmp_size;
+	uint8_t swapbuf[8*PALIGN];
+	bp=dst;
+	sbp=src;
+	end=(uintptr_t)(4*PALIGN)-((uintptr_t)bp&(4*PALIGN-1));
+	if(end!=4*PALIGN){
+		size-=end;
+		tmp=swapbuf;
+		BYTE_COPY_4PM1(end,tmp,bp);
+		bp=dst;
+		end=tmp-swapbuf;
+		BYTE_COPY_4PM1(end,bp,sbp);
+		sbp=src;
+		end=tmp-swapbuf;
+		tmp=swapbuf;
+		BYTE_COPY_4PM1(end,sbp,tmp);
+	}
+	// dp is aligned here
+	while((tmp_size=size&~(size_t)(PALIGN*8-1))){
+		size-=tmp_size;
+		BYTE_COPY_ALIGN8PK(swapbuf,bp);
+		BYTE_COPY_ALIGN8PK(bp,sbp);
+		BYTE_COPY_ALIGN8PK(sbp,swapbuf);
+		bp+=PALIGN*8;
+		sbp+=PALIGN*8;
+	}
+	if(size>=PALIGN*4){
+		size-=PALIGN*4;
+		BYTE_COPY_ALIGN4PK(swapbuf,bp);
+		BYTE_COPY_ALIGN4PK(bp,sbp);
+		BYTE_COPY_ALIGN4PK(sbp,swapbuf);
+		bp+=PALIGN*4;
+		sbp+=PALIGN*4;
+	}
+	if(size>=PALIGN*2){
+		size-=PALIGN*2;
+		BYTE_COPY_ALIGN2PK(swapbuf,bp);
+		BYTE_COPY_ALIGN2PK(bp,sbp);
+		BYTE_COPY_ALIGN2PK(sbp,swapbuf);
+		bp+=PALIGN*2;
+		sbp+=PALIGN*2;
+	}
+	if(size>=PALIGN){
+		size-=PALIGN;
+		BYTE_COPY_ALIGN1PK(swapbuf,bp);
+		BYTE_COPY_ALIGN1PK(bp,sbp);
+		BYTE_COPY_ALIGN1PK(sbp,swapbuf);
+		bp+=PALIGN;
+		sbp+=PALIGN;
+	}
+	if(size){
+		end=(uintptr_t)bp+size;
+		for(;;){
+			*swapbuf=*bp;
+			*bp=*sbp;
+			*sbp=*swapbuf;
 			++bp;
 			if(bp==(uint8_t *)end)
 				break;

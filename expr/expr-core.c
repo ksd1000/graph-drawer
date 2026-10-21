@@ -6802,6 +6802,8 @@ expr_t expr_eval(const struct expr *restrict ep,expr_t input){
 	EXPR_EVAL_BODY;
 }
 
+#if !(defined(EXPR_NODEBUGEVAL)&&(EXPR_NODEBUGEVAL))
+//#if 0
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wfloat-overflow-conversion"
 expr_noinline
@@ -6837,6 +6839,8 @@ expr_t expr_callback(const struct expr *restrict ep,expr_t input,const struct ex
 	EXPR_CALLBACK_BODY;
 }
 #undef eval
+
+#endif
 
 #undef sum
 #undef from

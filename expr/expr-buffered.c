@@ -496,3 +496,7 @@ ssize_t expr_buffered_write_iolbf(struct expr_buffered_file *restrict fp,const v
 	debug("iolbf size=%zu",size);
 	return expr_buffered_write_sflushatc(fp,buf,size,'\n');
 }
+ssize_t expr_buffered_write_iolbf_warped(intptr_t fd,const void *buf,size_t size){
+	debug("iolbf size=%zu",size);
+	return expr_buffered_write_sflushatc((struct expr_buffered_file *)fd,buf,size,'\n');
+}

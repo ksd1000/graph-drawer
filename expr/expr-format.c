@@ -13,6 +13,18 @@
 
 #define EXPR_INLIB 1
 #include "expr.h"
+/*
+	SSIZE_MIN+1: allocate fail
+	SSIZE_MIN+2: no enough bufsize
+	SSIZE_MIN+3: arg fail
+*/
+
+
+
+#define expr_allocator(size) (xmtl->allocate((size),xmtl->arg))
+#define expr_reallocator(old,size) (xmtl->reallocate((old),(size),xmtl->arg))
+#define expr_deallocator(old) (xmtl->deallocate((old),xmtl->arg))
+#define xmtl flag->mtl
 
 #define c_trywrite(buf,sz) if(likely((r=(ssize_t)(sz))>0)){\
 	r=writer(fd,(buf),(size_t)r);\
@@ -87,14 +99,14 @@ ssize_t expr_converter_common(expr_writer writer,intptr_t fd,const void *buf,siz
 	}while(val)
 static ssize_t converter_d(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	char nbuf[32];
-	ssize_t val=arg->tint;
+	size_t val=(size_t)arg->tint;
 	char *endp=nbuf+32;
 	char *p=endp;
 	ssize_t ext,sum,r,sz;
 	int minus;
 	if(!val)
 		minus=2;
-	else if(val<0){
+	else if(val>(size_t)SSIZE_MAX){
 		val=-val;
 		minus=1;
 	}else
@@ -216,10 +228,17 @@ static ssize_t converter_xu(expr_writer writer,intptr_t fd,const union expr_argf
 		positive=0;
 		*(--p)='0';
 	}
-	if(base==16){
-		if(flag->sharp){
-			*(--p)=conv_str[base];
-			*(--p)='0';
+	if(positive&&flag->sharp){
+		switch(base){
+			case 8:
+				*(--p)='0';
+				break;
+			case 16:
+				*(--p)=flag->cap?'X':'x';
+				*(--p)='0';
+				break;
+			default:
+				break;
 		}
 	}
 	switch(positive){
@@ -275,16 +294,18 @@ conv_x(x8f,15);
 	}\
 })
 // warning on gcc 13.3.0 if no volatile
-#define conv_fu(_start,_name,_nsize,_how,_before_how) \
-static ssize_t converteru_##_name(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag,uint32_t base,int64_t shouldleft){\
+struct doubleconverter_workspace {
+	uint64_t w[69];
+	uint64_t i[69-16];
+	uint64_t ii[16];
+	char v[1096];
+	char n[];
+};
+// the libc printf for double rounds to the closer one. but the code is too difficult to write, so this keeps truncate, round by the caller.
+#define conv_fu(_start,_name,_how,_before_how) \
+static ssize_t converteru_##_name(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag,uint32_t base,int64_t shouldleft,struct doubleconverter_workspace *bufst,uint32_t nsize){\
 	double val=arg->dbl;\
-	struct {\
-		uint64_t w[69];\
-		char v[1096];\
-		uint64_t i[69-16];\
-		uint64_t ii[16];\
-		char n[_nsize];\
-	} bufst;\
+	;\
 	char *endp;\
 	char *p,*np;\
 	int positive,f61,f58;\
@@ -293,7 +314,6 @@ static ssize_t converteru_##_name(expr_writer writer,intptr_t fd,const union exp
 	const char *_conv_str=flag->cap?conv_btoX:conv_btox;\
 	uint32_t baseodd;\
 	_start;\
-	expr_static_assert(__builtin_constant_p((_nsize)));\
 	if(unlikely(!expr_isfinite(val))){\
 		p=nbuf;\
 		write_sign_to_p(EXPR_EDSIGN(&val));\
@@ -310,7 +330,7 @@ static ssize_t converteru_##_name(expr_writer writer,intptr_t fd,const union exp
 		digit=(size_t)SSIZE_MAX-1;\
 	}\
 	width=flag_width(flag,0);\
-	endp=nbuf+_nsize;\
+	endp=nbuf+(size_t)nsize;\
 	if(EXPR_EDSIGN(&val)){\
 		EXPR_EDSIGN(&val)=0;\
 		positive=0;\
@@ -395,10 +415,7 @@ static ssize_t converteru_##_name(expr_writer writer,intptr_t fd,const union exp
 
 
 
-//#define conv_f0s(_start,_name,_base,_shift,_nsize,_how,_before_how) 
-//#define conv_f0(_name,_base,_shift,_nsize,_how,_before_how) conv_f0s(,_name,_base,_shift,_nsize,_how,_before_how)
-//#define conv_f0s(_start,_name,_base,_shift,_nsize,_how,_before_how) 
-#define conv_fu0(_name,_nsize) conv_fu(,_name,_nsize,{\
+#define conv_fu0(_name) conv_fu(,_name,{\
 	c_trywrite(np,ds);\
 	if(fsz){\
 		c_trywrite(p,fsz);\
@@ -425,7 +442,7 @@ static ssize_t converteru_##_name(expr_writer writer,intptr_t fd,const union exp
 	debug("set sz=%zd",sz);\
 )
 
-#define conv_fue(_name,_nsize) conv_fu(,_name,_nsize,\
+#define conv_fue(_name) conv_fu(,_name,\
 	if(r1<0){\
 		if(fsz){\
 			c_trywrite(p,1);\
@@ -567,13 +584,27 @@ onzero:\
 		sz=SSIZE_MAX;\
 	debug("set sz=%zd",sz);\
 })
-#define conv_f(_name,_base,_shift) \
+#define conv_f(_name,_base,_shift,_nsize) \
 static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){\
-	return converteru_plain(writer,fd,arg,flag,_base,_shift);\
+	struct doubleconverter_workspace *bufst;\
+	ssize_t r;\
+	bufst=xmalloc(offsetof(struct doubleconverter_workspace,n)+(_nsize));\
+	if(unlikely(!bufst))\
+		return SSIZE_MIN+1;\
+	r=converteru_plain(writer,fd,arg,flag,_base,_shift,bufst,_nsize);\
+	xfree(bufst);\
+	return r;\
 }
-#define conv_fe(_name,_base,_shift) \
+#define conv_fe(_name,_base,_shift,_nsize) \
 static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){\
-	return converteru_expo(writer,fd,arg,flag,_base,_shift);\
+	struct doubleconverter_workspace *bufst;\
+	ssize_t r;\
+	bufst=xmalloc(offsetof(struct doubleconverter_workspace,n)+(_nsize));\
+	if(unlikely(!bufst))\
+		return SSIZE_MIN+1;\
+	r=converteru_expo(writer,fd,arg,flag,_base,_shift,bufst,_nsize);\
+	xfree(bufst);\
+	return r;\
 }
 #define writeext_f \
 	debug("width=%zu,sz=%zd",width,sz);\
@@ -599,31 +630,31 @@ static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr
 			else if(flag_space(flag))\
 				*(--np)=' ';\
 		}
-#define vbuf (bufst.v)
-#define nbuf (bufst.n)
-#define ival (bufst.i)
-#define iival (bufst.ii)
-#define workspace (bufst.w)
+#define vbuf (bufst->v)
+#define nbuf (bufst->n)
+#define ival (bufst->i)
+#define iival (bufst->ii)
+#define workspace (bufst->w)
 #define nbuf_size(x) (((x)+23u)&~7u)
-conv_fu0(plain,nbuf_size(1024));
-conv_fue(expo,nbuf_size(1024)+8);//old 308
-conv_f(xa1,16,+3);
-conv_f(xa2,2,0);
-conv_f(xa3,3,-1);
-conv_f(xa4,4,+1);
-conv_f(xa5,5,-1);
-conv_f(xa6,6,0);
-conv_f(xa7,7,-1);
-conv_f(xa8,8,+2);
-conv_f(xa9,9,-1);
-conv_f(xaa,10,0);
-conv_f(xab,11,-1);
-conv_f(xac,12,+2);
-conv_f(xad,13,-1);
-conv_f(xae,14,0);
-conv_f(xaf,15,-1);
+conv_fu0(plain);
+conv_fue(expo);
+conv_f(xa1,16,+3,nbuf_size(256));
+conv_f(xa2,2,0,nbuf_size(1024));
+conv_f(xa3,3,-1,nbuf_size(646));
+conv_f(xa4,4,+1,nbuf_size(512));
+conv_f(xa5,5,-1,nbuf_size(441));
+conv_f(xa6,6,0,nbuf_size(396));
+conv_f(xa7,7,-1,nbuf_size(364));
+conv_f(xa8,8,+2,nbuf_size(342));
+conv_f(xa9,9,-1,nbuf_size(323));
+conv_f(xaa,10,0,nbuf_size(308));
+conv_f(xab,11,-1,nbuf_size(296));
+conv_f(xac,12,+2,nbuf_size(285));
+conv_f(xad,13,-1,nbuf_size(276));
+conv_f(xae,14,0,nbuf_size(268));
+conv_f(xaf,15,-1,nbuf_size(262));
 
-conv_fe(fe,10,0);
+conv_fe(fe,10,0,nbuf_size(308+8));
 //256,1024,646,512,441,396,364,342,323,308,296,285,276,268,262;
 #undef nbuf
 #undef vbuf
@@ -692,11 +723,8 @@ static ssize_t faction_##name(expr_writer writer,intptr_t fd,const union expr_ar
 }
 faction_hexdump(h);
 static ssize_t faction_c(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
-#if (!defined(__BIG_ENDIAN__)||!(__BIG_ENDIAN__))
-	return writer(fd,arg,1);
-#else
-	return writer(fd,(const uint8_t *)arg+(sizeof(void *)-1),1);
-#endif
+	ssize_t r,sum,ext,sz;
+	cwrite_common(&arg->ch,(ssize_t)1);
 }
 static double dbl_abs(double x){
 	*(uint64_t *)&x=UINT64_C(0x8000000000000000);
@@ -1061,10 +1089,10 @@ out:
 		onfalse;\
 	}\
 })
-ssize_t expr_vwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,expr_argfetch arg,void *addr){
-	return expr_vwritef_r(fmt,fmtlen,writer,fd,arg,addr,expr_ftable_default);
+ssize_t expr_vwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,expr_argfetch arg,void *addr,const struct expr_memtool *restrict mtl){
+	return expr_vwriteft_r(fmt,fmtlen,writer,fd,arg,addr,expr_ftable_default,mtl);
 }
-ssize_t expr_vwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,expr_argfetch arg,void *addr,const struct expr_ftable *restrict table){
+ssize_t expr_vwriteft_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,expr_argfetch arg,void *addr,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl){
 	const char *endp=fmt+fmtlen,*fmt_old=fmt,*fmt0=fmt;
 	ssize_t ret=0;
 	ssize_t v;
@@ -1085,6 +1113,7 @@ ssize_t expr_vwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer
 		goto end;
 	}
 	fmt_save_current=fmt_save;
+	flag->mtl=mtl;
 next:
 	fmt=memchr(fmt,table->fph,(size_t)(endp-fmt));
 	if(unlikely(!fmt)){
@@ -1169,7 +1198,7 @@ reflag:
 #define argnext1 ++index;debug("arg index to %zd",index)
 #define argnext(N) index+=(ptrdiff_t)(N);debug("arg index to %zd",index)
 #define argback(N) index-=(ptrdiff_t)(N);debug("arg index back to %zd",index)
-#define goto_argfail {debug("arg failed");return SSIZE_MIN;}
+#define goto_argfail {debug("arg failed");return SSIZE_MIN+3;}
 #define argt(_type) ({register const union expr_argf *__arg;flag->type=(_type);__arg=arg(index,flag,addr);if(unlikely(!__arg)){debug("cannot get arg[%zd]",index);goto_argfail;}__arg;})
 #define arg1 argt(EXPR_FLAGTYPE_ADDR)
 #define get_next_arg64(dest,dtype,_after,_type,_field,_afield) \
@@ -1552,17 +1581,17 @@ err:
 	debug("getting arg[%zd] (base=%p,len=%zu)=NULL",index,wa->base,wa->arglen);
 	return NULL;
 }
-ssize_t expr_writef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const union expr_argf *restrict args,size_t arglen){
+ssize_t expr_writef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const union expr_argf *restrict args,size_t arglen,const struct expr_memtool *restrict mtl){
 	struct writef_args wa[1];
 	wa->base=args;
 	wa->arglen=arglen;
-	return expr_vwritef_r(fmt,fmtlen,writer,fd,arr_arg,wa,expr_ftable_default);
+	return expr_vwriteft_r(fmt,fmtlen,writer,fd,arr_arg,wa,expr_ftable_default,mtl);
 }
-ssize_t expr_writef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const union expr_argf *restrict args,size_t arglen,const struct expr_ftable *restrict table){
+ssize_t expr_writeft_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const union expr_argf *restrict args,size_t arglen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl){
 	struct writef_args wa[1];
 	wa->base=args;
 	wa->arglen=arglen;
-	return expr_vwritef_r(fmt,fmtlen,writer,fd,arr_arg,wa,table);
+	return expr_vwriteft_r(fmt,fmtlen,writer,fd,arr_arg,wa,table,mtl);
 }
 struct fmtarg {
 	va_list ap;
@@ -1620,22 +1649,78 @@ end:
 	struct fmtarg a[1];\
 	a->index_old=-1;\
 	_start;\
-	r=expr_vwritef_r(fmt,fmtlen,writer,fd,ap_getarg,a,_table);\
-	_end;\
-	return r
-ssize_t expr_vapwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const struct expr_ftable *restrict table,va_list ap){
+	r=expr_vwriteft_r(fmt,fmtlen,writer,fd,ap_getarg,a,_table,mtl);\
+	_end
+ssize_t expr_vapwriteft_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl,va_list ap){
 	ap_common(va_copy(a->ap,ap),va_end(a->ap),table);
+	return r;
 }
-ssize_t expr_apwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const struct expr_ftable *restrict table,...){
-	ap_common(va_start(a->ap,table),va_end(a->ap),table);
+ssize_t expr_apwriteft_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl,...){
+	ap_common(va_start(a->ap,mtl),va_end(a->ap),table);
+	return r;
 }
-ssize_t expr_vapwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,va_list ap){
+ssize_t expr_vapwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const struct expr_memtool *restrict mtl,va_list ap){
 	ap_common(va_copy(a->ap,ap),va_end(a->ap),expr_ftable_default);
+	return r;
 }
-ssize_t expr_apwritef(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,...){
-	ap_common(va_start(a->ap,fd),va_end(a->ap),expr_ftable_default);
+ssize_t expr_apwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const struct expr_memtool *restrict mtl,...){
+	ap_common(va_start(a->ap,mtl),va_end(a->ap),expr_ftable_default);
+	return r;
 }
-
+#define memfd_write_common \
+	size_t old_size;\
+	if(unlikely(size>(ssize_t)SSIZE_MAX)){\
+		return SSIZE_MIN+2;\
+	}\
+	old_size=size;\
+	if(unlikely(mfd->size<size)){\
+		size=mfd->size;\
+	}\
+	if(likely(size)){\
+		memcpy(mfd->buf,buf,size);\
+		mfd->buf+=size;\
+		mfd->size-=size;\
+	}\
+	return (ssize_t)old_size
+ssize_t expr_memfd_write(struct expr_memfd *restrict mfd,const void *buf,size_t size){
+	memfd_write_common;
+}
+ssize_t expr_memfd_write_warped(intptr_t fd,const void *buf,size_t size){
+	struct expr_memfd *mfd=(struct expr_memfd *)fd;
+	memfd_write_common;
+}
+#define sp_common(_start,_end,_table) \
+	struct expr_memfd mfd[1];\
+	mfd->buf=buf;\
+	mfd->size=buflen;\
+	{\
+		ap_common(_start,_end,_table);\
+		if(unlikely(r<0))\
+			return r;\
+		if(unlikely((size_t)r>=buflen)){\
+			if(buflen)\
+				buf[buflen-1]=0;\
+		}else\
+			buf[r]=0;\
+		return r;\
+	}
+#define writer expr_memfd_write_warped
+#define fd ((intptr_t)mfd)
+ssize_t expr_vsnprintft_r(char *buf,size_t buflen,const char *restrict fmt,size_t fmtlen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl,va_list ap){
+	sp_common(va_copy(a->ap,ap),va_end(a->ap),table);
+}
+ssize_t expr_snprintft_r(char *buf,size_t buflen,const char *restrict fmt,size_t fmtlen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl,...){
+	sp_common(va_start(a->ap,mtl),va_end(a->ap),table);
+}
+ssize_t expr_vsnprintf_r(char *buf,size_t buflen,const char *restrict fmt,size_t fmtlen,const struct expr_memtool *restrict mtl,va_list ap){
+	sp_common(va_copy(a->ap,ap),va_end(a->ap),expr_ftable_default);
+}
+ssize_t expr_snprintf_r(char *buf,size_t buflen,const char *restrict fmt,size_t fmtlen,const struct expr_memtool *restrict mtl,...){
+	sp_common(va_start(a->ap,mtl),va_end(a->ap),expr_ftable_default);
+}
+#undef writer
+#undef fd
+// libexpr will never provide sprintf()
 static inline const char *internal_strtom_10(const char *restrict nptr,const char *endp,ssize_t *restrict outval){
 	size_t r=0;
 	int neg=0;
@@ -1711,16 +1796,16 @@ static inline const char *internal_strtos(const char *nptr,const char *endp,cons
 	}
 	return nptr+outlen;
 }
-static const char *warped_strtof(const char *nptr,const char *endp,double *restrict outval){
+static const char *warped_strtof(const char *nptr,const char *endp,double *restrict outval,const struct expr_memtool *restrict mtl){
 	size_t len;
 	double r;
-	r=expr_internal_strtod(nptr,(size_t)(endp-nptr),&len);
+	r=expr_internal_strtod_mtl_force(nptr,(size_t)(endp-nptr),&len,mtl);
 	if(unlikely(!len))
 		return nptr;
 	*outval=r;
 	return nptr+len;
 }
-size_t expr_sscanf(const char *str,size_t len,const char *fmt,size_t fmtlen,void *const *addr,size_t addrlen){
+size_t expr_sscanf_r(const char *str,size_t len,const char *fmt,size_t fmtlen,void *const *addr,size_t addrlen,const struct expr_memtool *restrict mtl){
 	const char *p,*str0=str,*fend=fmt+fmtlen,*end=str+len;
 	void *const *aend=addr+addrlen;
 	void *a;
@@ -1808,7 +1893,7 @@ next:
 		case 'c':
 			do_scan(zi=(ssize_t)(unsigned char)*str;p=str+1,*(ssize_t *)a=zi);
 		case 'f':
-			do_scan(p=warped_strtof(str,end,&dbl),*(double *)a=dbl);
+			do_scan(p=warped_strtof(str,end,&dbl,mtl),*(double *)a=dbl);
 		case 'd':
 			do_scan(p=internal_strtoz_oux(str,end,&zi,1),*(ssize_t *)a=zi);
 		case 'u':

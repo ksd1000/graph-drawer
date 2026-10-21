@@ -610,8 +610,6 @@ int main(int argc,char **argv){
 	volatile double show_result=1.0;
 	static char buf[1024*1024*1024];
 	struct expr_areainfo ai;
-	struct expr_memtool mtl;
-	const struct expr_memtool *defmtl=expr_defmtl;
 	atexit(atend);
 	setvbuf(stdout,NULL,_IONBF,0);
 	if(argc<2)
@@ -680,6 +678,18 @@ int main(int argc,char **argv){
 		}
 	}
 break2:
+	if(summary){
+		int aflag;
+		aflag=EXPR_ASTARTADDRALIGN;
+		--summary;
+		if(summary&1)
+			aflag|=EXPR_ALAZY;
+		if(summary&2)
+			aflag|=EXPR_ALAZYEX;
+		++summary;
+		if(expr_setup_heapmtl4_nonnull(expr_defmtl,buf,sizeof(buf),aflag)<0)
+			errx(EXIT_FAILURE,"buffer too small");
+	}
 	if(optind>=argc){
 		errx(EXIT_FAILURE,"expression not found");
 	}
@@ -716,20 +726,7 @@ break3:
 	expr_symset_add(es,"ppp",EXPR_CONSTANT,0,3.0);
 	if(adbt||!nobt)
 		expr_builtin_symbol_addalls(es,expr_symbols_ess);
-	if(summary){
-		int aflag;
-		aflag=0;
-		--summary;
-		if(summary&1)
-			aflag|=EXPR_ALAZY;
-		if(summary&2)
-			aflag|=EXPR_ALAZYEX;
-		++summary;
-		if(expr_setup_heapmtl4(&mtl,buf,sizeof(buf),aflag)<0)
-			errx(EXIT_FAILURE,"buffer too small");
-		defmtl=&mtl;
-	}
-	if(expr_init_r(ep,e,"t",es,flag|EXPR_ISCANCACHE,defmtl)<0){
+	if(expr_init(ep,e,"t",es,flag|EXPR_ISCANCACHE)<0){
 		if(*ep->errinfo)
 			errx(EXIT_FAILURE,"expression error:%s \"%s\"",expr_error(ep->error),ep->errinfo);
 		else
@@ -761,7 +758,7 @@ break3:
 #define printi(V) expr_ilprintf(&eprintff,#V "=%d\n",(ssize_t)(V))
 #define printz(V) expr_ilprintf(&eprintff,#V "=%=.2M,",(size_t)(ai.V))
 #define printn(V) expr_ilprintf(&eprintff,#V "=%u,",(size_t)(ai.V))
-#define printm(V) expr_ilprintf(&eprintff,#V "=%u,",(size_t)(((struct expr_area *)buf)->monotonic_##V))
+#define printm(V) expr_ilprintf(&eprintff,#V "=%u,",(size_t)(((struct expr_area *)expr_defmtl->arg)->monotonic_##V))
 #define pall() \
 	printm(allocate);\
 	printm(allocate_fail);\
@@ -775,7 +772,7 @@ break3:
 	printm(retail_up);\
 	printm(retail_down);\
 	expr_ilprintf(&eprintff,"\b \n");\
-	if((r0=expr_area_summary((struct expr_area *)buf,&ai))<0)errx(EXIT_FAILURE,"summary error code=%d,count=%zu",r0,ai.unit_count);\
+	if((r0=expr_area_summary((struct expr_area *)expr_defmtl->arg,&ai))<0)errx(EXIT_FAILURE,"summary error code=%d,count=%zu",r0,ai.unit_count);\
 	printz(size);\
 	printn(unit_count);\
 	printz(free);\

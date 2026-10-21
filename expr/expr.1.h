@@ -1336,9 +1336,12 @@ struct expr_strtod_workspace {
 	expr_symbols_packages,\
 	NULL
 
+//#undef __aarch64__
+//#undef __unix__
+//#undef __linux__
+
 #define expr_internal_regvarr(_name) register intptr_t expr_combine(__r_,_name) __asm__(#_name)
 #define expr_internal_regvar(_name) register intptr_t _name __asm__(#_name)
-
 #ifndef EXPR_SYSIN
 
 #if defined(__aarch64__)
@@ -1398,7 +1401,9 @@ struct expr_strtod_workspace {
 #else
 #define EXPR_SYSAM 0
 #define EXPR_ARCHN "unknown_arch"
+#if !(defined(EXPR_NOSYSCALL)&&(EXPR_NOSYSCALL))
 #pragma message("internal syscall is not implemented")
+#endif
 #endif
 
 #endif
@@ -1406,7 +1411,15 @@ struct expr_strtod_workspace {
 #if defined(EXPR_SYSIN)&&!(defined(EXPR_NOSYSCALL)&&(EXPR_NOSYSCALL))
 #define expr_internal_syscalln(N,num,a0,a1,a2,a3,a4,a5,a6) expr_internal_syscall_reg##N(num,a0,a1,a2,a3,a4,a5,a6,EXPR_SYSID,EXPR_SYSA0,EXPR_SYSA1,EXPR_SYSA2,EXPR_SYSA3,EXPR_SYSA4,EXPR_SYSA5,EXPR_SYSA6,EXPR_SYSRE,EXPR_SYSE0,EXPR_SYSE1,EXPR_SYSE2,EXPR_SYSE3,EXPR_SYSE4,EXPR_SYSE5,EXPR_SYSE6,EXPR_SYSE7)
 #else
-#define expr_internal_syscalln(N,num,a0,a1,a2,a3,a4,a5,a6) ((intptr_t)0)
+#define expr_internal_syscall_void_reg7(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ((void)(num),(void)(a0),(void)(a1),(void)(a2),(void)(a3),(void)(a4),(void)(a5),(void)(a6),(intptr_t)0)
+#define expr_internal_syscall_void_reg6(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ((void)(num),(void)(a0),(void)(a1),(void)(a2),(void)(a3),(void)(a4),(void)(a5),(intptr_t)0)
+#define expr_internal_syscall_void_reg5(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ((void)(num),(void)(a0),(void)(a1),(void)(a2),(void)(a3),(void)(a4),(intptr_t)0)
+#define expr_internal_syscall_void_reg4(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ((void)(num),(void)(a0),(void)(a1),(void)(a2),(void)(a3),(intptr_t)0)
+#define expr_internal_syscall_void_reg3(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ((void)(num),(void)(a0),(void)(a1),(void)(a2),(intptr_t)0)
+#define expr_internal_syscall_void_reg2(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ((void)(num),(void)(a0),(void)(a1),(intptr_t)0)
+#define expr_internal_syscall_void_reg1(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ((void)(num),(void)(a0),(intptr_t)0)
+#define expr_internal_syscall_void_reg0(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ((void)(num),(intptr_t)0)
+#define expr_internal_syscalln(N,num,a0,a1,a2,a3,a4,a5,a6) expr_internal_syscall_void_reg##N(num,a0,a1,a2,a3,a4,a5,a6,EXPR_SYSID,EXPR_SYSA0,EXPR_SYSA1,EXPR_SYSA2,EXPR_SYSA3,EXPR_SYSA4,EXPR_SYSA5,EXPR_SYSA6,EXPR_SYSRE,EXPR_SYSE0,EXPR_SYSE1,EXPR_SYSE2,EXPR_SYSE3,EXPR_SYSE4,EXPR_SYSE5,EXPR_SYSE6,EXPR_SYSE7)
 #endif
 
 #define expr_internal_syscall_sel(_n,_0,_1,_2,_3,_4,_5,_6,_name,...) _name

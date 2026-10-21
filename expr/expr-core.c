@@ -323,8 +323,10 @@ const struct expr_builtin_keyword expr_keywords[]={
 	REGKEYC("alias",EXPR_NOT,2,"alias(alias_name,target)"),
 	REGKEYCN("return",EXPR_RET,2,"return(ep,val)"),
 	REGKEY("error",EXPR_TSTL,1,"error(const_string)"),
+#if !(defined(EXPR_NOSYSCALL)&&(EXPR_NOSYSCALL))
 	REGKEYCN("svcp",EXPR_SVCP,3,"svcp(sys_num,arg[],constant_expression n)"),
 	REGKEYCN("svc",EXPR_SVC,EXPR_SYSAM+1,"svc(sys_num,...)"),
+#endif
 	REGKEY("import",EXPR_NEX0,1,"import(package)"),
 	REGKEY("include",EXPR_DIF0,1,"include(package)"),
 	REGKEY("convert",EXPR_ZA,1,"convert(const_string)"),

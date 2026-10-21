@@ -23,7 +23,7 @@ make
 sudo insmod kexpr.ko
 sudo rmmod kexpr.ko
 ```
-The expected output will be like this:
+The expected output in **dmesg** will be like this:
 ```
 [613733.621003] evaluate: 2.5+3.5
 [613733.621020] result=6.000000

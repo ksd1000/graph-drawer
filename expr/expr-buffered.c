@@ -372,7 +372,7 @@ ssize_t expr_buffered_flush(struct expr_buffered_file *restrict fp){
 	debug("%zd bytes written",r);
 	return r;
 }
-#define TRASHLEN 1024
+#define TRASHLEN 256
 ssize_t expr_buffered_rdropall(struct expr_buffered_file *restrict fp){
 	ssize_t r,ret=(ssize_t)(fp->index-fp->written);
 	char *trash;

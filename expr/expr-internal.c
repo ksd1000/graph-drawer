@@ -1649,84 +1649,84 @@ double expr_internal_fabs(double x){
 #define BYTE_COPY_ALIGN8K BYTE_COPY_ALIGN1PK
 #else
 #define BYTE_COPY_ALIGN8P(d,s,n) do {\
-	(*(uintptr_t *)(d))=(*(uintptr_t *)(s));\
-	((uintptr_t *)(d))[1]=((uintptr_t *)(s))[1];\
-	((uintptr_t *)(d))[2]=((uintptr_t *)(s))[2];\
-	((uintptr_t *)(d))[3]=((uintptr_t *)(s))[3];\
-	((uintptr_t *)(d))[4]=((uintptr_t *)(s))[4];\
-	((uintptr_t *)(d))[5]=((uintptr_t *)(s))[5];\
-	((uintptr_t *)(d))[6]=((uintptr_t *)(s))[6];\
-	((uintptr_t *)(d))[7]=((uintptr_t *)(s))[7];\
+	(*(uintptr_t *)(uintptr_t)(d))=(*(uintptr_t *)(uintptr_t)(s));\
+	((uintptr_t *)(uintptr_t)(d))[1]=((uintptr_t *)(uintptr_t)(s))[1];\
+	((uintptr_t *)(uintptr_t)(d))[2]=((uintptr_t *)(uintptr_t)(s))[2];\
+	((uintptr_t *)(uintptr_t)(d))[3]=((uintptr_t *)(uintptr_t)(s))[3];\
+	((uintptr_t *)(uintptr_t)(d))[4]=((uintptr_t *)(uintptr_t)(s))[4];\
+	((uintptr_t *)(uintptr_t)(d))[5]=((uintptr_t *)(uintptr_t)(s))[5];\
+	((uintptr_t *)(uintptr_t)(d))[6]=((uintptr_t *)(uintptr_t)(s))[6];\
+	((uintptr_t *)(uintptr_t)(d))[7]=((uintptr_t *)(uintptr_t)(s))[7];\
 	d=(void *)((uintptr_t)(d)+8*PALIGN);\
 	s=(void *)((uintptr_t)(s)+8*PALIGN);\
 	n-=8*PALIGN;\
 }while(n);
 #define BYTE_COPY_ALIGN8PK(d,s) ({\
-	(*(uintptr_t *)(d))=(*(uintptr_t *)(s));\
-	((uintptr_t *)(d))[1]=((uintptr_t *)(s))[1];\
-	((uintptr_t *)(d))[2]=((uintptr_t *)(s))[2];\
-	((uintptr_t *)(d))[3]=((uintptr_t *)(s))[3];\
-	((uintptr_t *)(d))[4]=((uintptr_t *)(s))[4];\
-	((uintptr_t *)(d))[5]=((uintptr_t *)(s))[5];\
-	((uintptr_t *)(d))[6]=((uintptr_t *)(s))[6];\
-	((uintptr_t *)(d))[7]=((uintptr_t *)(s))[7];\
+	(*(uintptr_t *)(uintptr_t)(d))=(*(uintptr_t *)(uintptr_t)(s));\
+	((uintptr_t *)(uintptr_t)(d))[1]=((uintptr_t *)(uintptr_t)(s))[1];\
+	((uintptr_t *)(uintptr_t)(d))[2]=((uintptr_t *)(uintptr_t)(s))[2];\
+	((uintptr_t *)(uintptr_t)(d))[3]=((uintptr_t *)(uintptr_t)(s))[3];\
+	((uintptr_t *)(uintptr_t)(d))[4]=((uintptr_t *)(uintptr_t)(s))[4];\
+	((uintptr_t *)(uintptr_t)(d))[5]=((uintptr_t *)(uintptr_t)(s))[5];\
+	((uintptr_t *)(uintptr_t)(d))[6]=((uintptr_t *)(uintptr_t)(s))[6];\
+	((uintptr_t *)(uintptr_t)(d))[7]=((uintptr_t *)(uintptr_t)(s))[7];\
 })
 #define BYTE_COPY_ALIGN4P(d,s) ({\
-	(*(uintptr_t *)(d))=(*(uintptr_t *)(s));\
-	((uintptr_t *)(d))[1]=((uintptr_t *)(s))[1];\
-	((uintptr_t *)(d))[2]=((uintptr_t *)(s))[2];\
-	((uintptr_t *)(d))[3]=((uintptr_t *)(s))[3];\
+	(*(uintptr_t *)(uintptr_t)(d))=(*(uintptr_t *)(uintptr_t)(s));\
+	((uintptr_t *)(uintptr_t)(d))[1]=((uintptr_t *)(uintptr_t)(s))[1];\
+	((uintptr_t *)(uintptr_t)(d))[2]=((uintptr_t *)(uintptr_t)(s))[2];\
+	((uintptr_t *)(uintptr_t)(d))[3]=((uintptr_t *)(uintptr_t)(s))[3];\
 	d=(void *)((uintptr_t)(d)+4*PALIGN);\
 	s=(void *)((uintptr_t)(s)+4*PALIGN);\
 })
 #define BYTE_COPY_ALIGN4PK(d,s) ({\
-	(*(uintptr_t *)(d))=(*(uintptr_t *)(s));\
-	((uintptr_t *)(d))[1]=((uintptr_t *)(s))[1];\
-	((uintptr_t *)(d))[2]=((uintptr_t *)(s))[2];\
-	((uintptr_t *)(d))[3]=((uintptr_t *)(s))[3];\
+	(*(uintptr_t *)(uintptr_t)(d))=(*(uintptr_t *)(uintptr_t)(s));\
+	((uintptr_t *)(uintptr_t)(d))[1]=((uintptr_t *)(uintptr_t)(s))[1];\
+	((uintptr_t *)(uintptr_t)(d))[2]=((uintptr_t *)(uintptr_t)(s))[2];\
+	((uintptr_t *)(uintptr_t)(d))[3]=((uintptr_t *)(uintptr_t)(s))[3];\
 })
 #define BYTE_SET_ALIGN4P(d,s,n) do {\
-	(*(uintptr_t *)(d))=(*(uintptr_t *)(s));\
-	((uintptr_t *)(d))[1]=(*(uintptr_t *)(s));\
-	((uintptr_t *)(d))[2]=(*(uintptr_t *)(s));\
-	((uintptr_t *)(d))[3]=(*(uintptr_t *)(s));\
+	(*(uintptr_t *)(uintptr_t)(d))=(*(uintptr_t *)(uintptr_t)(s));\
+	((uintptr_t *)(uintptr_t)(d))[1]=(*(uintptr_t *)(uintptr_t)(s));\
+	((uintptr_t *)(uintptr_t)(d))[2]=(*(uintptr_t *)(uintptr_t)(s));\
+	((uintptr_t *)(uintptr_t)(d))[3]=(*(uintptr_t *)(uintptr_t)(s));\
 	d=(void *)((uintptr_t)(d)+4*PALIGN);\
 	n-=4*PALIGN;\
 }while(n);
 #define BYTE_COPY_ALIGN2P(d,s) ({\
-	(*(uintptr_t *)(d))=(*(uintptr_t *)(s));\
-	((uintptr_t *)(d))[1]=((uintptr_t *)(s))[1];\
+	(*(uintptr_t *)(uintptr_t)(d))=(*(uintptr_t *)(uintptr_t)(s));\
+	((uintptr_t *)(uintptr_t)(d))[1]=((uintptr_t *)(uintptr_t)(s))[1];\
 	d=(void *)((uintptr_t)(d)+2*PALIGN);\
 	s=(void *)((uintptr_t)(s)+2*PALIGN);\
 })
 #define BYTE_COPY_ALIGN2PK(d,s) ({\
-	(*(uintptr_t *)(d))=(*(uintptr_t *)(s));\
-	((uintptr_t *)(d))[1]=((uintptr_t *)(s))[1];\
+	(*(uintptr_t *)(uintptr_t)(d))=(*(uintptr_t *)(uintptr_t)(s));\
+	((uintptr_t *)(uintptr_t)(d))[1]=((uintptr_t *)(uintptr_t)(s))[1];\
 })
 #define BYTE_SET_ALIGN2P(d,s) ({\
-	(*(uintptr_t *)(d))=(*(uintptr_t *)(s));\
-	((uintptr_t *)(d))[1]=(*(uintptr_t *)(s));\
+	(*(uintptr_t *)(uintptr_t)(d))=(*(uintptr_t *)(uintptr_t)(s));\
+	((uintptr_t *)(uintptr_t)(d))[1]=(*(uintptr_t *)(uintptr_t)(s));\
 	d=(void *)((uintptr_t)(d)+2*PALIGN);\
 })
 #define BYTE_COPY_ALIGN1P(d,s) ({\
-	(*(uintptr_t *)(d))=(*(uintptr_t *)(s));\
+	(*(uintptr_t *)(uintptr_t)(d))=(*(uintptr_t *)(uintptr_t)(s));\
 	d=(void *)((uintptr_t)(d)+PALIGN);\
 	s=(void *)((uintptr_t)(s)+PALIGN);\
 })
 #define BYTE_COPY_ALIGN1PK(d,s) ({\
-	(*(uintptr_t *)(d))=(*(uintptr_t *)(s));\
+	(*(uintptr_t *)(uintptr_t)(d))=(*(uintptr_t *)(uintptr_t)(s));\
 })
 #define BYTE_COPY_ALIGN32K(d,s) ({\
-	(*(uint64_t *)(d))=(*(uint64_t *)(s));\
-	((uint64_t *)(d))[1]=((uint64_t *)(s))[1];\
-	((uint64_t *)(d))[2]=((uint64_t *)(s))[2];\
-	((uint64_t *)(d))[3]=((uint64_t *)(s))[3];\
+	(*(uint64_t *)(uintptr_t)(d))=(*(uint64_t *)(uintptr_t)(s));\
+	((uint64_t *)(uintptr_t)(d))[1]=((uint64_t *)(uintptr_t)(s))[1];\
+	((uint64_t *)(uintptr_t)(d))[2]=((uint64_t *)(uintptr_t)(s))[2];\
+	((uint64_t *)(uintptr_t)(d))[3]=((uint64_t *)(uintptr_t)(s))[3];\
 })
 #define BYTE_COPY_ALIGN8K(d,s) ({\
-	(*(uint64_t *)(d))=(*(uint64_t *)(s));\
+	(*(uint64_t *)(uintptr_t)(d))=(*(uint64_t *)(uintptr_t)(s));\
 })
 #define BYTE_SET(d,s,n) do {\
-	(*(uint8_t *)(d))=(*(uint8_t *)(s));\
+	(*(uint8_t *)(uintptr_t)(d))=(*(uint8_t *)(uintptr_t)(s));\
 	d=(void *)((uintptr_t)(d)+1);\
 }while(--n);
 #endif

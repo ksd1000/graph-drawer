@@ -403,7 +403,7 @@ ssize_t expr_builtin_symbol_addall(struct expr_symset *restrict esp,const struct
 
 static const char *findpair_dmark(const char *c,const char *endp){
 	for(++c;c<endp;++c){
-		if(*c=='\"'&&c[-1]!='\\')
+		if(*c==(char)'\"'&&c[-1]!=(char)'\\')
 			return c;
 	}
 	return NULL;
@@ -732,10 +732,23 @@ static int expr_createhot(struct expr *restrict ep,const char *symbol,size_t sym
 	return expr_symset_addl(ep->sset,symbol,symlen,type,flag|EXPR_SPURE,hotexpr,hotlen)?
 	0:-1;
 }
+const char *expr_findpair(const char *c,const char *endp,int oth){
+	//assuming c<endp
+	char ch=*c;
+	size_t lv=1;
+	for(++c;c<endp;++c){
+		if(*c==ch)
+			++lv;
+		else if(*c==(char)oth&&!(--lv))
+			return c;
+	}
+	return NULL;
+}
 static const char *findpair(const char *c,const char *endp){
-	size_t lv=0;
+	size_t lv=1;
 	if(*c!='(')
 		goto err;
+	++c;
 	while(c<endp){
 		switch(*c){
 			case '(':
@@ -755,9 +768,10 @@ err:
 	return NULL;
 }
 static const char *findpair_bracket(const char *c,const char *endp){
-	size_t lv=0;
+	size_t lv=1;
 	if(*c!='[')
 		goto err;
+	++c;
 	while(c<endp){
 		switch(*c){
 			case '[':
@@ -777,9 +791,10 @@ err:
 	return NULL;
 }
 static const char *findpair_brace(const char *c,const char *endp){
-	size_t lv=0;
+	size_t lv=1;
 	if(*c!='{')
 		goto err;
+	++c;
 	while(c<endp){
 		switch(*c){
 			case '{':

@@ -1661,6 +1661,7 @@ ssize_t expr_builtin_symbol_addall(struct expr_symset *restrict esp,const struct
 void expr_free2mtl_r(struct expr *restrict ep,int flag,const struct expr_memtool *restrict mtl);
 void expr_free2(struct expr *restrict ep,int flag);
 void expr_free(struct expr *restrict ep);
+const char *expr_findpair(const char *c,const char *endp,int oth);
 void expr_symset_freemtl(struct expr_symset *restrict esp,const struct expr_memtool *restrict mtl);
 void expr_symset_freemtl_s(struct expr_symset *restrict esp,void *stack,const struct expr_memtool *restrict mtl);
 void expr_symset_free(struct expr_symset *restrict esp);

@@ -261,6 +261,8 @@ Tested by fun/compare.c
 |Branch and loop|No|No|Yes|
 |Syscall support|No|No|Yes|
 |AST|Yes|Yes|No|
+|Can run in kernel|No|No|Yes|
+|Can run without OS|No|No|Untested|
 |Big-endian support|Yes|Yes|No|
 |Code compile speed|Fast|Fast|Slow|
 |Project type|standalone library|standalone library|backend library of graph-drawer|

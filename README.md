@@ -275,6 +275,9 @@ Tested by fun/compare.c
 |Popularity|Medium|High|Low|
 |License|MIT|Zlib|GPL v3+|
 
+Note:
+Zserge expr and tinyexpr has not an actual constructor(their object alloction and construction are mixed, like expr\_new()), thus use the start function instead.
+Memory cost is using the total alloction.
 ## License
 
 [GPL-v3-or-later](http://gnu.org/licenses/gpl.html)

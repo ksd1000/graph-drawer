@@ -18,6 +18,7 @@ char wbuf[BUFSIZ];
 struct expr_buffered_file printf_buf[1]={EXPR_BUFFERED_INITIALIZER_R(warped_write,STDOUT_FILENO,wbuf,BUFSIZ,NULL)};
 char buf[1024*1024*16];
 struct expr_memtool mtl[1];
+#define expr_defmtl mtl
 #if defined(__x86_64__)
 __attribute__((force_align_arg_pointer))
 #endif

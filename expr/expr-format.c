@@ -17,6 +17,7 @@
 	SSIZE_MIN+1: allocate fail
 	SSIZE_MIN+2: no enough bufsize
 	SSIZE_MIN+3: arg fail
+	SSIZE_MIN+4: digit not set
 */
 
 
@@ -24,12 +25,18 @@
 #define expr_allocator(size) (xmtl->allocate((size),xmtl->arg))
 #define expr_reallocator(old,size) (xmtl->reallocate((old),(size),xmtl->arg))
 #define expr_deallocator(old) (xmtl->deallocate((old),xmtl->arg))
-#define xmtl flag->mtl
 
 #define c_trywrite(buf,sz) if(likely((r=(ssize_t)(sz))>0)){\
 	r=writer(fd,(buf),(size_t)r);\
 	if(unlikely(r<0))\
 		return r;\
+	sum+=r;\
+}
+#define c_trywrite3(buf,sz,onerr) if(likely((r=(ssize_t)(sz))>0)){\
+	r=writer(fd,(buf),(size_t)r);\
+	if(unlikely(r<0)){\
+		onerr;\
+	}\
 	sum+=r;\
 }
 #define c_trywriteext(c,sz) {\
@@ -38,28 +45,45 @@
 		return r;\
 	sum+=r;\
 }
+#define xmtl mtl
 #define EXPR_WCBUFSIZE 1024
-ssize_t expr_writec(expr_writer writer,intptr_t fd,size_t count,int c){
-	char buf[EXPR_WCBUFSIZE];
+ssize_t expr_writec_r(expr_writer writer,intptr_t fd,size_t count,int c,const struct expr_memtool *restrict mtl){
+	char *buf;
 	ssize_t r,sum;
-	if(unlikely(count>SSIZE_MAX))
+	if(unlikely(!count))
 		return 0;
+	if(unlikely(count>(size_t)SSIZE_MAX))
+		return SSIZE_MIN+2;
 	if(count<=EXPR_WCBUFSIZE){
+		buf=xmalloc(count);
+		if(unlikely(!buf))
+			return SSIZE_MIN+1;
 		memset(buf,c,count);
-		return writer(fd,buf,count);
+		r=writer(fd,buf,count);
+		xfree(buf);
+		return r;
 	}
+	buf=xmalloc(EXPR_WCBUFSIZE);
+	if(unlikely(!buf))
+		return SSIZE_MIN+1;
 	memset(buf,c,EXPR_WCBUFSIZE);
 	sum=0;
 	do {
-		c_trywrite(buf,EXPR_WCBUFSIZE);
+		c_trywrite3(buf,EXPR_WCBUFSIZE,goto err);
 		count-=EXPR_WCBUFSIZE;
 	}while(count>EXPR_WCBUFSIZE);
 	if(count){
-		c_trywrite(buf,count);
+		c_trywrite3(buf,count,goto err);
 	}
+	xfree(buf);
 	return sum;
+err:
+	xfree(buf);
+	return r;
 }
-#define writeext expr_writec
+#undef xmtl
+#define xmtl flag->mtl
+#define writeext(writer,fd,count,c) expr_writec_r(writer,fd,count,c,xmtl)
 
 //#define flag_plusorspace(_f) ((_f)->bit&(UINT64_C(3)<<62))
 #define flag_plus(_f) ((_f)->plus)
@@ -675,53 +699,60 @@ static ssize_t faction_S(expr_writer writer,intptr_t fd,const union expr_argf *a
 	ssize_t r,sum,ext,sz;
 	cwrite_common(arg->str,(ssize_t)len);
 }
-#define faction_hexdump(name) \
-static ssize_t faction_##name(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){\
-	size_t len=(size_t)flag->digit;\
-	ssize_t r,sum,ext;\
-	uint8_t buf[960];\
-	uint8_t *p,*endp,*datap;\
-	uint8_t data;\
-	int f61=!!(flag->minus),f60=!!(flag->sharp),f63=!!(flag->plus);\
-	const char *conv_str=flag->cap?conv_btoX:conv_btox;\
-	ext=(ssize_t)flag_width(flag,0)-(f60?4:2)*(ssize_t)len;\
-	if(f63&&len>1)\
-		ext-=(ssize_t)(len-1);\
-	sum=0;\
-	if(!f61&&ext>0){\
-		c_trywriteext((flag->zero)?'0':' ',ext);\
-	}\
-	if(len){\
-		p=buf;\
-		endp=buf+sizeof(buf);\
-		for(datap=arg->addr;;){\
-			data=*datap;\
-			if(f60){\
-				*(p++)='0';\
-				*(p++)=(uint8_t)conv_str[16];\
-			}\
-			*(p++)=(uint8_t)conv_str[data>>4];\
-			*(p++)=(uint8_t)conv_str[data&15];\
-			if(f63&&likely(len>1))\
-				*(p++)=',';\
-			if(unlikely(!--len))\
-				break;\
-			if(unlikely(p>=endp)){\
-				c_trywrite(buf,sizeof(buf));\
-				p=buf;\
-			}\
-			++datap;\
-		}\
-		if(likely(p>buf)){\
-			c_trywrite(buf,p-buf);\
-		}\
-	}\
-	if(f61&&ext>0){\
-		c_trywriteext((flag->zero)?'0':' ',ext);\
-	}\
-	return sum;\
+static ssize_t faction_hb(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag,uint8_t buf[960]){
+	size_t len=(size_t)flag->digit;
+	ssize_t r,sum,ext;
+	uint8_t *p,*endp,*datap;
+	uint8_t data;
+	int f61=!!(flag->minus),f60=!!(flag->sharp),f63=!!(flag->plus);
+	const char *conv_str=flag->cap?conv_btoX:conv_btox;
+	ext=(ssize_t)flag_width(flag,0)-(f60?4:2)*(ssize_t)len;
+	if(f63&&len>1)
+		ext-=(ssize_t)(len-1);
+	sum=0;
+	if(!f61&&ext>0){
+		c_trywriteext((flag->zero)?'0':' ',ext);
+	}
+	if(len){
+		p=buf;
+		endp=buf+960;
+		for(datap=arg->addr;;){
+			data=*datap;
+			if(f60){
+				*(p++)='0';
+				*(p++)=(uint8_t)conv_str[16];
+			}
+			*(p++)=(uint8_t)conv_str[data>>4];
+			*(p++)=(uint8_t)conv_str[data&15];
+			if(f63&&likely(len>1))
+				*(p++)=',';
+			if(unlikely(!--len))
+				break;
+			if(unlikely(p>=endp)){
+				c_trywrite(buf,960);
+				p=buf;
+			}
+			++datap;
+		}
+		if(likely(p>buf)){
+			c_trywrite(buf,p-buf);
+		}
+	}
+	if(f61&&ext>0){
+		c_trywriteext((flag->zero)?'0':' ',ext);
+	}
+	return sum;
 }
-faction_hexdump(h);
+static ssize_t faction_h(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+	uint8_t *buf;
+	ssize_t r;
+	buf=xmalloc(960);
+	if(unlikely(!buf))
+		return SSIZE_MIN+1;
+	r=faction_hb(writer,fd,arg,flag,buf);
+	xfree(buf);
+	return r;
+}
 static ssize_t faction_c(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	ssize_t r,sum,ext,sz;
 	cwrite_common(&arg->ch,(ssize_t)1);
@@ -966,12 +997,6 @@ const struct expr_ftable expr_ftable_default[1]={{
 	.fph='%',.digit='.',.bitwidth=':',.readarg='*',.readarg2='*',
 	.unused={0},
 }};
-#define wf_trywrite(buf,sz) {\
-	v=writer(fd,(buf),(size_t)(sz));\
-	if(unlikely(v<0))\
-		return v;\
-	ret+=v;\
-}
 #define scannum(base) \
 	while(nptr<endp){\
 		if(base<=10)\
@@ -1092,22 +1117,73 @@ out:
 ssize_t expr_vwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,expr_argfetch arg,void *addr,const struct expr_memtool *restrict mtl){
 	return expr_vwriteft_r(fmt,fmtlen,writer,fd,arg,addr,expr_ftable_default,mtl);
 }
-ssize_t expr_vwriteft_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,expr_argfetch arg,void *addr,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl){
-	const char *endp=fmt+fmtlen,*fmt_old=fmt,*fmt0=fmt;
-	ssize_t ret=0;
+struct expr_vwritef_workspace {
+	const char *endp,*fmt_old,*fmt0;
+	ssize_t ret;
 	ssize_t v;
 	const struct expr_writefmt *wfp;
+	const char *delim,*tail,*d1;
+	size_t delimsz,tailsz,arrlen;
+	size_t loop;
+	ptrdiff_t index;
 	struct expr_writeflag flag[1];
-	const char *delim=NULL,*tail=NULL,*d1;
-	size_t delimsz=0,tailsz=0,arrlen=0;
-	size_t loop=0;
-	ptrdiff_t index=0;
-	uint8_t forward=0,arrwid=0,current,r1;
 	const char *fmt_save[8];
 	const char **fmt_save_current;
 	union expr_argf save;
+	uint8_t forward,arrwid,current,r1;
+};
+#undef xmtl
+#define xmtl mtl
+ssize_t expr_vwriteft_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,expr_argfetch arg,void *addr,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl){
+	struct expr_vwritef_workspace *restrict wsp;
 	if(unlikely(!fmtlen))
 		return 0;
+#define endp wsp->endp
+#define fmt_old wsp->fmt_old
+#define fmt0 wsp->fmt0
+#define ret wsp->ret
+#define v wsp->v
+#define wfp wsp->wfp
+#define flag wsp->flag
+#define delim wsp->delim
+#define tail wsp->tail
+#define d1 wsp->d1
+#define delimsz wsp->delimsz
+#define tailsz wsp->tailsz
+#define arrlen wsp->arrlen
+#define loop wsp->loop
+#define index wsp->index
+#define forward wsp->forward
+#define arrwid wsp->arrwid
+#define current wsp->current
+#define r1 wsp->r1
+#define fmt_save wsp->fmt_save
+#define fmt_save_current wsp->fmt_save_current
+#define save wsp->save
+	wsp=xmalloc(sizeof(struct expr_vwritef_workspace));
+	if(unlikely(!wsp)){
+		return SSIZE_MIN+1;
+	}
+	endp=fmt+fmtlen;
+	fmt_old=fmt;
+	fmt0=fmt;
+	ret=0;
+	delim=NULL;
+	tail=NULL;
+	delimsz=0;
+	tailsz=0;
+	arrlen=0;
+	loop=0;
+	index=0;
+	forward=0;
+	arrwid=0;
+#define wf_return(retval) {xfree(wsp);return (retval);}
+#define wf_trywrite(buf,sz) {\
+	v=writer(fd,(buf),(size_t)(sz));\
+	if(unlikely(v<0))\
+		wf_return(v);\
+	ret+=v;\
+}
 	if(unlikely(!table->fph)){
 		wf_trywrite(fmt,fmtlen);
 		goto end;
@@ -1198,7 +1274,8 @@ reflag:
 #define argnext1 ++index;debug("arg index to %zd",index)
 #define argnext(N) index+=(ptrdiff_t)(N);debug("arg index to %zd",index)
 #define argback(N) index-=(ptrdiff_t)(N);debug("arg index back to %zd",index)
-#define goto_argfail {debug("arg failed");return SSIZE_MIN+3;}
+#define goto_argfail {debug("arg failed");wf_return(SSIZE_MIN+3);}
+#define goto_argfail1(e) {debug("arg failed");wf_return(e);}
 #define argt(_type) ({register const union expr_argf *__arg;flag->type=(_type);__arg=arg(index,flag,addr);if(unlikely(!__arg)){debug("cannot get arg[%zd]",index);goto_argfail;}__arg;})
 #define arg1 argt(EXPR_FLAGTYPE_ADDR)
 #define get_next_arg64(dest,dtype,_after,_type,_field,_afield) \
@@ -1459,7 +1536,7 @@ current_get:
 		case EXPR_FMTC_FLUSH:
 			v=writer(fd,NULL,flag->sharp?SIZE_MAX:0);
 			if(unlikely(v<0))
-				return v;
+				wf_return(v);
 			ret+=v;
 			break;
 #pragma GCC diagnostic pop
@@ -1468,7 +1545,7 @@ current_get:
 #define fmt_once(_arg) \
 	v=wfp->converter(writer,fd,(_arg),flag);\
 	if(unlikely(v<0))\
-		return v;\
+		wf_return(v);\
 	ret+=v
 #define fmt_dorepeat(_arg) \
 	fmt_repeat {\
@@ -1490,7 +1567,7 @@ current_get:
 			wfp=table->fmts+(r1-1);//r
 wfp_get:
 			if(unlikely(wfp->digit_check&&!flag->digit_set))
-				goto_argfail;
+				goto_argfail1(SSIZE_MIN+4);
 			if(wfp->setcap)
 				flag->cap=1;
 			if(wfp->no_arg){
@@ -1547,11 +1624,34 @@ continue_keepfmt:
 	fmt_old=fmt;
 	goto next;
 end:
-	return ret;
+	wf_return(ret);
+#undef endp
+#undef fmt_old
+#undef fmt0
+#undef ret
+#undef v
+#undef wfp
+#undef flag
+#undef delim
+#undef tail
+#undef d1
+#undef delimsz
+#undef tailsz
+#undef arrlen
+#undef loop
+#undef index
+#undef forward
+#undef arrwid
+#undef current
+#undef r1
+#undef fmt_save
+#undef fmt_save_current
+#undef save
 }
 #undef arg1
 #undef argt
 #undef goto_argfail
+#undef goto_argfail1
 #undef fmt_setflag
 #undef fmt_inc_check
 #undef get_next_arg64
@@ -1567,6 +1667,8 @@ end:
 #undef fmt_repeat
 #undef fmt_dorepeat
 #undef fmt_op_cond
+#undef wf_return
+#undef wf_trywrite
 struct writef_args {
 	const union expr_argf *base;
 	size_t arglen;

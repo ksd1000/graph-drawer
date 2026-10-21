@@ -13,11 +13,11 @@ int eval_expr_write_result(const char *e,char *buf,size_t len,void *heap,size_t 
 		return -2;
 	result=expr_eval(ep,0.0);
 	expr_free(ep);
-	//must be free here, for use below.
+	//must be free here, for below use.
 	r=expr_snprintf_r(buf,len,"%.6f",4,mtl,result);
 	if(r<0)
 		return -3;
-	if(r>=len)
+	if((size_t)r>=len)
 		return -1;
 	return 0;
 	

@@ -1759,7 +1759,7 @@ ssize_t expr_symset_read(struct expr_symset *restrict esp,const void *buf,size_t
 ssize_t expr_symset_readfd(struct expr_symset *restrict esp,expr_reader reader,intptr_t fd);
 //global externs of expr-symext.c :
 //global functions of expr-format.c :
-ssize_t expr_writec(expr_writer writer,intptr_t fd,size_t count,int c);
+ssize_t expr_writec_r(expr_writer writer,intptr_t fd,size_t count,int c,const struct expr_memtool *restrict mtl);
 ssize_t expr_converter_common(expr_writer writer,intptr_t fd,const void *buf,size_t size,const struct expr_writeflag *flag);
 ssize_t expr_vwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,expr_argfetch arg,void *addr,const struct expr_memtool *restrict mtl);
 ssize_t expr_vwriteft_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,expr_argfetch arg,void *addr,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl);
@@ -1885,6 +1885,7 @@ extern const uint8_t expr_number_table[256];
 #define expr_calc(e) expr_calc_r(e,expr_defmtl)
 #define expr_builtin_symbol_converts(syms,...) expr_builtin_symbol_converts_r(expr_defmtl,syms,##__VA_ARGS__)
 #define expr_builtin_symbol_convert(syms) expr_builtin_symbol_convert_r(syms,expr_defmtl)
+#define expr_writec(writer,fd,count,c) expr_writec_r(writer,fd,count,c,expr_defmtl)
 #define expr_vwritef(fmt,fmtlen,writer,fd,arg,addr) expr_vwritef_r(fmt,fmtlen,writer,fd,arg,addr,expr_defmtl)
 #define expr_vwriteft(fmt,fmtlen,writer,fd,arg,addr,table) expr_vwriteft_r(fmt,fmtlen,writer,fd,arg,addr,table,expr_defmtl)
 #define expr_writef(fmt,fmtlen,writer,fd,args,arglen) expr_writef_r(fmt,fmtlen,writer,fd,args,arglen,expr_defmtl)

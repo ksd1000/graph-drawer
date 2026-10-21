@@ -261,7 +261,7 @@ Tested by fun/compare.c
 |Branch and loop|No|No|Yes|
 |Syscall support|No|No|Yes|
 |AST|Yes|Yes|No|
-|Can run in kernel|No|No|Yes|
+|Can run in kernel|No|No|[Yes](fun/kmod/README.md)|
 |Can run in raw QEMU|No|No|Untested|
 |Big-endian support|Yes|Yes|No|
 |Compile speed of source code(.c)|Fast|Fast|Slow|
@@ -276,7 +276,7 @@ Tested by fun/compare.c
 |License|MIT|Zlib|GPL v3+|
 
 Note:
-Zserge expr and tinyexpr has not an actual constructor(their object alloction and construction are mixed, like expr\_new()), thus use the start function instead.
+Zserge expr and tinyexpr have not an actual constructor(their object alloction and construction are mixed, like expr\_new()), thus use the start function instead.
 Memory cost is using the total alloction.
 ## License
 

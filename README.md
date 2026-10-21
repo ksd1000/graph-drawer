@@ -264,7 +264,7 @@ Tested by fun/compare.c
 |Can run in kernel|No|No|Yes|
 |Can run in raw QEMU|No|No|Untested|
 |Big-endian support|Yes|Yes|No|
-|Code compile speed|Fast|Fast|Slow|
+|Compile speed of source code(.c)|Fast|Fast|Slow|
 |Project type|standalone library|standalone library|backend library of graph-drawer|
 |Bugfix speed|Unactive|Fast|Slow|
 |Code readability|Clear|Clear|Chaos|

@@ -11,6 +11,7 @@
 #include <stdarg.h>
 #include <limits.h>
 #endif
+
 #define expr_static_assert(cond) _Static_assert((cond),"static assertion " #cond " failed")
 
 expr_static_assert((!0)==1);

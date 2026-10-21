@@ -1930,10 +1930,10 @@ void expr_internal_memswap(void *dst,void *src,size_t size){
 		tmp=swapbuf;
 		BYTE_COPY_4PM1(end,tmp,bp);
 		bp=dst;
-		end=tmp-swapbuf;
+		end=(size_t)(tmp-swapbuf);
 		BYTE_COPY_4PM1(end,bp,sbp);
 		sbp=src;
-		end=tmp-swapbuf;
+		end=(size_t)(tmp-swapbuf);
 		tmp=swapbuf;
 		BYTE_COPY_4PM1(end,sbp,tmp);
 	}

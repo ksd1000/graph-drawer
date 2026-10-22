@@ -177,8 +177,11 @@
 
 
 
-#ifndef INT_MAX 
+#ifndef INT_MAX
 #define INT_MAX __INT_MAX__
+#endif
+#ifndef INT_MIN
+#define INT_MIN (-INT_MAX-1)
 #endif
 #ifndef UINT_MAX 
 #define UINT_MAX (((unsigned int)INT_MAX<<1)|(unsigned int)1)

@@ -228,7 +228,7 @@ Tested by fun/compare.c
 |Destructor|expr\_destroy()|te\_free()|expr\_free()|
 |Initialize speed|Medium 2.3x|Fast 7.8x|Slow 1.0x|
 |Memory cost|Medium 2.3x|Low 1.0x|High 41.7x|
-|bitwise and/or/xor support|Cast to integer|No|Yes|
+|Bitwise and/or/xor support|Cast to integer|No|Yes|
 |Number parse|Digit accumulate|Digit accumulate|Pseudo strtod|
 |Number parse speed|Fast-Medium|Fast|Slow|
 |Number parse cache|No|No|Yes(but still slower than other two)|
@@ -265,12 +265,16 @@ Tested by fun/compare.c
 |Can run in raw QEMU|No|No|Untested|
 |Big-endian support|Yes|Yes|No|
 |Compile speed of source code(.c)|Fast|Fast|Slow|
+|Library size|18k|20k|357k(204k+153k)|
 |Project type|standalone library|standalone library|backend library of graph-drawer|
 |Bugfix speed|Unactive|Fast|Slow|
+|Coding tool|Unknown|Unknown|Vim,Gedit|
 |Code readability|Clear|Clear|Chaos|
 |Build system|make|make|cmake|
+|Time complexity of builtin symbol search|No|O(ln(N))|O(N)|
 |For commercial use|Yes|Yes|Yes(ensure the accessibility of code to users)|
 |Start date|07-08-2016|01-21-2016|02-19-2024|
+|Code quality|Medium|High|Low|
 |Amount of API functions|4|4|\>180|
 |Popularity|Medium|High|Low|
 |License|MIT|Zlib|GPL v3+|
@@ -278,6 +282,7 @@ Tested by fun/compare.c
 Note:
 Zserge expr and tinyexpr have not an actual constructor(their object alloction and construction are mixed, like expr\_new()), thus use the start function instead.
 Memory cost is using the total alloction.
+The library sizes are from the libraries built as shared libraries with -O3 and strip.
 ## License
 
 [GPL-v3-or-later](http://gnu.org/licenses/gpl.html)

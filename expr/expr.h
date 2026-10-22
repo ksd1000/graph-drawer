@@ -59,6 +59,7 @@ expr_static_assert(sizeof(void *)>=sizeof(double));
 #define EXPR_ZERO 0.0
 #define EXPR_ONE 1.0
 #define EXPR_TWO 2.0
+#define EXPR_IMAXO 9007199254740991.0
 #define EXPR_EDBASE(d) (((union expr_double *)(d))->rd.base)
 #define EXPR_EDEXP(d) (((union expr_double *)(d))->rd.exp)
 #define EXPR_EDSIGN(d) (((union expr_double *)(d))->rd.sign)
@@ -67,7 +68,7 @@ expr_static_assert(sizeof(void *)>=sizeof(double));
 #define expr_tand(__a,__b) expr_internal_fand(__a,__b)
 #define expr_tor(__a,__b) expr_internal_for(__a,__b)
 #define expr_txor(__a,__b) expr_internal_fxor(__a,__b)
-#define expr_tnot(_x) expr_internal_fxor((_x),9007199254740991.0)
+#define expr_tnot(_x) expr_internal_fxor((_x),EXPR_IMAXO)
 #define expr_tpow(__a,__b) pow(__a,__b)
 #define expr_tmod(__a,__b) fmod(__a,__b)
 #define expr_tscan(_str,_size,_outsize,_mtl) expr_internal_strtod_mtl_force(_str,_size,_outsize,_mtl)
@@ -1596,8 +1597,8 @@ struct expr {
 		} end[1];
 	} un;
 	int error;
-	int iflag:sizeof(int)*8-4;
-	unsigned int freeable:2,sset_shouldfree:1,isconst:1;
+	int iflag:sizeof(int)*8-3;
+	unsigned int freeable:1,sset_shouldfree:1,isconst:1;
 	char errinfo[EXPR_SYMLEN];
 };
 //global functions of expr-alloc.c :
@@ -1676,6 +1677,8 @@ void expr_free2mtl_r(struct expr *restrict ep,int flag,const struct expr_memtool
 void expr_free2(struct expr *restrict ep,int flag);
 void expr_free(struct expr *restrict ep);
 const char *expr_findpair(const char *c,const char *endp,int oth);
+void expr_symset_init_r(struct expr_symset *restrict esp,const struct expr_memtool *restrict mtl);
+struct expr_symset *expr_symset_new_r(const struct expr_memtool *restrict mtl);
 void expr_symset_freemtl(struct expr_symset *restrict esp,const struct expr_memtool *restrict mtl);
 void expr_symset_freemtl_s(struct expr_symset *restrict esp,void *stack,const struct expr_memtool *restrict mtl);
 void expr_symset_free(struct expr_symset *restrict esp);
@@ -1715,17 +1718,13 @@ struct expr_symbol *expr_symbol_create_r(const char *sym,int type,int flag,const
 struct expr_symbol *expr_symbol_createl_r(const char *sym,size_t symlen,int type,int flag,const struct expr_memtool *restrict mtl,...);
 struct expr_symbol *expr_symbol_vcreate_r(const char *sym,int type,int flag,const struct expr_memtool *restrict mtl,va_list ap);
 struct expr_symbol *expr_symbol_vcreatel_r(const char *sym,size_t symlen,int type,int flag,const struct expr_memtool *restrict mtl,va_list ap);
-void expr_symset_init_r(struct expr_symset *restrict esp,const struct expr_memtool *restrict mtl);
-struct expr_symset *expr_symset_new_r(const struct expr_memtool *restrict mtl);
 void expr_init_const_r(struct expr *restrict ep,expr_t val,const struct expr_memtool *restrict mtl);
 struct expr *expr_new_const_r(expr_t val,const struct expr_memtool *restrict mtl);
 int expr_init7_r(struct expr *restrict ep,const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,const struct expr_memtool *restrict mtl);
 int expr_init_r(struct expr *restrict ep,const char *e,const char *asym,struct expr_symset *esp,int flag,const struct expr_memtool *restrict mtl);
 int expr_init4_r(struct expr *restrict ep,const char *e,const char *asym,int flag,const struct expr_memtool *restrict mtl);
 int expr_init3_r(struct expr *restrict ep,const char *e,const char *asym,const struct expr_memtool *restrict mtl);
-struct expr *expr_new9_r(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,int n,int *error,char errinfo[EXPR_SYMLEN],const struct expr_memtool *restrict mtl);
 struct expr *expr_new8_r(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,int *error,char errinfo[EXPR_SYMLEN],const struct expr_memtool *restrict mtl);
-struct expr *expr_new7_r(const char *e,const char *asym,struct expr_symset *esp,int flag,int n,int *error,char errinfo[EXPR_SYMLEN],const struct expr_memtool *restrict mtl);
 struct expr *expr_new_r(const char *e,const char *asym,struct expr_symset *esp,int flag,int *error,char errinfo[EXPR_SYMLEN],const struct expr_memtool *restrict mtl);
 struct expr *expr_new4_r(const char *e,const char *asym,struct expr_symset *esp,int flag,const struct expr_memtool *restrict mtl);
 struct expr *expr_new3_r(const char *e,const char *asym,int flag,const struct expr_memtool *restrict mtl);
@@ -1736,6 +1735,7 @@ expr_t expr_calc4_r(const char *e,int *error,char errinfo[EXPR_SYMLEN],struct ex
 expr_t expr_calc3_r(const char *e,int *error,char errinfo[EXPR_SYMLEN],const struct expr_memtool *restrict mtl);
 expr_t expr_calc2_r(const char *e,int flag,const struct expr_memtool *restrict mtl);
 expr_t expr_calc_r(const char *e,const struct expr_memtool *restrict mtl);
+size_t expr_varofep(const struct expr *restrict ep,expr_t *v);
 int expr_recursive(struct expr *restrict ep,expr_recursive_callback callback,void *arg);
 int expr_optimize(struct expr *restrict ep);
 int expr_optimize_recursive(struct expr *restrict ep);
@@ -1744,6 +1744,7 @@ int expr_step(const struct expr *restrict ep,expr_t input,expr_t *restrict outpu
 expr_t expr_callback(const struct expr *restrict ep,expr_t input,const struct expr_callback *ec);
 //global externs of expr-core.c :
 extern const struct expr_builtin_keyword expr_keywords[];
+extern const size_t expr_keywords_size;
 //global functions of expr-symext.c :
 const struct expr_builtin_symbol *expr_builtin_symbol_search(const struct expr_builtin_symbol *syms,const char *sym,size_t sz);
 const struct expr_builtin_symbol *expr_builtin_symbol_rsearch(const struct expr_builtin_symbol *syms,void *addr);
@@ -1871,21 +1872,19 @@ extern const uint8_t expr_number_table[256];
 #if !(defined(EXPR_INLIB)&&(EXPR_INLIB))
 #define expr_sort4(v,n) expr_sort4_r(v,n,expr_defmtl)
 #define expr_free2mtl(ep,flag) expr_free2mtl_r(ep,flag,expr_defmtl)
+#define expr_symset_init(esp) expr_symset_init_r(esp,expr_defmtl)
+#define expr_symset_new() expr_symset_new_r(expr_defmtl)
 #define expr_symbol_create(sym,type,flag,...) expr_symbol_create_r(sym,type,flag,expr_defmtl,##__VA_ARGS__)
 #define expr_symbol_createl(sym,symlen,type,flag,...) expr_symbol_createl_r(sym,symlen,type,flag,expr_defmtl,##__VA_ARGS__)
 #define expr_symbol_vcreate(sym,type,flag,ap) expr_symbol_vcreate_r(sym,type,flag,expr_defmtl,ap)
 #define expr_symbol_vcreatel(sym,symlen,type,flag,ap) expr_symbol_vcreatel_r(sym,symlen,type,flag,expr_defmtl,ap)
-#define expr_symset_init(esp) expr_symset_init_r(esp,expr_defmtl)
-#define expr_symset_new() expr_symset_new_r(expr_defmtl)
 #define expr_init_const(ep,val) expr_init_const_r(ep,val,expr_defmtl)
 #define expr_new_const(val) expr_new_const_r(val,expr_defmtl)
 #define expr_init7(ep,e,len,asym,asymlen,esp,flag) expr_init7_r(ep,e,len,asym,asymlen,esp,flag,expr_defmtl)
 #define expr_init(ep,e,asym,esp,flag) expr_init_r(ep,e,asym,esp,flag,expr_defmtl)
 #define expr_init4(ep,e,asym,flag) expr_init4_r(ep,e,asym,flag,expr_defmtl)
 #define expr_init3(ep,e,asym) expr_init3_r(ep,e,asym,expr_defmtl)
-#define expr_new9(e,len,asym,asymlen,esp,flag,n,error,errinfo) expr_new9_r(e,len,asym,asymlen,esp,flag,n,error,errinfo,expr_defmtl)
 #define expr_new8(e,len,asym,asymlen,esp,flag,error,errinfo) expr_new8_r(e,len,asym,asymlen,esp,flag,error,errinfo,expr_defmtl)
-#define expr_new7(e,asym,esp,flag,n,error,errinfo) expr_new7_r(e,asym,esp,flag,n,error,errinfo,expr_defmtl)
 #define expr_new(e,asym,esp,flag,error,errinfo) expr_new_r(e,asym,esp,flag,error,errinfo,expr_defmtl)
 #define expr_new4(e,asym,esp,flag) expr_new4_r(e,asym,esp,flag,expr_defmtl)
 #define expr_new3(e,asym,flag) expr_new3_r(e,asym,flag,expr_defmtl)

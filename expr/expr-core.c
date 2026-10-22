@@ -25,7 +25,9 @@
 #define printvald(x) warn(#x ":%lf",(expr_t)(x))
 #define trap (warn("\nat file %s line %d",__FILE__,__LINE__),__builtin_trap())
 */
-
+#define etozu0(E) ((E)>=EXPR_IMAXO?(size_t)EXPR_IMAXO:((E)<=0.0?(size_t)0:(size_t)(E)))
+#define etoi0(E) ((E)>=(expr_t)INT_MAX?INT_MAX:((E)<=(expr_t)INT_MIN?INT_MIN:(int)(E)))
+#define etoi(E) ({expr_t _E=(E);etoi0(_E);})
 #define STACK_SIZEOFSSET(esp) ({size_t depth=(esp)->depth;depth<2?0:(depth-1)*EXPR_SYMSET_DEPTHUNIT;})
 #define STACK_DEFAULT(_stack,esp) \
 	void *_stack;\
@@ -272,68 +274,102 @@ expr_t expr_lcm2(expr_t x,expr_t y){
 #define REGKEYSN(s,op,dim,desc) {s,op,EXPR_KSUBEXPR|EXPR_KNOPROTECT,sizeof(s)-1,desc}
 #define REGKEYSCN(s,op,dim,desc) {s,op,EXPR_KSUBEXPR|EXPR_KSEPCOMMA|EXPR_KNOPROTECT,sizeof(s)-1,desc}
 const struct expr_builtin_keyword expr_keywords[]={
-	REGKEYSC("sum",EXPR_SUM,5,"sum(index_name,start_index,end_index,index_step,addend)"),
-	REGKEYSC("int",EXPR_INT,5,"int(integral_var_name,upper_limit,lower_limit,epsilon,integrand)"),
-	REGKEYSC("prod",EXPR_PROD,5,"prod(index_name,start_index,end_index,index_step,factor)"),
-	REGKEYSC("sup",EXPR_SUP,5,"sup(index_name,start_index,end_index,index_step,element)"),
-	REGKEYSC("infi",EXPR_INF,5,"infi(index_name,start_index,end_index,index_step,element)"),
-	REGKEYSC("andn",EXPR_ANDN,5,"andn(index_name,start_index,end_index,index_step,element)"),
-	REGKEYSC("orn",EXPR_ORN,5,"orn(index_name,start_index,end_index,index_step,element)"),
-	REGKEYSC("xorn",EXPR_XORN,5,"xorn(index_name,start_index,end_index,index_step,element)"),
-	REGKEYSC("gcdn",EXPR_GCDN,5,"gcdn(index_name,start_index,end_index,index_step,element)"),
-	REGKEYSC("lcmn",EXPR_LCMN,5,"lcmn(index_name,start_index,end_index,index_step,element)"),
-	REGKEYSC("for",EXPR_FOR,5,"for(index_name,start_index,end_index,index_step,element)"),
-	REGKEYSC("vmd",EXPR_VMD,7,"vmd(index_name,start_index,end_index,index_step,element,md_symbol,[constant_expression max_dim])"),
 	REGKEYS("do",EXPR_DO,1,"do(body) do{body}"),
 	REGKEYSC("if",EXPR_IF,3,"if(cond,if_value,else_value) if(cond){body}[{else_body}]"),
-	REGKEYSC("while",EXPR_WHILE,3,"while(cond,body) while(cond){body}"),
-	REGKEYSC("dowhile",EXPR_DOW,3,"dowhile(cond,body) dowhile(cond){body}"),
+	REGKEYSN("ip",EXPR_IP,1,"ip([mode])"),
+	REGKEYN("to",EXPR_TO,1,"to(val)"),
+
 	REGKEYSC("don",EXPR_DON,3,"don(cond,body) don(cond){body}"),
-	REGKEYSC("const",EXPR_CONST,2,"const(name,[constant_expression value]) name=(value)"),
+	REGKEYS("end",EXPR_MD,1,"end(expression)"),
+	REGKEYS("fix",EXPR_NEXT,1,"fix(expression value)"),
+	REGKEYSC("for",EXPR_FOR,5,"for(index_name,start_index,end_index,index_step,element)"),
+	REGKEYSC("hot",EXPR_HOT,2,"hot(function_name,(args...){expression}) function_name=(args...){expression}"),
+	REGKEYSC("int",EXPR_INT,5,"int(integral_var_name,upper_limit,lower_limit,epsilon,integrand)"),
+	REGKEYSC("orn",EXPR_ORN,5,"orn(index_name,start_index,end_index,index_step,element)"),
+	REGKEYSC("sum",EXPR_SUM,5,"sum(index_name,start_index,end_index,index_step,addend)"),
+	REGKEYSC("sup",EXPR_SUP,5,"sup(index_name,start_index,end_index,index_step,element)"),
+#if !(defined(EXPR_NOSYSCALL)&&(EXPR_NOSYSCALL))
+	REGKEYCN("svc",EXPR_SVC,EXPR_SYSAM+1,"svc(sys_num,...)"),
+#endif
+	REGKEYN("to1",EXPR_TO1,1,"to(val)"),
+	REGKEYS("try",EXPR_NEG,1,"try([new_symbol]){body}"),
 	REGKEYSC("var",EXPR_MUL,2,"var(name,[constant_expression initial_value])"),
-	REGKEYSCN("expr_t",EXPR_BL,1,"expr_t(constant_expression count)"),
+	REGKEYSC("vmd",EXPR_VMD,7,"vmd(index_name,start_index,end_index,index_step,element,md_symbol,[constant_expression max_dim])"),
+	REGKEYSC("andn",EXPR_ANDN,5,"andn(index_name,start_index,end_index,index_step,element)"),
 	REGKEYSCN("byte",EXPR_COPY,1,"byte(constant_expression count)"),
+	REGKEYSCN("decl",EXPR_ADD,2,"decl(symbol,[constant_expression flag])"),
+	REGKEYCN("eval",EXPR_EVAL,2,"eval(ep,input)"),
+	REGKEY("flag",EXPR_ORL,1,"flag([constant_expression new_flag])[{scope}]"),
+	REGKEYSC("gcdn",EXPR_GCDN,5,"gcdn(index_name,start_index,end_index,index_step,element)"),
+	REGKEYSC("infi",EXPR_INF,5,"infi(index_name,start_index,end_index,index_step,element)"),
+	REGKEYSC("lcmn",EXPR_LCMN,5,"lcmn(index_name,start_index,end_index,index_step,element)"),
+	REGKEYSC("prod",EXPR_PROD,5,"prod(index_name,start_index,end_index,index_step,factor)"),
+#if !(defined(EXPR_NOSYSCALL)&&(EXPR_NOSYSCALL))
+	REGKEYCN("svcp",EXPR_SVCP,3,"svcp(sys_num,arg[],constant_expression n)"),
+#endif
+	REGKEYSC("xorn",EXPR_XORN,5,"xorn(index_name,start_index,end_index,index_step,element)"),
+
+	REGKEYC("alias",EXPR_NOT,2,"alias(alias_name,target)"),
+	REGKEYSC("const",EXPR_CONST,2,"const(name,[constant_expression value]) name=(value)"),
+	REGKEY("error",EXPR_TSTL,1,"error(const_string)"),
+	REGKEY("reset",EXPR_NOTL,1,"reset([symbol])[{scope}]"),
+	REGKEY("scope",EXPR_XORL,1,"scope(){scope}"),
+	REGKEYSC("throw",EXPR_EQ,1,"throw(constant_expression error,[const_string errinfo])"),
+	REGKEY("undef",EXPR_XOR,1,"undef([symbol])[{scope}]"),
+	REGKEYSC("while",EXPR_WHILE,3,"while(cond,body) while(cond){body}"),
+
 	REGKEYCN("alloca",EXPR_ALO,2,"alloca(nmemb,[constant_expression size])"),
+	REGKEYSCN("expr_t",EXPR_BL,1,"expr_t(constant_expression count)"),
+	REGKEY("flagof",EXPR_OR,1,"flagof(symbol)"),
+	REGKEY("import",EXPR_NEX0,1,"import(package)"),
+	REGKEYCN("return",EXPR_RET,2,"return(ep,val)"),
 #if (defined(EXPR_SETJMP_IMPL)&&(EXPR_SETJMP_IMPL))
 	REGKEYN("setjmp",EXPR_SJ,1,"setjmp(jmp_buf)"),
+#endif
+	REGKEY("typeof",EXPR_AND,1,"typeof(symbol)"),
+
+	REGKEY("convert",EXPR_ZA,1,"convert(const_string)"),
+	REGKEY("defined",EXPR_DIV,1,"defined(symbol)"),
+	REGKEYSC("dowhile",EXPR_DOW,3,"dowhile(cond,body) dowhile(cond){body}"),
+	REGKEY("include",EXPR_DIF0,1,"include(package)"),
+#if (defined(EXPR_SETJMP_IMPL)&&(EXPR_SETJMP_IMPL))
 	REGKEYCN("longjmp",EXPR_LJ,2,"longjmp(jmp_buf,val)"),
 #else
 #define setjmp(buf) 0
 #define longjmp(buf,val) ((void)0)
 #endif
-	REGKEYCN("eval",EXPR_EVAL,2,"eval(ep,input)"),
-	REGKEYSCN("decl",EXPR_ADD,2,"decl(symbol,[constant_expression flag])"),
-	REGKEYSC("static_assert",EXPR_SUB,1,"static_assert(constant_expression cond,[const_string errinfo])"),
-	REGKEYSC("throw",EXPR_EQ,1,"throw(constant_expression error,[const_string errinfo])"),
-	REGKEYSN("ip",EXPR_IP,1,"ip([mode])"),
-	REGKEYN("to",EXPR_TO,1,"to(val)"),
-	REGKEYN("to1",EXPR_TO1,1,"to(val)"),
-	REGKEYSC("hot",EXPR_HOT,2,"hot(function_name,(args...){expression}) function_name=(args...){expression}"),
-	REGKEY("defined",EXPR_DIV,1,"defined(symbol)"),
-	REGKEY("typeof",EXPR_AND,1,"typeof(symbol)"),
-	REGKEY("flagof",EXPR_OR,1,"flagof(symbol)"),
-	REGKEY("undef",EXPR_XOR,1,"undef([symbol])[{scope}]"),
-	REGKEY("reset",EXPR_NOTL,1,"reset([symbol])[{scope}]"),
-	REGKEY("static_if",EXPR_ANDL,3,"static_if(constant_expression cond){body}[{else_body}]"),
-	REGKEY("flag",EXPR_ORL,1,"flag([constant_expression new_flag])[{scope}]"),
-	REGKEY("scope",EXPR_XORL,1,"scope(){scope}"),
-	REGKEYS("fix",EXPR_NEXT,1,"fix(expression value)"),
+
 	REGKEYS("constant",EXPR_DIFF,1,"constant(expression value)"),
-	REGKEYS("try",EXPR_NEG,1,"try([new_symbol]){body}"),
-	REGKEYC("alias",EXPR_NOT,2,"alias(alias_name,target)"),
-	REGKEYCN("return",EXPR_RET,2,"return(ep,val)"),
-	REGKEY("error",EXPR_TSTL,1,"error(const_string)"),
-#if !(defined(EXPR_NOSYSCALL)&&(EXPR_NOSYSCALL))
-	REGKEYCN("svcp",EXPR_SVCP,3,"svcp(sys_num,arg[],constant_expression n)"),
-	REGKEYCN("svc",EXPR_SVC,EXPR_SYSAM+1,"svc(sys_num,...)"),
-#endif
-	REGKEY("import",EXPR_NEX0,1,"import(package)"),
-	REGKEY("include",EXPR_DIF0,1,"include(package)"),
-	REGKEY("convert",EXPR_ZA,1,"convert(const_string)"),
-	REGKEYS("end",EXPR_MD,1,"end(expression)"),
+
+	REGKEY("static_if",EXPR_ANDL,3,"static_if(constant_expression cond){body}[{else_body}]"),
+
+	REGKEYSC("static_assert",EXPR_SUB,1,"static_assert(constant_expression cond,[const_string errinfo])"),
 	{NULL,0,0,0,0}
 };
-
+const size_t expr_keywords_size=arrsize(expr_keywords)-1;
+static int keyword_diff(const char *str,size_t len,const struct expr_builtin_keyword *restrict s){
+	int r=(int)len-(int)s->strlen;
+	if(r)
+		return r;
+	return memcmp(str,s->str,len);
+}
+static const struct expr_builtin_keyword *expr_keyword_search(const char *str,size_t len,const struct expr_builtin_keyword *restrict kp,size_t n){
+	size_t index;
+	int r;
+	if(unlikely(!n))
+		return NULL;
+	index=n>>1;
+	r=keyword_diff(str,len,kp+index);
+	debug("diff(%s,%zu,%s)=%d",str,len,kp[index].str,r);
+	if(!r)
+		return kp+index;
+	if(r<0)
+		return expr_keyword_search(str,len,kp,index);
+	else {
+		++index;
+		return expr_keyword_search(str,len,kp+index,n-index);
+	}
+}
 struct expr_symbol *expr_builtin_symbol_add(struct expr_symset *restrict esp,const struct expr_builtin_symbol *p){
 	switch(p->type){
 		case EXPR_CONSTANT:
@@ -534,19 +570,10 @@ static inline void expr_freeres(struct expr *restrict ep,int flag,const struct e
 	}
 }
 void expr_free2mtl_r(struct expr *restrict ep,int flag,const struct expr_memtool *restrict mtl){
-	struct expr *ep0=(struct expr *)ep;
-start:
 	expr_free_keepres(ep,flag,mtl);
 	expr_freeres(ep,flag,mtl);
-	switch(ep->freeable){
-		case 1:
-			xfree(ep0);
-			break;
-		case 2:
-			++ep;
-			goto start;
-		default:
-			break;
+	if(ep->freeable){
+		xfree(ep);
 	}
 }
 void expr_free2(struct expr *restrict ep,int flag){
@@ -1061,12 +1088,12 @@ static void expr_seizeres(struct expr *restrict dst,struct expr *restrict src){
 	src->res=NULL;
 
 }
-static struct expr *expr_new10(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,int n,int *error,char errinfo[EXPR_SYMLEN],struct expr *restrict parent,const struct expr_memtool *restrict mtl);
-#define expr_new8p(e,len,asym,asymlen,esp,flag,error,errinfo,parent) expr_new10(e,len,asym,asymlen,esp,flag,1,error,errinfo,parent,xmtl)
+static struct expr *expr_new9(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,int *error,char errinfo[EXPR_SYMLEN],struct expr *restrict parent,const struct expr_memtool *restrict mtl);
+#define expr_new8p(e,len,asym,asymlen,esp,flag,error,errinfo,parent) expr_new9(e,len,asym,asymlen,esp,flag,error,errinfo,parent,xmtl)
 static expr_t consteval(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *sset,struct expr *restrict parent){
 	struct expr *ep;
 	expr_t r;
-	ep=expr_new10(e,len,asym,asymlen,sset,parent->iflag&~EXPR_INOOPTIMIZE,1,&parent->error,parent->errinfo,parent,parent->mtl);
+	ep=expr_new9(e,len,asym,asymlen,sset,parent->iflag&~EXPR_INOOPTIMIZE,&parent->error,parent->errinfo,parent,parent->mtl);
 	if(unlikely(!ep))
 		return EXPR_FAIL;
 	if(unlikely(!expr_isconst(ep))){
@@ -1083,7 +1110,7 @@ static expr_t consteval(const char *e,size_t len,const char *asym,size_t asymlen
 static expr_t nonconsteval(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *sset,struct expr *restrict parent){
 	struct expr *ep;
 	expr_t r;
-	ep=expr_new10(e,len,asym,asymlen,sset,parent->iflag&~EXPR_INOOPTIMIZE,1,&parent->error,parent->errinfo,parent,parent->mtl);
+	ep=expr_new9(e,len,asym,asymlen,sset,parent->iflag&~EXPR_INOOPTIMIZE,&parent->error,parent->errinfo,parent,parent->mtl);
 	if(unlikely(!ep))
 		return EXPR_FAIL;
 	r=eval(ep,EXPR_ZERO);
@@ -1094,7 +1121,7 @@ static expr_t nonconsteval(const char *e,size_t len,const char *asym,size_t asym
 static expr_t constcheck(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *sset,struct expr *restrict parent){
 	struct expr *ep;
 	expr_t r;
-	ep=expr_new10(e,len,asym,asymlen,sset,parent->iflag&~EXPR_INOOPTIMIZE,1,&parent->error,parent->errinfo,parent,parent->mtl);
+	ep=expr_new9(e,len,asym,asymlen,sset,parent->iflag&~EXPR_INOOPTIMIZE,&parent->error,parent->errinfo,parent,parent->mtl);
 	if(unlikely(!ep))
 		return EXPR_FAIL;
 	r=expr_isconst(ep)?EXPR_ONE:EXPR_ZERO;;
@@ -1506,7 +1533,7 @@ static int expr_rmsym(struct expr *restrict ep,const char *sym,size_t sz){
 				expr_symset_wipe(ep->sset);
 				return 0;
 			}
-			type=(int)consteval(sym+1,sz-1,NULL,0,ep->sset,ep);
+			type=etoi(consteval(sym+1,sz-1,NULL,0,ep->sset,ep));
 			if(unlikely(ep->error))
 				return -1;
 			switch(type){
@@ -1953,10 +1980,14 @@ symget:
 keyword:
 	if(ep->iflag&EXPR_INOKEYWORD)
 		goto number;
-	for(const struct expr_builtin_keyword *kp=expr_keywords;
-			kp->str;++kp){
-		if(likely((size_t)(p-e)!=kp->strlen||memcmp(e,kp->str,(size_t)(p-e))))
-			continue;
+	{
+		const struct expr_builtin_keyword *kp;
+		kp=expr_keyword_search(e,(size_t)(p-e),expr_keywords,expr_keywords_size);
+		if(!kp){
+			//if(*e=='s')
+			//	__builtin_trap();
+			goto number;
+		}
 		if(kp->flag&EXPR_KNOPROTECT){
 			if(unlikely(ep->iflag&EXPR_IPROTECT)){
 				seterr(ep,EXPR_EPM);
@@ -2088,7 +2119,7 @@ alias_found_decl:
 				}
 				vfree2(sym.vv);
 				flag=sv.es->flag;
-				sv.es->flag=(uint64_t)(((int)un.v&~EXPR_SPMASK)|(flag&EXPR_SPMASK));
+				sv.es->flag=(uint64_t)((etoi0(un.v)&~EXPR_SPMASK)|(flag&EXPR_SPMASK));
 				v0=EXPR_VOID;
 				e=p+1;
 				goto vend;
@@ -2222,7 +2253,7 @@ sa_fail:\
 				goto vend;
 			case EXPR_EQ:
 				AT_COMMON("throw",th_fail);
-				seterr(ep,(int)un.v);
+				seterr(ep,etoi0(un.v));
 				if(dim==1){
 					*ep->errinfo=0;
 					goto c_fail;
@@ -2356,7 +2387,7 @@ found2:
 				un.v=consteval(e+1,(size_t)(p-e-1),asym,asymlen,ep->sset,ep);
 				if(unlikely(ep->error))
 					return NULL;
-				flag=(int)un.v;
+				flag=etoi0(un.v);
 				if(flag&EXPR_IUNSAFE)
 					setunsafe(ep);
 				flag&=EXPR_ISETABLE;
@@ -2705,7 +2736,7 @@ svc_enea:
 					un.v=consteval(e+1,(size_t)(p-e-1),asym,asymlen,ep->sset,ep);
 					if(unlikely(ep->error))
 						return NULL;
-					dim=(size_t)un.v;
+					dim=etozu0(un.v);
 					switch(dim){
 						case 0 ... 3:
 							break;
@@ -3299,24 +3330,21 @@ vend:
 struct vnode {
 	struct vnode *next;
 	expr_t *v;
-	enum expr_op op;
 	uint64_t unary;
+	enum expr_op op;
 };
-static struct vnode *vn(struct expr *restrict ep,expr_t *v,enum expr_op op,uint64_t unary){
-	struct vnode *p;
-	p=xmalloc(sizeof(struct vnode));
-	if(unlikely(!p))
-		return NULL;
-	p->next=NULL;
-	p->v=v;
-	p->op=op;
-	p->unary=unary;
-	return p;
-}
 static struct vnode *vnadd(struct expr *restrict ep,struct vnode *vp,expr_t *v,enum expr_op op,uint64_t unary){
 	struct vnode *p;
-	if(unlikely(!vp))
-		return vn(ep,v,op,unary);
+	if(unlikely(!vp)){
+		p=xmalloc(sizeof(struct vnode));
+		if(unlikely(!p))
+			return NULL;
+		p->next=NULL;
+		p->v=v;
+		p->op=op;
+		p->unary=unary;
+		return p;
+	}
 	for(p=vp;p->next;p=p->next);
 	p->next=xmalloc(sizeof(struct vnode));
 	if(unlikely(!p->next))
@@ -3882,6 +3910,18 @@ err:
 			xfree(sp);\
 		}\
 	}
+void expr_symset_init_r(struct expr_symset *restrict esp,const struct expr_memtool *restrict mtl){
+	memset(esp,0,sizeof(struct expr_symset));
+	esp->mtl=mtl;
+}
+struct expr_symset *expr_symset_new_r(const struct expr_memtool *restrict mtl){
+	struct expr_symset *esp=xmalloc(sizeof(struct expr_symset));
+	if(!esp)
+		return NULL;
+	expr_symset_init_r(esp,mtl);
+	esp->freeable=1;
+	return esp;
+}
 void expr_symset_freemtl(struct expr_symset *restrict esp,const struct expr_memtool *restrict mtl){
 	STACK_DEFAULT(stack,esp);
 	WIPE_SYMBOLS;
@@ -4435,18 +4475,6 @@ struct expr_symbol *expr_symbol_vcreatel_r(const char *sym,size_t symlen,int typ
 	return esp;
 }
 #pragma GCC diagnostic pop
-void expr_symset_init_r(struct expr_symset *restrict esp,const struct expr_memtool *restrict mtl){
-	memset(esp,0,sizeof(struct expr_symset));
-	esp->mtl=mtl;
-}
-struct expr_symset *expr_symset_new_r(const struct expr_memtool *restrict mtl){
-	struct expr_symset *ep=xmalloc(sizeof(struct expr_symset));
-	if(!ep)
-		return NULL;
-	expr_symset_init_r(ep,mtl);
-	ep->freeable=1;
-	return ep;
-}
 void expr_init_const_r(struct expr *restrict ep,expr_t val,const struct expr_memtool *restrict mtl){
 	memset(ep,0,sizeof(struct expr));
 	ep->un.end->val=val;
@@ -4466,7 +4494,6 @@ struct expr *expr_new_const_r(expr_t val,const struct expr_memtool *restrict mtl
 	r->freeable=1;
 	return r;
 }
-static size_t expr_varofep(const struct expr *restrict ep,expr_t *v);
 //static int expr_vcheck_ep(struct expr *restrict ep,struct expr_inst *ip,expr_t *v);
 static int expr_find_recursive_callback(struct expr *restrict ep,void *arg){
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
@@ -4595,11 +4622,9 @@ int expr_init3_r(struct expr *restrict ep,const char *e,const char *asym,const s
 }
 #undef len
 #undef asymlen
-static struct expr *expr_new10(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,int n,int *error,char errinfo[EXPR_SYMLEN],struct expr *restrict parent,const struct expr_memtool *restrict mtl){
-	struct expr *ep,*ep0;
-	if(unlikely(n<1))
-		n=1;
-	ep=ep0=xmalloc((size_t)n*sizeof(struct expr));
+static struct expr *expr_new9(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,int *error,char errinfo[EXPR_SYMLEN],struct expr *restrict parent,const struct expr_memtool *restrict mtl){
+	struct expr *ep;
+	ep=xmalloc(sizeof(struct expr));
 	if(unlikely(!ep)){
 		if(error)
 			*error=EXPR_EMEM;
@@ -4607,63 +4632,50 @@ static struct expr *expr_new10(const char *e,size_t len,const char *asym,size_t 
 			memset(errinfo,0,EXPR_SYMLEN);
 		return NULL;
 	}
-	do if(unlikely(expr_init8(ep,e,len,asym,asymlen,esp,flag,parent,mtl)<0)){
+	if(unlikely(expr_init8(ep,e,len,asym,asymlen,esp,flag,parent,mtl)<0)){
 		if(error)
 			*error=ep->error;
 		if(errinfo)
 			memcpy(errinfo,ep->errinfo,EXPR_SYMLEN);
-		if(!(flag&EXPR_IINSTANT_FREE))while(--ep>=ep0){
-			expr_free_r(ep);
-		}
-		xfree(ep0);
+		xfree(ep);
 		return NULL;
-	}else {
-		ep->freeable=2;
-		++ep;
-	}while(--n);
-	ep[-1].freeable=1;
+	}
 	if(flag&EXPR_IINSTANT_FREE)
-		xfree(ep0);
-	return ep0;
-}
-struct expr *expr_new9_r(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,int n,int *error,char errinfo[EXPR_SYMLEN],const struct expr_memtool *restrict mtl){
-	return expr_new10(e,len,asym,asymlen,esp,flag,n,error,errinfo,NULL,mtl);
+		xfree(ep);
+	else
+		ep->freeable=1;
+	return ep;
+	// the ep cannot be use if EXPR_IINSTANT_FREE set
 }
 struct expr *expr_new8_r(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,int *error,char errinfo[EXPR_SYMLEN],const struct expr_memtool *restrict mtl){
-	return expr_new10(e,len,asym,asymlen,esp,flag,1,error,errinfo,NULL,mtl);
+	return expr_new9(e,len,asym,asymlen,esp,flag,error,errinfo,NULL,mtl);
 }
 #define strlenof(x) ((x)?strlen(x):0)
 #define len strlenof(e)
 #define asymlen strlenof(asym)
-struct expr *expr_new7_r(const char *e,const char *asym,struct expr_symset *esp,int flag,int n,int *error,char errinfo[EXPR_SYMLEN],const struct expr_memtool *restrict mtl){
-	return expr_new10(e,len,asym,asymlen,esp,flag,n,error,errinfo,NULL,mtl);
-}
 struct expr *expr_new_r(const char *e,const char *asym,struct expr_symset *esp,int flag,int *error,char errinfo[EXPR_SYMLEN],const struct expr_memtool *restrict mtl){
-	return expr_new10(e,len,asym,asymlen,esp,flag,1,error,errinfo,NULL,mtl);
+	return expr_new9(e,len,asym,asymlen,esp,flag,error,errinfo,NULL,mtl);
 }
 struct expr *expr_new4_r(const char *e,const char *asym,struct expr_symset *esp,int flag,const struct expr_memtool *restrict mtl){
-	return expr_new10(e,len,asym,asymlen,esp,flag,1,NULL,NULL,NULL,mtl);
+	return expr_new9(e,len,asym,asymlen,esp,flag,NULL,NULL,NULL,mtl);
 }
 struct expr *expr_new3_r(const char *e,const char *asym,int flag,const struct expr_memtool *restrict mtl){
-	return expr_new10(e,len,asym,asymlen,NULL,flag,1,NULL,NULL,NULL,mtl);
+	return expr_new9(e,len,asym,asymlen,NULL,flag,NULL,NULL,NULL,mtl);
 }
 struct expr *expr_new2_r(const char *e,const char *asym,const struct expr_memtool *restrict mtl){
-	return expr_new10(e,len,asym,asymlen,NULL,EXPR_IPROTECT,1,NULL,NULL,NULL,mtl);
+	return expr_new9(e,len,asym,asymlen,NULL,EXPR_IPROTECT,NULL,NULL,NULL,mtl);
 }
 struct expr *expr_new1_r(const char *e,const struct expr_memtool *restrict mtl){
-	return expr_new10(e,len,NULL,0,NULL,EXPR_IPROTECT,1,NULL,NULL,NULL,mtl);
+	return expr_new9(e,len,NULL,0,NULL,EXPR_IPROTECT,NULL,NULL,NULL,mtl);
 }
 #undef len
 #undef asymlen
 expr_t expr_calc5_r(const char *e,int *error,char errinfo[EXPR_SYMLEN],struct expr_symset *esp,int flag,const struct expr_memtool *restrict mtl){
-	struct expr ep[1];
+	struct expr *ep;
 	expr_t r;
 	flag&=~EXPR_IINSTANT_FREE;
-	if(unlikely(expr_init_r(ep,e,NULL,esp,flag,mtl)<0)){
-		if(error)
-			*error=ep->error;
-		if(errinfo)
-			memcpy(errinfo,ep->errinfo,EXPR_SYMLEN);
+	ep=expr_new_r(e,NULL,esp,flag,error,errinfo,mtl);
+	if(unlikely(!ep)){
 		return EXPR_FAIL;
 	}
 	r=eval(ep,EXPR_ZERO);
@@ -4671,19 +4683,19 @@ expr_t expr_calc5_r(const char *e,int *error,char errinfo[EXPR_SYMLEN],struct ex
 	return r;
 }
 expr_t expr_calc4_r(const char *e,int *error,char errinfo[EXPR_SYMLEN],struct expr_symset *esp,const struct expr_memtool *restrict mtl){
-	return expr_calc5_r(e,error,errinfo,esp,EXPR_INOOPTIMIZE,mtl);
+	return expr_calc5_r(e,error,errinfo,esp,EXPR_INOOPTIMIZE|EXPR_IPROTECT,mtl);
 }
 expr_t expr_calc3_r(const char *e,int *error,char errinfo[EXPR_SYMLEN],const struct expr_memtool *restrict mtl){
-	return expr_calc5_r(e,error,errinfo,NULL,EXPR_INOOPTIMIZE,mtl);
+	return expr_calc5_r(e,error,errinfo,NULL,EXPR_INOOPTIMIZE|EXPR_IPROTECT,mtl);
 }
 expr_t expr_calc2_r(const char *e,int flag,const struct expr_memtool *restrict mtl){
 	return expr_calc5_r(e,NULL,NULL,NULL,flag,mtl);
 }
 expr_t expr_calc_r(const char *e,const struct expr_memtool *restrict mtl){
-	return expr_calc5_r(e,NULL,NULL,NULL,EXPR_INOOPTIMIZE,mtl);
+	return expr_calc5_r(e,NULL,NULL,NULL,EXPR_INOOPTIMIZE|EXPR_IPROTECT,mtl);
 }
 
-static size_t expr_varofep(const struct expr *restrict ep,expr_t *v){
+size_t expr_varofep(const struct expr *restrict ep,expr_t *v){
 	size_t i;
 	if(unlikely(expr_void(v)))
 		return SIZE_MAX;
@@ -6459,7 +6471,7 @@ int expr_recursive(struct expr *restrict ep,expr_recursive_callback callback,voi
 int expr_optimize(struct expr *restrict ep){
 	struct expr_resource *rp;
 	expr_t v;
-	uint8_t sf;
+	unsigned int sf;
 	int r=expr_optimize0(ep);
 	if(expr_isconst(ep)){
 		sf=ep->freeable;
@@ -6747,7 +6759,7 @@ int expr_optimize_recursive(struct expr *restrict ep){
 				un.j.d=*ip->dst.dst;\
 				un.j.p->un.val=*ip->un.src;\
 				*un.j.p->ipp=un.j.p->ip;\
-				longjmp(un.j.p->jb,(int)un.j.p->un.val);\
+				longjmp(un.j.p->jb,etoi0(un.j.p->un.val));\
 			case EXPR_IP:\
 				switch(ip->un.zu){\
 					case 0:\

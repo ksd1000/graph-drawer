@@ -188,6 +188,12 @@ ab:
 	printf("ABORTING\n");
 	abort();
 }
+static int keyword_diff(const char *str,size_t len,const struct expr_builtin_keyword *restrict s){
+	int r=(int)len-(int)s->strlen;
+	if(r)
+		return r;
+	return memcmp(str,s->str,len);
+}
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 int main(int argc,char **argv){
 	double x0=expr_cast(expr_seed48(time(NULL)),double);
@@ -204,6 +210,11 @@ int main(int argc,char **argv){
 	for(const struct expr_builtin_keyword *p=expr_keywords;;++p){
 		if(!p->str){
 			break;
+		}
+		if(p[1].str&&keyword_diff(p->str,(size_t)p->strlen,p+1)>=0){
+			printf("keyword %s >= %s\n",p->str,p[1].str);
+			printf("ABORTING\n");
+			abort();
 		}
 		if(expr_symset_search(es,p->str,p->strlen)){
 			printf("conflict %s\n",p->str);

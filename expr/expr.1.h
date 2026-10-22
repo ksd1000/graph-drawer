@@ -59,6 +59,7 @@ expr_static_assert(sizeof(void *)>=sizeof(double));
 #define EXPR_ZERO 0.0
 #define EXPR_ONE 1.0
 #define EXPR_TWO 2.0
+#define EXPR_IMAXO 9007199254740991.0
 #define EXPR_EDBASE(d) (((union expr_double *)(d))->rd.base)
 #define EXPR_EDEXP(d) (((union expr_double *)(d))->rd.exp)
 #define EXPR_EDSIGN(d) (((union expr_double *)(d))->rd.sign)
@@ -67,7 +68,7 @@ expr_static_assert(sizeof(void *)>=sizeof(double));
 #define expr_tand(__a,__b) expr_internal_fand(__a,__b)
 #define expr_tor(__a,__b) expr_internal_for(__a,__b)
 #define expr_txor(__a,__b) expr_internal_fxor(__a,__b)
-#define expr_tnot(_x) expr_internal_fxor((_x),9007199254740991.0)
+#define expr_tnot(_x) expr_internal_fxor((_x),EXPR_IMAXO)
 #define expr_tpow(__a,__b) pow(__a,__b)
 #define expr_tmod(__a,__b) fmod(__a,__b)
 #define expr_tscan(_str,_size,_outsize,_mtl) expr_internal_strtod_mtl_force(_str,_size,_outsize,_mtl)
@@ -1596,7 +1597,7 @@ struct expr {
 		} end[1];
 	} un;
 	int error;
-	int iflag:sizeof(int)*8-4;
-	unsigned int freeable:2,sset_shouldfree:1,isconst:1;
+	int iflag:sizeof(int)*8-3;
+	unsigned int freeable:1,sset_shouldfree:1,isconst:1;
 	char errinfo[EXPR_SYMLEN];
 };

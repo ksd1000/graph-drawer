@@ -60,16 +60,44 @@ void *drawing(void *args){
 	return NULL;
 }
 int protect=0;
+struct expr *old_new7(const char *e,const char *asym,struct expr_symset *esp,int flag,int n,int *error,char errinfo[EXPR_SYMLEN]){
+	struct expr *eps=malloc(n*sizeof(struct expr));
+	if(!eps){
+		if(error)
+			*error=EXPR_EMEM;
+		if(errinfo)
+			memset(errinfo,0,EXPR_SYMLEN);
+		return NULL;
+	}
+	for(int i=0;i<n;++i){
+		if(expr_init(eps+i,e,asym,esp,flag)<0){
+			if(error)
+				*error=eps[i].error;
+			if(errinfo)
+				memcpy(errinfo,eps[i].errinfo,EXPR_SYMLEN);
+			for(int c=i-1;c>=0;--c)
+				expr_free(eps+c);
+			free(eps);
+			return NULL;
+		}
+	}
+	return eps;
+}
+void old_frees(struct expr *eps,int n){
+	for(int i=0;i<n;++i)
+		expr_free(eps+i);
+	free(eps);
+}
 int drawat(char *ey){
 	int srate,lrate,mrate,pc,mpc;
 	pthread_t pt;
 	double gap=(to-from)/thread;
 	char *wbuf0,ei[EXPR_SYMLEN];
 	int flag=protect?EXPR_IPROTECT:0;
-	xeps=expr_new7(ex,para,es,flag,thread,&pc,ei);
+	xeps=old_new7(ex,para,es,flag,thread,&pc,ei);
 	if(!xeps)
 		errx(EXIT_FAILURE,"x expression error:%s (%s)",expr_error(pc),ei);
-	yeps=expr_new7(ey,para,es,flag,thread,&pc,ei);
+	yeps=old_new7(ey,para,es,flag,thread,&pc,ei);
 	if(!yeps)
 		errx(EXIT_FAILURE,"y expression error:%s (%s)",expr_error(pc),ei);
 	for(int i=0;i<thread;++i){
@@ -148,8 +176,8 @@ int drawat(char *ey){
 	//write(STDERR_FILENO,"\033[?25h",6);
 	if(pthread_join(pt,NULL)<0)
 		err(EXIT_FAILURE,"pthread_join");
-	expr_free(xeps);
-	expr_free(yeps);
+	old_frees(xeps,thread);
+	old_frees(yeps,thread);
 	return 0;
 }
 void writefile(const char *file,const void *buf,size_t sz){
@@ -272,7 +300,7 @@ int main(int argc,char **argv){
 	outstring("ok\n");
 	currents=malloc(thread*sizeof(double));
 
-	wbuf=malloc((thread+1)*(18+barlen)+14);
+	wbuf=malloc((thread+1)*(barlen+32)+14);
 	bar=malloc(3+barlen);
 
 	expr_builtin_symbol_addalls(es,expr_symbols_all);

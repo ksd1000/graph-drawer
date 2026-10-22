@@ -30,4 +30,4 @@ The expected output in **dmesg** will be like this:
 [613743.767143] exiting ...
 ```
 
-The core of the expression evaluator library may also be able to run in QEMU directly without any operating system, but this is not tested, because the author does not know how to write the code.
+The core of the expression evaluator library may also be able to run in QEMU directly without any operating system, but this is not tested, because the author does not know how to write the code for testing.

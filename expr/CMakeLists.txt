@@ -29,6 +29,7 @@ add_library(expr
 if(NOT (CMAKE_BUILD_TYPE STREQUAL "Debug"))
 	target_compile_options(expr PRIVATE -ffreestanding -nostdinc -include expr-defs.h)
 endif()
+target_compile_options(expr PRIVATE -Wframe-larger-than=1024)
 target_include_directories(expr PRIVATE .)
 add_library(expr-lc
 	expr-global.c

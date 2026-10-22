@@ -1,7 +1,7 @@
 obj-m += kexpr.o
 kexpr-y := kmain.o eval.o expr-core.o expr-internal.o expr-format.o expr-alloc.o expr-symext.o expr-buffered.o
 KPATH = /usr/src/kernels/$(shell uname -r)
-EXPR_CFLAGS := -include expr-defs.h -Dexpr_noinline="" -DEXPR_NOSYSCALL=1 -DEXPR_NODEBUGEVAL=1 -DEXPR_NOSTACKWORKSPACE=1
+EXPR_CFLAGS := -include expr-defs.h -Dexpr_noinline="" -DEXPR_NOSYSCALL=1 -DEXPR_NODEBUGEVAL=1
 CFLAGS_eval.o += $(CC_FLAGS_FPU)
 CFLAGS_REMOVE_eval.o += $(CC_FLAGS_NO_FPU)
 CFLAGS_expr-core.o += $(CC_FLAGS_FPU) $(EXPR_CFLAGS)

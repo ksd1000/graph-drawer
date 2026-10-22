@@ -75,7 +75,7 @@ typedef _Atomic(uint32_t) mutex_t;
 #include "expr.h"
 
 const struct expr_libinfo expr_libinfo_current[1]={{
-	.version="1.0.10-1",
+	.version="1.0.10-2",
 	.compiler_version=
 #ifdef __VERSION__
 		__VERSION__,
@@ -93,6 +93,12 @@ const struct expr_libinfo expr_libinfo_current[1]={{
 	.license="GPL v3+",
 }};
 
+#if !(defined(EXPR_NOSTACKWORKSPACE)&&(EXPR_NOSTACKWORKSPACE))
+double expr_internal_strtod(const char *restrict nptr,size_t nsize,size_t *restrict end_index){
+	struct expr_strtod_workspace ws[1];
+	return expr_internal_strtod4(nptr,nsize,end_index,ws);
+}
+#endif
 expr_globals_define();
 
 __attribute__((noreturn)) void expr_explode(void){

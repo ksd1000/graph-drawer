@@ -1761,14 +1761,7 @@ ssize_t expr_apwriteft_r(const char *restrict fmt,size_t fmtlen,expr_writer writ
 	ap_common(va_start(a->ap,mtl),va_end(a->ap),table);
 	return r;
 }
-ssize_t expr_vapwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const struct expr_memtool *restrict mtl,va_list ap){
-	ap_common(va_copy(a->ap,ap),va_end(a->ap),expr_ftable_default);
-	return r;
-}
-ssize_t expr_apwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const struct expr_memtool *restrict mtl,...){
-	ap_common(va_start(a->ap,mtl),va_end(a->ap),expr_ftable_default);
-	return r;
-}
+
 #define memfd_write_common \
 	size_t old_size;\
 	if(unlikely(size>(ssize_t)SSIZE_MAX)){\
@@ -1813,12 +1806,6 @@ ssize_t expr_vsnprintft_r(char *buf,size_t buflen,const char *restrict fmt,size_
 }
 ssize_t expr_snprintft_r(char *buf,size_t buflen,const char *restrict fmt,size_t fmtlen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl,...){
 	sp_common(va_start(a->ap,mtl),va_end(a->ap),table);
-}
-ssize_t expr_vsnprintf_r(char *buf,size_t buflen,const char *restrict fmt,size_t fmtlen,const struct expr_memtool *restrict mtl,va_list ap){
-	sp_common(va_copy(a->ap,ap),va_end(a->ap),expr_ftable_default);
-}
-ssize_t expr_snprintf_r(char *buf,size_t buflen,const char *restrict fmt,size_t fmtlen,const struct expr_memtool *restrict mtl,...){
-	sp_common(va_start(a->ap,mtl),va_end(a->ap),expr_ftable_default);
 }
 #undef writer
 #undef fd

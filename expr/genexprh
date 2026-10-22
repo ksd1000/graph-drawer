@@ -16,5 +16,5 @@ dump expr-global.c
 dump expr-internal.c
 echo "#if !(defined(EXPR_INLIB)&&(EXPR_INLIB))" >>expr.h
 ./rudump-mf >>expr.h
-echo "#endif" >>expr.h
+#echo "#endif" >>expr.h
 cat expr.2.h >> expr.h

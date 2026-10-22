@@ -96,6 +96,8 @@ void expr_deallocator_default(void *old,intptr_t arg);
 extern struct expr_memtool expr_defmtl[1];
 extern size_t expr_allocate_max;
 
+#define expr_internal_strlen(s) ({const char *_s=(s);(size_t)((const char *)expr_internal_memchr2(_s,0)-_s);})
+
 #define expr_globals_define() \
 size_t expr_allocate_max=SSIZE_MAX;\
 void *expr_allocator_default(size_t size,intptr_t arg){\
@@ -144,6 +146,7 @@ struct expr_internal_jmpbuf {
 	intptr_t *jb[1];
 };
 #endif
+
 
 #if (defined(EXPR_INLIB)&&(EXPR_INLIB))
 #define EXPR_BLOCKWARNING 1
@@ -224,7 +227,7 @@ struct expr_internal_jmpbuf {
 #define memrchr expr_internal_memrchr
 #define memcmp expr_internal_memcmp
 #define strend(s) expr_internal_memchr2(s,0)
-#define strlen(s) ({const char *_s=(s);(size_t)((const char *)expr_internal_memchr2(_s,0)-_s);})
+#define strlen expr_internal_strlen
 #define strnlen(s,n) ({const char *_s=(s);size_t _n=(n);const char *_p=expr_internal_memchr(_s,0,_n);_p?(size_t)(_p-_s):_n;})
 #define memmem expr_fake_memmem
 #define memrmem expr_fake_memrmem

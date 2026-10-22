@@ -135,7 +135,7 @@ int drawat(char *ey){
 			s=from+i*gap;
 			if(currents[i]==DBL_MAX)
 				pc=10000;
-			else 
+			else
 				if(currents[i]==DBL_MIN)pc=0;
 			else
 				pc=(int)((currents[i]-s)*10000/gap);

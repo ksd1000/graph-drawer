@@ -162,7 +162,7 @@ void expr_contract(void *buf,size_t size){
 		p+=PAGE_SIZE;
 	}
 	*endp=0;
-	//treat the case like [0,1,...,endp->4094,p->4095] 
+	//treat the case like [0,1,...,endp->4094,p->4095]
 }
 void expr_explode_r(void (*contractor)(void *,size_t),const struct expr_memtool *restrict mtl,size_t max){
 	void *r;
@@ -887,7 +887,7 @@ fail0:
 		}else if((nptr[1]|32)=='b'&&checkbase(2)){
 			base=2;
 			nptr+=2;
-		}else 
+		}else
 			base=10;
 	}else
 		base=10;

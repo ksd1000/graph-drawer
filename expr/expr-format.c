@@ -1060,7 +1060,7 @@ static inline const char *internal_strtoz_oux(const char *restrict nptr,const ch
 		if(nptr<endp&&*nptr=='x'){
 			++nptr;
 			base=2;
-		}else 
+		}else
 			base=1;
 	}
 	if(unlikely(nptr>=endp)){

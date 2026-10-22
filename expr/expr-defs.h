@@ -51,41 +51,41 @@
 #define uintmax_t __UINTMAX_TYPE__
 #endif
 
-#ifndef INTPTR_MAX 
+#ifndef INTPTR_MAX
 #define INTPTR_MAX __INTPTR_MAX__
 #endif
-#ifndef INT64_MAX 
+#ifndef INT64_MAX
 #define INT64_MAX __INT64_MAX__
 #endif
-#ifndef INT32_MAX 
+#ifndef INT32_MAX
 #define INT32_MAX __INT32_MAX__
 #endif
-#ifndef INT16_MAX 
+#ifndef INT16_MAX
 #define INT16_MAX __INT16_MAX__
 #endif
-#ifndef INT8_MAX 
+#ifndef INT8_MAX
 #define INT8_MAX __INT8_MAX__
 #endif
-#ifndef UINTPTR_MAX 
+#ifndef UINTPTR_MAX
 #define UINTPTR_MAX __UINTPTR_MAX__
 #endif
-#ifndef UINT64_MAX 
+#ifndef UINT64_MAX
 #define UINT64_MAX __UINT64_MAX__
 #endif
-#ifndef UINT32_MAX 
+#ifndef UINT32_MAX
 #define UINT32_MAX __UINT32_MAX__
 #endif
-#ifndef UINT16_MAX 
+#ifndef UINT16_MAX
 #define UINT16_MAX __UINT16_MAX__
 #endif
-#ifndef UINT8_MAX 
+#ifndef UINT8_MAX
 #define UINT8_MAX __UINT8_MAX__
 #endif
 
 #define EXPR_DEFS_CAT0(a,b) a ## b
 #define EXPR_DEFS_CAT(a,b) EXPR_DEFS_CAT0(a,b)
 
-#ifndef INT64_C 
+#ifndef INT64_C
 #if defined(__INT64_C)
 #define INT64_C __INT64_C
 #elif defined(__INT64_C_SUFFIX__)
@@ -95,7 +95,7 @@
 #endif
 #endif
 
-#ifndef UINT64_C 
+#ifndef UINT64_C
 #if defined(__UINT64_C)
 #define UINT64_C __UINT64_C
 #elif defined(__UINT64_C_SUFFIX__)
@@ -105,7 +105,7 @@
 #endif
 #endif
 
-#ifndef INT32_C 
+#ifndef INT32_C
 #if defined(__INT32_C)
 #define INT32_C __INT32_C
 #elif defined(__INT32_C_SUFFIX__)
@@ -115,7 +115,7 @@
 #endif
 #endif
 
-#ifndef UINT32_C 
+#ifndef UINT32_C
 #if defined(__UINT32_C)
 #define UINT32_C __UINT32_C
 #elif defined(__UINT32_C_SUFFIX__)
@@ -125,7 +125,7 @@
 #endif
 #endif
 
-#ifndef INT16_C 
+#ifndef INT16_C
 #if defined(__INT16_C)
 #define INT16_C __INT16_C
 #elif defined(__INT16_C_SUFFIX__)
@@ -135,7 +135,7 @@
 #endif
 #endif
 
-#ifndef UINT16_C 
+#ifndef UINT16_C
 #if defined(__UINT16_C)
 #define UINT16_C __UINT16_C
 #elif defined(__UINT16_C_SUFFIX__)
@@ -145,7 +145,7 @@
 #endif
 #endif
 
-#ifndef INT8_C 
+#ifndef INT8_C
 #if defined(__INT8_C)
 #define INT8_C __INT8_C
 #elif defined(__INT8_C_SUFFIX__)
@@ -155,7 +155,7 @@
 #endif
 #endif
 
-#ifndef UINT8_C 
+#ifndef UINT8_C
 #if defined(__UINT8_C)
 #define UINT8_C __UINT8_C
 #elif defined(__UINT8_C_SUFFIX__)
@@ -183,43 +183,43 @@
 #ifndef INT_MIN
 #define INT_MIN (-INT_MAX-1)
 #endif
-#ifndef UINT_MAX 
+#ifndef UINT_MAX
 #define UINT_MAX (((unsigned int)INT_MAX<<1)|(unsigned int)1)
 #endif
-#ifndef NULL 
+#ifndef NULL
 #define NULL ((void *)0)
 #endif
-#ifndef DBL_EPSILON 
+#ifndef DBL_EPSILON
 #define DBL_EPSILON __DBL_EPSILON__
 #endif
-#ifndef NAN 
+#ifndef NAN
 #define NAN (__builtin_nanf(""))
 #endif
-#ifndef INFINITY 
+#ifndef INFINITY
 #define INFINITY (__builtin_inff())
 #endif
-#ifndef SCHAR_MAX 
+#ifndef SCHAR_MAX
 #define SCHAR_MAX __SCHAR_MAX__
 #endif
-#ifndef UCHAR_MAX 
+#ifndef UCHAR_MAX
 #define UCHAR_MAX (((unsigned char)SCHAR_MAX<<1)|(unsigned char)1)
 #endif
-#ifndef va_list 
+#ifndef va_list
 #define va_list __builtin_va_list
 #endif
-#ifndef va_start 
+#ifndef va_start
 #define va_start __builtin_va_start
 #endif
-#ifndef va_arg 
+#ifndef va_arg
 #define va_arg __builtin_va_arg
 #endif
-#ifndef va_end 
+#ifndef va_end
 #define va_end __builtin_va_end
 #endif
-#ifndef va_copy 
+#ifndef va_copy
 #define va_copy __builtin_va_copy
 #endif
-#ifndef offsetof 
+#ifndef offsetof
 #define offsetof __builtin_offsetof
 #endif
 

@@ -45,7 +45,7 @@ int test_tiny(char *e,size_t len){
 	te_expr *ep;
 	old=e[len];
 	e[len]=0;
-	ep=te_compile(e,tvars,2,&err);
+	ep=te_compile(e,tvars,1,&err);
 	e[len]=old;
 	// pass the length of expression is not allowed by tinyexpr
 	if(!ep)

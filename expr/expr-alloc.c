@@ -112,6 +112,7 @@ int expr_area_resize(struct expr_area *restrict area,size_t size){
 		}\
 	}\
 	for(;;){\
+		/*debug("loop zp=%p",__zp);*/\
 		if(__zp->tail){\
 			if(__prev){\
 				dest=__prev;\
@@ -431,9 +432,9 @@ int expr_setup_heapmtl4(struct expr_memtool *restrict mtl,void *heap,size_t size
 			heap=(void *)alp;
 		}
 	}
-	if(unlikely((ssize_t)size<(ssize_t)UNIT_SIZE))
+	if(unlikely((ssize_t)size<(ssize_t)sizeof(struct expr_area)))
 		return -1;
-	if(unlikely(expr_area_init4((struct expr_area *)heap,expr_zoneof(heap),size-UNIT_SIZE,flag))<0)
+	if(unlikely(expr_area_init4((struct expr_area *)heap,expr_zoneof(heap),size-sizeof(struct expr_area),flag))<0)
 		return -1;
 	mtl->allocate=expr_heapmtl_malloc;
 	mtl->reallocate=expr_heapmtl_realloc;

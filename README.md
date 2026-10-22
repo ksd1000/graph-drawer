@@ -228,8 +228,8 @@ Tested by fun/compare.c
 |Namespace|expr\_|te\_|expr\_|
 |Constructor|expr\_create()|te\_compile()|expr\_init()|
 |Destructor|expr\_destroy()|te\_free()|expr\_free()|
-|Initialize speed|Medium 2.3x|Fast 7.8x|Slow 1.0x|
-|Memory cost|Medium 2.3x|Low 1.0x|High 41.7x|
+|Initialize speed|Medium 2.3x|Fast 8.6x|Slow 1.0x|
+|Memory cost|Medium 1.2x|Low 1.0x|High 3.8x|
 |Bitwise and/or/xor support|Cast to integer|No|Yes|
 |Number parse|Digit accumulate|Digit accumulate|Pseudo strtod|
 |Number parse speed|Fast-Medium|Fast|Slow|
@@ -276,6 +276,9 @@ Tested by fun/compare.c
 |Time complexity of builtin symbol search|No|O(ln(N))|O(N)|
 |For commercial use|Yes|Yes|Yes(ensure the accessibility of code to users)|
 |Language|C|C|C with GNU extensions|
+|Document completeness|Yes|Yes|No|
+|API stability|Yes|Yes|No|
+|Test coverage|No|High|Low|
 |Start date|07-08-2016|01-21-2016|02-19-2024|
 |Code quality|Medium|High|Low|
 |Amount of API functions|4|4|\>180|
@@ -287,8 +290,6 @@ Zserge expr and tinyexpr have not an actual constructor(their object alloction a
 
 - Allocation --\> Construction --\>Return
 - (Allocation+Construction) --\>Return
-
-Memory cost is using the total alloction.
 
 The library sizes are from the libraries built as shared libraries with -O3 and strip.
 

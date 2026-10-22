@@ -313,9 +313,9 @@ int expr_setup_heapmtl4_nonnull(struct expr_memtool *restrict mtl,void *heap,siz
 			heap=(void *)alp;
 		}
 	}
-	if(unlikely((ssize_t)size<(ssize_t)sizeof(struct expr_zoneunit)))
+	if(unlikely((ssize_t)size<(ssize_t)sizeof(struct expr_area)))
 		return -1;
-	if(unlikely(expr_area_init4((struct expr_area *)heap,expr_zoneof(heap),size-sizeof(struct expr_zoneunit),flag))<0)
+	if(unlikely(expr_area_init4((struct expr_area *)heap,expr_zoneof(heap),size-sizeof(struct expr_area),flag))<0)
 		return -1;
 	mtl->allocate=expr_heapmtl_malloc_nonnull;
 	mtl->reallocate=expr_heapmtl_realloc_nonnull;

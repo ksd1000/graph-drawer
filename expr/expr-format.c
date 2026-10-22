@@ -1235,42 +1235,7 @@ reflag:
 	}
 #define t_copy(_d,_s,T) *(T *)(_d)=*(T *)(_s)
 #define t_ocopy(_d,_s,T,_off) *(T *)((uintptr_t)(_d)+(_off))=*(T *)((uintptr_t)(_s)+(_off))
-#define bit_copy(_d,_s,_bit) ({\
-	switch(_bit){\
-		case 1:\
-			t_copy((_d),(_s),uint8_t);\
-			break;\
-		case 2:\
-			t_copy((_d),(_s),uint16_t);\
-			break;\
-		case 3:\
-			t_copy((_d),(_s),uint16_t);\
-			t_ocopy((_d),(_s),uint8_t,2);\
-			break;\
-		case 4:\
-			t_copy((_d),(_s),uint32_t);\
-			break;\
-		case 5:\
-			t_copy((_d),(_s),uint32_t);\
-			t_ocopy((_d),(_s),uint8_t,4);\
-			break;\
-		case 6:\
-			t_copy((_d),(_s),uint32_t);\
-			t_ocopy((_d),(_s),uint16_t,4);\
-			break;\
-		case 7:\
-			t_copy((_d),(_s),uint32_t);\
-			t_ocopy((_d),(_s),uint16_t,4);\
-			t_ocopy((_d),(_s),uint8_t,6);\
-			break;\
-		case 0:\
-		case 8:\
-			t_copy((_d),(_s),uint64_t);\
-			break;\
-		default:\
-			__builtin_unreachable();\
-	}\
-})
+#define bit_copy(_d,_s,_bit) memcpy(_d,_s,_bit)
 #define argnext1 ++index;debug("arg index to %zd",index)
 #define argnext(N) index+=(ptrdiff_t)(N);debug("arg index to %zd",index)
 #define argback(N) index-=(ptrdiff_t)(N);debug("arg index back to %zd",index)
@@ -1585,7 +1550,7 @@ wfp_get:
 				argnext1;
 				for(;;){
 					if(arrwid<8){
-						bit_copy(&val,aps,arrwid);
+						bit_copy(&val,(const void *)aps,arrwid);
 						if(wfp->type==EXPR_FLAGTYPE_SIGNED&&
 						(val&(UINT64_C(0x80)<<((arrwid-1)*8))))
 							val=(~UINT64_C(0)&~mask)|(val&mask);

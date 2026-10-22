@@ -1552,7 +1552,7 @@ static void *readsymbol(struct expr *restrict ep,const char *symbol,size_t symle
 	if(!ep->sset||!(sym.es=expr_symset_search(ep->sset,symbol,symlen))){
 		goto esymbol;
 	}
-	debug("reading:%s -- %zu",symbol,symlen);
+	//debug("reading:%s -- %zu","symbol",symlen);
 alias_found:
 	type=sym.es->type;
 	flag=sym.es->flag;
@@ -3933,6 +3933,7 @@ int expr_init8_r(struct expr *restrict ep,const char *e,size_t len,const char *a
 	} un;
 	char *r,*p0;
 	expr_t *v;
+	debug("len=%zu",len);
 	memset(ep,0,sizeof(struct expr));
 	ep->sset=esp;
 	ep->parent=(struct expr *)parent;
@@ -3995,6 +3996,7 @@ struct expr *expr_new9_r(const char *e,size_t len,const char *asym,size_t asymle
 	struct expr *ep;
 	ep=xmalloc(sizeof(struct expr));
 	if(unlikely(!ep)){
+		debug("fail to allocate memory");
 		if(error)
 			*error=EXPR_EMEM;
 		if(errinfo)

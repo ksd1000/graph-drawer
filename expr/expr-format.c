@@ -1129,6 +1129,11 @@ struct expr_vwritef_workspace {
 	struct expr_writeflag flag[1];
 	const char *fmt_save[8];
 	const char **fmt_save_current;
+	union {
+		const union expr_argf *arg_cur;
+		uintptr_t aps;
+		union expr_argf old;
+	};
 	union expr_argf save;
 	uint8_t forward,arrwid,current,r1;
 };
@@ -1160,6 +1165,9 @@ ssize_t expr_vwriteft_r(const char *restrict fmt,size_t fmtlen,expr_writer write
 #define fmt_save wsp->fmt_save
 #define fmt_save_current wsp->fmt_save_current
 #define save wsp->save
+#define arg_cur wsp->arg_cur
+#define aps wsp->aps
+#define old wsp->old
 	wsp=xmalloc(sizeof(struct expr_vwritef_workspace));
 	if(unlikely(!wsp)){
 		return SSIZE_MIN+1;
@@ -1432,7 +1440,6 @@ current_get:
 			break;
 		case EXPR_FMTC_EVAL:
 			{
-				union expr_argf old;
 				old.umax=*arg1->umaddr;
 				switch(flag_width(flag,0)){
 					case 0:
@@ -1521,11 +1528,20 @@ current_get:
 		if(delimsz&&loop>1){\
 			wf_trywrite(delim,delimsz);\
 		}\
-		if(!__builtin_constant_p(_arg)){\
-			if(forward){\
-				argnext1;\
-			}\
+	}
+#define fmt_dorepeat_fwd(_arg) \
+	fmt_repeat {\
+		arg_cur=(_arg);\
+		if(unlikely(!arg_cur))\
+			goto_argfail;\
+		fmt_once(arg_cur);\
+		if(tailsz){\
+			wf_trywrite(tail,tailsz);\
 		}\
+		if(delimsz&&loop>1){\
+			wf_trywrite(delim,delimsz);\
+		}\
+		argnext1;\
 	}
 
 		default:
@@ -1542,7 +1558,6 @@ wfp_get:
 				fmt_dorepeat((const union expr_argf *)&save);
 				forward=0;
 			}else if(arrlen){
-				uintptr_t aps;
 				expr_umaxf_t val,mask;
 				flag->argsize=sizeof(void *);
 				aps=arg1->uint;
@@ -1572,14 +1587,15 @@ wfp_get:
 			}else {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
-				const union expr_argf *arg_cur;
-				if(!forward&&unlikely(!(arg_cur=argt(wfp->type))))
-					goto_argfail;
-				fmt_dorepeat(arg_cur);
-				if(!forward){
+				if(forward){
+					fmt_dorepeat_fwd(argt(wfp->type));
+				}else {
+					arg_cur=argt(wfp->type);
+					if(unlikely(!arg_cur))
+						goto_argfail;
+					fmt_dorepeat(arg_cur);
 					argnext1;
-				}else
-					forward=0;
+				}
 #pragma GCC diagnostic pop
 			}
 			break;
@@ -1612,6 +1628,9 @@ end:
 #undef fmt_save
 #undef fmt_save_current
 #undef save
+#undef arg_cur
+#undef aps
+#undef old
 }
 #undef arg1
 #undef argt

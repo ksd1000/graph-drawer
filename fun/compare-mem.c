@@ -95,8 +95,8 @@ int main(int argc,char **argv){
 	assert(expr_symset_add(es,"x",EXPR_VARIABLE,0,&x));
 	printf("filling x+x+x+...\n");
 	r=expr_snprintf_r(buf,sizeof(buf),"%1T+%*l%s",9,mtl,sizeof(buf)/2,"x");
-	// "%1T+": delimed by "+" between "x", 1: size of "x"
-	// "%*l" : loop for "*"(read form arg) times.
+	// "%1T+": delimed by "+" between "x", 1: size of delim("+")
+	// "%*l" : loop for "*"(sizeof(buf)/2) times.
 	// "%s" : "x"
 	assert((size_t)r==sizeof(buf)-1);
 	memcpy(internal_backup,internal_heap,sizeof(internal_heap));

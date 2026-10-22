@@ -1683,13 +1683,13 @@ static expr_t *getvalue(struct expr *restrict ep,const char *e,const char *endp,
 	} sv;
 	int type,flag;
 	size_t dim;
-	if(unlikely(e>=endp))
-		goto eev;
-	switch(*e){
-		case 0:
+	if(unlikely(e>=endp)){
 eev:
-			seterr(ep,EXPR_EEV);
-			return NULL;
+		debug("e=%p,endp=%p,*e=%d",e,endp,(int)*e);
+		seterr(ep,EXPR_EEV);
+		return NULL;
+	}
+	switch(*e){
 		case '(':
 			p=findpair(e,endp);
 			if(unlikely(!p)){
@@ -3931,9 +3931,9 @@ int expr_init8_r(struct expr *restrict ep,const char *e,size_t len,const char *a
 		expr_t v;
 		struct expr_inst *ip;
 	} un;
-	char *r,*p0;
+	char *r;
 	expr_t *v;
-	debug("len=%zu",len);
+	debug("len(%p)=%zu,*e=%d",e,len,(int)*e);
 	memset(ep,0,sizeof(struct expr));
 	ep->sset=esp;
 	ep->parent=(struct expr *)parent;
@@ -3944,11 +3944,16 @@ int expr_init8_r(struct expr *restrict ep,const char *e,size_t len,const char *a
 	}else if(flag&EXPR_IDETACHSYMSET){
 		cknp(ep,expr_detach(ep)>=0,return -1);
 	}
-	p0=xmalloc(len+1);
-	cknp(ep,p0,return -1);
-	r=stpcpy_noblank(p0,e,e+len,!!parent);
-	un.p=scan(ep,p0,r,asym,asym?asymlen:0);
-	xfree(p0);
+	if(flag&EXPR_IREMOVEBLANK){
+		char *p0;
+		p0=xmalloc(len+1);
+		cknp(ep,p0,return -1);
+		r=stpcpy_noblank(p0,e,e+len,!!parent);
+		un.p=scan(ep,p0,r,asym,asym?asymlen:0);
+		xfree(p0);
+	}else {
+		un.p=scan(ep,e,e+len,asym,asym?asymlen:0);
+	}
 	if(ep->sset_shouldfree){
 		if(!(ep->iflag&EXPR_IKEEPSYMSET)){
 			expr_symset_free(ep->sset);

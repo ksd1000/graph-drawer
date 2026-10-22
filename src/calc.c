@@ -726,7 +726,7 @@ break3:
 	expr_symset_add(es,"ppp",EXPR_CONSTANT,0,3.0);
 	if(adbt||!nobt)
 		expr_builtin_symbol_addalls(es,expr_symbols_ess);
-	if(expr_init(ep,e,"t",es,flag|EXPR_ISCANCACHE)<0){
+	if(expr_init(ep,e,"t",es,flag|EXPR_ISCANCACHE|EXPR_IREMOVEBLANK)<0){
 		if(*ep->errinfo)
 			errx(EXIT_FAILURE,"expression error:%s \"%s\"",expr_error(ep->error),ep->errinfo);
 		else

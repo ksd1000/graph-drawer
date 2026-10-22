@@ -5,6 +5,8 @@
  *******************************************************************************/
 #define _GNU_SOURCE
 
+#define EXPR_VERSION "1.0.10-3"
+
 #if (defined(EXPR_LIBC_STRING_IMPL)&&(EXPR_LIBC_STRING_IMPL))
 #include <string.h>
 #endif
@@ -75,7 +77,7 @@ typedef _Atomic(uint32_t) mutex_t;
 #include "expr.h"
 
 const struct expr_libinfo expr_libinfo_current[1]={{
-	.version="1.0.10-2",
+	.version=EXPR_VERSION,
 	.compiler_version=
 #ifdef __VERSION__
 		__VERSION__,

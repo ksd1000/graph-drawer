@@ -196,6 +196,18 @@ struct expr_internal_jmpbuf {
 #define debug(fmt,...) ((void)0)
 #endif
 
+#define etozu0(E) ((E)>=EXPR_IMAXO?(size_t)EXPR_IMAXO:((E)<=0.0?(size_t)0:(size_t)(E)))
+#define etoi0(E) ((E)>=(expr_t)INT_MAX?INT_MAX:((E)<=(expr_t)INT_MIN?INT_MIN:(int)(E)))
+#define etoi(E) ({expr_t _E=(E);etoi0(_E);})
+#define STACK_SIZEOFSSET(esp) ({size_t depth=(esp)->depth;depth<2?0:(depth-1)*EXPR_SYMSET_DEPTHUNIT;})
+#define STACK_DEFAULT(_stack,esp) \
+	void *_stack;\
+	size_t _stack##_size;\
+	_stack##_size=STACK_SIZEOFSSET(esp);\
+	_stack=alloca(_stack##_size)
+#define SYMDIM(sp) (*expr_symbol_dim(sp))
+#define HOTLEN(sp) expr_symbol_hotlen(sp)
+
 #if !(defined(EXPR_LIBC_FMOD_IMPL)&&(EXPR_LIBC_FMOD_IMPL))
 #undef fmod
 #define fmod expr_internal_fmod
@@ -1671,56 +1683,11 @@ extern const struct expr_builtin_symbol expr_symbols_string[];
 const char *expr_error(int error);
 expr_t expr_gcd2(expr_t x,expr_t y);
 expr_t expr_lcm2(expr_t x,expr_t y);
-struct expr_symbol *expr_builtin_symbol_add(struct expr_symset *restrict esp,const struct expr_builtin_symbol *p);
-ssize_t expr_builtin_symbol_xaddalls(struct expr_symset *restrict esp,const struct expr_builtin_symbol **symsp,const struct expr_builtin_symbol *syms,...);
-ssize_t expr_builtin_symbol_xaddall(struct expr_symset *restrict esp,const struct expr_builtin_symbol **symsp,const struct expr_builtin_symbol *syms);
-ssize_t expr_builtin_symbol_addalls(struct expr_symset *restrict esp,const struct expr_builtin_symbol *syms,...);
-ssize_t expr_builtin_symbol_addall(struct expr_symset *restrict esp,const struct expr_builtin_symbol *syms);
 void expr_free2mtl_r(struct expr *restrict ep,int flag,const struct expr_memtool *restrict mtl);
 void expr_free2(struct expr *restrict ep,int flag);
 void expr_free(struct expr *restrict ep);
 const char *expr_findpair(const char *c,const char *endp,int oth);
-void expr_symset_init_r(struct expr_symset *restrict esp,const struct expr_memtool *restrict mtl);
-struct expr_symset *expr_symset_new_r(const struct expr_memtool *restrict mtl);
-void expr_symset_freemtl(struct expr_symset *restrict esp,const struct expr_memtool *restrict mtl);
-void expr_symset_freemtl_s(struct expr_symset *restrict esp,void *stack,const struct expr_memtool *restrict mtl);
-void expr_symset_free(struct expr_symset *restrict esp);
-void expr_symset_free_s(struct expr_symset *restrict esp,void *stack);
-void expr_symset_wipe(struct expr_symset *restrict esp);
-void expr_symset_wipe_s(struct expr_symset *restrict esp,void *stack);
-struct expr_symbol **expr_symset_findtail(struct expr_symset *restrict esp,const char *sym,size_t symlen,size_t *depth);
-struct expr_symbol *expr_symset_add(struct expr_symset *restrict esp,const char *sym,int type,int flag,...);
-struct expr_symbol *expr_symset_addl(struct expr_symset *restrict esp,const char *sym,size_t symlen,int type,int flag,...);
-struct expr_symbol *expr_symset_vadd(struct expr_symset *restrict esp,const char *sym,int type,int flag,va_list ap);
-struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const char *sym,size_t symlen,int type,int flag,va_list ap);
-struct expr_symbol *expr_symset_addcopy(struct expr_symset *restrict esp,const struct expr_symbol *restrict es);
-struct expr_symbol **expr_symset_search0(const struct expr_symset *restrict esp,const char *sym,size_t sz);
-struct expr_symbol *expr_symset_search(const struct expr_symset *restrict esp,const char *sym,size_t sz);
-struct expr_symbol *expr_symset_searchd(const struct expr_symset *restrict esp,const char *sym,size_t sz,size_t *depth);
-int expr_symbol_check(const struct expr_symbol *restrict esp);
-int expr_symset_insert(struct expr_symset *restrict esp,struct expr_symbol *restrict es);
-void expr_symset_reinsert(struct expr_symset *restrict esp,struct expr_symbol *restrict sp1);
-int expr_symset_remove(struct expr_symset *restrict esp,const char *sym,size_t sz);
-int expr_symset_remove_s(struct expr_symset *restrict esp,const char *sym,size_t sz,void *stack);
-void expr_symset_removes(struct expr_symset *restrict esp,struct expr_symbol *sp);
-void expr_symset_removes_s(struct expr_symset *restrict esp,struct expr_symbol *sp,void *stack);
-void expr_symset_removea(struct expr_symset *restrict esp,struct expr_symbol *const *spa,size_t n);
-void expr_symset_removea_s(struct expr_symset *restrict esp,struct expr_symbol *const *spa,size_t n,void *stack);
-int expr_symset_detach(struct expr_symset *restrict esp,const char *sym,size_t sz);
-int expr_symset_detach_s(struct expr_symset *restrict esp,const char *sym,size_t sz,void *stack);
-void expr_symset_detachs(struct expr_symset *restrict esp,struct expr_symbol *sp);
-void expr_symset_detachs_s(struct expr_symset *restrict esp,struct expr_symbol *sp,void *stack);
-void expr_symset_detacha(struct expr_symset *restrict esp,struct expr_symbol *const *spa,size_t n);
-void expr_symset_detacha_s(struct expr_symset *restrict esp,struct expr_symbol *const *spa,size_t n,void *stack);
-size_t expr_symset_copy(struct expr_symset *restrict dst,const struct expr_symset *restrict src);
-size_t expr_symset_copy_s(struct expr_symset *restrict dst,const struct expr_symset *restrict src,void *stack);
-struct expr_symset *expr_symset_clone(const struct expr_symset *restrict esp);
-struct expr_symset *expr_symset_clone_s(const struct expr_symset *restrict esp,void *stack);
 int expr_isconst(const struct expr *restrict ep);
-struct expr_symbol *expr_symbol_create_r(const char *sym,int type,int flag,const struct expr_memtool *restrict mtl,...);
-struct expr_symbol *expr_symbol_createl_r(const char *sym,size_t symlen,int type,int flag,const struct expr_memtool *restrict mtl,...);
-struct expr_symbol *expr_symbol_vcreate_r(const char *sym,int type,int flag,const struct expr_memtool *restrict mtl,va_list ap);
-struct expr_symbol *expr_symbol_vcreatel_r(const char *sym,size_t symlen,int type,int flag,const struct expr_memtool *restrict mtl,va_list ap);
 void expr_init_const_r(struct expr *restrict ep,expr_t val,const struct expr_memtool *restrict mtl);
 struct expr *expr_new_const_r(expr_t val,const struct expr_memtool *restrict mtl);
 int expr_init8_r(struct expr *restrict ep,const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,struct expr *parent,const struct expr_memtool *restrict mtl);
@@ -1783,7 +1750,6 @@ extern const uint8_t expr_writefmts_default_size;
 extern const struct expr_ftable expr_ftable_default[1];
 //global functions of expr-global.c :
 double expr_internal_strtod(const char *restrict nptr,size_t nsize,size_t *restrict end_index);
-double expr_internal_strtod_mtl_auto(const char *restrict nptr,size_t nsize,size_t *restrict end_index,const struct expr_memtool *restrict mtl);
 __attribute__((noreturn)) void expr_explode(void);
 __attribute__((noreturn)) void expr_trap(void);
 __attribute__((noreturn)) void expr_ubehavior(void);
@@ -1854,17 +1820,54 @@ void *expr_internal_memchr(const void *buf,int c,size_t size);
 void *expr_internal_memrchr(const void *buf,int c,size_t size);
 int expr_internal_memcmp(const void *s0,const void *s1,size_t size);
 void *expr_internal_memchr2(const void *buf,int c);
+struct expr_symbol *expr_builtin_symbol_add(struct expr_symset *restrict esp,const struct expr_builtin_symbol *p);
+ssize_t expr_builtin_symbol_xaddalls(struct expr_symset *restrict esp,const struct expr_builtin_symbol **symsp,const struct expr_builtin_symbol *syms,...);
+ssize_t expr_builtin_symbol_addalls(struct expr_symset *restrict esp,const struct expr_builtin_symbol *syms,...);
+void expr_symset_init_r(struct expr_symset *restrict esp,const struct expr_memtool *restrict mtl);
+struct expr_symset *expr_symset_new_r(const struct expr_memtool *restrict mtl);
+void expr_symset_freemtl(struct expr_symset *restrict esp,const struct expr_memtool *restrict mtl);
+void expr_symset_freemtl_s(struct expr_symset *restrict esp,void *stack,const struct expr_memtool *restrict mtl);
+void expr_symset_free(struct expr_symset *restrict esp);
+void expr_symset_free_s(struct expr_symset *restrict esp,void *stack);
+void expr_symset_wipe(struct expr_symset *restrict esp);
+void expr_symset_wipe_s(struct expr_symset *restrict esp,void *stack);
+struct expr_symbol **expr_symset_findtail(struct expr_symset *restrict esp,const char *sym,size_t symlen,size_t *depth);
+struct expr_symbol *expr_symset_add(struct expr_symset *restrict esp,const char *sym,int type,int flag,...);
+struct expr_symbol *expr_symset_addl(struct expr_symset *restrict esp,const char *sym,size_t symlen,int type,int flag,...);
+struct expr_symbol *expr_symset_vadd(struct expr_symset *restrict esp,const char *sym,int type,int flag,va_list ap);
+struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const char *sym,size_t symlen,int type,int flag,va_list ap);
+struct expr_symbol *expr_symset_addcopy(struct expr_symset *restrict esp,const struct expr_symbol *restrict es);
+struct expr_symbol **expr_symset_search0(const struct expr_symset *restrict esp,const char *sym,size_t sz);
+struct expr_symbol *expr_symset_search(const struct expr_symset *restrict esp,const char *sym,size_t sz);
+struct expr_symbol *expr_symset_searchd(const struct expr_symset *restrict esp,const char *sym,size_t sz,size_t *depth);
+int expr_symbol_check(const struct expr_symbol *restrict esp);
+int expr_symset_insert(struct expr_symset *restrict esp,struct expr_symbol *restrict es);
+void expr_symset_reinsert(struct expr_symset *restrict esp,struct expr_symbol *restrict sp1);
+int expr_symset_remove(struct expr_symset *restrict esp,const char *sym,size_t sz);
+int expr_symset_remove_s(struct expr_symset *restrict esp,const char *sym,size_t sz,void *stack);
+void expr_symset_removes(struct expr_symset *restrict esp,struct expr_symbol *sp);
+void expr_symset_removes_s(struct expr_symset *restrict esp,struct expr_symbol *sp,void *stack);
+void expr_symset_removea(struct expr_symset *restrict esp,struct expr_symbol *const *spa,size_t n);
+void expr_symset_removea_s(struct expr_symset *restrict esp,struct expr_symbol *const *spa,size_t n,void *stack);
+int expr_symset_detach(struct expr_symset *restrict esp,const char *sym,size_t sz);
+int expr_symset_detach_s(struct expr_symset *restrict esp,const char *sym,size_t sz,void *stack);
+void expr_symset_detachs(struct expr_symset *restrict esp,struct expr_symbol *sp);
+void expr_symset_detachs_s(struct expr_symset *restrict esp,struct expr_symbol *sp,void *stack);
+void expr_symset_detacha(struct expr_symset *restrict esp,struct expr_symbol *const *spa,size_t n);
+void expr_symset_detacha_s(struct expr_symset *restrict esp,struct expr_symbol *const *spa,size_t n,void *stack);
+size_t expr_symset_copy(struct expr_symset *restrict dst,const struct expr_symset *restrict src);
+size_t expr_symset_copy_s(struct expr_symset *restrict dst,const struct expr_symset *restrict src,void *stack);
+struct expr_symset *expr_symset_clone(const struct expr_symset *restrict esp);
+struct expr_symset *expr_symset_clone_s(const struct expr_symset *restrict esp,void *stack);
+struct expr_symbol *expr_symbol_create_r(const char *sym,int type,int flag,const struct expr_memtool *restrict mtl,...);
+struct expr_symbol *expr_symbol_createl_r(const char *sym,size_t symlen,int type,int flag,const struct expr_memtool *restrict mtl,...);
+struct expr_symbol *expr_symbol_vcreate_r(const char *sym,int type,int flag,const struct expr_memtool *restrict mtl,va_list ap);
+struct expr_symbol *expr_symbol_vcreatel_r(const char *sym,size_t symlen,int type,int flag,const struct expr_memtool *restrict mtl,va_list ap);
 //global externs of expr-internal.c :
 extern const uint8_t expr_number_table[256];
 #if !(defined(EXPR_INLIB)&&(EXPR_INLIB))
 #define expr_sort4(v,n) expr_sort4_r(v,n,expr_defmtl)
 #define expr_free2mtl(ep,flag) expr_free2mtl_r(ep,flag,expr_defmtl)
-#define expr_symset_init(esp) expr_symset_init_r(esp,expr_defmtl)
-#define expr_symset_new() expr_symset_new_r(expr_defmtl)
-#define expr_symbol_create(sym,type,flag,...) expr_symbol_create_r(sym,type,flag,expr_defmtl,##__VA_ARGS__)
-#define expr_symbol_createl(sym,symlen,type,flag,...) expr_symbol_createl_r(sym,symlen,type,flag,expr_defmtl,##__VA_ARGS__)
-#define expr_symbol_vcreate(sym,type,flag,ap) expr_symbol_vcreate_r(sym,type,flag,expr_defmtl,ap)
-#define expr_symbol_vcreatel(sym,symlen,type,flag,ap) expr_symbol_vcreatel_r(sym,symlen,type,flag,expr_defmtl,ap)
 #define expr_init_const(ep,val) expr_init_const_r(ep,val,expr_defmtl)
 #define expr_new_const(val) expr_new_const_r(val,expr_defmtl)
 #define expr_init8(ep,e,len,asym,asymlen,esp,flag,parent) expr_init8_r(ep,e,len,asym,asymlen,esp,flag,parent,expr_defmtl)
@@ -1883,6 +1886,12 @@ extern const uint8_t expr_number_table[256];
 #define expr_snprintft(buf,buflen,fmt,fmtlen,table,...) expr_snprintft_r(buf,buflen,fmt,fmtlen,table,expr_defmtl,##__VA_ARGS__)
 #define expr_sscanf(str,len,fmt,fmtlen,addr,addrlen) expr_sscanf_r(str,len,fmt,fmtlen,addr,addrlen,expr_defmtl)
 #define expr_file_readfd(reader,fd,tail,savep) expr_file_readfd_r(reader,fd,tail,savep,expr_defmtl)
+#define expr_symset_init(esp) expr_symset_init_r(esp,expr_defmtl)
+#define expr_symset_new() expr_symset_new_r(expr_defmtl)
+#define expr_symbol_create(sym,type,flag,...) expr_symbol_create_r(sym,type,flag,expr_defmtl,##__VA_ARGS__)
+#define expr_symbol_createl(sym,symlen,type,flag,...) expr_symbol_createl_r(sym,symlen,type,flag,expr_defmtl,##__VA_ARGS__)
+#define expr_symbol_vcreate(sym,type,flag,ap) expr_symbol_vcreate_r(sym,type,flag,expr_defmtl,ap)
+#define expr_symbol_vcreatel(sym,symlen,type,flag,ap) expr_symbol_vcreatel_r(sym,symlen,type,flag,expr_defmtl,ap)
 
 #define expr_calc4_r(e,error,errinfo,esp,mtl) expr_calc5_r(e,error,errinfo,esp,EXPR_INOOPTIMIZE|EXPR_IPROTECT,mtl)
 #define expr_calc3_r(e,error,errinfo,mtl) expr_calc5_r(e,error,errinfo,NULL,EXPR_INOOPTIMIZE|EXPR_IPROTECT,mtl)
@@ -1946,6 +1955,9 @@ extern const uint8_t expr_number_table[256];
 
 #define expr_vsnprintf(buf,buflen,fmt,fmtlen,ap) expr_vsnprintf_r(buf,buflen,fmt,fmtlen,expr_defmtl,ap)
 #define expr_snprintf(buf,buflen,fmt,fmtlen,...) expr_snprintf_r(buf,buflen,fmt,fmtlen,expr_defmtl,##__VA_ARGS__)
+
+#define expr_builtin_symbol_xaddall(esp,symsp,syms) expr_builtin_symbol_xaddalls(esp,symsp,syms,NULL)
+#define expr_builtin_symbol_addall(esp,syms) expr_builtin_symbol_addalls(esp,syms,NULL)
 
 #endif
 

@@ -62,6 +62,9 @@
 #define expr_vsnprintf(buf,buflen,fmt,fmtlen,ap) expr_vsnprintf_r(buf,buflen,fmt,fmtlen,expr_defmtl,ap)
 #define expr_snprintf(buf,buflen,fmt,fmtlen,...) expr_snprintf_r(buf,buflen,fmt,fmtlen,expr_defmtl,##__VA_ARGS__)
 
+#define expr_builtin_symbol_xaddall(esp,symsp,syms) expr_builtin_symbol_xaddalls(esp,symsp,syms,NULL)
+#define expr_builtin_symbol_addall(esp,syms) expr_builtin_symbol_addalls(esp,syms,NULL)
+
 #endif
 
 #endif

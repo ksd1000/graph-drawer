@@ -196,6 +196,18 @@ struct expr_internal_jmpbuf {
 #define debug(fmt,...) ((void)0)
 #endif
 
+#define etozu0(E) ((E)>=EXPR_IMAXO?(size_t)EXPR_IMAXO:((E)<=0.0?(size_t)0:(size_t)(E)))
+#define etoi0(E) ((E)>=(expr_t)INT_MAX?INT_MAX:((E)<=(expr_t)INT_MIN?INT_MIN:(int)(E)))
+#define etoi(E) ({expr_t _E=(E);etoi0(_E);})
+#define STACK_SIZEOFSSET(esp) ({size_t depth=(esp)->depth;depth<2?0:(depth-1)*EXPR_SYMSET_DEPTHUNIT;})
+#define STACK_DEFAULT(_stack,esp) \
+	void *_stack;\
+	size_t _stack##_size;\
+	_stack##_size=STACK_SIZEOFSSET(esp);\
+	_stack=alloca(_stack##_size)
+#define SYMDIM(sp) (*expr_symbol_dim(sp))
+#define HOTLEN(sp) expr_symbol_hotlen(sp)
+
 #if !(defined(EXPR_LIBC_FMOD_IMPL)&&(EXPR_LIBC_FMOD_IMPL))
 #undef fmod
 #define fmod expr_internal_fmod

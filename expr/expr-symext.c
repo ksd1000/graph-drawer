@@ -11,6 +11,8 @@
 #define EXPR_INLIB 1
 #include "expr.h"
 
+// the file provides some function for struct expr_symset and struct expr_builtin_symbol not required by expr-core.c
+
 #define STACK_SIZEOFSSET(esp) ({size_t depth=(esp)->depth;depth<2?0:(depth-1)*EXPR_SYMSET_DEPTHUNIT;})
 #define STACK_DEFAULT(_stack,esp) \
 	void *_stack;\

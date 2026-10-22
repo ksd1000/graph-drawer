@@ -2174,3 +2174,630 @@ void *expr_internal_memchr2(const void *buf,int c){
 		p+=PAGE_SIZE;
 	}
 }
+
+struct expr_symbol *expr_builtin_symbol_add(struct expr_symset *restrict esp,const struct expr_builtin_symbol *p){
+	switch(p->type){
+		case EXPR_CONSTANT:
+			if(p->flag&EXPR_SPACKAGE)
+				return expr_symset_addl(esp,p->str,p->strlen,EXPR_CONSTANT,p->flag,p->un.uaddr);
+			else
+				return expr_symset_addl(esp,p->str,p->strlen,EXPR_CONSTANT,p->flag,p->un.value);
+		case EXPR_VARIABLE:
+			return expr_symset_addl(esp,p->str,p->strlen,EXPR_VARIABLE,p->flag,p->un.addr);
+		case EXPR_FUNCTION:
+			return expr_symset_addl(esp,p->str,p->strlen,EXPR_FUNCTION,p->flag,p->un.func);
+		case EXPR_MDFUNCTION:
+			return expr_symset_addl(esp,p->str,p->strlen,EXPR_MDFUNCTION,p->flag,p->un.mdfunc,(size_t)p->dim);
+		case EXPR_MDEPFUNCTION:
+			return expr_symset_addl(esp,p->str,p->strlen,EXPR_MDEPFUNCTION,p->flag,p->un.mdepfunc,(size_t)p->dim);
+		case EXPR_ZAFUNCTION:
+			return expr_symset_addl(esp,p->str,p->strlen,EXPR_ZAFUNCTION,p->flag,p->un.zafunc);
+		case EXPR_HOTFUNCTION:
+			return expr_symset_addl(esp,p->str,p->strlen,EXPR_HOTFUNCTION,p->flag,p->un.hot);
+		case EXPR_ALIAS:
+			return expr_symset_addl(esp,p->str,p->strlen,EXPR_ALIAS,p->flag,p->un.hot);
+		default:
+			__builtin_unreachable();
+	}
+}
+ssize_t expr_builtin_symbol_xaddalls(struct expr_symset *restrict esp,const struct expr_builtin_symbol **symsp,const struct expr_builtin_symbol *syms,...){
+	ssize_t r=0;
+	va_list ap;
+	va_start(ap,syms);
+	do {
+		for(;syms->str;++syms){
+			if(likely(expr_builtin_symbol_add(esp,syms)))
+				++r;
+			else
+				goto err;
+		}
+		syms=va_arg(ap,const struct expr_builtin_symbol *);
+	}while(syms);
+	va_end(ap);
+	return r;
+err:
+	*symsp=syms;
+	va_end(ap);
+	return -r-1;
+}
+ssize_t expr_builtin_symbol_addalls(struct expr_symset *restrict esp,const struct expr_builtin_symbol *syms,...){
+	ssize_t r=0;
+	ssize_t fail=0;
+	va_list ap;
+	va_start(ap,syms);
+	do {
+		for(;syms->str;++syms){
+			if(likely(expr_builtin_symbol_add(esp,syms)))
+				++r;
+			else
+				--fail;
+		}
+		syms=va_arg(ap,const struct expr_builtin_symbol *);
+	}while(syms);
+	va_end(ap);
+	return fail?fail:r;
+}
+
+#define WIPE_SYMBOLS\
+	expr_symset_foreach4(sp,esp,stack,EXPR_SYMNEXT){\
+		if(!sp->saved){\
+			xfree(sp);\
+		}\
+	}
+void expr_symset_init_r(struct expr_symset *restrict esp,const struct expr_memtool *restrict mtl){
+	memset(esp,0,sizeof(struct expr_symset));
+	esp->mtl=mtl;
+}
+struct expr_symset *expr_symset_new_r(const struct expr_memtool *restrict mtl){
+	struct expr_symset *esp=xmalloc(sizeof(struct expr_symset));
+	if(!esp)
+		return NULL;
+	expr_symset_init_r(esp,mtl);
+	esp->freeable=1;
+	return esp;
+}
+void expr_symset_freemtl(struct expr_symset *restrict esp,const struct expr_memtool *restrict mtl){
+	STACK_DEFAULT(stack,esp);
+	WIPE_SYMBOLS;
+	if(esp->freeable)
+		xfree(esp);
+}
+void expr_symset_freemtl_s(struct expr_symset *restrict esp,void *stack,const struct expr_memtool *restrict mtl){
+	WIPE_SYMBOLS;
+	if(esp->freeable)
+		xfree(esp);
+}
+#undef xmtl
+#define xmtl esp->mtl
+void expr_symset_free(struct expr_symset *restrict esp){
+	STACK_DEFAULT(stack,esp);
+	WIPE_SYMBOLS;
+	if(esp->freeable)
+		xfree(esp);
+}
+void expr_symset_free_s(struct expr_symset *restrict esp,void *stack){
+	WIPE_SYMBOLS;
+	if(esp->freeable)
+		xfree(esp);
+}
+
+#define WIPE_SYMSET \
+	WIPE_SYMBOLS;\
+	esp->syms=NULL;\
+	esp->size=0;\
+	esp->removed=0;\
+	esp->depth=0;\
+	esp->depth_n=0;\
+	esp->length=0;\
+	esp->alength=0
+void expr_symset_wipe(struct expr_symset *restrict esp){
+	STACK_DEFAULT(stack,esp);
+	WIPE_SYMSET;
+}
+void expr_symset_wipe_s(struct expr_symset *restrict esp,void *stack){
+	WIPE_SYMSET;
+}
+typedef int expr_strdiff_t;
+#define AMPL0 (INT64_C(0x330e)*EXPR_MAGIC48_A+EXPR_MAGIC48_B)
+#define AMPL1 expr_next48v(AMPL0)
+#define AMPL2 expr_next48v(AMPL1)
+#define AMPL3 expr_next48v(AMPL2)
+#define AMPL4 expr_next48v(AMPL3)
+#define AMPL5 expr_next48v(AMPL4)
+#define AMPL6 expr_next48v(AMPL5)
+#define AMPL7 expr_next48v(AMPL6)
+#define AMPL8 expr_next48v(AMPL7)
+#define AMPL9 expr_next48v(AMPL8)
+#define AMPL10 expr_next48v(AMPL9)
+#define AMPL11 expr_next48v(AMPL10)
+#define AMPL12 expr_next48v(AMPL11)
+#define AMPL13 expr_next48v(AMPL12)
+#define AMPL14 expr_next48v(AMPL13)
+#define AMPL15 expr_next48v(AMPL14)
+static int strdiff(const char *restrict s1,size_t len1,const char *restrict s2,size_t len2,expr_strdiff_t *sumout){
+	int64_t r0,sum=0;
+	int r;
+	size_t ampl_index=7;
+	static const int64_t ampl_value[16]={AMPL0,AMPL1,AMPL2,AMPL3,AMPL4,AMPL5,AMPL6,AMPL7,AMPL8,AMPL9,AMPL10,AMPL11,AMPL12,AMPL13,AMPL14,AMPL15};
+	while(len1&&len2){
+		++ampl_index;
+		r=(int)(unsigned char)*(s1++)-(int)(unsigned char)*(s2++);
+		if(r){
+#define sum_add_r \
+			if(!sum||(sum<0)==(r<0))\
+				sum+=(int64_t)r;\
+			else\
+				sum-=(int64_t)r
+			sum_add_r;
+		}
+		--len1;
+		--len2;
+	}
+	if(len1&&!len2){
+		do {
+			++ampl_index;
+			r=(int)(unsigned char)*s1+(int)(UCHAR_MAX/2);
+			sum_add_r;
+		}while(--len1);
+	}else if(!len1&&len2){
+		do {
+			++ampl_index;
+			r=-(int)(unsigned char)*s2-(int)(UCHAR_MAX/2);
+			sum_add_r;
+		}while(--len2);
+	}
+	if(unlikely(!sum))
+		return 0;
+	r0=(sum*expr_lto48(ampl_value[ampl_index&(size_t)15]))>>48;
+	//r0=(int64_t)((expr_t)r*(expr_t)expr_ltod48(ampl));
+	//return r==0?0:(r>0?r0+1:r0-1);
+	*sumout=likely(r0)?(expr_strdiff_t)r0:(expr_strdiff_t)sum;
+	return 1;
+}
+#define modi(d) ({\
+	expr_strdiff_t t=(d);\
+	if(t<0)\
+		t+=EXPR_SYMNEXT*((-t)/EXPR_SYMNEXT+1);\
+	t%EXPR_SYMNEXT;\
+})
+struct expr_symbol **expr_symset_findtail(struct expr_symset *restrict esp,const char *sym,size_t symlen,size_t *depth){
+	struct expr_symbol *p;
+	size_t dep;
+	expr_strdiff_t r;
+	if(unlikely(!esp->syms)){
+		*depth=1;
+		return &esp->syms;
+	}
+	dep=2;
+	for(p=esp->syms;;++dep){
+		if(unlikely(!strdiff(sym,symlen,p->str,p->strlen,&r)))
+			return NULL;
+		r=modi(r);
+		if(p->next[r]){
+			p=p->next[r];
+		}else {
+			*depth=dep;
+			return p->next+r;
+		}
+	}
+}
+struct expr_symbol *expr_symset_add(struct expr_symset *restrict esp,const char *sym,int type,int flag,...){
+	va_list ap;
+	struct expr_symbol *r;
+	va_start(ap,flag);
+	r=expr_symset_vadd(esp,sym,type,flag,ap);
+	va_end(ap);
+	return r;
+}
+struct expr_symbol *expr_symset_addl(struct expr_symset *restrict esp,const char *sym,size_t symlen,int type,int flag,...){
+	va_list ap;
+	struct expr_symbol *r;
+	va_start(ap,flag);
+	r=expr_symset_vaddl(esp,sym,symlen,type,flag,ap);
+	va_end(ap);
+	return r;
+}
+struct expr_symbol *expr_symset_vadd(struct expr_symset *restrict esp,const char *sym,int type,int flag,va_list ap){
+	return expr_symset_vaddl(esp,sym,strlen(sym),type,flag,ap);
+}
+struct expr_symbol *expr_symset_vaddl(struct expr_symset *restrict esp,const char *sym,size_t symlen,int type,int flag,va_list ap){
+	struct expr_symbol *ep,**next;
+	size_t depth,alen;
+	next=expr_symset_findtail(esp,sym,symlen,&depth);
+	if(unlikely(!next))
+		return NULL;
+	ep=expr_symbol_vcreatel_r(sym,symlen,type,flag,xmtl,ap);
+	if(unlikely(!ep))
+		return NULL;
+	memset(ep->next,0,sizeof(ep->next));
+#define sset_inc(esp,_length,depth) \
+	++(esp)->size;\
+	++(esp)->size_m;\
+	alen=align(_length);\
+	(esp)->length+=(_length);\
+	(esp)->alength+=alen;\
+	(esp)->length_m+=(_length);\
+	(esp)->alength_m+=alen;\
+	if(unlikely((depth)>(esp)->depth)){\
+		esp->depth=(depth);\
+		esp->removed=0;\
+		esp->depth_n=1;\
+		++esp->depth_nm;\
+	}else if(unlikely((depth)==(esp)->depth)){\
+		++esp->depth_n;\
+		++esp->depth_nm;\
+	}
+	sset_inc(esp,ep->length,depth);
+	ep->tail=next;
+	ep->depthm1=depth-1;
+	*next=ep;
+	return ep;
+}
+struct expr_symbol *expr_symset_addcopy(struct expr_symset *restrict esp,const struct expr_symbol *restrict es){
+	size_t depth,alen;
+	struct expr_symbol **tail=expr_symset_findtail(esp,es->str,es->strlen,&depth);
+	struct expr_symbol *ep;
+	if(unlikely(!tail||!(ep=xmalloc(es->length)))){
+		return NULL;
+	}
+	memcpy(ep,es,es->length);
+	memset(ep->next,0,EXPR_SYMNEXT*sizeof(struct expr_symbol *));
+	*tail=ep;
+	ep->tail=tail;
+	ep->depthm1=depth-1;
+	ep->saved=0;
+	sset_inc(esp,ep->length,depth);
+	return ep;
+}
+struct expr_symbol **expr_symset_search0(const struct expr_symset *restrict esp,const char *sym,size_t sz){
+	expr_strdiff_t r;
+	for(struct expr_symbol *p=esp->syms;p;){
+		if(unlikely(!strdiff(sym,sz,p->str,p->strlen,&r))){
+			return p->tail;
+		}
+		r=modi(r);
+		p=p->next[r];
+	}
+	return NULL;
+}
+struct expr_symbol *expr_symset_search(const struct expr_symset *restrict esp,const char *sym,size_t sz){
+	expr_strdiff_t r;
+	for(struct expr_symbol *p=esp->syms;p;){
+		if(unlikely(!strdiff(sym,sz,p->str,p->strlen,&r))){
+			return p;
+		}
+		r=modi(r);
+		p=p->next[r];
+	}
+	return NULL;
+}
+struct expr_symbol *expr_symset_searchd(const struct expr_symset *restrict esp,const char *sym,size_t sz,size_t *depth){
+	expr_strdiff_t r;
+	size_t dep=1;
+	for(struct expr_symbol *p=esp->syms;p;){
+		if(unlikely(!strdiff(sym,sz,p->str,p->strlen,&r))){
+			*depth=dep;
+			return p;
+		}
+		r=modi(r);
+		p=p->next[r];
+		++dep;
+	}
+	return NULL;
+}
+#define off_str offsetof(struct expr_symbol,str)
+int expr_symbol_check(const struct expr_symbol *restrict esp){
+	ssize_t data;
+	size_t expect;
+	const char *p;
+//	if(unlikely(esp->strlen>=EXPR_SYMLEN-1))
+//		return -1;
+	if(unlikely(esp->length<=off_str))
+		return -2;
+	data=(ssize_t)((esp->length-off_str)-(esp->strlen+1));
+	if(unlikely(data<0))
+		return -3;
+	if(unlikely(esp->str[esp->strlen]))
+		return -4;
+	if(unlikely(strlen(esp->str)!=(size_t)(esp->strlen)))
+		return -5;
+	switch(esp->type){
+		case EXPR_CONSTANT:
+		case EXPR_VARIABLE:
+		case EXPR_FUNCTION:
+		case EXPR_ZAFUNCTION:
+			expect=sizeof(union expr_symvalue);
+			break;
+		case EXPR_MDFUNCTION:
+		case EXPR_MDEPFUNCTION:
+			expect=sizeof(union expr_symvalue)+sizeof(size_t);
+			break;
+		case EXPR_HOTFUNCTION:
+		case EXPR_ALIAS:
+			p=expr_symbol_hot(esp);
+			expect=strlen(p);
+			if(unlikely(p[expect]))
+				return -6;
+			++expect;
+			break;
+		default:
+			return -7;
+	}
+	if(unlikely((size_t)data!=expect))
+		return -8;
+	return 0;
+}
+int expr_symset_insert(struct expr_symset *restrict esp,struct expr_symbol *restrict es){
+	size_t depth,alen;
+	struct expr_symbol **tail;
+	if(unlikely(expr_symbol_check(es)<0)){
+		return -1;
+	}
+	tail=expr_symset_findtail(esp,es->str,es->strlen,&depth);
+	if(unlikely(!tail)){
+		return -2;
+	}
+	memset(es->next,0,EXPR_SYMNEXT*sizeof(struct expr_symbol *));
+	*tail=es;
+	es->tail=tail;
+	es->depthm1=depth-1;
+	sset_inc(esp,es->length,depth);
+	return 0;
+}
+//WARNING: the function assumes no conflict symbol.
+void expr_symset_reinsert(struct expr_symset *restrict esp,struct expr_symbol *restrict sp1){
+	size_t depth;
+	struct expr_symbol **tail;
+	memset(sp1->next,0,EXPR_SYMNEXT*sizeof(struct expr_symbol *));
+	tail=expr_symset_findtail(esp,sp1->str,sp1->strlen,&depth);
+	*tail=sp1;
+	sp1->tail=tail;
+	sp1->depthm1=depth-1;
+	if(unlikely(depth>esp->depth)){
+		esp->depth=depth;
+		esp->removed=0;
+		esp->depth_n=1;
+		++esp->depth_nm;
+	}else if(unlikely((depth)==(esp)->depth)){
+		++esp->depth_n;
+		++esp->depth_nm;
+	}
+}
+int expr_symset_remove(struct expr_symset *restrict esp,const char *sym,size_t sz){
+	struct expr_symbol *r;
+	size_t depth;
+	r=expr_symset_searchd(esp,sym,sz,&depth);
+	if(!r)
+		return -1;
+	expr_symset_removea(esp,&r,1);
+	return 0;
+}
+int expr_symset_remove_s(struct expr_symset *restrict esp,const char *sym,size_t sz,void *stack){
+	struct expr_symbol *r;
+	size_t depth;
+	r=expr_symset_searchd(esp,sym,sz,&depth);
+	if(!r)
+		return -1;
+	expr_symset_removea_s(esp,&r,1,stack);
+	return 0;
+}
+void expr_symset_removes(struct expr_symset *restrict esp,struct expr_symbol *sp){
+	expr_symset_removea(esp,&sp,1);
+}
+void expr_symset_removes_s(struct expr_symset *restrict esp,struct expr_symbol *sp,void *stack){
+	expr_symset_removea_s(esp,&sp,1,stack);
+}
+void expr_symset_removea(struct expr_symset *restrict esp,struct expr_symbol *const *spa,size_t n){
+	STACK_DEFAULT(stack,esp);
+	expr_symset_removea_s(esp,spa,n,stack);
+}
+void expr_symset_removea_s(struct expr_symset *restrict esp,struct expr_symbol *const *spa,size_t n,void *stack){
+	struct expr_symbol *const *spa_end=spa+n;
+	expr_symset_detacha_s(esp,spa,n,stack);
+	do {
+		if(!(*spa)->saved)
+			xfree(*spa);
+		spa++;
+	}while(spa<spa_end);
+
+}
+int expr_symset_detach(struct expr_symset *restrict esp,const char *sym,size_t sz){
+	struct expr_symbol *r;
+	size_t depth;
+	r=expr_symset_searchd(esp,sym,sz,&depth);
+	if(!r)
+		return -1;
+	expr_symset_detacha(esp,&r,1);
+	return 0;
+}
+int expr_symset_detach_s(struct expr_symset *restrict esp,const char *sym,size_t sz,void *stack){
+	struct expr_symbol *r;
+	size_t depth;
+	r=expr_symset_searchd(esp,sym,sz,&depth);
+	if(!r)
+		return -1;
+	expr_symset_detacha_s(esp,&r,1,stack);
+	return 0;
+}
+void expr_symset_detachs(struct expr_symset *restrict esp,struct expr_symbol *sp){
+	expr_symset_detacha(esp,&sp,1);
+}
+void expr_symset_detachs_s(struct expr_symset *restrict esp,struct expr_symbol *sp,void *stack){
+	expr_symset_detacha_s(esp,&sp,1,stack);
+}
+void expr_symset_detacha(struct expr_symset *restrict esp,struct expr_symbol *const *spa,size_t n){
+	STACK_DEFAULT(stack,esp);
+	expr_symset_detacha_s(esp,spa,n,stack);
+}
+void expr_symset_detacha_s(struct expr_symset *restrict esp,struct expr_symbol *const *spa,size_t n,void *stack){
+	size_t depthm1;
+	struct expr_symbol *const *spa_cur=spa;
+	struct expr_symbol *const *spa_end=spa+n;
+	if(likely(esp->depth<=(UINT64_C(1)<<EXPR_SYMBOL_DEPTHM1_WIDTH))){
+		depthm1=esp->depth-1;
+		do {
+			*(*spa_cur)->tail=NULL;
+			if((*spa_cur)->depthm1==depthm1)
+				--esp->depth_n;
+			++spa_cur;
+		}while(spa_cur<spa_end);
+	}else {
+		do {
+			*(*spa_cur)->tail=NULL;
+			++spa_cur;
+		}while(spa_cur<spa_end);
+	}
+	esp->size-=n;
+	esp->removed+=n;
+	esp->removed_m+=n;
+	do {
+		expr_symbol_foreach4(sp1,*spa,stack,EXPR_SYMNEXT){
+			if(unlikely(sp1==*spa))
+				break;
+			expr_symset_reinsert(esp,sp1);
+		}
+		depthm1=(*spa)->length;
+		esp->length-=depthm1;
+		esp->alength-=align(depthm1);
+		++spa;
+	}while(spa<spa_end);
+}
+size_t expr_symset_copy(struct expr_symset *restrict dst,const struct expr_symset *restrict src){
+	STACK_DEFAULT(stack,src);
+	return expr_symset_copy_s(dst,src,stack);
+}
+size_t expr_symset_copy_s(struct expr_symset *restrict dst,const struct expr_symset *restrict src,void *stack){
+	size_t n=0;
+	expr_symset_foreach(sp,src,stack){
+		if(likely(expr_symset_addcopy(dst,sp)))
+			++n;
+	}
+	return n;
+}
+struct expr_symset *expr_symset_clone(const struct expr_symset *restrict esp){
+	struct expr_symset *es=expr_symset_new_r(xmtl);
+	if(!es)
+		return NULL;
+	if(expr_symset_copy(es,esp)<esp->size){
+		expr_symset_free(es);
+		return NULL;
+	}
+	return es;
+}
+struct expr_symset *expr_symset_clone_s(const struct expr_symset *restrict esp,void *stack){
+	struct expr_symset *es=expr_symset_new_r(xmtl);
+	if(!es)
+		return NULL;
+	if(expr_symset_copy_s(es,esp,stack)<esp->size){
+		expr_symset_free_s(es,stack);
+		return NULL;
+	}
+	return es;
+}
+#undef xmtl
+#define xmtl mtl
+
+struct expr_symbol *expr_symbol_create_r(const char *sym,int type,int flag,const struct expr_memtool *restrict mtl,...){
+	va_list ap;
+	struct expr_symbol *r;
+	va_start(ap,mtl);
+	r=expr_symbol_vcreate_r(sym,type,flag,mtl,ap);
+	va_end(ap);
+	return r;
+}
+struct expr_symbol *expr_symbol_createl_r(const char *sym,size_t symlen,int type,int flag,const struct expr_memtool *restrict mtl,...){
+	va_list ap;
+	struct expr_symbol *r;
+	va_start(ap,mtl);
+	r=expr_symbol_vcreatel_r(sym,symlen,type,flag,mtl,ap);
+	va_end(ap);
+	return r;
+}
+struct expr_symbol *expr_symbol_vcreate_r(const char *sym,int type,int flag,const struct expr_memtool *restrict mtl,va_list ap){
+	return expr_symbol_vcreatel_r(sym,strlen(sym),type,flag,mtl,ap);
+}
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+struct expr_symbol *expr_symbol_vcreatel_r(const char *sym,size_t symlen,int type,int flag,const struct expr_memtool *restrict mtl,va_list ap){
+	struct expr_symbol *esp;
+	size_t len,len_expr;
+	const char *p;
+	char *p1;
+	if(unlikely(!symlen))
+		return NULL;
+	len=sizeof(struct expr_symbol)+symlen+1;
+	switch(type){
+		case EXPR_CONSTANT:
+		case EXPR_VARIABLE:
+		case EXPR_FUNCTION:
+		case EXPR_ZAFUNCTION:
+			len=align(len)+sizeof(union expr_symvalue);
+			break;
+		case EXPR_MDFUNCTION:
+		case EXPR_MDEPFUNCTION:
+			len=align(align(len)+sizeof(union expr_symvalue))+sizeof(size_t);
+			break;
+		case EXPR_HOTFUNCTION:
+		case EXPR_ALIAS:
+			p=(const char *)va_arg(ap,const void *);
+			if(flag&EXPR_SPURE)
+				len_expr=va_arg(ap,size_t);
+			else
+				len_expr=strlen(p);
+			len+=len_expr+1;
+			break;
+		default:
+			return NULL;
+	}
+	esp=xmalloc(len);
+	if(unlikely(!esp)){
+		return NULL;
+	}
+	esp->length=len;
+	memcpy(esp->str,sym,symlen);
+	esp->str[symlen]=0;
+	esp->strlen=symlen;
+	switch(type){
+		case EXPR_CONSTANT:
+			if(flag&EXPR_SPACKAGE)
+				expr_symbol_un(esp)->uaddr=va_arg(ap,void *);
+			else if(flag&EXPR_SWRITEIP)
+				expr_symbol_un(esp)->size=va_arg(ap,size_t);
+			else
+				expr_symbol_un(esp)->value=va_arg(ap,expr_t);
+			debug("expr_symbol_un(esp)->value=%lf",expr_symbol_un(esp)->value);
+			break;
+		case EXPR_VARIABLE:
+			expr_symbol_un(esp)->addr=va_arg(ap,expr_t *);
+			break;
+		case EXPR_FUNCTION:
+			expr_symbol_un(esp)->func=va_arg(ap,expr_t (*)(expr_t));
+			break;
+		case EXPR_MDFUNCTION:
+			expr_symbol_un(esp)->mdfunc=va_arg(ap,expr_t (*)(expr_t *,size_t));
+			SYMDIM(esp)=va_arg(ap,size_t);
+			break;
+		case EXPR_MDEPFUNCTION:
+			expr_symbol_un(esp)->mdepfunc=va_arg(ap,expr_t (*)(const struct expr *,size_t,expr_t));
+			SYMDIM(esp)=va_arg(ap,size_t);
+			break;
+		case EXPR_ZAFUNCTION:
+			expr_symbol_un(esp)->zafunc=va_arg(ap,expr_t (*)(void));
+			break;
+		case EXPR_HOTFUNCTION:
+		case EXPR_ALIAS:
+			p1=esp->str+symlen+1;
+			memcpy(p1,p,len_expr);
+			p1[len_expr]=0;
+			debug("alias %s=%s",esp->str,p1);
+			break;
+		default:
+			__builtin_unreachable();
+	}
+	esp->type=(uint64_t)type;
+	esp->flag=(size_t)flag;
+	esp->saved=0;
+	return esp;
+}
+#pragma GCC diagnostic pop
+

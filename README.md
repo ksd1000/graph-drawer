@@ -14,6 +14,7 @@ This is a product able to parse expressions and generate image and audio, with t
 ## Expression Evaluator: libexpr,libexpr-lc
 
 The libexpr is freestanding library able to parse and eval the input expression and return the result to the caller, without libc.
+
 The libexpr-lc provides the constants such as e,pi and the standard libc functions such as sin(),exp(), but libc is required by libexpr-lc.
 
 - Can add custom variable,constant and function.
@@ -288,6 +289,7 @@ Zserge expr and tinyexpr have not an actual constructor(their object alloction a
 - (Allocation+Construction) --\>Return
 
 Memory cost is using the total alloction.
+
 The library sizes are from the libraries built as shared libraries with -O3 and strip.
 
 ## License

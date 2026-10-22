@@ -887,7 +887,7 @@ static char **expr_sep(struct expr *restrict ep,const char *pe,size_t esz){
 			goto fail;
 		}
 	}
-	if(unlikely(!*e)){
+	if(unlikely(e>=endp)){
 		seterr(ep,EXPR_ENVP);
 		goto fail;
 	}

@@ -1033,7 +1033,7 @@ static void expr_seizeres(struct expr *restrict dst,struct expr *restrict src){
 static expr_t consteval(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *sset,struct expr *restrict parent){
 	struct expr *ep;
 	expr_t r;
-	ep=expr_new9_r(e,len,asym,asymlen,sset,parent->iflag&~EXPR_INOOPTIMIZE,&parent->error,parent->errinfo,parent,parent->mtl);
+	ep=expr_new9_r(e,len,asym,asymlen,sset,(int)parent->iflag&~EXPR_INOOPTIMIZE,&parent->error,parent->errinfo,parent,parent->mtl);
 	if(unlikely(!ep))
 		return EXPR_FAIL;
 	if(unlikely(!expr_isconst(ep))){
@@ -1050,7 +1050,7 @@ static expr_t consteval(const char *e,size_t len,const char *asym,size_t asymlen
 static expr_t nonconsteval(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *sset,struct expr *restrict parent){
 	struct expr *ep;
 	expr_t r;
-	ep=expr_new9_r(e,len,asym,asymlen,sset,parent->iflag&~EXPR_INOOPTIMIZE,&parent->error,parent->errinfo,parent,parent->mtl);
+	ep=expr_new9_r(e,len,asym,asymlen,sset,(int)parent->iflag&~EXPR_INOOPTIMIZE,&parent->error,parent->errinfo,parent,parent->mtl);
 	if(unlikely(!ep))
 		return EXPR_FAIL;
 	r=eval(ep,EXPR_ZERO);
@@ -1061,7 +1061,7 @@ static expr_t nonconsteval(const char *e,size_t len,const char *asym,size_t asym
 static expr_t constcheck(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *sset,struct expr *restrict parent){
 	struct expr *ep;
 	expr_t r;
-	ep=expr_new9_r(e,len,asym,asymlen,sset,parent->iflag&~EXPR_INOOPTIMIZE,&parent->error,parent->errinfo,parent,parent->mtl);
+	ep=expr_new9_r(e,len,asym,asymlen,sset,(int)parent->iflag&~EXPR_INOOPTIMIZE,&parent->error,parent->errinfo,parent,parent->mtl);
 	if(unlikely(!ep))
 		return EXPR_FAIL;
 	r=expr_isconst(ep)?EXPR_ONE:EXPR_ZERO;;

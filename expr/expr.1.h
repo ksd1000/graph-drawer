@@ -1596,24 +1596,25 @@ struct expr_strtod_workspace {
 })
 struct expr {
 	struct expr_inst *data;
-	struct expr_inst **ipp;
-	size_t size;
+	size_t size,length;
 	struct expr *parent;
-	expr_t **vars;
 	struct expr_symset *sset;
 	struct expr_resource *res,*tail;
-	size_t length,vsize,vlength;
+	expr_t **vars;
+	size_t vsize,vlength;
 	const struct expr_memtool *restrict mtl;
 	// the restrict in field may be ignored, might work in the future
 	union {
 		expr_t args[EXPR_SYSAM];
-		struct {
-			struct expr_inst endinst[1];
-			expr_t val;
-		} end[1];
-	} un;
+		union {
+			struct {
+				struct expr_inst endinst[1];
+				expr_t val;
+			} end[1];
+			struct expr_inst **ipp;
+		};
+		char errinfo[EXPR_SYMLEN];
+	};
 	int error;
-	int iflag:sizeof(int)*8-3;
-	unsigned int freeable:1,sset_shouldfree:1,isconst:1;
-	char errinfo[EXPR_SYMLEN];
+	unsigned int iflag:sizeof(int)*8-3,freeable:1,sset_shouldfree:1,isconst:1;
 };

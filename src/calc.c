@@ -316,8 +316,8 @@ const char *od(const struct expr *restrict ep,void *addr){
 		return abuf
 		print_nonnan;
 	}
-	if((double *)addr>=ep->un.args&&(double *)addr<ep->un.args+EXPR_SYSAM){
-		r=sprintf(abuf,"r[%zd]",(double *)addr-ep->un.args);
+	if((double *)addr>=ep->args&&(double *)addr<ep->args+EXPR_SYSAM){
+		r=sprintf(abuf,"r[%zd]",(double *)addr-ep->args);
 		print_nonnan;
 		return abuf;
 	}

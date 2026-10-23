@@ -6,6 +6,13 @@ on:
       - '**.md'
       - '**.png'
       - '**.cff'
+      - '**.1'
+      - '**.2'
+      - '**.3'
+      - '**.4'
+      - '**.5'
+      - '**.6'
+      - '**.7'
   pull_request:
   workflow_dispatch:
 jobs:

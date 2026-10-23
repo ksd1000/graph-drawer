@@ -1,0 +1,107 @@
+.TH expr_new 3 2026-10-23 "Graph Drawer expr man-pages 1.0.13"
+.SH NAME
+expr_new, expr_init, expr_free, expr_calc \- expression parser
+.SH LIBRARY
+Graph Drawer Expression Evaluator Library
+.RI ( libexpr ,\~ \-lexpr )
+.SH SYNOPSIS
+.nf
+.BR #include\~"expr.h"
+.P
+.BI "struct expr *expr_new(const char *" e ",const char *" asym ",struct expr_symset *" esp ",int " flag " ,int *" error ",char " errinfo "[EXPR_SYMLEN]);"
+.BI "int expr_init(struct expr *" ep ",const char *" e ",const char *" asym ",struct expr_symset *" esp ",int " flag ");"
+.BI "void expr_free(struct expr *" ep ");"
+.BI "double expr_calc(const char *" e " );"
+.fi
+.SH DESCRIPTION
+The
+.BR expr_new()
+function parses the expression 
+.I e
+and creates a
+.B struct expr
+object for
+.BR expr_eval() .
+.P
+The
+.BR expr_init()
+function parses the expression 
+.I e
+and initialize an uninitialized
+.B struct expr
+object for
+.BR expr_eval() .
+.P
+The
+.BR expr_free()
+function releases an initialized
+.B struct expr
+object
+.IR ep .
+.P
+The
+.BR expr_calc()
+function parses the expression 
+.I e
+and evaluate it only once.
+.SH RETURN VALUE
+The
+.BR expr_new()
+returns the pointer to the created
+.B struct expr
+object. On fail, it returns
+.B NULL
+and sets
+.I *error
+and
+.IR errinfo .
+.P
+The
+.BR expr_init()
+returns 0 on success. On fail, it returns -1 and sets
+.I ep->error
+and
+.IR ep->errinfo .
+.P
+The
+.BR expr_calc()
+returns the result on success. On fail, it returns
+.BR NAN .
+.P
+.SH NOTE
+The 
+.BR expr_new() , expr_init() , expr_calc()
+are implemented as macros in current version. The functions actually be called are
+.BR expr_new9_r() , expr_init8_r() , expr_calc5_r() .
+Do not take them as function pointer.
+.SH ATTRIBUTES
+.TS
+allbox;
+lbx lb lb
+l l l.
+Interface	Attribute	Value
+T{
+.na
+.nh
+.BR expr_new(), expr_init(), expr_free(), expr_calc()
+T}	Thread safety	MT-Safe
+.TE
+.SH HISTORY
+.TP
+.BR expr_new()
+2024-02-19	renamed from
+.B new_expr()
+on 2026-03-01
+.TQ
+.BR expr_init()
+2024-02-22	renamed from
+.B init_expr()
+on 2026-03-01
+.TQ
+.BR expr_calc()
+2024-03-31
+.TQ
+.BR expr_free()
+2024-02-19
+.SH SEE ALSO
+.BR expr_eval (3)

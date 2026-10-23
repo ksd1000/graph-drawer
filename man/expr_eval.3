@@ -1,0 +1,53 @@
+.TH expr_eval 3 2026-10-23 "Graph Drawer expr man-pages 1.0.13"
+.SH NAME
+expr_eval \- expression evaluator
+.SH LIBRARY
+Graph Drawer Expression Evaluator Library
+.RI ( libexpr ,\~ \-lexpr )
+.SH SYNOPSIS
+.nf
+.BR #include\~"expr.h"
+.P
+.BI "double expr_eval(const struct expr *" ep ",double " input ");"
+.fi
+.SH DESCRIPTION
+The
+.BR expr_eval()
+function evaluates the
+.B struct expr
+object
+.I ep
+with the argument
+.IR input ,
+corresponding to the
+.I asym
+argument in
+.BR expr_new()
+and
+.BR expr_init() .
+.SH RETURN VALUE
+The
+.BR expr_eval()
+returns the result of the evaluation.
+.P
+.SH ATTRIBUTES
+.TS
+allbox;
+lbx lb lb
+l l l.
+Interface	Attribute	Value
+T{
+.na
+.nh
+.BR expr_eval()
+T}	Thread safety	MT-Safe
+.TE
+.SH HISTORY
+.TP
+.BR expr_eval()
+2024-02-19;	renamed from
+.B expr_compute()
+on 2024-02-29
+.TQ
+.SH SEE ALSO
+.BR expr_new (3), expr_init (3), expr_free (3), expr_calc (3)

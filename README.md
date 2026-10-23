@@ -228,11 +228,14 @@ Tested by fun/compare.c
 |Namespace|expr\_|te\_|expr\_|
 |Constructor|expr\_create()|te\_compile()|expr\_init()|
 |Destructor|expr\_destroy()|te\_free()|expr\_free()|
-|Initialize speed|Medium 2.3x|Fast 8.6x|Slow 1.0x|
+|Initialize/Parse speed|Medium 2.3x|Fast 8.6x|Slow 1.0x|
+|Evaluate speed|Medium|Fast|Fast|
 |Memory cost|Medium 1.2x|Low 1.0x|High 3.8x|
 |Bitwise and/or/xor support|Cast to integer|No|Yes|
+|Action on fail|NULL+leak|NULL+errcode|-1/NULL+errcode+errstring|
 |Number parse|Digit accumulate|Digit accumulate|Pseudo strtod|
 |Number parse speed|Fast-Medium|Fast|Slow|
+|Number parse precision|1\*10^-6|0~1 ULP|0|
 |Number parse cache|No|No|Yes(but still slower than other two)|
 |libc required|Yes|Yes|No for core. But builtin symbols and frontend needs.|
 |Core arch independence|Yes|Yes|x86/arm64 for mem* and syscall|
@@ -260,6 +263,7 @@ Tested by fun/compare.c
 |MT-safe for same object|Yes(except = and context)|Yes|No(an object only for one thread)|
 |Reentrant|No(allocate/free require global variable)|No(similarly)|Yes(\*\_r)|
 |JIT support|Yes|No|No|
+|Recursion limit|No|Yes(hard-coded)|Yes|
 |Branch and loop|No|No|Yes|
 |Syscall support|No|No|Yes|
 |AST|Yes|Yes|No|
@@ -267,8 +271,10 @@ Tested by fun/compare.c
 |Can run in raw QEMU|No|No|Untested|
 |Big-endian support|Yes|Yes|No|
 |Compile speed of source code(.c)|Fast|Fast|Slow|
-|Library size|18k|20k|353k(200k+153k)|
+|Library size(-O3)|18k|20k|350k(197k+153k)|
+|Library size(-Os)|17k|18k|307k(155k+152k)|
 |Project type|standalone library|standalone library|backend library of graph-drawer|
+|Allow pass size of expression|Yes|No|Yes|
 |Bugfix speed|Unactive|Fast|Slow|
 |Coding tool|Unknown|Unknown|Vim,Gedit|
 |Code readability|Clear|Clear|Chaos|
@@ -291,7 +297,7 @@ Zserge expr and tinyexpr have not an actual constructor(their object alloction a
 - Allocation --\> Construction --\>Return
 - (Allocation+Construction) --\>Return
 
-The library sizes are from the libraries built as shared libraries with -O3 and strip.
+The library sizes are from the libraries built as shared libraries with strip.
 
 ## License
 

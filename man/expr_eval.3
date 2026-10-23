@@ -9,6 +9,8 @@ Graph Drawer Expression Evaluator Library
 .BR #include\~"expr.h"
 .P
 .BI "double expr_eval(const struct expr *" ep ",double " input ");"
+.BI "int expr_step(const struct expr *restrict " ep " ,expr_t " input ",expr_t *restrict " output ",struct expr_inst **restrict " saveip ");"
+.BI "expr_t expr_callback(const struct expr *restrict " ep ",expr_t " input ",const struct expr_callback *" ec ");"
 .fi
 .SH DESCRIPTION
 The
@@ -25,11 +27,36 @@ argument in
 .BR expr_new()
 and
 .BR expr_init() .
+.P
+The
+.BR expr_step()
+function evaluates the
+.B struct expr
+object
+.I ep
+step-by-step, the
+.I *saveip
+must be set to
+.I ep->data
+at the start.
+.P
+The
+.BR expr_callback()
+function evaluates the
+.B struct expr
+object
+.I ep
+and run the callback function at the begin and end of each instruments.
 .SH RETURN VALUE
 The
-.BR expr_eval()
+.BR expr_eval() , expr_callback()
 returns the result of the evaluation.
 .P
+The
+.BR expr_step()
+returns 1 if completed and write the result to
+.I *output
+or 0 if not completed.
 .SH ATTRIBUTES
 .TS
 allbox;
@@ -39,7 +66,7 @@ Interface	Attribute	Value
 T{
 .na
 .nh
-.BR expr_eval()
+.BR expr_eval() , expr_step() , expr_callback()
 T}	Thread safety	MT-Safe
 .TE
 .SH HISTORY
@@ -48,6 +75,10 @@ T}	Thread safety	MT-Safe
 2024-02-19;	renamed from
 .B expr_compute()
 on 2024-02-29
+.TP
+.BR expr_step()
 .TQ
+.BR expr_callback()
+2026-01-16
 .SH SEE ALSO
 .BR expr_new (3), expr_init (3), expr_free (3), expr_calc (3)

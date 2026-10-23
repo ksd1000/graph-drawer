@@ -214,9 +214,6 @@ end:\
 	if((_flag)&EXPR_AZERO)\
 		memset(ret,0,size);\
 	return ret
-void *expr_area_malloc(struct expr_area *restrict area,size_t size){
-	ALLOC_BODY(area->flag);
-}
 void *expr_area_malloc3(struct expr_area *restrict area,size_t size,int flag){
 	ALLOC_BODY(flag);
 }
@@ -355,14 +352,8 @@ old_expand:\
 	zp->unsize=size;\
 	monoinc(expand_nail);\
 	return old
-void *expr_area_realloc(struct expr_area *restrict area,void *old,size_t size){
-	REALLOC_BODY(area->flag);
-}
 void *expr_area_realloc4(struct expr_area *restrict area,void *old,size_t size,int flag){
 	REALLOC_BODY(flag);
-}
-void *expr_area_calloc(struct expr_area *restrict area,size_t size){
-	return expr_area_malloc3(area,size,area->flag|EXPR_AZERO);
 }
 int expr_area_summary(const struct expr_area *restrict area,struct expr_areainfo *restrict info){
 	union {

@@ -5,7 +5,7 @@
  *******************************************************************************/
 #define _GNU_SOURCE
 
-#define EXPR_VERSION "1.0.13-1"
+#define EXPR_VERSION "1.0.13-3"
 
 #if (defined(EXPR_LIBC_STRING_IMPL)&&(EXPR_LIBC_STRING_IMPL))
 #include <string.h>
@@ -104,7 +104,7 @@ double expr_internal_strtod(const char *restrict nptr,size_t nsize,size_t *restr
 expr_globals_define();
 
 __attribute__((noreturn)) void expr_explode(void){
-	expr_explode_r(expr_contract,expr_defmtl,expr_allocate_max);
+	expr_explode_r(expr_contract,expr_allocate_max,expr_defmtl);
 	__builtin_unreachable();
 }
 __attribute__((noreturn)) void expr_trap(void){

@@ -67,5 +67,19 @@
 
 #endif
 
+// visible also with EXPR_INLIB set, for expr-alloc.c use.
+#define expr_area_malloc(area,size) ({\
+	struct expr_area *restrict __areap=(area);\
+	expr_area_malloc3(__areap,size,__areap->flag);\
+})
+#define expr_area_realloc(area,old,size) ({\
+	struct expr_area *restrict __areap=(area);\
+	expr_area_realloc4(__areap,old,size,__areap->flag);\
+})
+#define expr_area_calloc(area,size) ({\
+	struct expr_area *restrict __areap=(area);\
+	expr_area_malloc3(__areap,size,__areap->flag|EXPR_AZERO);\
+})
+
 #endif
 

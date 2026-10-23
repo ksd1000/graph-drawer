@@ -1,0 +1,123 @@
+.TH expr_area 3 2026-10-23 "Graph Drawer expr man-pages 1.0.13"
+.SH NAME
+expr_area_* \- memory allocator
+.SH LIBRARY
+Graph Drawer Expression Evaluator Library
+.RI ( libexpr ,\~ \-lexpr )
+.SH SYNOPSIS
+.nf
+.BR #include\~"expr.h"
+.P
+.BI "int expr_area_init(struct expr_area *restrict " area ",void *" zone ",size_t " size ");"
+.BI "int expr_area_init4(struct expr_area *restrict " area ",void *" zone ",size_t " size ",int " flag ");"
+.BI "void expr_area_wipe(struct expr_area *restrict " area ");"
+.BI "void expr_area_wipe_monotonic(struct expr_area *restrict " area ");"
+.BI "void expr_area_reset_monotonic(struct expr_area *restrict " area ");"
+.BI "int expr_area_resize(struct expr_area *restrict " area ",size_t " size ");"
+.BI "void *expr_area_malloc(struct expr_area *restrict " area ",size_t " size ");"
+.BI "void *expr_area_malloc3(struct expr_area *restrict " area ",size_t " size ",int " flag ");"
+.BI "void expr_area_dealloc(struct expr_area *restrict " area ",void *" old ");"
+.BI "void *expr_area_realloc(struct expr_area *restrict " area ",void *" old ",size_t " size ");"
+.BI "void *expr_area_realloc4(struct expr_area *restrict " area ",void *" old ",size_t " size ",int " flag ");"
+.BI "void *expr_area_calloc(struct expr_area *restrict " area ",size_t " size ");"
+.BI "int expr_area_summary(const struct expr_area *restrict " area ",struct expr_areainfo *restrict " info ");"
+.fi
+.SH DESCRIPTION
+The
+.BR expr_area_init[4]()
+initialize the
+.IR area
+with 
+.IR zone [ size ]
+as the memory space.
+.P
+The
+.BR expr_area_wipe[_monotonic]()
+wipe all allocated space of
+.IR area ,
+the
+.BR expr_area_wipe_monotonic()
+also resets the counter.
+.P
+The
+.BR expr_area_reset_monotonic()
+resets the counter without wiping the area.
+.P
+The
+.BR expr_area_resize()
+modifies the size of
+.IR zone .
+.P
+The
+.BR expr_area_malloc[3]()
+allocate
+.I size
+bytes from
+.IR zone .
+.P
+The
+.BR expr_area_realloc[4]()
+modify the size of
+.I old
+to
+.I size
+bytes the old data will be unchanged on expanding.
+.P
+The
+.BR expr_area_dealloc()
+releases the space of
+.IR old .
+.P
+The
+.BR expr_area_calloc()
+is like
+.B expr_area_malloc()
+but always sets
+.BR EXPR_AZERO .
+.P
+The
+.BR expr_area_summary()
+travels through all of
+.I area
+and write the summary to
+.IR info .
+.SH RETURN VALUE
+The
+.BR expr_area_init[4]() , expr_area_resize() , expr_area_summary()
+return 0 on success and negative value on fail.
+.P
+The
+.BR expr_area_{m,re,c}alloc[3|4]()
+return the pointer to the new space with
+.IR size
+and NULL on fail. The
+.I old
+will be unchanged if expr_area_realloc[4] fail.
+.SH WARNING
+The
+.I old
+for
+.BR expr_area_realloc[4]()
+and
+.BR expr_area_dealloc()
+cannot be
+.BR NULL .
+.SH ATTRIBUTES
+.TS
+allbox;
+lbx lb lb
+l l l.
+Interface	Attribute	Value
+T{
+.na
+.nh
+.BR expr_area_*()
+T}	Thread safety	MT-Safe
+.TE
+.SH HISTORY
+.TP
+.BR expr_area_*()
+2026-10-06
+.TQ
+.SH SEE ALSO
+.BR expr_setup_heapmtl (3)

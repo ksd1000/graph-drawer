@@ -155,8 +155,9 @@ no_enough_size:
 #ifndef PAGE_SIZE
 #define PAGE_SIZE 4096
 #endif
-void expr_contract(void *buf,size_t size){
+void expr_contract(void *buf,size_t size,intptr_t arg){
 	volatile char *p=(volatile char *)buf,*endp=(volatile char *)buf+size;
+	(void)arg;
 	while(p<endp){
 		*p=0;
 		p+=PAGE_SIZE;
@@ -164,11 +165,11 @@ void expr_contract(void *buf,size_t size){
 	*endp=0;
 	//treat the case like [0,1,...,endp->4094,p->4095]
 }
-void expr_explode_r(void (*contractor)(void *,size_t),const struct expr_memtool *restrict mtl,size_t max){
+void expr_explode_r(void (*contractor)(void *,size_t,intptr_t),size_t max,const struct expr_memtool *restrict mtl){
 	void *r;
 	do {
 		while((r=mtl->allocate(max,mtl->arg))){
-			contractor(r,max);
+			contractor(r,max,mtl->arg);
 			//if do not contract,
 			//the virtual memory
 			//has not physical

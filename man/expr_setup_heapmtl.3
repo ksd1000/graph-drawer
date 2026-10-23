@@ -1,0 +1,43 @@
+.TH expr_setup_heapmtl 3 2026-10-23 "Graph Drawer expr man-pages 1.0.13"
+.SH NAME
+expr_setup_heapmtl \- memory initializer
+.SH LIBRARY
+Graph Drawer Expression Evaluator Library
+.RI ( libexpr ,\~ \-lexpr )
+.SH SYNOPSIS
+.nf
+.BR #include\~"expr.h"
+.P
+.BI "int expr_setup_heapmtl(struct expr_memtool *restrict " mtl ",void *" heap ",size_t " size ");"
+.BI "int expr_setup_heapmtl4(struct expr_memtool *restrict " mtl ",void *" heap ",size_t " size ",int " flag ");"
+.fi
+.SH DESCRIPTION
+The
+.BR expr_setup_heapmtl[4]()
+bind the space
+.IR heap [ size ]
+to
+.IR mtl.
+.SH RETURN VALUE
+The
+.BR expr_setup_heapmtl[4]()
+return 0 on success and -1 on fail.
+.SH ATTRIBUTES
+.TS
+allbox;
+lbx lb lb
+l l l.
+Interface	Attribute	Value
+T{
+.na
+.nh
+.BR expr_setup_heapmtl[4]()
+T}	Thread safety	MT-Safe
+.TE
+.SH HISTORY
+.TP
+.BR expr_setup_heapmtl()
+2026-10-06
+.TQ
+.SH SEE ALSO
+.BR expr_area (3)

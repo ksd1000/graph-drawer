@@ -9,9 +9,12 @@ Graph Drawer Expression Evaluator Library
 .BR #include\~"expr.h"
 .P
 .BI "struct expr *expr_new(const char *" e ",const char *" asym ",struct expr_symset *" esp ",int " flag " ,int *" error ",char " errinfo "[EXPR_SYMLEN]);"
+.BI "struct expr *expr_new9_r(const char *" e ",size_t " len ",const char *" asym ",size_t " asymlen ",struct expr_symset *" esp ",int " flag ",int *" error ",char " errinfo "[EXPR_SYMLEN],struct expr *restrict " parent ",const struct expr_memtool *restrict " mtl ");"
 .BI "int expr_init(struct expr *" ep ",const char *" e ",const char *" asym ",struct expr_symset *" esp ",int " flag ");"
-.BI "void expr_free(struct expr *" ep ");"
+.BI "int expr_init8_r(struct expr *restrict " ep ",const char *" e ",size_t " len ",const char *" asym ",size_t " asymlen ",struct expr_symset *" esp ",int " flag ",struct expr *" parent ",const struct expr_memtool *restrict " mtl ");"
 .BI "double expr_calc(const char *" e " );"
+.BI "double expr_calc5_r(const char *" e ",int *" error ",char " errinfo "[EXPR_SYMLEN],struct expr_symset *" esp ",int " flag ",const struct expr_memtool *restrict " mtl ");"
+.BI "void expr_free(struct expr *" ep ");"
 .fi
 .SH DESCRIPTION
 The
@@ -83,7 +86,7 @@ Interface	Attribute	Value
 T{
 .na
 .nh
-.BR expr_new(), expr_init(), expr_free(), expr_calc()
+.BR expr_new() , expr_init() , expr_free() , expr_calc() , expr_new9_r() , expr_init8_r() , expr_calc5_r()
 T}	Thread safety	MT-Safe
 .TE
 .SH HISTORY
@@ -92,16 +95,24 @@ T}	Thread safety	MT-Safe
 2024-02-19	renamed from
 .B new_expr()
 on 2026-03-01
-.TQ
+.TP
 .BR expr_init()
 2024-02-22	renamed from
 .B init_expr()
 on 2026-03-01
-.TQ
+.TP
 .BR expr_calc()
 2024-03-31
-.TQ
+.TP
 .BR expr_free()
 2024-02-19
+.TP
+.BR expr_new9_r()
+.TQ
+.BR expr_calc5_r()
+2026-10-05
+.TP
+.BR expr_init8_r()
+2026-10-22
 .SH SEE ALSO
-.BR expr_eval (3)
+.BR expr_eval (3), expr_step (3), expr_callback (3)

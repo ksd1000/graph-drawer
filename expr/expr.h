@@ -1637,12 +1637,9 @@ void expr_area_wipe(struct expr_area *restrict area);
 void expr_area_wipe_monotonic(struct expr_area *restrict area);
 void expr_area_reset_monotonic(struct expr_area *restrict area);
 int expr_area_resize(struct expr_area *restrict area,size_t size);
-void *expr_area_malloc(struct expr_area *restrict area,size_t size);
 void *expr_area_malloc3(struct expr_area *restrict area,size_t size,int flag);
 void expr_area_dealloc(struct expr_area *restrict area,void *old);
-void *expr_area_realloc(struct expr_area *restrict area,void *old,size_t size);
 void *expr_area_realloc4(struct expr_area *restrict area,void *old,size_t size,int flag);
-void *expr_area_calloc(struct expr_area *restrict area,size_t size);
 int expr_area_summary(const struct expr_area *restrict area,struct expr_areainfo *restrict info);
 void *expr_heapmtl_malloc(size_t size,intptr_t arg);
 void *expr_heapmtl_realloc(void *old,size_t size,intptr_t arg);
@@ -1790,8 +1787,8 @@ extern const struct expr_libinfo expr_libinfo_current[1];
 extern int expr_mtl_setup;
 //global functions of expr-internal.c :
 size_t expr_strscan(const char *restrict s,size_t sz,char *restrict buf,size_t outsz);
-void expr_contract(void *buf,size_t size);
-void expr_explode_r(void (*contractor)(void *,size_t),const struct expr_memtool *restrict mtl,size_t max);
+void expr_contract(void *buf,size_t size,intptr_t arg);
+void expr_explode_r(void (*contractor)(void *,size_t,intptr_t),size_t max,const struct expr_memtool *restrict mtl);
 size_t expr_extint_left(uint64_t *buf,size_t size,uint64_t bits);
 size_t expr_extint_right(uint64_t *buf,size_t size,uint64_t bits);
 size_t expr_extint_add(uint64_t *buf,uint64_t addend);
@@ -1974,6 +1971,20 @@ extern const uint8_t expr_number_table[256];
 #define expr_builtin_symbol_addall(esp,syms) expr_builtin_symbol_addalls(esp,syms,NULL)
 
 #endif
+
+// visible also with EXPR_INLIB set, for expr-alloc.c use.
+#define expr_area_malloc(area,size) ({\
+	struct expr_area *restrict __areap=(area);\
+	expr_area_malloc3(__areap,size,__areap->flag);\
+})
+#define expr_area_realloc(area,old,size) ({\
+	struct expr_area *restrict __areap=(area);\
+	expr_area_realloc4(__areap,old,size,__areap->flag);\
+})
+#define expr_area_calloc(area,size) ({\
+	struct expr_area *restrict __areap=(area);\
+	expr_area_malloc3(__areap,size,__areap->flag|EXPR_AZERO);\
+})
 
 #endif
 

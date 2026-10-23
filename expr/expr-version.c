@@ -53,10 +53,11 @@ void printprog(size_t size,size_t c,size_t n){
 #ifndef PAGE_SIZE
 #define PAGE_SIZE 4096
 #endif
-void contract_hook(void *buf,size_t size){
+void contract_hook(void *buf,size_t size,intptr_t arg){
 	char *p=(char *)buf,*endp=(char *)buf+size-1;
 	size_t n=(size+PAGE_SIZE-1)/PAGE_SIZE,c=0;
 	size_t old=0;
+	(void)arg;
 	while(p<=endp){
 		*p=0;
 		p+=PAGE_SIZE;
@@ -160,7 +161,7 @@ int main(int argc,char **argv){
 				expr_defmtl->allocate=alloc_hook;
 				if(optarg)
 					expr_allocate_max=(size_t)atol(optarg);
-				expr_explode_r(contract_hook,expr_defmtl,expr_allocate_max);
+				expr_explode_r(contract_hook,expr_allocate_max,expr_defmtl);
 				abort();
 			case 't':
 				__builtin_trap();

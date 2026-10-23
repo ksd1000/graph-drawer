@@ -470,6 +470,7 @@ EXPR_END
 #define EXPR_EVZP 22
 #define EXPR_EANT 23
 #define EXPR_EUDE 24
+#define EXPR_EREC 25
 
 #define EXPR_CONSTANT 0
 #define EXPR_VARIABLE 1
@@ -506,25 +507,6 @@ EXPR_END
 #define EXPR_SPME EXPR_SNONBUILTIN
 #define EXPR_SPFUNC 12
 #define EXPR_SPMASK (~12)
-//expr initial flag
-#define EXPR_INOOPTIMIZE 1
-#define EXPR_IINSTANT_FREE 2
-
-#define EXPR_IPURE 4
-#define EXPR_INOKEYWORD 8
-#define EXPR_IPROTECT 16
-#define EXPR_IKEEPSYMSET 128
-#define EXPR_IDETACHSYMSET 256
-#define EXPR_IUNSAFE 512
-#define EXPR_INOSHRINK 1024
-#define EXPR_ISCANCACHE 2048
-#define EXPR_IABSORBSYMSET 4096
-#define EXPR_IREMOVEBLANK 8192
-
-#define EXPR_IEXTEND_MASK (\
-		EXPR_IINSTANT_FREE|EXPR_IABSORBSYMSET\
-		)
-#define EXPR_ISETABLE (EXPR_IPURE|EXPR_INOKEYWORD|EXPR_IPROTECT|EXPR_ISCANCACHE)
 
 //expr keyword flag
 #define EXPR_KSUBEXPR 1
@@ -1594,6 +1576,34 @@ struct expr_strtod_workspace {
 		__builtin_unreachable();\
 	}\
 })
+
+#define EXPR_RECURSIVE_DEFAULT 8
+
+//expr initial flag
+#define EXPR_INOOPTIMIZE 1
+#define EXPR_IINSTANT_FREE 2
+#define EXPR_IPURE 4
+#define EXPR_INOKEYWORD 8
+#define EXPR_IPROTECT 16
+#define EXPR_IREMOVEBLANK 32
+#define EXPR_IRECURSIVELIMIT 64
+#define EXPR_IKEEPSYMSET 128
+#define EXPR_IDETACHSYMSET 256
+#define EXPR_IUNSAFE 512
+#define EXPR_INOSHRINK 1024
+#define EXPR_ISCANCACHE 2048
+#define EXPR_IABSORBSYMSET 4096
+
+#define EXPR_IRECURSIVE_SHIFT 13
+
+expr_static_assert((1<<EXPR_IRECURSIVE_SHIFT)==8192);
+
+#define EXPR_IEXTEND_MASK (EXPR_IINSTANT_FREE|EXPR_IABSORBSYMSET)
+#define EXPR_ISETABLE (EXPR_IPURE|EXPR_INOKEYWORD|EXPR_IPROTECT|EXPR_ISCANCACHE)
+
+#define EXPR_IRECURSIVELIMIT_DEFAULT (EXPR_IRECURSIVELIMIT|(EXPR_RECURSIVE_DEFAULT<<EXPR_IRECURSIVE_SHIFT))
+#define EXPR_IDEFAULT (EXPR_IPROTECT|EXPR_IRECURSIVELIMIT_DEFAULT)
+
 struct expr {
 	struct expr_inst *data;
 	size_t size,length;
@@ -1613,8 +1623,10 @@ struct expr {
 			} end[1];
 			struct expr_inst **ipp;
 		};
-		char errinfo[EXPR_SYMLEN];
+		char errinfo[expr_align(EXPR_SYMLEN)];
 	};
 	int error;
-	unsigned int iflag:sizeof(int)*8-3,freeable:1,sset_shouldfree:1,isconst:1;
+	unsigned int recursive,iflag;
+	unsigned int unused:sizeof(int)*8-3,freeable:1,sset_shouldfree:1,isconst:1;
 };
+

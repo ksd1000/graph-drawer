@@ -28,7 +28,12 @@
 
 #define eval(_ep,_input) expr_eval(_ep,_input)
 
-#define seterr(_ep,_eperror) ({(_ep)->error=(_eperror);\
+#define seterr(_ep,_eperror) ({\
+		(_ep)->error=(_eperror);\
+		*(_ep)->errinfo=0;\
+		debug("error %s occur",expr_error(_eperror));})
+#define seterri(_ep,_eperror) ({\
+		(_ep)->error=(_eperror);\
 		debug("error %s occur",expr_error(_eperror));})
 /*
 #define seterrp (_ep,_eperror,_p) ({(_ep)->error=(_eperror);\
@@ -193,12 +198,13 @@ static const char *eerror[]={
 	[EXPR_EVZP]="Variable-length multi-demension function without a maximal length is not allowed in protected mode",
 	[EXPR_EANT]="Alias is not terminated",
 	[EXPR_EUDE]="User-defined error",
+	[EXPR_EREC]="Recursion exceeded the maximum depth",
 };
 const char *expr_error(int error){
 	switch(error){
 		default:
 			error=0;
-		case 0 ... sizeof(eerror)/sizeof(*eerror)-1:
+		case 0 ... arrsize(eerror)-1:
 			return eerror[error];
 	}
 }
@@ -948,8 +954,8 @@ static struct expr_mdinfo *getmdinfo(struct expr *restrict ep,const char *e0,siz
 		while(*p)++p;
 		i=(size_t)(p-v);
 		if(unlikely(dim&&i!=dim)){
+			seterri(ep,EXPR_ENEA);
 			serrinfo(ep->errinfo,e0,sz);
-			seterr(ep,EXPR_ENEA);
 			goto err1;
 		}
 	}
@@ -1000,7 +1006,7 @@ err2:
 		xfree(em->args);
 	if(em->e)
 		xfree((void *)em->e);
-	seterr(ep,em->eps[i].error);
+	seterri(ep,em->eps[i].error);
 	memcpy(ep->errinfo,em->eps[i].errinfo,EXPR_SYMLEN);
 err175:
 	xfree(em->eps);
@@ -1032,7 +1038,7 @@ static expr_t consteval(const char *e,size_t len,const char *asym,size_t asymlen
 		return EXPR_FAIL;
 	if(unlikely(!expr_isconst(ep))){
 		expr_free_r(ep);
-		seterr(parent,EXPR_ENC);
+		seterri(parent,EXPR_ENC);
 		serrinfo(parent->errinfo,e,len);
 		return EXPR_FAIL;
 	}
@@ -1092,32 +1098,32 @@ static struct expr_vmdinfo *getvmdinfo(struct expr *restrict ep,const char *e0,s
 				goto err0;
 			break;
 		default:
+			seterri(ep,EXPR_ENEA);
 			serrinfo(ep->errinfo,e0,sz);
-			seterr(ep,EXPR_ENEA);
 			goto err0;
 	}
 	ssz=strlenv(v[5]);
 	if(ep->sset&&(sym.es=expr_symset_search(ep->sset,v[5],ssz))){
 		if(unlikely(sym.es->type!=EXPR_MDFUNCTION||SYMDIM(sym.es))){
+			seterri(ep,EXPR_EVMD);
 			serrinfo(ep->errinfo,v[5],ssz);
-			seterr(ep,EXPR_EVMD);
 			goto err0;
 		}
 		fp=expr_symbol_un(sym.es)->mdfunc;
 		*flag=sym.es->flag;
 	}else {
+		seterri(ep,EXPR_ESYMBOL);
 		serrinfo(ep->errinfo,v[5],ssz);
-		seterr(ep,EXPR_ESYMBOL);
 		goto err0;
 	}
 	if(ep->iflag&EXPR_IPROTECT){
 		if(*flag&EXPR_SUNSAFE){
-			seterr(ep,EXPR_EPM);
+			seterri(ep,EXPR_EPM);
 			serrinfo(ep->errinfo,v[5],ssz);
 			goto err0;
 		}
 		if(!max){
-			seterr(ep,EXPR_EVZP);
+			seterri(ep,EXPR_EVZP);
 			serrinfoc(ep->errinfo,"vmd");
 			goto err0;
 		}
@@ -1200,8 +1206,8 @@ static struct expr_suminfo *getsuminfo(struct expr *restrict ep,const char *e0,s
 		++p;
 	}
 	if(unlikely(p-v!=5)){
+		seterri(ep,EXPR_ENEA);
 		serrinfo(ep->errinfo,e0,sz);
-		seterr(ep,EXPR_ENEA);
 		goto err0;
 	}
 	es=xmalloc(sizeof(struct expr_suminfo));
@@ -1299,8 +1305,8 @@ static struct expr_branchinfo *getbranchinfo(struct expr *restrict ep,const char
 			dim3=0;
 			break;
 		default:
+			seterri(ep,EXPR_ENEA);
 			serrinfo(ep->errinfo,e0,sz);
-			seterr(ep,EXPR_ENEA);
 			goto err0;
 	}
 	eb=xmalloc(sizeof(struct expr_branchinfo));
@@ -1349,13 +1355,13 @@ static expr_t *gethot(struct expr *restrict ep,const char *e0,size_t sz,const ch
 	hend=he+helen;
 #define hot_sep(_e,_p,_end,_v,_act) \
 	if(unlikely(*_e!='(')){\
-		seterr(ep,EXPR_EPT);\
+		seterri(ep,EXPR_EPT);\
 		serrinfo(ep->errinfo,e0,sz);\
 		_act;\
 	}\
 	_p=findpair(_e,_end);\
 	if(unlikely(!_p)){\
-		seterr(ep,EXPR_EPT);\
+		seterri(ep,EXPR_EPT);\
 		serrinfo(ep->errinfo,e0,sz);\
 		_act;\
 	}\
@@ -1369,7 +1375,7 @@ static expr_t *gethot(struct expr *restrict ep,const char *e0,size_t sz,const ch
 	*ee=pe+1;
 	n=vsize2(v);
 	if(vsize2(ve)!=n){
-		seterr(ep,EXPR_ENEA);
+		seterri(ep,EXPR_ENEA);
 		serrinfo(ep->errinfo,e0,sz);
 		goto err05;
 	}
@@ -1394,13 +1400,13 @@ static expr_t *gethot(struct expr *restrict ep,const char *e0,size_t sz,const ch
 
 	he=p+1;
 	if(he>=hend||*he!='{'){
-		seterr(ep,EXPR_EPT);
+		seterri(ep,EXPR_EPT);
 		serrinfo(ep->errinfo,e0,sz);
 		goto err1;
 	}
 	p=findpair_brace(he,hend);
 	if(unlikely(!p)){
-		seterr(ep,EXPR_EPT);
+		seterri(ep,EXPR_EPT);
 		serrinfo(ep->errinfo,e0,sz);
 		goto err1;
 	}
@@ -1425,7 +1431,7 @@ err3:
 	freehmdinfo(eh,0,xmtl);
 	goto err05;
 err2:
-	seterr(ep,eh->eps[i].error);
+	seterri(ep,eh->eps[i].error);
 	memcpy(ep->errinfo,eh->eps[i].errinfo,EXPR_SYMLEN);
 	expr_free_r(eh->hotfunc);
 err1:
@@ -1511,8 +1517,8 @@ static const struct expr_symbol *alias_target(struct expr *restrict ep,const str
 				case 0:
 					return NULL;
 				default:
+					seterri(ep,EXPR_ESYMBOL);
 					serrinfo(ep->errinfo,p,len);
-					seterr(ep,EXPR_ESYMBOL);
 					return NULL;
 				case 2:
 					return prev;
@@ -1522,8 +1528,8 @@ static const struct expr_symbol *alias_target(struct expr *restrict ep,const str
 			return alias;
 		}
 		if(unlikely(!n)){
+			seterri(ep,EXPR_EANT);
 			serrinfo(ep->errinfo,p0,len0);
-			seterr(ep,EXPR_EANT);
 			return NULL;
 		}
 	}
@@ -1588,40 +1594,40 @@ alias_found:
 //	debug("at:%p\n",expr_symbol_un(sym.es)->uaddr);
 	return sym.uaddr;
 pm:
+	seterri(ep,EXPR_EPM);
 	serrinfo(ep->errinfo,symbol,symlen);
-	seterr(ep,EXPR_EPM);
 	return NULL;
 ein:
+	seterri(ep,EXPR_EPURE);
 	serrinfo(ep->errinfo,symbol,symlen);
-	seterr(ep,EXPR_EPURE);
 	return NULL;
 esymbol:
 	if(symerr){
+		seterri(ep,EXPR_ESYMBOL);
 		serrinfo(ep->errinfo,symbol,symlen);
-		seterr(ep,EXPR_ESYMBOL);
 	}
 	return NULL;
 }
 #define IMPORT_ERROR_BLOCK(SP) {\
 	if(!ignore){\
-		seterr(ep,EXPR_EDS);\
+		seterri(ep,EXPR_EDS);\
 		serrinfo(ep->errinfo,SP->str,SP->strlen);\
 		return -1;\
 	}\
 }else {\
-	seterr(ep,EXPR_EMEM);\
+	seterri(ep,EXPR_EMEM);\
 	goto err;\
 }
 static int expr_import(struct expr *restrict ep,const char *symbol,size_t symlen,int ignore){
 	const struct expr_symbol *p=expr_symset_search(ep->sset,symbol,symlen);
 	if(unlikely(!p)){
-		seterr(ep,EXPR_ESYMBOL);
+		seterri(ep,EXPR_ESYMBOL);
 err:
 		serrinfo(ep->errinfo,symbol,symlen);
 		return -1;
 	}
 	if(unlikely(p->type!=EXPR_CONSTANT||!(p->flag&EXPR_SPACKAGE))){
-		seterr(ep,EXPR_ETNP);
+		seterri(ep,EXPR_ETNP);
 		goto err;
 	}
 	cknp(ep,expr_detach(ep)>=0,goto err);
@@ -1730,7 +1736,8 @@ envp:
 				p=getsym(e,endp);\
 				if(unlikely(p==e)){\
 					*ep->errinfo=*e;\
-					seterr(ep,EXPR_EUO);\
+					ep->errinfo[1]=0;\
+					seterri(ep,EXPR_EUO);\
 					return NULL;\
 				}
 				try_getsym;
@@ -1773,7 +1780,7 @@ block:
 			if(unlikely(!p))
 				goto pterr;
 			if(unlikely(ep->iflag&EXPR_IPROTECT)){
-				seterr(ep,EXPR_EPM);
+				seterri(ep,EXPR_EPM);
 				serrinfo(ep->errinfo,e,(size_t)(p-e+1));
 				return NULL;
 			}
@@ -1802,7 +1809,7 @@ block:
 				goto pterr;
 #if UNABLE_GETADDR_IN_PROTECTED_MODE
 			if(unlikely(ep->iflag&EXPR_IPROTECT)){
-				seterr(ep,EXPR_EPM);
+				seterri(ep,EXPR_EPM);
 				serrinfo(ep->errinfo,e,(size_t)(p-e+1));
 				return NULL;
 			}
@@ -1822,8 +1829,9 @@ block:
 		case '&':
 #if UNABLE_GETADDR_IN_PROTECTED_MODE
 			if(unlikely(ep->iflag&EXPR_IPROTECT)){
-				seterr(ep,EXPR_EPM);
+				seterri(ep,EXPR_EPM);
 				*ep->errinfo='&';
+				ep->errinfo[1]=0;
 				return NULL;
 			}
 #endif
@@ -1858,8 +1866,9 @@ block:
 			}
 			p=getsym(e,endp);
 			if(unlikely(p==e)){
-				seterr(ep,EXPR_ECTA);
+				seterri(ep,EXPR_ECTA);
 				*ep->errinfo=*e;
+				ep->errinfo[1]=0;
 				return NULL;
 			}
 			sym.uaddr=readsymbol(ep,e,(size_t)(p-e),1,1);
@@ -1868,7 +1877,7 @@ block:
 			switch(sym.es->type){
 				case EXPR_CONSTANT:
 				case EXPR_HOTFUNCTION:
-					seterr(ep,EXPR_ECTA);
+					seterri(ep,EXPR_ECTA);
 					serrinfo(ep->errinfo,e,(size_t)(p-e));
 					return NULL;
 				default:
@@ -1887,8 +1896,9 @@ block:
 		default:
 dflt:
 			if(unlikely(expr_operator(*e))){
+				seterri(ep,EXPR_EUO);
 				*ep->errinfo=*e;
-				seterr(ep,EXPR_EUO);
+				ep->errinfo[1]=0;
 				return NULL;
 			}
 			break;
@@ -1924,15 +1934,15 @@ keyword:
 		}
 		if(kp->flag&EXPR_KNOPROTECT){
 			if(unlikely(ep->iflag&EXPR_IPROTECT)){
-				seterr(ep,EXPR_EPM);
+				seterri(ep,EXPR_EPM);
 				serrinfo(ep->errinfo,kp->str,kp->strlen);
 				return NULL;
 			}
 			setunsafe(ep);
 		}
 		if(unlikely(p>=endp||*p!='(')){
+			seterri(ep,EXPR_EFP);
 			serrinfo(ep->errinfo,e,(size_t)(p-e));
-			seterr(ep,EXPR_EFP);
 			return NULL;
 		}
 		p2=e;
@@ -1957,7 +1967,7 @@ keyword:
 							goto c_fail;
 						break;
 					default:
-						seterr(ep,EXPR_ENEA);
+						seterri(ep,EXPR_ENEA);
 						serrinfoc(ep->errinfo,"const");
 c_fail:
 						vfree2(sym.vv);
@@ -1965,7 +1975,7 @@ c_fail:
 				}
 				dim=strlenv(sym.vv[0]);
 				if(ep->sset&&expr_symset_search(ep->sset,sym.vv[0],dim)){
-					seterr(ep,EXPR_EDS);
+					seterri(ep,EXPR_EDS);
 					serrinfo(ep->errinfo,sym.vv[0],dim);
 					goto c_fail;
 				}
@@ -1990,12 +2000,12 @@ c_fail:
 							goto c_fail;
 						break;
 					default:
-						seterr(ep,EXPR_ENEA);
+						seterri(ep,EXPR_ENEA);
 						serrinfoc(ep->errinfo,"var");
 						goto c_fail;
 				}
 				if(ep->sset&&expr_symset_search(ep->sset,sym.vv[0],dim=strlenv(sym.vv[0]))){
-					seterr(ep,EXPR_EDS);
+					seterri(ep,EXPR_EDS);
 					serrinfo(ep->errinfo,sym.vv[0],dim);
 					goto c_fail;
 				}
@@ -2021,13 +2031,13 @@ c_fail:
 							goto c_fail;
 						break;
 					default:
-						seterr(ep,EXPR_ENEA);
+						seterri(ep,EXPR_ENEA);
 						serrinfoc(ep->errinfo,"decl");
 						goto c_fail;
 				}
 				cknp(ep,expr_detach(ep)>=0,goto c_fail);
 				if(!ep->sset||!(sv.es=expr_symset_search(ep->sset,sym.vv[0],dim=strlenv(sym.vv[0])))){
-					seterr(ep,EXPR_ESYMBOL);
+					seterri(ep,EXPR_ESYMBOL);
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 					serrinfo(ep->errinfo,sym.vv[0],dim);
@@ -2046,7 +2056,7 @@ alias_found_decl:
 							}
 							goto c_fail;
 						default:
-							seterr(ep,EXPR_ETNV);
+							seterri(ep,EXPR_ETNV);
 							serrinfo(ep->errinfo,sym.vv[0],dim);
 							goto c_fail;
 					}
@@ -2066,7 +2076,7 @@ alias_found_decl:
 					case 2:
 						break;
 					default:
-						seterr(ep,EXPR_ENEA);
+						seterri(ep,EXPR_ENEA);
 						serrinfoc(ep->errinfo,"hot");
 						goto c_fail;
 				}
@@ -2075,12 +2085,13 @@ alias_found_decl:
 					goto eev;
 				p4=getsym(sym.vv[0],sym.vv[0]+dim);
 				if(unlikely(*p4)){
-					seterr(ep,EXPR_EUO);
+					seterri(ep,EXPR_EUO);
 					*ep->errinfo=*p4;
+					ep->errinfo[1]=0;
 					goto c_fail;
 				}
 				if(ep->sset&&expr_symset_search(ep->sset,sym.vv[0],dim)){
-					seterr(ep,EXPR_EDS);
+					seterri(ep,EXPR_EDS);
 					serrinfo(ep->errinfo,sym.vv[0],dim);
 					goto c_fail;
 				}
@@ -2151,13 +2162,13 @@ use_byte:
 						if(unlikely(sv.i<1||\
 							*sym.vv[1]!='\"'||(un.ccp=sym.vv[1]+sv.i,\
 							findpair_dmark(sym.vv[1],un.ccp)!=un.ccp-1))){\
-							seterr(ep,EXPR_EPT);\
+							seterri(ep,EXPR_EPT);\
 							goto sa_fail;\
 						}\
 					case 1:\
 						break;\
 					default:\
-						seterr(ep,EXPR_ENEA);\
+						seterri(ep,EXPR_ENEA);\
 sa_fail:\
 						serrinfoc(ep->errinfo,errin);\
 						goto c_fail;\
@@ -2169,11 +2180,11 @@ sa_fail:\
 				AT_COMMON("static_assert",sa_fail);
 				if(unlikely(un.v==EXPR_ZERO)){
 					if(dim==1){
-						seterr(ep,EXPR_ESAF);
+						seterri(ep,EXPR_ESAF);
 						serrinfo(ep->errinfo,e+1,(size_t)(p-e-1));
 						goto c_fail;
 					}
-					seterr(ep,EXPR_EUDE);
+					seterri(ep,EXPR_EUDE);
 					dim=sv.i-2;
 					if(dim)
 						expr_strscan(sym.vv[1]+1,dim,ep->errinfo,EXPR_SYMLEN);
@@ -2187,7 +2198,7 @@ sa_fail:\
 				goto vend;
 			case EXPR_EQ:
 				AT_COMMON("throw",th_fail);
-				seterr(ep,etoi0(un.v));
+				seterri(ep,etoi0(un.v));
 				if(dim==1){
 					*ep->errinfo=0;
 					goto c_fail;
@@ -2211,8 +2222,8 @@ sa_fail:\
 				e=p+1;
 				goto vend;
 #define goto_symerr {\
+	seterri(ep,EXPR_ESYMBOL);\
 	serrinfo(ep->errinfo,e,(size_t)(p-e));\
-	seterr(ep,EXPR_ESYMBOL);\
 	return NULL;\
 }
 
@@ -2337,7 +2348,7 @@ found2:
 					}else {
 						if(unlikely(type&EXPR_ISETABLE&~flag)){
 flpm:
-							seterr(ep,EXPR_EPM);
+							seterri(ep,EXPR_EPM);
 							serrinfoc(ep->errinfo,"flag");
 							return NULL;
 						}
@@ -2358,7 +2369,7 @@ flpm:
 				goto vend;
 			case EXPR_XORL:
 				if(unlikely(p!=e+1)){
-					seterr(ep,EXPR_EZAFP);
+					seterri(ep,EXPR_EZAFP);
 					serrinfoc(ep->errinfo,"scope");
 					return NULL;
 				}
@@ -2412,8 +2423,8 @@ flpm:
 						break;
 					default:
 						if(unlikely(ep->sset&&expr_symset_search(ep->sset,e+1,(size_t)(p-e-1)))){
+							seterri(ep,EXPR_EDS);
 							serrinfo(ep->errinfo,e+1,(size_t)(p-e-1));
-							seterr(ep,EXPR_EDS);
 							return NULL;
 						}
 						type=1;
@@ -2442,7 +2453,7 @@ flpm:
 					case 2:
 						break;
 					default:
-						seterr(ep,EXPR_ENEA);
+						seterri(ep,EXPR_ENEA);
 						serrinfoc(ep->errinfo,"alias");
 						goto c_fail;
 				}
@@ -2451,12 +2462,13 @@ flpm:
 					goto eev;
 				p4=getsym(sym.vv[0],sym.vv[0]+dim);
 				if(unlikely(*p4)){
-					seterr(ep,EXPR_EUO);
+					seterri(ep,EXPR_EUO);
 					*ep->errinfo=*p4;
+					ep->errinfo[1]=0;
 					goto c_fail;
 				}
 				if(ep->sset&&expr_symset_search(ep->sset,sym.vv[0],dim)){
-					seterr(ep,EXPR_EDS);
+					seterri(ep,EXPR_EDS);
 					serrinfo(ep->errinfo,sym.vv[0],dim);
 					goto c_fail;
 				}
@@ -2482,11 +2494,11 @@ flpm:
 					if(dim)
 						expr_strscan(e+2,dim,ep->errinfo,EXPR_SYMLEN);
 				}
-				seterr(ep,EXPR_EUDE);
+				seterri(ep,EXPR_EUDE);
 				return NULL;
 			case EXPR_NEX0:
 				if(p<=e+1){
-					seterr(ep,EXPR_ENEA);
+					seterri(ep,EXPR_ENEA);
 					serrinfoc(ep->errinfo,"import");
 					return NULL;
 				}
@@ -2504,7 +2516,7 @@ flpm:
 				goto vend;
 			case EXPR_DIF0:
 				if(p<=e+1){
-					seterr(ep,EXPR_ENEA);
+					seterri(ep,EXPR_ENEA);
 					serrinfoc(ep->errinfo,"include");
 					return NULL;
 				}
@@ -2515,13 +2527,13 @@ flpm:
 				goto vend;
 			case EXPR_ZA:
 				if(p<=e+1){
-					seterr(ep,EXPR_ENEA);
+					seterri(ep,EXPR_ENEA);
 convert_error:
 					serrinfoc(ep->errinfo,"convert");
 					return NULL;
 				}
 				if(unlikely(e[1]!='\"'||findpair_dmark(e+1,endp)!=p-1)){
-					seterr(ep,EXPR_EPT);
+					seterri(ep,EXPR_EPT);
 					goto convert_error;
 				}
 				un.cp=expr_astrscan(e+2,(size_t)(p-e-3),&sv.i);
@@ -2560,7 +2572,7 @@ convert_error:
 						dim=(size_t)fabs(un.v);
 						break;
 					default:
-						seterr(ep,EXPR_ENEA);
+						seterri(ep,EXPR_ENEA);
 						serrinfoc(ep->errinfo,"alloca");
 						goto c_fail;
 				}
@@ -2591,7 +2603,7 @@ convert_error:
 						break;
 					default:
 svc_enea:
-						seterr(ep,EXPR_ENEA);
+						seterri(ep,EXPR_ENEA);
 						serrinfoc(ep->errinfo,"svcp");
 						goto c_fail;
 				}
@@ -2615,7 +2627,7 @@ svc_enea:
 					case 1 ... EXPR_SYSAM+1:
 						break;
 					default:
-						seterr(ep,EXPR_ENEA);
+						seterri(ep,EXPR_ENEA);
 						serrinfoc(ep->errinfo,"svc");
 						goto c_fail;
 				}
@@ -2651,7 +2663,7 @@ svc_enea:
 					return NULL;
 				for(un.vv1=sym.vv;*un.vv1;++un.vv1);
 				if(unlikely(un.vv1-sym.vv!=2)){
-					seterr(ep,EXPR_ENEA);
+					seterri(ep,EXPR_ENEA);
 					serrinfoc(ep->errinfo,"longjmp");
 					goto c_fail;
 				}
@@ -2675,7 +2687,7 @@ svc_enea:
 						case 0 ... 3:
 							break;
 						default:
-							seterr(ep,EXPR_EZAFP);
+							seterri(ep,EXPR_EZAFP);
 							serrinfoc(ep->errinfo,"ip");
 							return NULL;
 					}
@@ -2712,7 +2724,7 @@ svc_enea:
 							goto c_fail;\
 						break;\
 					default:\
-						seterr(ep,EXPR_ENEA);\
+						seterri(ep,EXPR_ENEA);\
 						serrinfoc(ep->errinfo,_err);\
 						goto c_fail;\
 				}\
@@ -2747,8 +2759,9 @@ svc_enea:
 								case EXPR_IF:
 									break;
 								default:
-									seterr(ep,EXPR_EUO);
+									seterri(ep,EXPR_EUO);
 									*ep->errinfo='{';
+									ep->errinfo[1]=0;
 									return NULL;
 							}
 							e=p;
@@ -2889,8 +2902,8 @@ fpm:
 			setunsafe(ep);
 fok:
 			if(unlikely(p>=endp||*p!='(')){
+				seterri(ep,EXPR_EFP);
 				serrinfo(ep->errinfo,e,(size_t)(p-e));
-				seterr(ep,EXPR_EFP);
 				return NULL;
 			}
 			e=p;
@@ -2916,8 +2929,8 @@ fok:
 			goto vend;
 		case EXPR_ZAFUNCTION:
 			if(unlikely(p+1>=endp||*p!='('||p[1]!=')')){
+				seterri(ep,EXPR_EZAFP);
 				serrinfo(ep->errinfo,e,(size_t)(p-e));
-				seterr(ep,EXPR_EZAFP);
 				return NULL;
 			}
 			v0=expr_newvar(ep);
@@ -2942,8 +2955,8 @@ fok:
 				goto vend;
 			}
 			if(unlikely(p>=endp||*p!='(')){
+				seterri(ep,EXPR_EFP);
 				serrinfo(ep->errinfo,e,(size_t)(p-e));
-				seterr(ep,EXPR_EFP);
 				return NULL;
 			}
 			p2=e;
@@ -2971,7 +2984,7 @@ fok:
 		case EXPR_CONSTANT:
 #if UNABLE_GETADDR_IN_PROTECTED_MODE
 			if(unlikely((flag&EXPR_SPACKAGE)&&(ep->iflag&EXPR_IPROTECT))){
-				seterr(ep,EXPR_EPM);
+				seterri(ep,EXPR_EPM);
 				serrinfo(ep->errinfo,e,(size_t)(p-e));
 				return NULL;
 			}
@@ -2992,7 +3005,7 @@ fok:
 					p=findpair(e,endp);
 					if(unlikely(!p))
 						goto pterr;
-					seterr(ep,EXPR_EPM);
+					seterri(ep,EXPR_EPM);
 					serrinfo(ep->errinfo,e0,(size_t)(e-e0));
 					return NULL;
 				}
@@ -3058,8 +3071,8 @@ fok:
 		case EXPR_MDFUNCTION:
 		case EXPR_MDEPFUNCTION:
 			if(p>=endp||*p!='('){
+				seterri(ep,EXPR_EFP);
 				serrinfo(ep->errinfo,e,(size_t)(p-e));
-				seterr(ep,EXPR_EFP);
 				return NULL;
 			}
 			p2=e;
@@ -3093,7 +3106,7 @@ fok:
 			goto vend;
 		case EXPR_ALIAS:
 			if(p>=endp||*p!='='){
-				seterr(ep,EXPR_EANT);
+				seterri(ep,EXPR_EANT);
 				serrinfo(ep->errinfo,sym.es->str,sym.es->strlen);
 				return NULL;
 			}
@@ -3117,8 +3130,8 @@ number:
 			if(!dol)
 				goto sym_notfound;
 			p=getsym(e,endp);
+			seterri(ep,EXPR_ENUMBER);
 			serrinfo(ep->errinfo,e,(size_t)(p-e));
-			seterr(ep,EXPR_ENUMBER);
 			return NULL;
 		case 1:
 			v0=expr_newvar(ep);
@@ -3136,8 +3149,8 @@ number:
 	}
 /*
 ein:
+	seterri(ep,EXPR_EPURE);
 	serrinfo(ep->errinfo,e,(size_t)(p-e));
-	seterr(ep,EXPR_EPURE);
 	return NULL;
 */
 sym_notfound:
@@ -3159,8 +3172,8 @@ p2sget:
 			}
 		}else {
 eds:
+			seterri(ep,EXPR_EDS);
 			serrinfo(ep->errinfo,p2,sv.i);
-			seterr(ep,EXPR_EDS);
 		}
 	}
 	*/
@@ -3226,8 +3239,8 @@ constant:
 			goto vend;
 	}
 pm:
+	seterri(ep,EXPR_EPM);
 	serrinfo(ep->errinfo,e,(size_t)(p-e));
-	seterr(ep,EXPR_EPM);
 	return NULL;
 vend:
 	if(e<endp&&*e=='['){
@@ -3235,7 +3248,7 @@ vend:
 			p=findpair_bracket(e,endp);
 			if(unlikely(!p))
 				goto pterr;
-			seterr(ep,EXPR_EPM);
+			seterri(ep,EXPR_EPM);
 			serrinfo(ep->errinfo,e0,(size_t)(p-e0+1));
 			return NULL;
 		}
@@ -3365,8 +3378,9 @@ redo:
 			if(unlikely(unary&UINT64_C(0xf000000000000000))){
 				if(e<endp&&expr_operator(*e)){
 euo:
+					seterri(ep,EXPR_EUO);
 					*ep->errinfo=*e;
-					seterr(ep,EXPR_EUO);
+					ep->errinfo[1]=0;
 				}else {
 eev:
 					seterr(ep,EXPR_EEV);
@@ -3413,7 +3427,20 @@ eev:
 				goto eev;
 			goto redo;
 	}
+#define ep_recursive_start(onerr) ({\
+	++ep->recursive;\
+	debug("current recursive: %u",ep->recursive);\
+	if(ep->iflag&EXPR_IRECURSIVELIMIT){\
+		if(unlikely(ep->recursive>((unsigned int)ep->iflag>>EXPR_IRECURSIVE_SHIFT))){\
+			seterr(ep,EXPR_EREC);\
+			onerr;\
+		}\
+	}\
+})
+#define ep_recursive_end() --ep->recursive
+	ep_recursive_start(goto err);
 	v1=getvalue(ep,e,endp,&e,asym,asymlen);
+	ep_recursive_end();
 	if(unlikely(!v1))
 		goto err;
 	p=vnadd(ep,ev,v1,op,unary);
@@ -3521,7 +3548,7 @@ rescan:
 							if(unlikely(!p1))
 								goto pterr;
 							if(unlikely(ep->iflag&EXPR_IPROTECT)){
-								seterr(ep,EXPR_EPM);
+								seterri(ep,EXPR_EPM);
 								serrinfo(ep->errinfo,e,(size_t)(p1-e+1));
 								goto err;
 							}
@@ -3550,7 +3577,7 @@ envp:
 								p1=findpair_bracket(p1+1,endp);
 								if(unlikely(!p1))
 									goto pterr;
-								seterr(ep,EXPR_EPM);
+								seterri(ep,EXPR_EPM);
 								serrinfo(ep->errinfo,e,(size_t)(p1-e+1));
 								goto err;
 							}
@@ -3561,8 +3588,9 @@ envp:
 							break;
 					}
 					if(expr_operator(*e)){
+						seterri(ep,EXPR_EUO);
 						*ep->errinfo=*e;
-						seterr(ep,EXPR_EUO);
+						ep->errinfo[1]=0;
 					}else {
 						seterr(ep,EXPR_EEV);
 					}
@@ -3574,8 +3602,8 @@ envp:
 				}
 				esp=readsymbol(ep,e,(size_t)(p1-e),1,1);
 				if(unlikely(!esp)){
+					//seterri(ep,EXPR_ESYMBOL);
 					//serrinfo(ep->errinfo,e,(size_t)(p1-e));
-					//seterr(ep,EXPR_ESYMBOL);
 					goto err;
 				}
 				e1=e;
@@ -3586,7 +3614,7 @@ envp:
 					if(unlikely(!p1))
 						goto pterr;
 					if(unlikely(ep->iflag&EXPR_IPROTECT)){
-						seterr(ep,EXPR_EPM);
+						seterri(ep,EXPR_EPM);
 						serrinfo(ep->errinfo,e1,(size_t)(p1-e1+1));
 						goto err;
 					}
@@ -3602,7 +3630,9 @@ multi_dim:
 						if(unlikely(p1==e+1))
 							goto envp;
 					}
+					ep_recursive_start(goto err);
 					v3=getvalue(ep,e1,e,NULL,asym,asymlen);
+					ep_recursive_end();
 					cknp(ep,v3,goto err);
 					v2=scan(ep,e+1,p1,asym,asymlen);
 					if(unlikely(!v2))
@@ -3627,7 +3657,7 @@ multi_dim:
 						default:
 							serrinfo(ep->errinfo,esp->str,esp->strlen);
 tnv:
-							seterr(ep,EXPR_ETNV);
+							seterri(ep,EXPR_ETNV);
 							goto err;
 					}
 				}
@@ -3647,8 +3677,9 @@ bracket_end:
 				p1=getsym(e,endp);
 				if(unlikely(p1==e)){
 					if(*e&&expr_operator(*e)){
+						seterri(ep,EXPR_EUO);
 						*ep->errinfo=*e;
-						seterr(ep,EXPR_EUO);
+						ep->errinfo[1]=0;
 					}else {
 						seterr(ep,EXPR_EEV);
 					}
@@ -3671,7 +3702,7 @@ bracket_end:
 							goto v2_get;
 						}
 					}
-					seterr(ep,EXPR_EDS);
+					seterri(ep,EXPR_EDS);
 					serrinfo(ep->errinfo,esp->str,esp->strlen);
 					goto err;
 				}else {
@@ -3746,7 +3777,7 @@ pterr:
 		default:
 			if(unlikely(expr_operator(*e)))
 				goto euo;
-			seterr(ep,EXPR_EUSN);
+			seterri(ep,EXPR_EUSN);
 			serrinfo(ep->errinfo,e,(size_t)(getsym(e,endp)-e));
 			goto err;
 	}
@@ -3940,8 +3971,17 @@ int expr_init8_r(struct expr *restrict ep,const char *e,size_t len,const char *a
 	expr_t *v;
 	debug("len(%p)=%zu,*e=%d",e,len,(int)*e);
 	memset(ep,0,sizeof(struct expr));
+	if(parent){
+		ep->parent=parent;
+		ep->recursive=parent->recursive+1;
+		if(flag&EXPR_IRECURSIVELIMIT){
+			if(unlikely(ep->recursive>((unsigned int)flag>>EXPR_IRECURSIVE_SHIFT))){
+				seterr(ep,EXPR_EREC);
+				return -1;
+			}
+		}
+	}
 	ep->sset=esp;
-	ep->parent=(struct expr *)parent;
 	ep->mtl=mtl;
 	ep->iflag=(unsigned int)(flag&~EXPR_IEXTEND_MASK);
 	if((flag&EXPR_IABSORBSYMSET)&&esp){

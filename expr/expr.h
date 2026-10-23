@@ -470,6 +470,7 @@ EXPR_END
 #define EXPR_EVZP 22
 #define EXPR_EANT 23
 #define EXPR_EUDE 24
+#define EXPR_EREC 25
 
 #define EXPR_CONSTANT 0
 #define EXPR_VARIABLE 1
@@ -506,25 +507,6 @@ EXPR_END
 #define EXPR_SPME EXPR_SNONBUILTIN
 #define EXPR_SPFUNC 12
 #define EXPR_SPMASK (~12)
-//expr initial flag
-#define EXPR_INOOPTIMIZE 1
-#define EXPR_IINSTANT_FREE 2
-
-#define EXPR_IPURE 4
-#define EXPR_INOKEYWORD 8
-#define EXPR_IPROTECT 16
-#define EXPR_IKEEPSYMSET 128
-#define EXPR_IDETACHSYMSET 256
-#define EXPR_IUNSAFE 512
-#define EXPR_INOSHRINK 1024
-#define EXPR_ISCANCACHE 2048
-#define EXPR_IABSORBSYMSET 4096
-#define EXPR_IREMOVEBLANK 8192
-
-#define EXPR_IEXTEND_MASK (\
-		EXPR_IINSTANT_FREE|EXPR_IABSORBSYMSET\
-		)
-#define EXPR_ISETABLE (EXPR_IPURE|EXPR_INOKEYWORD|EXPR_IPROTECT|EXPR_ISCANCACHE)
 
 //expr keyword flag
 #define EXPR_KSUBEXPR 1
@@ -1594,6 +1576,34 @@ struct expr_strtod_workspace {
 		__builtin_unreachable();\
 	}\
 })
+
+#define EXPR_RECURSIVE_DEFAULT 8
+
+//expr initial flag
+#define EXPR_INOOPTIMIZE 1
+#define EXPR_IINSTANT_FREE 2
+#define EXPR_IPURE 4
+#define EXPR_INOKEYWORD 8
+#define EXPR_IPROTECT 16
+#define EXPR_IREMOVEBLANK 32
+#define EXPR_IRECURSIVELIMIT 64
+#define EXPR_IKEEPSYMSET 128
+#define EXPR_IDETACHSYMSET 256
+#define EXPR_IUNSAFE 512
+#define EXPR_INOSHRINK 1024
+#define EXPR_ISCANCACHE 2048
+#define EXPR_IABSORBSYMSET 4096
+
+#define EXPR_IRECURSIVE_SHIFT 13
+
+expr_static_assert((1<<EXPR_IRECURSIVE_SHIFT)==8192);
+
+#define EXPR_IEXTEND_MASK (EXPR_IINSTANT_FREE|EXPR_IABSORBSYMSET)
+#define EXPR_ISETABLE (EXPR_IPURE|EXPR_INOKEYWORD|EXPR_IPROTECT|EXPR_ISCANCACHE)
+
+#define EXPR_IRECURSIVELIMIT_DEFAULT (EXPR_IRECURSIVELIMIT|(EXPR_RECURSIVE_DEFAULT<<EXPR_IRECURSIVE_SHIFT))
+#define EXPR_IDEFAULT (EXPR_IPROTECT|EXPR_IRECURSIVELIMIT_DEFAULT)
+
 struct expr {
 	struct expr_inst *data;
 	size_t size,length;
@@ -1613,11 +1623,13 @@ struct expr {
 			} end[1];
 			struct expr_inst **ipp;
 		};
-		char errinfo[EXPR_SYMLEN];
+		char errinfo[expr_align(EXPR_SYMLEN)];
 	};
 	int error;
-	unsigned int iflag:sizeof(int)*8-3,freeable:1,sset_shouldfree:1,isconst:1;
+	unsigned int recursive,iflag;
+	unsigned int unused:sizeof(int)*8-3,freeable:1,sset_shouldfree:1,isconst:1;
 };
+
 //global functions of expr-alloc.c :
 int expr_area_init(struct expr_area *restrict area,void *zone,size_t size);
 int expr_area_init4(struct expr_area *restrict area,void *zone,size_t size,int flag);
@@ -1895,10 +1907,10 @@ extern const uint8_t expr_number_table[256];
 #define expr_symbol_vcreate(sym,type,flag,ap) expr_symbol_vcreate_r(sym,type,flag,expr_defmtl,ap)
 #define expr_symbol_vcreatel(sym,symlen,type,flag,ap) expr_symbol_vcreatel_r(sym,symlen,type,flag,expr_defmtl,ap)
 
-#define expr_calc4_r(e,error,errinfo,esp,mtl) expr_calc5_r(e,error,errinfo,esp,EXPR_INOOPTIMIZE|EXPR_IPROTECT,mtl)
-#define expr_calc3_r(e,error,errinfo,mtl) expr_calc5_r(e,error,errinfo,NULL,EXPR_INOOPTIMIZE|EXPR_IPROTECT,mtl)
+#define expr_calc4_r(e,error,errinfo,esp,mtl) expr_calc5_r(e,error,errinfo,esp,EXPR_INOOPTIMIZE|EXPR_IDEFAULT,mtl)
+#define expr_calc3_r(e,error,errinfo,mtl) expr_calc5_r(e,error,errinfo,NULL,EXPR_INOOPTIMIZE|EXPR_IDEFAULT,mtl)
 #define expr_calc2_r(e,flag,mtl) expr_calc5_r(e,NULL,NULL,NULL,flag,mtl)
-#define expr_calc_r(e,mtl) expr_calc5_r(e,NULL,NULL,NULL,EXPR_INOOPTIMIZE|EXPR_IPROTECT,mtl)
+#define expr_calc_r(e,mtl) expr_calc5_r(e,NULL,NULL,NULL,EXPR_INOOPTIMIZE|EXPR_IDEFAULT,mtl)
 
 #define expr_calc5(e,error,errinfo,esp,flag) expr_calc5_r(e,error,errinfo,esp,flag,expr_defmtl)
 #define expr_calc4(e,error,errinfo,esp) expr_calc4_r(e,error,errinfo,esp,expr_defmtl)
@@ -1914,8 +1926,8 @@ extern const uint8_t expr_number_table[256];
 	expr_init8_r(ep,_e,_e?expr_internal_strlen(_e):0,_asym,_asym?expr_internal_strlen(_asym):0,esp,flag,NULL,mtl);\
 })
 #define expr_init4_r(ep,e,asym,flag,mtl) expr_init_r(ep,e,asym,NULL,flag,mtl)
-#define expr_init3_r(ep,e,asym,mtl) expr_init_r(ep,e,asym,NULL,EXPR_IPROTECT,mtl)
-#define expr_init2_r(ep,e,mtl) expr_init_r(ep,e,NULL,NULL,EXPR_IPROTECT,mtl)
+#define expr_init3_r(ep,e,asym,mtl) expr_init_r(ep,e,asym,NULL,EXPR_IDEFAULT,mtl)
+#define expr_init2_r(ep,e,mtl) expr_init_r(ep,e,NULL,NULL,EXPR_IDEFAULT,mtl)
 
 #define expr_init8(ep,e,len,asym,asymlen,esp,flag,parent) expr_init8_r(ep,e,len,asym,asymlen,esp,flag,parent,expr_defmtl)
 #define expr_init7(ep,e,len,asym,asymlen,esp,flag) expr_init7_r(ep,e,len,asym,asymlen,esp,flag,expr_defmtl)
@@ -1934,8 +1946,8 @@ extern const uint8_t expr_number_table[256];
 })
 #define expr_new4_r(e,asym,esp,flag,mtl) expr_new_r(e,asym,esp,flag,NULL,NULL,mtl)
 #define expr_new3_r(e,asym,flag,mtl) expr_new_r(e,asym,NULL,flag,NULL,NULL,mtl)
-#define expr_new2_r(e,asym,mtl) expr_new_r(e,asym,NULL,EXPR_IPROTECT,NULL,NULL,mtl)
-#define expr_new1_r(e,mtl) expr_new_r(e,NULL,NULL,EXPR_IPROTECT,NULL,NULL,mtl)
+#define expr_new2_r(e,asym,mtl) expr_new_r(e,asym,NULL,EXPR_IDEFAULT,NULL,NULL,mtl)
+#define expr_new1_r(e,mtl) expr_new_r(e,NULL,NULL,EXPR_IDEFAULT,NULL,NULL,mtl)
 
 #define expr_new9(e,len,asym,asymlen,esp,flag,error,errinfo,parent) expr_new9_r(e,len,asym,asymlen,esp,flag,error,errinfo,parent,expr_defmtl)
 #define expr_new8(e,len,asym,asymlen,esp,flag,error,errinfo) expr_new8_r(e,len,asym,asymlen,esp,flag,error,errinfo,expr_defmtl)

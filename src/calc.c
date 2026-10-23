@@ -537,6 +537,14 @@ double stepmode(struct expr *ep,double input){
 	}while(!expr_step(ep,input,&r,&ip));
 	return r;
 }
+long atol2(const char *str){
+	long r;
+	char *c;
+	r=strtol(str,&c,10);
+	if(c==str||*c)
+		errx(EXIT_FAILURE,"invaild integer: %s",str);
+	return r;
+}
 double atod2(const char *str){
 	double r;
 	int error=0;
@@ -559,6 +567,7 @@ const struct option ops[]={
 	{"callback",0,NULL,'c'},
 	{"keep",0,NULL,'k'},
 	{"detach",0,NULL,'d'},
+	{"recursive",2,NULL,'R'},
 	{"getchar",0,NULL,'g'},
 	{"help",0,NULL,'h'},
 	{"file",1,NULL,'f'},
@@ -616,7 +625,7 @@ int main(int argc,char **argv){
 		show_help(*argv);
 	opterr=1;
 	for(;;){
-		switch(getopt_long(argc,argv,"pnDt::Nisckdgf:hqS",ops,NULL)){
+		switch(getopt_long(argc,argv,"pnDR::Nisckdgf:hqS",ops,NULL)){
 			case 'p':
 				flag|=EXPR_IPROTECT;
 				break;
@@ -634,6 +643,12 @@ int main(int argc,char **argv){
 				break;
 			case 'd':
 				flag|=EXPR_IDETACHSYMSET;
+				break;
+			case 'R':
+				if(optarg){
+					flag|=(int)(atol2(optarg)<<EXPR_IRECURSIVE_SHIFT)|EXPR_IRECURSIVELIMIT;
+				}else
+					flag|=EXPR_IRECURSIVELIMIT_DEFAULT;
 				break;
 			case 'g':
 				gchr=1;

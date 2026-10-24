@@ -199,7 +199,6 @@ void ckal(void *buf,size_t size){
 void areacheck(size_t size,size_t off){
 	char *buf;
 	struct expr_memtool mtl[1];
-	printf("checking area[%zu]+%zu \r",size,off);
 	buf=malloc(size+off+REDZONE*2);
 	assert(buf);
 	memset(buf,0xcc,size+off+REDZONE*2);
@@ -211,6 +210,7 @@ void areacheck(size_t size,size_t off){
 	for(size_t i=REDZONE+off+size;i<size+off+REDZONE*2;++i){
 		assert(buf[i]==(char)0xcc);
 	}
+	free(buf);
 }
 static int keyword_diff(const char *str,size_t len,const struct expr_builtin_keyword *restrict s){
 	int r=(int)len-(int)s->strlen;
@@ -228,6 +228,7 @@ int main(int argc,char **argv){
 	expr_symset_add(es,"x0",EXPR_VARIABLE,0,&x0);
 	expr_symset_add(es,"defined_symbol",EXPR_CONSTANT,0,2304.0);
 	setvbuf(stdout,NULL,_IONBF,0);
+	printf("checking area[%zu-%zu] + %zu-%zu",sizeof(struct expr_area)+sizeof(struct expr_zoneunit)*2-1,(size_t)4096,(size_t)0,sizeof(struct expr_zoneunit)-1);
 	for(size_t i=sizeof(struct expr_area)+sizeof(struct expr_zoneunit)*2-1;i<=4096;++i)
 		for(size_t j=0;j<sizeof(struct expr_zoneunit);++j)
 			areacheck(i,j);

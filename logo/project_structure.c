@@ -26,7 +26,7 @@ int main(void){
 	struct graph gp[1];
 	intptr_t tofd;
 	assert(!init_graph(gp,1280 RESIZE,720 RESIZE,32,-RATIO,RATIO,-(RATIO*720/1080),(RATIO*720/1080)));
-	graph_fill(gp,0xbfffffff);
+	graph_fill(gp,0xefffffff);
 	graph_draw_box_pixel(gp,0xff00ff00,0,0,0,gp->width-1,gp->height-1);
 	//graph_draw_box_pixel(gp,0xff00ff00,0,20 RESIZE,540 RESIZE,660 RESIZE,680 RESIZE);
 	graph_draw_boxedtext(gp,0xff00cf00,0,"Graph Drawer",70 RESIZE,560 RESIZE);

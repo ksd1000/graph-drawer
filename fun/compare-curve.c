@@ -92,7 +92,7 @@ void draw_curve(double max_time){
 	int32_t l=0;
 	int32_t y0;
 	assert(!init_graph(gp,1280,720,32,-1,MAX_TIMES+0.5,-max_time/16,max_time+0.5));
-	graph_fill(gp,0xbfffffff);
+	graph_fill(gp,0xefffffff);
 	gp->connect=0;
 	graph_draw_grid(gp,0xffbfbfbf,0,MAX_TIMES/16,max_time/8);
 	graph_draw_axis(gp,0xff000000,0,MAX_TIMES/16,max_time/8,16);

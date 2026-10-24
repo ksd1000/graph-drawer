@@ -110,7 +110,7 @@ int main(void){
 	intptr_t tofd;
 	volatile double current;
 	assert(!init_graph(gp,1280 RESIZE,720 RESIZE,32,-RATIO,RATIO,-(RATIO*720/1080),(RATIO*720/1080)));
-	graph_fill(gp,0xbfffffff);
+	graph_fill(gp,0xefffffff);
 	gp->draw_value=0;
 	graph_draw_grid(gp,0xffbfbfbf,0,1.0,1.0);
 	graph_draw_axis(gp,0xff000000,0,1.0,1.0,8);

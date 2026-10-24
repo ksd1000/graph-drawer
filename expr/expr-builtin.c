@@ -533,7 +533,7 @@ static double bsort_old(const struct expr *args,size_t n,double input){
 	return 0.0;
 }
 static double bcontract(const struct expr *args,size_t n,double input){
-	expr_contract(cast(eval(args,input),void *),(size_t)fabs(eval(args+1,input)),0);
+	expr_contract(cast(eval(args,input),void *),(size_t)fabs(eval(args+1,input)));
 	return 0.0;
 }
 static double bassert(const struct expr *args,size_t n,double input){

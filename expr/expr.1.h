@@ -987,7 +987,13 @@ struct expr_ftable {
 	const struct expr_writefmt *fmts;
 	uint8_t c[256];
 	char fph,digit,bitwidth,readarg,readarg2;
-	char unused[3];
+	unsigned char fph_set:1,
+		      digit_set:1,
+		      bitwidth_set:1,
+		      readarg_set:1,
+		      readarg2_set:1,
+		      unused_bf:sizeof(unsigned char)*8-5;
+	char unused[2];
 };
 struct expr_memfd {
 	void *buf;

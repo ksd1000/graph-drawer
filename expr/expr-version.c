@@ -53,11 +53,10 @@ void printprog(size_t size,size_t c,size_t n){
 #ifndef PAGE_SIZE
 #define PAGE_SIZE 4096
 #endif
-void contract_hook(void *buf,size_t size,intptr_t arg){
+void contract_hook(void *buf,size_t size){
 	char *p=(char *)buf,*endp=(char *)buf+size-1;
 	size_t n=(size+PAGE_SIZE-1)/PAGE_SIZE,c=0;
 	size_t old=0;
-	(void)arg;
 	while(p<=endp){
 		*p=0;
 		p+=PAGE_SIZE;

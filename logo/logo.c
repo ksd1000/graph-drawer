@@ -3,7 +3,7 @@
  *License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>*
  *This is free software: you are free to change and redistribute it.           *
  *******************************************************************************/
-// compile command: gcc -I ../graph-drawer/graph ../graph-drawer/logo.c graph/libgraph.a -lm -o logo -Wall -Wextra
+// compile command: gcc -I ../graph-drawer/src -I ../graph-drawer/graph ../graph-drawer/logo/logo.c graph/libgraph.a -lm -o logo -Wall -Wextra
 #define _GNU_SOURCE
 #include <stdlib.h>
 #include <math.h>
@@ -110,7 +110,7 @@ int main(void){
 	intptr_t tofd;
 	volatile double current;
 	assert(!init_graph(gp,1280 RESIZE,720 RESIZE,32,-RATIO,RATIO,-(RATIO*720/1080),(RATIO*720/1080)));
-	graph_fill(gp,0x7fffffff);
+	graph_fill(gp,0xbfffffff);
 	gp->draw_value=0;
 	graph_draw_grid(gp,0xffbfbfbf,0,1.0,1.0);
 	graph_draw_axis(gp,0xff000000,0,1.0,1.0,8);

@@ -238,32 +238,8 @@ static void *xautoadd(void **restrict old,size_t *restrict size,size_t *restrict
 	++(*size);
 	return (char *)r+old_size*n;
 }
-
-#define gcd2(__x,__y) ({\
-	expr_t _x,_y;\
-	int r1;\
-	_x=(__x);\
-	_y=(__y);\
-	r1=(fabs(_x)<fabs(_y));\
-	while(likely(_x!=EXPR_ZERO&&_y!=EXPR_ZERO)){\
-		if(r1^=1)_x=expr_tmod(_x,_y);\
-		else _y=expr_tmod(_y,_x);\
-	}\
-	assume(_x==EXPR_ZERO||_y==EXPR_ZERO);\
-	_x!=EXPR_ZERO?_x:_y;\
-})
-#define lcm2(__x,__y) ({\
-	expr_t _a,_b;\
-	_a=(__x);\
-	_b=(__y);\
-	_a*_b/gcd2(_a,_b);\
-})
-expr_t expr_gcd2(expr_t x,expr_t y){
-	return gcd2(x,y);
-}
-expr_t expr_lcm2(expr_t x,expr_t y){
-	return lcm2(x,y);
-}
+#define gcd2 expr_gcd2
+#define lcm2 expr_lcm2
 
 #define REGKEY(s,op,dim,desc) {s,op,0,sizeof(s)-1,desc}
 #define REGKEYS(s,op,dim,desc) {s,op,EXPR_KSUBEXPR,sizeof(s)-1,desc}

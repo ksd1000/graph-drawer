@@ -69,6 +69,7 @@ expr_static_assert(sizeof(void *)>=sizeof(double));
 #define expr_tor(__a,__b) expr_internal_for(__a,__b)
 #define expr_txor(__a,__b) expr_internal_fxor(__a,__b)
 #define expr_tnot(_x) expr_internal_fxor((_x),EXPR_IMAXO)
+#define expr_tabs(_x) expr_internal_fabs(_x)
 #define expr_tpow(__a,__b) pow(__a,__b)
 #define expr_tmod(__a,__b) fmod(__a,__b)
 #define expr_tscan(_str,_size,_outsize,_mtl) expr_internal_strtod_mtl_force(_str,_size,_outsize,_mtl)
@@ -212,14 +213,15 @@ struct expr_internal_jmpbuf {
 #undef fmod
 #define fmod expr_internal_fmod
 #endif
+
 #if !(defined(EXPR_LIBC_POW_IMPL)&&(EXPR_LIBC_POW_IMPL))
 #undef pow
 #define pow expr_internal_pow
 #endif
-#if !(defined(EXPR_LIBC_FABS_IMPL)&&(EXPR_LIBC_FABS_IMPL))
+
 #undef fabs
 #define fabs expr_internal_fabs
-#endif
+
 #if !(defined(EXPR_LIBC_STRING_IMPL)&&(EXPR_LIBC_STRING_IMPL))
 #undef memchr
 #undef memset
@@ -262,6 +264,7 @@ struct expr_internal_jmpbuf {
 #define assume(cond) expr_assume(cond)
 #define cast(X,T) expr_cast(X,T)
 #define extget expr_extarg_get
+
 
 #define BUFSIZE_INITIAL EXPR_BUFSIZE_INITIAL
 
@@ -600,6 +603,27 @@ EXPR_END
 #define expr_bswap16(x) __builtin_bswap16(x)
 #define expr_bswap32(x) __builtin_bswap32(x)
 #define expr_bswap64(x) __builtin_bswap64(x)
+
+#define expr_gcd2(__x,__y) ({\
+	expr_t _x,_y;\
+	int r1;\
+	_x=(__x);\
+	_y=(__y);\
+	r1=(expr_tabs(_x)<expr_tabs(_y));\
+	while(expr_likely(_x!=EXPR_ZERO&&_y!=EXPR_ZERO)){\
+		if(r1^=1)_x=expr_tmod(_x,_y);\
+		else _y=expr_tmod(_y,_x);\
+	}\
+	assume(_x==EXPR_ZERO||_y==EXPR_ZERO);\
+	_x!=EXPR_ZERO?_x:_y;\
+})
+
+#define expr_lcm2(__x,__y) ({\
+	expr_t _a,_b;\
+	_a=(__x);\
+	_b=(__y);\
+	_a*_b/expr_gcd2(_a,_b);\
+})
 
 #define expr_cast(x,type) \
 	({\

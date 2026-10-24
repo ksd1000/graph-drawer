@@ -8,12 +8,12 @@ dump() {
 cat expr.1.h > expr.h
 dump expr-alloc.c
 dump expr-buffered.c
-dump expr-builtin.c
 dump expr-core.c
-dump expr-symext.c
 dump expr-format.c
-dump expr-global.c
 dump expr-internal.c
+dump expr-symext.c
+dump expr-builtin.c
+dump expr-global.c
 echo "#if !(defined(EXPR_INLIB)&&(EXPR_INLIB))" >>expr.h
 ./rudump-mf >>expr.h
 #echo "#endif" >>expr.h

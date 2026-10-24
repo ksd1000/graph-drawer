@@ -69,6 +69,7 @@ expr_static_assert(sizeof(void *)>=sizeof(double));
 #define expr_tor(__a,__b) expr_internal_for(__a,__b)
 #define expr_txor(__a,__b) expr_internal_fxor(__a,__b)
 #define expr_tnot(_x) expr_internal_fxor((_x),EXPR_IMAXO)
+#define expr_tabs(_x) expr_internal_fabs(_x)
 #define expr_tpow(__a,__b) pow(__a,__b)
 #define expr_tmod(__a,__b) fmod(__a,__b)
 #define expr_tscan(_str,_size,_outsize,_mtl) expr_internal_strtod_mtl_force(_str,_size,_outsize,_mtl)
@@ -212,14 +213,15 @@ struct expr_internal_jmpbuf {
 #undef fmod
 #define fmod expr_internal_fmod
 #endif
+
 #if !(defined(EXPR_LIBC_POW_IMPL)&&(EXPR_LIBC_POW_IMPL))
 #undef pow
 #define pow expr_internal_pow
 #endif
-#if !(defined(EXPR_LIBC_FABS_IMPL)&&(EXPR_LIBC_FABS_IMPL))
+
 #undef fabs
 #define fabs expr_internal_fabs
-#endif
+
 #if !(defined(EXPR_LIBC_STRING_IMPL)&&(EXPR_LIBC_STRING_IMPL))
 #undef memchr
 #undef memset
@@ -262,6 +264,7 @@ struct expr_internal_jmpbuf {
 #define assume(cond) expr_assume(cond)
 #define cast(X,T) expr_cast(X,T)
 #define extget expr_extarg_get
+
 
 #define BUFSIZE_INITIAL EXPR_BUFSIZE_INITIAL
 
@@ -600,6 +603,27 @@ EXPR_END
 #define expr_bswap16(x) __builtin_bswap16(x)
 #define expr_bswap32(x) __builtin_bswap32(x)
 #define expr_bswap64(x) __builtin_bswap64(x)
+
+#define expr_gcd2(__x,__y) ({\
+	expr_t _x,_y;\
+	int r1;\
+	_x=(__x);\
+	_y=(__y);\
+	r1=(expr_tabs(_x)<expr_tabs(_y));\
+	while(expr_likely(_x!=EXPR_ZERO&&_y!=EXPR_ZERO)){\
+		if(r1^=1)_x=expr_tmod(_x,_y);\
+		else _y=expr_tmod(_y,_x);\
+	}\
+	assume(_x==EXPR_ZERO||_y==EXPR_ZERO);\
+	_x!=EXPR_ZERO?_x:_y;\
+})
+
+#define expr_lcm2(__x,__y) ({\
+	expr_t _a,_b;\
+	_a=(__x);\
+	_b=(__y);\
+	_a*_b/expr_gcd2(_a,_b);\
+})
 
 #define expr_cast(x,type) \
 	({\
@@ -1673,35 +1697,8 @@ ssize_t expr_buffered_readline(struct expr_buffered_file *restrict fp,int c,void
 ssize_t expr_buffered_write_iolbf(struct expr_buffered_file *restrict fp,const void *buf,size_t size);
 ssize_t expr_buffered_write_iolbf_warped(intptr_t fd,const void *buf,size_t size);
 //global externs of expr-buffered.c :
-//global functions of expr-builtin.c :
-uint64_t expr_gcd64(uint64_t x,uint64_t y);
-void expr_mirror(double *buf,size_t size);
-void expr_memfry48(void *restrict buf,size_t size,size_t n,int64_t seed);
-void expr_fry(double *restrict v,size_t n);
-int expr_sort4_r(double *restrict v,size_t n,const struct expr_memtool *restrict mtl);
-void expr_sortq(double *restrict v,size_t n);
-void expr_sort_old(double *restrict v,size_t n);
-void expr_sort(double *v,size_t n);
-double expr_exp_old(double x);
-double expr_multilevel_derivate(const struct expr *ep,double input,long level,double epsilon);
-double expr_and2(double x,double y);
-double expr_or2(double x,double y);
-double expr_xor2(double x,double y);
-double expr_not(double x);
-//global externs of expr-builtin.c :
-extern const struct expr_builtin_symbol expr_symbols_default[];
-extern const struct expr_builtin_symbol expr_symbols_packages[];
-extern const struct expr_builtin_symbol expr_symbols_expr[];
-extern const struct expr_builtin_symbol expr_symbols_common[];
-extern const struct expr_builtin_symbol expr_symbols_syscall[];
-extern const struct expr_builtin_symbol expr_symbols_superseed48[];
-extern const struct expr_builtin_symbol expr_symbols_memory[];
-extern const struct expr_builtin_symbol expr_symbols_symset[];
-extern const struct expr_builtin_symbol expr_symbols_string[];
 //global functions of expr-core.c :
 const char *expr_error(int error);
-expr_t expr_gcd2(expr_t x,expr_t y);
-expr_t expr_lcm2(expr_t x,expr_t y);
 void expr_free2mtl_r(struct expr *restrict ep,int flag,const struct expr_memtool *restrict mtl);
 void expr_free2(struct expr *restrict ep,int flag);
 void expr_free(struct expr *restrict ep);
@@ -1723,33 +1720,6 @@ expr_t expr_callback(const struct expr *restrict ep,expr_t input,const struct ex
 //global externs of expr-core.c :
 extern const struct expr_builtin_keyword expr_keywords[];
 extern const size_t expr_keywords_size;
-//global functions of expr-symext.c :
-const struct expr_builtin_symbol *expr_builtin_symbol_search(const struct expr_builtin_symbol *syms,const char *sym,size_t sz);
-const struct expr_builtin_symbol *expr_builtin_symbol_rsearch(const struct expr_builtin_symbol *syms,void *addr);
-struct expr_symset *expr_builtin_symbol_converts_r(const struct expr_memtool *restrict mtl,const struct expr_builtin_symbol *syms,...);
-struct expr_symset *expr_builtin_symbol_convert_r(const struct expr_builtin_symbol *syms,const struct expr_memtool *restrict mtl);
-int expr_symset_recombine(struct expr_symset *restrict esp,long seed);
-int expr_symset_recombine_s(struct expr_symset *restrict esp,int64_t seed,void *stack);
-int expr_symset_tryrecombine(struct expr_symset *restrict esp,long seed);
-struct expr_symbol *expr_symset_rsearch(const struct expr_symset *restrict esp,void *addr);
-struct expr_symbol *expr_symset_rsearch_s(const struct expr_symset *restrict esp,void *addr,void *stack);
-size_t expr_symset_depth(const struct expr_symset *restrict esp);
-size_t expr_symset_depth_s(const struct expr_symset *restrict esp,void *stack);
-void expr_symset_correct(struct expr_symset *restrict esp);
-void expr_symset_correct_s(struct expr_symset *restrict esp,void *stack);
-size_t expr_symset_length(const struct expr_symset *restrict esp);
-size_t expr_symset_length_s(const struct expr_symset *restrict esp,void *stack);
-size_t expr_symset_size(const struct expr_symset *restrict esp);
-size_t expr_symset_size_s(const struct expr_symset *restrict esp,void *stack);
-void expr_symset_save(struct expr_symset *restrict esp,void *buf);
-void expr_symset_save_s(struct expr_symset *restrict esp,void *buf,void *stack);
-void expr_symset_move(struct expr_symset *restrict esp,ptrdiff_t off);
-void expr_symset_move_s(struct expr_symset *restrict esp,ptrdiff_t off,void *stack);
-ssize_t expr_symset_write(const struct expr_symset *restrict esp,expr_writer writer,intptr_t fd);
-ssize_t expr_symset_write_s(const struct expr_symset *restrict esp,expr_writer writer,intptr_t fd,void *stack);
-ssize_t expr_symset_read(struct expr_symset *restrict esp,const void *buf,size_t size);
-ssize_t expr_symset_readfd(struct expr_symset *restrict esp,expr_reader reader,intptr_t fd);
-//global externs of expr-symext.c :
 //global functions of expr-format.c :
 ssize_t expr_writec_r(expr_writer writer,intptr_t fd,size_t count,int c,const struct expr_memtool *restrict mtl);
 ssize_t expr_converter_common(expr_writer writer,intptr_t fd,const void *buf,size_t size,const struct expr_writeflag *flag);
@@ -1768,32 +1738,6 @@ size_t expr_sscanf_r(const char *str,size_t len,const char *fmt,size_t fmtlen,vo
 extern const struct expr_writefmt expr_writefmts_default[];
 extern const uint8_t expr_writefmts_default_size;
 extern const struct expr_ftable expr_ftable_default[1];
-//global functions of expr-global.c :
-double expr_internal_strtod(const char *restrict nptr,size_t nsize,size_t *restrict end_index);
-__attribute__((noreturn)) void expr_explode(void);
-__attribute__((noreturn)) void expr_trap(void);
-__attribute__((noreturn)) void expr_ubehavior(void);
-ssize_t expr_file_readfd_r(expr_reader reader,intptr_t fd,size_t tail,void *savep,const struct expr_memtool *restrict mtl);
-void expr_mutex_lock(uint32_t *lock);
-int expr_mutex_trylock(uint32_t *lock);
-void expr_mutex_unlock(uint32_t *lock);
-void expr_mutex_spinlock(uint32_t *lock);
-void expr_mutex_spinunlock(uint32_t *lock);
-intptr_t expr_warped_syscall0(int num);
-intptr_t expr_warped_syscall1(int num,intptr_t a0);
-intptr_t expr_warped_syscall2(int num,intptr_t a0,intptr_t a1);
-intptr_t expr_warped_syscall3(int num,intptr_t a0,intptr_t a1,intptr_t a2);
-intptr_t expr_warped_syscall4(int num,intptr_t a0,intptr_t a1,intptr_t a2,intptr_t a3);
-intptr_t expr_warped_syscall5(int num,intptr_t a0,intptr_t a1,intptr_t a2,intptr_t a3,intptr_t a4);
-intptr_t expr_warped_syscall6(int num,intptr_t a0,intptr_t a1,intptr_t a2,intptr_t a3,intptr_t a4,intptr_t a5);
-intptr_t expr_warped_syscall7(int num,intptr_t a0,intptr_t a1,intptr_t a2,intptr_t a3,intptr_t a4,intptr_t a5,intptr_t a6);
-int expr_setup_mtl(int flag);
-void *expr_heapmtl_malloc_nonnull(size_t size,intptr_t arg);
-void *expr_heapmtl_realloc_nonnull(void *old,size_t size,intptr_t arg);
-int expr_setup_heapmtl4_nonnull(struct expr_memtool *restrict mtl,void *heap,size_t size,int flag);
-//global externs of expr-global.c :
-extern const struct expr_libinfo expr_libinfo_current[1];
-extern int expr_mtl_setup;
 //global functions of expr-internal.c :
 size_t expr_strscan(const char *restrict s,size_t sz,char *restrict buf,size_t outsz);
 void expr_contract(void *buf,size_t size,intptr_t arg);
@@ -1885,16 +1829,91 @@ struct expr_symbol *expr_symbol_vcreate_r(const char *sym,int type,int flag,cons
 struct expr_symbol *expr_symbol_vcreatel_r(const char *sym,size_t symlen,int type,int flag,const struct expr_memtool *restrict mtl,va_list ap);
 //global externs of expr-internal.c :
 extern const uint8_t expr_number_table[256];
+//global functions of expr-symext.c :
+const struct expr_builtin_symbol *expr_builtin_symbol_search(const struct expr_builtin_symbol *syms,const char *sym,size_t sz);
+const struct expr_builtin_symbol *expr_builtin_symbol_rsearch(const struct expr_builtin_symbol *syms,void *addr);
+struct expr_symset *expr_builtin_symbol_converts_r(const struct expr_memtool *restrict mtl,const struct expr_builtin_symbol *syms,...);
+struct expr_symset *expr_builtin_symbol_convert_r(const struct expr_builtin_symbol *syms,const struct expr_memtool *restrict mtl);
+int expr_symset_recombine(struct expr_symset *restrict esp,long seed);
+int expr_symset_recombine_s(struct expr_symset *restrict esp,int64_t seed,void *stack);
+int expr_symset_tryrecombine(struct expr_symset *restrict esp,long seed);
+struct expr_symbol *expr_symset_rsearch(const struct expr_symset *restrict esp,void *addr);
+struct expr_symbol *expr_symset_rsearch_s(const struct expr_symset *restrict esp,void *addr,void *stack);
+size_t expr_symset_depth(const struct expr_symset *restrict esp);
+size_t expr_symset_depth_s(const struct expr_symset *restrict esp,void *stack);
+void expr_symset_correct(struct expr_symset *restrict esp);
+void expr_symset_correct_s(struct expr_symset *restrict esp,void *stack);
+size_t expr_symset_length(const struct expr_symset *restrict esp);
+size_t expr_symset_length_s(const struct expr_symset *restrict esp,void *stack);
+size_t expr_symset_size(const struct expr_symset *restrict esp);
+size_t expr_symset_size_s(const struct expr_symset *restrict esp,void *stack);
+void expr_symset_save(struct expr_symset *restrict esp,void *buf);
+void expr_symset_save_s(struct expr_symset *restrict esp,void *buf,void *stack);
+void expr_symset_move(struct expr_symset *restrict esp,ptrdiff_t off);
+void expr_symset_move_s(struct expr_symset *restrict esp,ptrdiff_t off,void *stack);
+ssize_t expr_symset_write(const struct expr_symset *restrict esp,expr_writer writer,intptr_t fd);
+ssize_t expr_symset_write_s(const struct expr_symset *restrict esp,expr_writer writer,intptr_t fd,void *stack);
+ssize_t expr_symset_read(struct expr_symset *restrict esp,const void *buf,size_t size);
+ssize_t expr_symset_readfd(struct expr_symset *restrict esp,expr_reader reader,intptr_t fd);
+//global externs of expr-symext.c :
+//global functions of expr-builtin.c :
+uint64_t expr_gcd64(uint64_t x,uint64_t y);
+void expr_mirror(double *buf,size_t size);
+void expr_memfry48(void *restrict buf,size_t size,size_t n,int64_t seed);
+void expr_fry(double *restrict v,size_t n);
+int expr_sort4_r(double *restrict v,size_t n,const struct expr_memtool *restrict mtl);
+void expr_sortq(double *restrict v,size_t n);
+void expr_sort_old(double *restrict v,size_t n);
+void expr_sort(double *v,size_t n);
+double expr_exp_old(double x);
+double expr_multilevel_derivate(const struct expr *ep,double input,long level,double epsilon);
+double expr_and2(double x,double y);
+double expr_or2(double x,double y);
+double expr_xor2(double x,double y);
+double expr_not(double x);
+//global externs of expr-builtin.c :
+extern const struct expr_builtin_symbol expr_symbols_default[];
+extern const struct expr_builtin_symbol expr_symbols_packages[];
+extern const struct expr_builtin_symbol expr_symbols_expr[];
+extern const struct expr_builtin_symbol expr_symbols_common[];
+extern const struct expr_builtin_symbol expr_symbols_syscall[];
+extern const struct expr_builtin_symbol expr_symbols_superseed48[];
+extern const struct expr_builtin_symbol expr_symbols_memory[];
+extern const struct expr_builtin_symbol expr_symbols_symset[];
+extern const struct expr_builtin_symbol expr_symbols_string[];
+//global functions of expr-global.c :
+double expr_internal_strtod(const char *restrict nptr,size_t nsize,size_t *restrict end_index);
+__attribute__((noreturn)) void expr_explode(void);
+__attribute__((noreturn)) void expr_trap(void);
+__attribute__((noreturn)) void expr_ubehavior(void);
+ssize_t expr_file_readfd_r(expr_reader reader,intptr_t fd,size_t tail,void *savep,const struct expr_memtool *restrict mtl);
+void expr_mutex_lock(uint32_t *lock);
+int expr_mutex_trylock(uint32_t *lock);
+void expr_mutex_unlock(uint32_t *lock);
+void expr_mutex_spinlock(uint32_t *lock);
+void expr_mutex_spinunlock(uint32_t *lock);
+intptr_t expr_warped_syscall0(int num);
+intptr_t expr_warped_syscall1(int num,intptr_t a0);
+intptr_t expr_warped_syscall2(int num,intptr_t a0,intptr_t a1);
+intptr_t expr_warped_syscall3(int num,intptr_t a0,intptr_t a1,intptr_t a2);
+intptr_t expr_warped_syscall4(int num,intptr_t a0,intptr_t a1,intptr_t a2,intptr_t a3);
+intptr_t expr_warped_syscall5(int num,intptr_t a0,intptr_t a1,intptr_t a2,intptr_t a3,intptr_t a4);
+intptr_t expr_warped_syscall6(int num,intptr_t a0,intptr_t a1,intptr_t a2,intptr_t a3,intptr_t a4,intptr_t a5);
+intptr_t expr_warped_syscall7(int num,intptr_t a0,intptr_t a1,intptr_t a2,intptr_t a3,intptr_t a4,intptr_t a5,intptr_t a6);
+int expr_setup_mtl(int flag);
+void *expr_heapmtl_malloc_nonnull(size_t size,intptr_t arg);
+void *expr_heapmtl_realloc_nonnull(void *old,size_t size,intptr_t arg);
+int expr_setup_heapmtl4_nonnull(struct expr_memtool *restrict mtl,void *heap,size_t size,int flag);
+//global externs of expr-global.c :
+extern const struct expr_libinfo expr_libinfo_current[1];
+extern int expr_mtl_setup;
 #if !(defined(EXPR_INLIB)&&(EXPR_INLIB))
-#define expr_sort4(v,n) expr_sort4_r(v,n,expr_defmtl)
 #define expr_free2mtl(ep,flag) expr_free2mtl_r(ep,flag,expr_defmtl)
 #define expr_init_const(ep,val) expr_init_const_r(ep,val,expr_defmtl)
 #define expr_new_const(val) expr_new_const_r(val,expr_defmtl)
 #define expr_init8(ep,e,len,asym,asymlen,esp,flag,extarg) expr_init8_r(ep,e,len,asym,asymlen,esp,flag,extarg,expr_defmtl)
 #define expr_new9(e,len,asym,asymlen,esp,flag,error,errinfo,extarg) expr_new9_r(e,len,asym,asymlen,esp,flag,error,errinfo,extarg,expr_defmtl)
 #define expr_calc5(e,error,errinfo,esp,flag) expr_calc5_r(e,error,errinfo,esp,flag,expr_defmtl)
-#define expr_builtin_symbol_converts(syms,...) expr_builtin_symbol_converts_r(expr_defmtl,syms,##__VA_ARGS__)
-#define expr_builtin_symbol_convert(syms) expr_builtin_symbol_convert_r(syms,expr_defmtl)
 #define expr_writec(writer,fd,count,c) expr_writec_r(writer,fd,count,c,expr_defmtl)
 #define expr_vwritef(fmt,fmtlen,writer,fd,arg,addr) expr_vwritef_r(fmt,fmtlen,writer,fd,arg,addr,expr_defmtl)
 #define expr_vwriteft(fmt,fmtlen,writer,fd,arg,addr,table) expr_vwriteft_r(fmt,fmtlen,writer,fd,arg,addr,table,expr_defmtl)
@@ -1905,13 +1924,16 @@ extern const uint8_t expr_number_table[256];
 #define expr_vsnprintft(buf,buflen,fmt,fmtlen,table,ap) expr_vsnprintft_r(buf,buflen,fmt,fmtlen,table,expr_defmtl,ap)
 #define expr_snprintft(buf,buflen,fmt,fmtlen,table,...) expr_snprintft_r(buf,buflen,fmt,fmtlen,table,expr_defmtl,##__VA_ARGS__)
 #define expr_sscanf(str,len,fmt,fmtlen,addr,addrlen) expr_sscanf_r(str,len,fmt,fmtlen,addr,addrlen,expr_defmtl)
-#define expr_file_readfd(reader,fd,tail,savep) expr_file_readfd_r(reader,fd,tail,savep,expr_defmtl)
 #define expr_symset_init(esp) expr_symset_init_r(esp,expr_defmtl)
 #define expr_symset_new() expr_symset_new_r(expr_defmtl)
 #define expr_symbol_create(sym,type,flag,...) expr_symbol_create_r(sym,type,flag,expr_defmtl,##__VA_ARGS__)
 #define expr_symbol_createl(sym,symlen,type,flag,...) expr_symbol_createl_r(sym,symlen,type,flag,expr_defmtl,##__VA_ARGS__)
 #define expr_symbol_vcreate(sym,type,flag,ap) expr_symbol_vcreate_r(sym,type,flag,expr_defmtl,ap)
 #define expr_symbol_vcreatel(sym,symlen,type,flag,ap) expr_symbol_vcreatel_r(sym,symlen,type,flag,expr_defmtl,ap)
+#define expr_builtin_symbol_converts(syms,...) expr_builtin_symbol_converts_r(expr_defmtl,syms,##__VA_ARGS__)
+#define expr_builtin_symbol_convert(syms) expr_builtin_symbol_convert_r(syms,expr_defmtl)
+#define expr_sort4(v,n) expr_sort4_r(v,n,expr_defmtl)
+#define expr_file_readfd(reader,fd,tail,savep) expr_file_readfd_r(reader,fd,tail,savep,expr_defmtl)
 
 #define expr_calc4_r(e,error,errinfo,esp,mtl) expr_calc5_r(e,error,errinfo,esp,EXPR_INOOPTIMIZE|EXPR_IDEFAULT,mtl)
 #define expr_calc3_r(e,error,errinfo,mtl) expr_calc5_r(e,error,errinfo,NULL,EXPR_INOOPTIMIZE|EXPR_IDEFAULT,mtl)

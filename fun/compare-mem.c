@@ -31,7 +31,7 @@ struct expr_memtool mtl[1];
 //and https://raw.githubusercontent.com/codeplea/tinyexpr/refs/heads/master/tinyexpr.c
 //patch the malloc by include
 
-//compile command: gcc -I ../expr -I ../tinyexpr -I ../graph-drawer/expr ../graph-drawer/fun/compare-mem.c expr/libexpr.a -lm -o compare-mem -Wall -Wextra -O3
+//compile command: gcc -I ../expr -I ../tinyexpr -I ../graph-drawer/expr ../graph-drawer/fun/compare-mem.c ../graph-drawer/expr/expr-{core,internal,format}.c -lm -o compare-mem -Wall -Wextra -O3
 
 struct expr_var_list vars={0};
 struct expr_var *a=NULL;

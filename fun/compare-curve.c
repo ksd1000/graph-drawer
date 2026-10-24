@@ -33,7 +33,7 @@ struct expr_memtool mtl[1];
 //and https://raw.githubusercontent.com/codeplea/tinyexpr/refs/heads/master/tinyexpr.c
 //patch the malloc by include
 
-//compile command: gcc -I ../tinyexpr -I ../graph-drawer -I ../graph-drawer/expr -I ../graph-drawer/graph ../graph-drawer/fun/compare-curve.c expr/libexpr.a graph/libgraph.a -lm -o compare-curve -Wall -Wextra -O3
+//compile command: gcc -I ../tinyexpr -I ../graph-drawer/src -I ../graph-drawer/expr -I ../graph-drawer/graph ../graph-drawer/fun/compare-curve.c ../graph-drawer/expr/expr-{core,internal,alloc}.c graph/libgraph.a -lm -o compare-curve -Wall -Wextra -O3
 
 const char *expression="x0+(5+5+5+5+3+(0.75+1.5))+7.0123456891011121314151617181920+x1";
 //tinyexpr does not allow bitwise and/or.
@@ -92,7 +92,7 @@ void draw_curve(double max_time){
 	int32_t l=0;
 	int32_t y0;
 	assert(!init_graph(gp,1280,720,32,-1,MAX_TIMES+0.5,-max_time/16,max_time+0.5));
-	graph_fill(gp,0x7fffffff);
+	graph_fill(gp,0xbfffffff);
 	gp->connect=0;
 	graph_draw_grid(gp,0xffbfbfbf,0,MAX_TIMES/16,max_time/8);
 	graph_draw_axis(gp,0xff000000,0,MAX_TIMES/16,max_time/8,16);

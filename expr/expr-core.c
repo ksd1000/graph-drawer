@@ -984,12 +984,12 @@ static struct expr_mdinfo *getmdinfo(struct expr *restrict ep,const char *e0,siz
 	}
 #define expr_free_r(ep) expr_free2mtl_r((ep),0,xmtl)
 	if(v1){
-		if(unlikely(expr_init8_r(em->eps,v1,esz,asym,asymlen,ep->sset,(int)ep->iflag,ep,xmtl)<0)){
+		if(unlikely(expr_init8_r(em->eps,v1,esz,asym,asymlen,ep->sset,(int)ep->iflag,ep,NULL)<0)){
 			goto err2;
 		}
 	}else {
 		for(i=0;i<em->dim;++i){
-			if(unlikely(expr_init8_r(em->eps+i,v[i],strlenv(v[i]),asym,asymlen,ep->sset,(int)ep->iflag,ep,xmtl)<0)){
+			if(unlikely(expr_init8_r(em->eps+i,v[i],strlenv(v[i]),asym,asymlen,ep->sset,(int)ep->iflag,ep,NULL)<0)){
 				for(ssize_t k=(ssize_t)i-1;k>=0;--k)
 					expr_free_r(em->eps+k);
 				goto err2;
@@ -1029,11 +1029,11 @@ static void expr_seizeres(struct expr *restrict dst,struct expr *restrict src){
 	src->res=NULL;
 
 }
-#define expr_new8p(e,len,asym,asymlen,esp,flag,error,errinfo,parent) expr_new9_r(e,len,asym,asymlen,esp,flag,error,errinfo,parent,xmtl)
+#define expr_new8p(e,len,asym,asymlen,esp,flag,error,errinfo,parent) expr_new9_r(e,len,asym,asymlen,esp,flag,error,errinfo,parent,NULL)
 static expr_t consteval(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *sset,struct expr *restrict parent){
 	struct expr *ep;
 	expr_t r;
-	ep=expr_new9_r(e,len,asym,asymlen,sset,(int)parent->iflag&~EXPR_INOOPTIMIZE,&parent->error,parent->errinfo,parent,parent->mtl);
+	ep=expr_new8p(e,len,asym,asymlen,sset,(int)parent->iflag&~EXPR_INOOPTIMIZE,&parent->error,parent->errinfo,parent);
 	if(unlikely(!ep))
 		return EXPR_FAIL;
 	if(unlikely(!expr_isconst(ep))){
@@ -1050,7 +1050,7 @@ static expr_t consteval(const char *e,size_t len,const char *asym,size_t asymlen
 static expr_t nonconsteval(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *sset,struct expr *restrict parent){
 	struct expr *ep;
 	expr_t r;
-	ep=expr_new9_r(e,len,asym,asymlen,sset,(int)parent->iflag&~EXPR_INOOPTIMIZE,&parent->error,parent->errinfo,parent,parent->mtl);
+	ep=expr_new8p(e,len,asym,asymlen,sset,(int)parent->iflag&~EXPR_INOOPTIMIZE,&parent->error,parent->errinfo,parent);
 	if(unlikely(!ep))
 		return EXPR_FAIL;
 	r=eval(ep,EXPR_ZERO);
@@ -1061,7 +1061,7 @@ static expr_t nonconsteval(const char *e,size_t len,const char *asym,size_t asym
 static expr_t constcheck(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *sset,struct expr *restrict parent){
 	struct expr *ep;
 	expr_t r;
-	ep=expr_new9_r(e,len,asym,asymlen,sset,(int)parent->iflag&~EXPR_INOOPTIMIZE,&parent->error,parent->errinfo,parent,parent->mtl);
+	ep=expr_new8p(e,len,asym,asymlen,sset,(int)parent->iflag&~EXPR_INOOPTIMIZE,&parent->error,parent->errinfo,parent);
 	if(unlikely(!ep))
 		return EXPR_FAIL;
 	r=expr_isconst(ep)?EXPR_ONE:EXPR_ZERO;;
@@ -1414,7 +1414,7 @@ static expr_t *gethot(struct expr *restrict ep,const char *e0,size_t sz,const ch
 	if(unlikely(!eh->hotfunc))
 		goto err1;
 	for(i=0;i<n;++i){
-		if(unlikely(expr_init8_r(eh->eps+i,ve[i],strlenv(ve[i]),asym,asymlen,ep->sset,(int)ep->iflag,ep,xmtl)<0)){
+		if(unlikely(expr_init8_r(eh->eps+i,ve[i],strlenv(ve[i]),asym,asymlen,ep->sset,(int)ep->iflag,ep,NULL)<0)){
 			for(ssize_t k=(ssize_t)i-1;k>=0;--k)
 				expr_free_r(eh->eps+k);
 			goto err2;
@@ -3428,16 +3428,14 @@ eev:
 			goto redo;
 	}
 #define ep_recursive_start(onerr) ({\
-	++ep->recursive;\
-	debug("current recursive: %u",ep->recursive);\
-	if(ep->iflag&EXPR_IRECURSIVELIMIT){\
-		if(unlikely(ep->recursive>((unsigned int)ep->iflag>>EXPR_IRECURSIVE_SHIFT))){\
-			seterr(ep,EXPR_EREC);\
-			onerr;\
-		}\
+	debug("available recursive: %u ,parent=%p",ep->recursive,ep->parent);\
+	if(unlikely((ep->iflag&EXPR_IRECURSIVELIMIT)&&!ep->recursive)){\
+		seterr(ep,EXPR_EREC);\
+		onerr;\
 	}\
+	--ep->recursive;\
 })
-#define ep_recursive_end() --ep->recursive
+#define ep_recursive_end() ++ep->recursive
 	ep_recursive_start(goto err);
 	v1=getvalue(ep,e,endp,&e,asym,asymlen);
 	ep_recursive_end();
@@ -3906,6 +3904,27 @@ static int expr_find_recursive_callback(struct expr *restrict ep,void *arg){
 	}
 	return 0;
 }
+static char *stpcpy_noblank(char *restrict s1,const char *restrict s2,const char *endp,int subexpr){
+	const char *s20=(const char *)s2,*p;
+	int instr=0;
+	for(;s2<endp;++s2){
+		if(unlikely(*s2=='\"'&&(s2==s20||s2[-1]!='\\')))
+			instr^=1;
+		else if(unlikely(!subexpr&&!instr&&*s2=='#'&&(s2==s20||s2[-1]=='\n'))){
+			p=memchr(s2+1,'\n',(size_t)(endp-s2-1));
+			if(unlikely(!p))
+				s2=endp;
+			else
+				s2=p;
+			continue;
+		}
+		if(!instr&&expr_blank(*s2))
+			continue;
+		*(s1++)=*s2;
+	}
+	*s1=0;
+	return s1;
+}
 static int expr_remove_unused_vars(struct expr *restrict ep,const struct expr_memtool *restrict mtl){
 	expr_t **p=ep->vars;
 	expr_t **cp=ep->vars;
@@ -3940,60 +3959,62 @@ static int expr_remove_unused_vars(struct expr *restrict ep,const struct expr_me
 	debug("removed %d vars",r);
 	return r;
 }
-static char *stpcpy_noblank(char *restrict s1,const char *restrict s2,const char *endp,int subexpr){
-	const char *s20=(const char *)s2,*p;
-	int instr=0;
-	for(;s2<endp;++s2){
-		if(unlikely(*s2=='\"'&&(s2==s20||s2[-1]!='\\')))
-			instr^=1;
-		else if(unlikely(!subexpr&&!instr&&*s2=='#'&&(s2==s20||s2[-1]=='\n'))){
-			p=memchr(s2+1,'\n',(size_t)(endp-s2-1));
-			if(unlikely(!p))
-				s2=endp;
-			else
-				s2=p;
-			continue;
+void expr_shink(struct expr *restrict ep){
+	const struct expr_memtool *restrict mtl=ep->mtl;
+	struct expr_inst *ip;
+	if(ep->size<ep->length){
+		ip=xrealloc(ep->data,ep->size*sizeof(struct expr_inst));
+		if(likely(ip)){
+			ep->data=ip;
+			ep->length=ep->size;
 		}
-		if(!instr&&expr_blank(*s2))
-			continue;
-		*(s1++)=*s2;
 	}
-	*s1=0;
-	return s1;
+	if(ep->vars){
+		expr_remove_unused_vars(ep,mtl);
+	}
 }
-int expr_init8_r(struct expr *restrict ep,const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,struct expr *parent,const struct expr_memtool *restrict mtl){
+int expr_init8_r(struct expr *restrict ep,const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,const void *extarg,const struct expr_memtool *restrict mtl){
 	union {
 		expr_t *p;
 		expr_t v;
-		struct expr_inst *ip;
 	} un;
 	char *r;
+	int sub;
 	expr_t *v;
+#define iflag (uninitialized)
 	debug("len(%p)=%zu,*e=%d",e,len,(int)*e);
 	memset(ep,0,sizeof(struct expr));
-	if(parent){
-		ep->parent=parent;
-		ep->recursive=parent->recursive+1;
-		if(flag&EXPR_IRECURSIVELIMIT){
-			if(unlikely(ep->recursive>((unsigned int)flag>>EXPR_IRECURSIVE_SHIFT))){
-				seterr(ep,EXPR_EREC);
-				return -1;
-			}
+	if(!mtl){
+		ep->parent=(struct expr *)(uintptr_t)extarg;
+		ep->recursive=ep->parent->recursive;
+		if(unlikely((flag&EXPR_IRECURSIVELIMIT)&&!ep->recursive)){
+			debug("available recursive: %u ,parent=%p",ep->recursive,ep->parent);
+			seterr(ep,EXPR_EREC);
+			goto init_err;
 		}
+		--ep->recursive;
+		mtl=ep->parent->mtl;
+		sub=1;
+	}else {
+		if(flag&EXPR_IRECURSIVELIMIT){
+			ep->recursive=extget(extarg,recursive);
+		}
+		sub=0;
 	}
 	ep->sset=esp;
 	ep->mtl=mtl;
-	ep->iflag=(unsigned int)(flag&~EXPR_IEXTEND_MASK);
 	if((flag&EXPR_IABSORBSYMSET)&&esp){
 		ep->sset_shouldfree=1;
 	}else if(flag&EXPR_IDETACHSYMSET){
-		cknp(ep,expr_detach(ep)>=0,return -1);
+		cknp(ep,expr_detach(ep)>=0,goto init_err);
 	}
+#undef iflag
+	ep->iflag=(unsigned int)(flag&~EXPR_IEXTEND_MASK);
 	if(flag&EXPR_IREMOVEBLANK){
 		char *p0;
 		p0=xmalloc(len+1);
-		cknp(ep,p0,return -1);
-		r=stpcpy_noblank(p0,e,e+len,!!parent);
+		cknp(ep,p0,goto init_err);
+		r=stpcpy_noblank(p0,e,e+len,sub);
 		un.p=scan(ep,p0,r,asym,asym?asymlen:0);
 		xfree(p0);
 	}else {
@@ -4019,31 +4040,29 @@ int expr_init8_r(struct expr *restrict ep,const char *e,size_t len,const char *a
 err:
 		expr_free_r(ep);
 		ep->errinfo[EXPR_SYMLEN-1]=0;
-		return -1;
+		goto init_err;
 	}
 	if(!(flag&EXPR_INOOPTIMIZE)){
 		expr_optimize(ep);
 	}
 	if(!(flag&EXPR_INOSHRINK)){
-		if(ep->size<ep->length){
-			un.ip=xrealloc(ep->data,ep->size*sizeof(struct expr_inst));
-			if(un.ip){
-				ep->data=un.ip;
-				ep->length=ep->size;
-			}
-		}
-		if(ep->vars){
-			expr_remove_unused_vars(ep,mtl);
-		}
+		expr_shink(ep);
 	}
 	if(flag&EXPR_IINSTANT_FREE){
 		expr_free_r(ep);
 	}
 	return 0;
+init_err:
+	return -1;
 }
 
-struct expr *expr_new9_r(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,int *error,char errinfo[EXPR_SYMLEN],struct expr *restrict parent,const struct expr_memtool *restrict mtl){
-	struct expr *ep;
+struct expr *expr_new9_r(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,int *error,char errinfo[EXPR_SYMLEN],const void *extarg,const struct expr_memtool *restrict mtl){
+	struct expr *ep,*parent;
+	if(!mtl){
+		parent=(struct expr *)(uintptr_t)extarg;
+		mtl=parent->mtl;
+	}else
+		parent=NULL;
 	ep=xmalloc(sizeof(struct expr));
 	if(unlikely(!ep)){
 		debug("fail to allocate memory");
@@ -4053,7 +4072,7 @@ struct expr *expr_new9_r(const char *e,size_t len,const char *asym,size_t asymle
 			memset(errinfo,0,EXPR_SYMLEN);
 		return NULL;
 	}
-	if(unlikely(expr_init8_r(ep,e,len,asym,asymlen,esp,flag,parent,mtl)<0)){
+	if(unlikely(expr_init8_r(ep,e,len,asym,asymlen,esp,flag,extarg,parent?NULL:mtl)<0)){
 		if(error)
 			*error=ep->error;
 		if(errinfo)

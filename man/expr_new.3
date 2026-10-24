@@ -9,9 +9,9 @@ Graph Drawer Expression Evaluator Library
 .BR #include\~"expr.h"
 .P
 .BI "struct expr *expr_new(const char *" e ",const char *" asym ",struct expr_symset *" esp ",int " flag " ,int *" error ",char " errinfo "[EXPR_SYMLEN]);"
-.BI "struct expr *expr_new9_r(const char *" e ",size_t " len ",const char *" asym ",size_t " asymlen ",struct expr_symset *" esp ",int " flag ",int *" error ",char " errinfo "[EXPR_SYMLEN],struct expr *restrict " parent ",const struct expr_memtool *restrict " mtl ");"
+.BI "struct expr *expr_new9_r(const char *" e ",size_t " len ",const char *" asym ",size_t " asymlen ",struct expr_symset *" esp ",int " flag ",int *" error ",char " errinfo "[EXPR_SYMLEN],const void *" extarg ",const struct expr_memtool *restrict " mtl ");"
 .BI "int expr_init(struct expr *" ep ",const char *" e ",const char *" asym ",struct expr_symset *" esp ",int " flag ");"
-.BI "int expr_init8_r(struct expr *restrict " ep ",const char *" e ",size_t " len ",const char *" asym ",size_t " asymlen ",struct expr_symset *" esp ",int " flag ",struct expr *" parent ",const struct expr_memtool *restrict " mtl ");"
+.BI "int expr_init8_r(struct expr *restrict " ep ",const char *" e ",size_t " len ",const char *" asym ",size_t " asymlen ",struct expr_symset *" esp ",int " flag ",const void *" extarg ",const struct expr_memtool *restrict " mtl ");"
 .BI "double expr_calc(const char *" e " );"
 .BI "double expr_calc5_r(const char *" e ",int *" error ",char " errinfo "[EXPR_SYMLEN],struct expr_symset *" esp ",int " flag ",const struct expr_memtool *restrict " mtl ");"
 .BI "void expr_free(struct expr *" ep ");"

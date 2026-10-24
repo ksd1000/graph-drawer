@@ -10,18 +10,17 @@
 #define expr_calc2(e,flag) expr_calc2_r(e,flag,expr_defmtl)
 #define expr_calc(e) expr_calc_r(e,expr_defmtl)
 
-#define expr_init7_r(ep,e,len,asym,asymlen,esp,flag,mtl) expr_init8_r(ep,e,len,asym,asymlen,esp,flag,NULL,mtl)
-#define expr_init6_r(ep,e,len,asym,asymlen,flag,mtl) expr_init8_r(ep,e,len,asym,asymlen,NULL,flag,NULL,mtl)
-#define expr_init5_r(ep,e,len,asym,asymlen,mtl) expr_init8_r(ep,e,len,asym,asymlen,NULL,0,NULL,mtl)
+#define expr_init7_r(ep,e,len,asym,asymlen,esp,flag,mtl) expr_init8_r(ep,e,len,asym,asymlen,esp,flag,expr_extarg_default,mtl)
+#define expr_init6_r(ep,e,len,asym,asymlen,flag,mtl) expr_init8_r(ep,e,len,asym,asymlen,NULL,flag,expr_extarg_default,mtl)
+#define expr_init5_r(ep,e,len,asym,asymlen,mtl) expr_init8_r(ep,e,len,asym,asymlen,NULL,0,expr_extarg_default,mtl)
 #define expr_init_r(ep,e,asym,esp,flag,mtl) ({\
 	const char *_e=(e),*_asym=(asym);\
-	expr_init8_r(ep,_e,_e?expr_internal_strlen(_e):0,_asym,_asym?expr_internal_strlen(_asym):0,esp,flag,NULL,mtl);\
+	expr_init8_r(ep,_e,_e?expr_internal_strlen(_e):0,_asym,_asym?expr_internal_strlen(_asym):0,esp,flag,expr_extarg_default,mtl);\
 })
 #define expr_init4_r(ep,e,asym,flag,mtl) expr_init_r(ep,e,asym,NULL,flag,mtl)
 #define expr_init3_r(ep,e,asym,mtl) expr_init_r(ep,e,asym,NULL,EXPR_IDEFAULT,mtl)
 #define expr_init2_r(ep,e,mtl) expr_init_r(ep,e,NULL,NULL,EXPR_IDEFAULT,mtl)
 
-#define expr_init8(ep,e,len,asym,asymlen,esp,flag,parent) expr_init8_r(ep,e,len,asym,asymlen,esp,flag,parent,expr_defmtl)
 #define expr_init7(ep,e,len,asym,asymlen,esp,flag) expr_init7_r(ep,e,len,asym,asymlen,esp,flag,expr_defmtl)
 #define expr_init6(ep,e,len,asym,asymlen,flag) expr_init6_r(ep,e,len,asym,asymlen,flag,expr_defmtl)
 #define expr_init5(ep,e,len,asym,asymlen) expr_init5_r(ep,e,len,asym,asymlen,expr_defmtl)
@@ -30,18 +29,17 @@
 #define expr_init3(ep,e,asym) expr_init3_r(ep,e,asym,expr_defmtl)
 #define expr_init2(ep,e) expr_init2_r(ep,e,expr_defmtl)
 
-#define expr_new8_r(e,len,asym,asymlen,esp,flag,error,errinfo,mtl) expr_new9_r(e,len,asym,asymlen,esp,flag,error,errinfo,NULL,mtl)
-#define expr_new6_r(e,len,asym,asymlen,esp,flag,mtl) expr_new9_r(e,len,asym,asymlen,esp,flag,NULL,NULL,NULL,mtl)
+#define expr_new8_r(e,len,asym,asymlen,esp,flag,error,errinfo,mtl) expr_new9_r(e,len,asym,asymlen,esp,flag,error,errinfo,expr_extarg_default,mtl)
+#define expr_new6_r(e,len,asym,asymlen,esp,flag,mtl) expr_new9_r(e,len,asym,asymlen,esp,flag,NULL,NULL,expr_extarg_default,mtl)
 #define expr_new_r(e,asym,esp,flag,error,errinfo,mtl) ({\
 	const char *_e=(e),*_asym=(asym);\
-	expr_new9_r(_e,_e?expr_internal_strlen(_e):0,_asym,_asym?expr_internal_strlen(_asym):0,esp,flag,error,errinfo,NULL,mtl);\
+	expr_new9_r(_e,_e?expr_internal_strlen(_e):0,_asym,_asym?expr_internal_strlen(_asym):0,esp,flag,error,errinfo,expr_extarg_default,mtl);\
 })
 #define expr_new4_r(e,asym,esp,flag,mtl) expr_new_r(e,asym,esp,flag,NULL,NULL,mtl)
 #define expr_new3_r(e,asym,flag,mtl) expr_new_r(e,asym,NULL,flag,NULL,NULL,mtl)
 #define expr_new2_r(e,asym,mtl) expr_new_r(e,asym,NULL,EXPR_IDEFAULT,NULL,NULL,mtl)
 #define expr_new1_r(e,mtl) expr_new_r(e,NULL,NULL,EXPR_IDEFAULT,NULL,NULL,mtl)
 
-#define expr_new9(e,len,asym,asymlen,esp,flag,error,errinfo,parent) expr_new9_r(e,len,asym,asymlen,esp,flag,error,errinfo,parent,expr_defmtl)
 #define expr_new8(e,len,asym,asymlen,esp,flag,error,errinfo) expr_new8_r(e,len,asym,asymlen,esp,flag,error,errinfo,expr_defmtl)
 #define expr_new6(e,len,asym,asymlen,esp,flag,error,errinfo) expr_new6_r(e,len,asym,asymlen,esp,flag,error,errinfo,expr_defmtl)
 #define expr_new(e,asym,esp,flag,error,errinfo) expr_new_r(e,asym,esp,flag,error,errinfo,expr_defmtl)

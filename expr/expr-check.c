@@ -138,13 +138,15 @@ const struct eproj {
 	{"throw(EFP)",EXPR_EFP,""},
 	{"throw(EPT,\"12345\")",EXPR_EPT,"12345"},
 	{"throw(9999,\"customerror9999\")",9999,"customerror9999"},
+	{"1+(1+(1+(1+(1+(1+(1+(1+(t))))))))",EXPR_EREC,""},
 	{NULL,0,NULL}
 };
 void errcheck(const char *e,int expect,const char *expect_errinfo){
 	int error;
+	int flag=EXPR_IRECURSIVELIMIT;
 	char errinfo[EXPR_SYMLEN];
 	printf("checking %s --- expect \"%s\"",e,expr_error(expect));
-	if(expr_new(e,"t",es,EXPR_IINSTANT_FREE,&error,errinfo)){
+	if(expr_new(e,"t",es,flag|EXPR_IINSTANT_FREE,&error,errinfo)){
 		printf("\nerror! %s should be \"%s\" but ok\n",e,expr_error(expect));
 		goto ab;
 	}

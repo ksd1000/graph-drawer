@@ -261,6 +261,7 @@ struct expr_internal_jmpbuf {
 #define align_up(x) expr_align_up(x)
 #define assume(cond) expr_assume(cond)
 #define cast(X,T) expr_cast(X,T)
+#define extget expr_extarg_get
 
 #define BUFSIZE_INITIAL EXPR_BUFSIZE_INITIAL
 
@@ -1594,15 +1595,11 @@ struct expr_strtod_workspace {
 #define EXPR_ISCANCACHE 2048
 #define EXPR_IABSORBSYMSET 4096
 
-#define EXPR_IRECURSIVE_SHIFT 13
-
-expr_static_assert((1<<EXPR_IRECURSIVE_SHIFT)==8192);
 
 #define EXPR_IEXTEND_MASK (EXPR_IINSTANT_FREE|EXPR_IABSORBSYMSET)
 #define EXPR_ISETABLE (EXPR_IPURE|EXPR_INOKEYWORD|EXPR_IPROTECT|EXPR_ISCANCACHE)
 
-#define EXPR_IRECURSIVELIMIT_DEFAULT (EXPR_IRECURSIVELIMIT|(EXPR_RECURSIVE_DEFAULT<<EXPR_IRECURSIVE_SHIFT))
-#define EXPR_IDEFAULT (EXPR_IPROTECT|EXPR_IRECURSIVELIMIT_DEFAULT)
+#define EXPR_IDEFAULT (EXPR_IPROTECT)
 
 struct expr {
 	struct expr_inst *data;
@@ -1627,6 +1624,17 @@ struct expr {
 	};
 	int error;
 	unsigned int recursive,iflag;
-	unsigned int unused:sizeof(int)*8-3,freeable:1,sset_shouldfree:1,isconst:1;
+	unsigned int unused:sizeof(unsigned int)*8-3,freeable:1,sset_shouldfree:1,isconst:1;
 };
+
+struct expr_extarg {
+	unsigned int recursive;
+};
+#define EXPR_EXTARG_DEFAULT {\
+	.recursive=EXPR_RECURSIVE_DEFAULT,\
+}
+#define expr_extarg_default ((const struct expr_extarg[1]){EXPR_EXTARG_DEFAULT})
+
+#define expr_extarg_get(argp,field) (((const struct expr_extarg *)(argp))->field)
+
 

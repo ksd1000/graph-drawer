@@ -619,11 +619,13 @@ int main(int argc,char **argv){
 	volatile double show_result=1.0;
 	static char buf[1024*1024*1024];
 	struct expr_areainfo ai;
+	struct expr_extarg extarg[1];
 	atexit(atend);
 	setvbuf(stdout,NULL,_IONBF,0);
 	if(argc<2)
 		show_help(*argv);
 	opterr=1;
+	memcpy(extarg,expr_extarg_default,sizeof(extarg));
 	for(;;){
 		switch(getopt_long(argc,argv,"pnDR::Nisckdgf:hqS",ops,NULL)){
 			case 'p':
@@ -645,10 +647,10 @@ int main(int argc,char **argv){
 				flag|=EXPR_IDETACHSYMSET;
 				break;
 			case 'R':
+				flag|=EXPR_IRECURSIVELIMIT;
 				if(optarg){
-					flag|=(int)(atol2(optarg)<<EXPR_IRECURSIVE_SHIFT)|EXPR_IRECURSIVELIMIT;
-				}else
-					flag|=EXPR_IRECURSIVELIMIT_DEFAULT;
+					extarg->recursive=(unsigned int)atol2(optarg);
+				}
 				break;
 			case 'g':
 				gchr=1;
@@ -741,7 +743,7 @@ break3:
 	expr_symset_add(es,"ppp",EXPR_CONSTANT,0,3.0);
 	if(adbt||!nobt)
 		expr_builtin_symbol_addalls(es,expr_symbols_ess);
-	if(expr_init(ep,e,"t",es,flag|EXPR_ISCANCACHE|EXPR_IREMOVEBLANK)<0){
+	if(expr_init8(ep,e,strlen(e),"t",1,es,flag|EXPR_ISCANCACHE|EXPR_IREMOVEBLANK,extarg)<0){
 		if(*ep->errinfo)
 			errx(EXIT_FAILURE,"expression error:%s \"%s\"",expr_error(ep->error),ep->errinfo);
 		else

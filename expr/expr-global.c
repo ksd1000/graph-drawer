@@ -5,7 +5,7 @@
  *******************************************************************************/
 #define _GNU_SOURCE
 
-#define EXPR_VERSION "1.0.13-5"
+#define EXPR_VERSION "1.0.13-6"
 
 #if (defined(EXPR_LIBC_STRING_IMPL)&&(EXPR_LIBC_STRING_IMPL))
 #include <string.h>
@@ -315,7 +315,7 @@ int expr_setup_heapmtl4_nonnull(struct expr_memtool *restrict mtl,void *heap,siz
 	}
 	if(unlikely((ssize_t)size<(ssize_t)sizeof(struct expr_area)))
 		return -1;
-	if(unlikely(expr_area_init4((struct expr_area *)heap,expr_zoneof(heap),size-sizeof(struct expr_area),flag))<0)
+	if(unlikely(expr_area_init4((struct expr_area *)heap,expr_zoneof(heap),size-sizeof(struct expr_area),flag)<0))
 		return -1;
 	mtl->allocate=expr_heapmtl_malloc_nonnull;
 	mtl->reallocate=expr_heapmtl_realloc_nonnull;

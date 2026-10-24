@@ -37,6 +37,7 @@
 	sizemu=size-UNIT_SIZE;\
 	if(unlikely(sizemu>((size_t)SSIZE_MAX-UNIT_SIZE)))\
 		return -1;\
+	debug("sizemu=%zd flag=%x\n",(ssize_t)size,_flag);\
 	area->data=(struct expr_zoneunit *)zone;\
 	area->data->unprev=size|HBITZ;\
 	area->data->unsize=sizemu;\
@@ -48,6 +49,7 @@ int expr_area_init(struct expr_area *restrict area,void *zone,size_t size){
 	return 0;
 }
 int expr_area_init4(struct expr_area *restrict area,void *zone,size_t size,int flag){
+	debug("size=%zu flag=%x\n",size,flag);
 	INIT_COMMON(flag);
 	return 0;
 }
@@ -106,6 +108,7 @@ int expr_area_resize(struct expr_area *restrict area,size_t size){
 	size_t __prev_extra=0,__extra;\
 	__zp=area->data;\
 	if((_flag)&EXPR_ALAZY){\
+		debug("check case 0");\
 		if(likely(size+UNIT_SIZE<=area->tail->size)){\
 			dest=(uintptr_t)area->tail;\
 			goto case_0;\
@@ -210,11 +213,13 @@ end:\
 	if(!((_flag)&EXPR_ANOALIGN))\
 		size=zalign(size,_flag);\
 	ret=alloc_internal(_flag,allocate);\
+	debug("align (%zu)",size);\
 	monoinc(allocate);\
 	if((_flag)&EXPR_AZERO)\
 		memset(ret,0,size);\
 	return ret
 void *expr_area_malloc3(struct expr_area *restrict area,size_t size,int flag){
+	debug("area_malloc(%p,%zu)",area,size);
 	ALLOC_BODY(flag);
 }
 #define DEALLOC_BODY(_old) \
@@ -425,8 +430,9 @@ int expr_setup_heapmtl4(struct expr_memtool *restrict mtl,void *heap,size_t size
 	}
 	if(unlikely((ssize_t)size<(ssize_t)sizeof(struct expr_area)))
 		return -1;
-	if(unlikely(expr_area_init4((struct expr_area *)heap,expr_zoneof(heap),size-sizeof(struct expr_area),flag))<0)
+	if(unlikely(expr_area_init4((struct expr_area *)heap,expr_zoneof(heap),size-sizeof(struct expr_area),flag)<0))
 		return -1;
+	debug("setup size=%zu",size-sizeof(struct expr_area));
 	mtl->allocate=expr_heapmtl_malloc;
 	mtl->reallocate=expr_heapmtl_realloc;
 	mtl->deallocate=expr_heapmtl_dealloc;

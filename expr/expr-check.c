@@ -139,6 +139,7 @@ const struct eproj {
 	{"throw(EPT,\"12345\")",EXPR_EPT,"12345"},
 	{"throw(9999,\"customerror9999\")",9999,"customerror9999"},
 	{"1+(1+(1+(1+(1+(1+(1+(1+(t))))))))",EXPR_EREC,""},
+	{"byte(0x1000000000)",EXPR_EMEM,""},
 	{NULL,0,NULL}
 };
 void errcheck(const char *e,int expect,const char *expect_errinfo){
@@ -190,6 +191,26 @@ ab:
 	printf("ABORTING\n");
 	abort();
 }
+#define REDZONE 1024
+void ckal(void *buf,size_t size){
+	assert(!((uintptr_t)buf%sizeof(struct expr_zoneunit)));
+}
+void areacheck(size_t size,size_t off){
+	char *buf;
+	struct expr_memtool mtl[1];
+	printf("checking area[%zu]+%zu \r",size,off);
+	buf=malloc(size+off+REDZONE*2);
+	assert(buf);
+	memset(buf,0xcc,size+off+REDZONE*2);
+	assert(!expr_setup_heapmtl4(mtl,buf+off+REDZONE,size,EXPR_ADEFAULT|EXPR_AZERO));
+	expr_explode_r(NULL,SIZE_MAX,mtl);
+	for(size_t i=0;i<REDZONE+off;++i){
+		assert(buf[i]==(char)0xcc);
+	}
+	for(size_t i=REDZONE+off+size;i<size+off+REDZONE*2;++i){
+		assert(buf[i]==(char)0xcc);
+	}
+}
 static int keyword_diff(const char *str,size_t len,const struct expr_builtin_keyword *restrict s){
 	int r=(int)len-(int)s->strlen;
 	if(r)
@@ -197,18 +218,19 @@ static int keyword_diff(const char *str,size_t len,const struct expr_builtin_key
 	return memcmp(str,s->str,len);
 }
 #pragma GCC diagnostic ignored "-Wunused-parameter"
+char buf[8192*1024];
 int main(int argc,char **argv){
 	double x0=expr_cast(expr_seed48(time(NULL)),double);
-	expr_setup_mtl(3);
+	expr_setup_heapmtl(expr_defmtl,buf,sizeof(buf));
 	es=expr_builtin_symbol_converts_r(expr_defmtl,expr_symbols_all);
 	assert(es);
 	expr_symset_add(es,"x0",EXPR_VARIABLE,0,&x0);
 	expr_symset_add(es,"defined_symbol",EXPR_CONSTANT,0,2304.0);
 	setvbuf(stdout,NULL,_IONBF,0);
-	for(const struct proj *p=projs;p->e;++p)
-		check(p->e,p->expect);
-	for(const struct eproj *p=eprojs;p->e;++p)
-		errcheck(p->e,p->expect,p->ee);
+	for(size_t i=sizeof(struct expr_area)+sizeof(struct expr_zoneunit)*2-1;i<=4096;++i)
+		for(size_t j=0;j<sizeof(struct expr_zoneunit);++j)
+			areacheck(i,j);
+	printf("\nchecking keyword\n");
 	for(const struct expr_builtin_keyword *p=expr_keywords;;++p){
 		if(!p->str){
 			break;
@@ -224,7 +246,12 @@ int main(int argc,char **argv){
 			abort();
 		}
 	}
+	for(const struct proj *p=projs;p->e;++p)
+		check(p->e,p->expect);
+	for(const struct eproj *p=eprojs;p->e;++p)
+		errcheck(p->e,p->expect,p->ee);
 	expr_symset_free(es);
-	expr_setup_mtl(0);
+#define areap ((const struct expr_area *)(expr_defmtl->arg))
+	assert(areap->monotonic_create==areap->monotonic_combine);
 	return 0;
 }

@@ -167,8 +167,10 @@ void expr_contract(void *buf,size_t size){
 void expr_explode_r(void (*contractor)(void *,size_t),size_t max,const struct expr_memtool *restrict mtl){
 	void *r;
 	do {
+		debug("allocate %zu bytes",max);
 		while((r=mtl->allocate(max,mtl->arg))){
-			contractor(r,max);
+			if(contractor)
+				contractor(r,max);
 			//if do not contract,
 			//the virtual memory
 			//has not physical

@@ -2,7 +2,7 @@ cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 title: "graph drawer -- an expression-to-image-and-audio converter"
 authors:
-  - name: "ksd1000"
+  - name: "K. S. 1000"
 version: "see expr-version"
 date-released: "2026-10-20"
 license: GPL-3.0-or-later

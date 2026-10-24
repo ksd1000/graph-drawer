@@ -193,6 +193,7 @@ ab:
 }
 #define REDZONE 1024
 void ckal(void *buf,size_t size){
+	(void)size;
 	assert(!((uintptr_t)buf%sizeof(struct expr_zoneunit)));
 }
 void areacheck(size_t size,size_t off){
@@ -203,7 +204,7 @@ void areacheck(size_t size,size_t off){
 	assert(buf);
 	memset(buf,0xcc,size+off+REDZONE*2);
 	assert(!expr_setup_heapmtl4(mtl,buf+off+REDZONE,size,EXPR_ADEFAULT|EXPR_AZERO));
-	expr_explode_r(NULL,SIZE_MAX,mtl);
+	expr_explode_r(ckal,SIZE_MAX,mtl);
 	for(size_t i=0;i<REDZONE+off;++i){
 		assert(buf[i]==(char)0xcc);
 	}

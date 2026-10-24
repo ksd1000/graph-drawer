@@ -216,8 +216,8 @@ gcc example.c -I ../graph-drawer/expr expr/libexpr-lc.a expr/libexpr.a -lm -o ex
 ```
 
 ## Speed
-720%-2870% slower than native C.
-Tested by fun/compare.c
+About 2610% slower than native C.
+Tested by test/speedtest.c
 
 ## Compare with other expr libs
 

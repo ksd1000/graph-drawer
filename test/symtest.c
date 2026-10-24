@@ -101,7 +101,7 @@ int main(int argc,char **argv){
 break2:
 	;
 	char *heap=malloc(bufsize);
-	assert(bufsize);
+	assert(heap);
 	expr_setup_heapmtl(expr_defmtl,heap,bufsize);
 	struct expr_symset *esp=expr_symset_new();
 	assert(esp);

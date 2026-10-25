@@ -185,7 +185,7 @@ void writefile(const char *file,const void *buf,size_t sz){
 	if(!strcmp(file,"-")){
 		tofd=STDOUT_FILENO;
 	}else {
-		char *p=strrchr(file,'.');
+		char *p=(char *)(uintptr_t)strrchr(file,'.');
 		if(!p||strcmp(p,".bmp"))
 			warnx("unsupposed format \"%s\". writing .bmp format as default",p?p:file);
 		tofd=open(file,O_WRONLY_CREAT);

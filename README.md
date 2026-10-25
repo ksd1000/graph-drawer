@@ -272,7 +272,7 @@ Tested by test/speedtest.c
 |Can run in raw QEMU|No|No|Untested|No(Product maybe YES)|
 |Big-endian support|Yes|Yes|No|Yes|
 |Compile speed of source code(.c)|Fast|Fast|Slow|Very slow|
-|Library size(-O3)|18k|20k|348k(194k+154k)|\-|
+|Library size(-O3)|18k|20k|350k(196k+154k)|\-|
 |Library size(-Os)|17k|18k|305k(153k+152k)|\-|
 |Project type|standalone library|standalone library|backend library of graph-drawer|software|
 |Allow pass size of expression|Yes|No|Yes|\-|

@@ -39,7 +39,7 @@
 #define seterrp (_ep,_eperror,_p) ({(_ep)->error=(_eperror);\
 		(_ep)->errindex_zero=SIZE_MAX;\
 		(_ep)->errindex=(_p);\
-		debug("error %s occur at %p",expr_error(_eperror),(_p));})
+		debug("error %s occur at %p",expr_error(_eperror),(void *)(uintptr_t)(_p));})
 */
 
 #define cknp(ep,v,act) \
@@ -1567,7 +1567,7 @@ alias_found:
 		}
 		return NULL;
 	}
-//	debug("at:%p\n",expr_symbol_un(sym.es)->uaddr);
+//	debug("at:%p\n",(void *)(uintptr_t)expr_symbol_un(sym.es)->uaddr);
 	return sym.uaddr;
 pm:
 	seterri(ep,EXPR_EPM);
@@ -1610,7 +1610,7 @@ err:
 	if(p->flag&EXPR_SNONBUILTIN){
 		const struct expr_symset *esp=expr_symbol_un(p)->sset;
 		STACK_DEFAULT(stack,esp);
-		debug("import %p",esp);
+		debug("import %p",(void *)(uintptr_t)esp);
 		expr_symset_foreach(sp,esp,stack){
 			if(unlikely(!expr_symset_addcopy(ep->sset,sp))){
 				if(expr_symset_search(ep->sset,sp->str,sp->strlen))
@@ -1672,7 +1672,7 @@ static expr_t *getvalue(struct expr *restrict ep,const char *e,const char *endp,
 	size_t dim;
 	if(unlikely(e>=endp)){
 eev:
-		debug("e=%p,endp=%p,*e=%d",e,endp,(int)*e);
+		debug("e=%p,endp=%p,*e=%d",(void *)(uintptr_t)e,(void *)(uintptr_t)endp,(int)*e);
 		seterr(ep,EXPR_EEV);
 		return NULL;
 	}
@@ -3404,7 +3404,7 @@ eev:
 			goto redo;
 	}
 #define ep_recursive_start(onerr) ({\
-	debug("available recursive: %u ,parent=%p",ep->recursive,ep->parent);\
+	debug("available recursive: %u ,parent=%p",ep->recursive,(void *)(uintptr_t)ep->parent);\
 	if(unlikely((ep->iflag&EXPR_IRECURSIVELIMIT)&&!ep->recursive)){\
 		seterr(ep,EXPR_EREC);\
 		onerr;\
@@ -3958,13 +3958,13 @@ int expr_init8_r(struct expr *restrict ep,const char *e,size_t len,const char *a
 	int sub;
 	expr_t *v;
 #define iflag (uninitialized)
-	debug("len(%p)=%zu,*e=%d",e,len,(int)*e);
+	debug("len(%p)=%zu,*e=%d",(void *)(uintptr_t)e,len,(int)*e);
 	memset(ep,0,sizeof(struct expr));
 	if(!mtl){
 		ep->parent=(struct expr *)(uintptr_t)extarg;
 		ep->recursive=ep->parent->recursive;
 		if(unlikely((flag&EXPR_IRECURSIVELIMIT)&&!ep->recursive)){
-			debug("available recursive: %u ,parent=%p",ep->recursive,ep->parent);
+			debug("available recursive: %u ,parent=%p",ep->recursive,(void *)(uintptr_t)ep->parent);
 			seterr(ep,EXPR_EREC);
 			goto init_err;
 		}
@@ -5775,7 +5775,7 @@ static int expr_optimize_once(struct expr *restrict ep){
 	r+=expr_optimize_cac(ep);
 	r+=expr_optimize_svc0(ep);
 	r+=expr_optimize_copyend(ep);
-	debug("optimized %d times (%p)",r,ep);
+	debug("optimized %d times (%p)",r,(void *)(uintptr_t)ep);
 	return r;
 }
 static int expr_optimize0(struct expr *restrict ep){

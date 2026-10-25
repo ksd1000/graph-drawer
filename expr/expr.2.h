@@ -64,6 +64,7 @@
 #define expr_builtin_symbol_addall(esp,syms) expr_builtin_symbol_addalls(esp,syms,NULL)
 
 #define expr_area_init(area,zone,size) expr_area_init4(area,zone,size,EXPR_ADEFAULT)
+#define expr_setup_heapmtl(mtl,heap,size) expr_setup_heapmtl4(mtl,heap,size,EXPR_ADEFAULT)
 
 #endif
 

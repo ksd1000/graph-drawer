@@ -1096,7 +1096,7 @@ static inline const char *internal_strtoz_oux(const char *restrict nptr,const ch
 			__builtin_unreachable();
 	}
 out:
-	debug("result:%zd,nptr:%p",(ssize_t)(neg?-r:r),nptr);
+	debug("result:%zd,nptr:%p",(ssize_t)(neg?-r:r),(void *)(uintptr_t)nptr);
 	*outval=(ssize_t)(neg?-r:r);
 	return nptr;
 }
@@ -1663,10 +1663,10 @@ static const union expr_argf *arr_arg(ptrdiff_t index,const struct expr_writefla
 	struct writef_args *wa=addr;
 	const union expr_argf *r=wa->base+index;
 	range_checkn(r,wa->base,wa->arglen,goto err);
-	debug("getting arg[%zd] (base=%p,len=%zu)=%p",index,wa->base,wa->arglen,r);
+	debug("getting arg[%zd] (base=%p,len=%zu)=%p",index,(void *)(uintptr_t)wa->base,wa->arglen,(void *)(uintptr_t)r);
 	return flag->addr?r->aaddr:r;
 err:
-	debug("getting arg[%zd] (base=%p,len=%zu)=NULL",index,wa->base,wa->arglen);
+	debug("getting arg[%zd] (base=%p,len=%zu)=NULL",index,(void *)(uintptr_t)wa->base,wa->arglen);
 	return NULL;
 }
 ssize_t expr_writef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const union expr_argf *restrict args,size_t arglen,const struct expr_memtool *restrict mtl){
@@ -1895,7 +1895,7 @@ size_t expr_sscanf_r(const char *str,size_t len,const char *fmt,size_t fmtlen,vo
 #define ch un._ch
 next:
 	p=memchr(fmt,'%',fmtlen);
-	debug("memchr=%p",p);
+	debug("memchr=%p",(void *)(uintptr_t)p);
 	if(!p){
 		return n;
 	}

@@ -293,6 +293,7 @@ size_t expr_extint_addz(uint64_t *buf,size_t size,uint64_t addend){
 size_t expr_extint_add2(uint64_t *buf,const uint64_t *addend_buf,size_t size){
 	uint64_t *restrict p=buf;
 	size_t s;
+	// the caller must check size>0
 	do {
 		s=expr_extint_add(p,*(addend_buf++))+(size_t)(p-buf);
 		++p;

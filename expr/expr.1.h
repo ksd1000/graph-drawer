@@ -1269,6 +1269,61 @@ struct expr_callback {
 	void *arg;
 };
 typedef int (*expr_recursive_callback)(struct expr *restrict ep,void *arg);
+
+#if (defined(EXPR_AREA_MINSIZE)&&(EXPR_AREA_MINSIZE))
+
+#ifndef EXPR_AREA_ESSENTIAL_ONLY
+#define EXPR_AREA_ESSENTIAL_ONLY 1
+#endif
+
+#ifndef EXPR_AREA_IGNORE_AZERO
+#define EXPR_AREA_IGNORE_AZERO 1
+#endif
+
+#ifndef EXPR_AREA_NOMONOTONIC
+#define EXPR_AREA_NOMONOTONIC 1
+#endif
+
+#ifndef EXPR_AREA_FORCEALIGN
+#define EXPR_AREA_FORCEALIGN 1
+#endif
+
+#ifndef EXPR_AREA_FORCELAZY
+#define EXPR_AREA_FORCELAZY 1
+#endif
+
+#ifndef EXPR_AREA_FORCENONAIL
+#define EXPR_AREA_FORCENONAIL 1
+#endif
+
+#else
+
+#ifndef EXPR_AREA_ESSENTIAL_ONLY
+#define EXPR_AREA_ESSENTIAL_ONLY 0
+#endif
+
+#ifndef EXPR_AREA_IGNORE_AZERO
+#define EXPR_AREA_IGNORE_AZERO 0
+#endif
+
+#ifndef EXPR_AREA_NOMONOTONIC
+#define EXPR_AREA_NOMONOTONIC 0
+#endif
+
+#ifndef EXPR_AREA_FORCEALIGN
+#define EXPR_AREA_FORCEALIGN 0
+#endif
+
+#ifndef EXPR_AREA_FORCELAZY
+#define EXPR_AREA_FORCELAZY 0
+#endif
+
+#ifndef EXPR_AREA_FORCENONAIL
+#define EXPR_AREA_FORCENONAIL 0
+#endif
+
+#endif
+
 #if (!defined(__BIG_ENDIAN__)||!(__BIG_ENDIAN__))
 #define expr_areaunit_bitfield(master,minor) struct {size_t master:sizeof(size_t)*8-1,minor:1;}
 #else
@@ -1287,6 +1342,7 @@ struct expr_zoneunit {
 struct expr_area {
 	struct expr_zoneunit *data;
 	struct expr_zoneunit *tail;
+#if !(EXPR_AREA_NOMONOTONIC)
 	unsigned int monotonic_allocate,
 		     monotonic_allocate_fail,
 		     monotonic_deallocate,
@@ -1298,9 +1354,12 @@ struct expr_area {
 		     monotonic_combine,
 		     monotonic_retail_up,
 		     monotonic_retail_down;
+#else
+	int unused[3];
+#endif
 	int flag;
 };
-expr_static_assert(!(sizeof(struct expr_area)%sizeof(struct expr_zoneunit)));
+//expr_static_assert(!(sizeof(struct expr_area)%sizeof(struct expr_zoneunit)));
 struct expr_areainfo {
 	size_t size;
 	size_t unit_count;
@@ -1338,7 +1397,40 @@ struct expr_areainfo {
 	.test=NULL,\
 	.arg=(intptr_t)(heap),\
 }
-#define expr_setup_heapmtl(mtl,heap,size) expr_setup_heapmtl4(mtl,heap,size,EXPR_ADEFAULT)
+
+struct expr_poolarea {
+	struct expr_area area[1];
+	struct expr_poolarea *prev,*next;
+	char zone[];
+};
+struct expr_pool {
+	struct expr_poolarea *head,*tail;
+	void *(*sys_allocate)(size_t size,intptr_t arg);
+	void (*sys_deallocate)(void *old,intptr_t arg);
+	intptr_t sys_arg;
+	size_t allocate_size;
+	int flag,unused;
+};
+#define expr_pool_init(pool,allocate,deallocate,arg,area_size,area_flag) ({\
+	struct expr_pool *_pool=(pool);\
+	_pool->head=NULL;\
+	_pool->tail=NULL;\
+	_pool->sys_allocate=(allocate);\
+	_pool->sys_deallocate=(deallocate);\
+	_pool->sys_arg=(arg);\
+	_pool->allocate_size=(area_size);\
+	_pool->flag=(area_flag);\
+})
+
+#define EXPR_POOL_INITIALIZER(pool,allocate,deallocate,arg,area_size,area_flag) {\
+	.head=NULL,\
+	.tail=NULL,\
+	.sys_allocate=(allocate),\
+	.sys_deallocate=(deallocate),\
+	.sys_arg=(arg),\
+	.allocate_size=(area_size),\
+	.flag=(area_flag),\
+}
 
 struct expr_strtod_workspace {
 	uint64_t dbuf[96];

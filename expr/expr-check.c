@@ -204,7 +204,7 @@ void areacheck(size_t size,size_t off,int shouldfail){
 	memset(buf,0xcc,size+off+REDZONE*2);
 	if(shouldfail){
 		if(expr_setup_heapmtl4(mtl,buf+off+REDZONE,size,EXPR_ADEFAULT|EXPR_AZERO)<0)
-			return;
+			goto end;
 		printf("%zu,%zu should fail\n",size,off);
 		printf("ABORTING\n");
 		abort();
@@ -217,6 +217,7 @@ void areacheck(size_t size,size_t off,int shouldfail){
 	for(size_t i=REDZONE+off+size;i<size+off+REDZONE*2;++i){
 		assert(buf[i]==(char)0xcc);
 	}
+end:
 	free(buf);
 }
 static int keyword_diff(const char *str,size_t len,const struct expr_builtin_keyword *restrict s){

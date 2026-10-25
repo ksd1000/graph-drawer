@@ -2,6 +2,12 @@
  *License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>*
  *This is free software: you are free to change and redistribute it.           *
  *******************************************************************************/
+
+/*
+ * History: 2024-02 expr.h
+ * Header file of libexpr and libexpr-lc
+ */
+
 #ifndef _EXPR_H_
 #define _EXPR_H_
 

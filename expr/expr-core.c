@@ -4,7 +4,7 @@
  *******************************************************************************/
 
 /*
- * Historty: 2024-02 expr.c
+ * History: 2024-02 expr.c
  * Renamed to expr_core.c on 2026-02-04
  * Renamed to expr-core.c on 2026-10-08
  * Expression scanner/parser core

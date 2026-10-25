@@ -4,14 +4,14 @@
  *******************************************************************************/
 
 /*
- * Historty: 2026-02-03 separated from expr.c
+ * History: 2026-02-03 separated from expr.c
  * Format converter
  * Motivation: For making the printf() available in expression.
  * 	The multi-dimension(multi-argument) function that libexpr supports is like the form:
  * 	f(args[],n);
  * 	But the libc printf supports only the va_list for passing arguments, like:
  * 	f(arg0,arg1,...); or f(arg0,ap);
- * 	The printf for expression was implememted like so:
+ * 	The printf for expression was implemented like so:
  * 		double d_printf(double *args,size_t n){
  * 			const char *fmt=cast(*args,const char *);
  * 			switch(n){

@@ -196,12 +196,19 @@ void ckal(void *buf,size_t size){
 	(void)size;
 	assert(!((uintptr_t)buf%sizeof(struct expr_zoneunit)));
 }
-void areacheck(size_t size,size_t off){
+void areacheck(size_t size,size_t off,int shouldfail){
 	char *buf;
 	struct expr_memtool mtl[1];
 	buf=malloc(size+off+REDZONE*2);
 	assert(buf);
 	memset(buf,0xcc,size+off+REDZONE*2);
+	if(shouldfail){
+		if(expr_setup_heapmtl4(mtl,buf+off+REDZONE,size,EXPR_ADEFAULT|EXPR_AZERO)<0)
+			return;
+		printf("%zu,%zu should fail\n",size,off);
+		printf("ABORTING\n");
+		abort();
+	}
 	assert(!expr_setup_heapmtl4(mtl,buf+off+REDZONE,size,EXPR_ADEFAULT|EXPR_AZERO));
 	expr_explode_r(ckal,SIZE_MAX,mtl);
 	for(size_t i=0;i<REDZONE+off;++i){
@@ -228,10 +235,10 @@ int main(int argc,char **argv){
 	expr_symset_add(es,"x0",EXPR_VARIABLE,0,&x0);
 	expr_symset_add(es,"defined_symbol",EXPR_CONSTANT,0,2304.0);
 	setvbuf(stdout,NULL,_IONBF,0);
-	printf("checking area[%zu-%zu] + %zu-%zu",sizeof(struct expr_area)+sizeof(struct expr_zoneunit)*2-1,(size_t)4096,(size_t)0,sizeof(struct expr_zoneunit)-1);
-	for(size_t i=sizeof(struct expr_area)+sizeof(struct expr_zoneunit)*2-1;i<=4096;++i)
+	printf("checking area[%zu-%zu] + %zu-%zu",(size_t)0,(size_t)4096,(size_t)0,sizeof(struct expr_zoneunit)-1);
+	for(size_t i=0;i<=4096;++i)
 		for(size_t j=0;j<sizeof(struct expr_zoneunit);++j)
-			areacheck(i,j);
+			areacheck(i,j,i<sizeof(struct expr_area)+sizeof(struct expr_zoneunit)+(j?sizeof(struct expr_zoneunit)-j:0));
 	printf("\nchecking keyword\n");
 	for(const struct expr_builtin_keyword *p=expr_keywords;;++p){
 		if(!p->str){

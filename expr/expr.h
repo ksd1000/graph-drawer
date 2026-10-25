@@ -1669,7 +1669,6 @@ struct expr_extarg {
 
 
 //global functions of expr-alloc.c :
-int expr_area_init(struct expr_area *restrict area,void *zone,size_t size);
 int expr_area_init4(struct expr_area *restrict area,void *zone,size_t size,int flag);
 void expr_area_wipe(struct expr_area *restrict area);
 void expr_area_wipe_monotonic(struct expr_area *restrict area);
@@ -2004,6 +2003,8 @@ extern int expr_mtl_setup;
 
 #define expr_builtin_symbol_xaddall(esp,symsp,syms) expr_builtin_symbol_xaddalls(esp,symsp,syms,NULL)
 #define expr_builtin_symbol_addall(esp,syms) expr_builtin_symbol_addalls(esp,syms,NULL)
+
+#define expr_area_init(area,zone,size) expr_area_init4(area,zone,size,EXPR_ADEFAULT)
 
 #endif
 

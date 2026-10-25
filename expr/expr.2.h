@@ -63,6 +63,8 @@
 #define expr_builtin_symbol_xaddall(esp,symsp,syms) expr_builtin_symbol_xaddalls(esp,symsp,syms,NULL)
 #define expr_builtin_symbol_addall(esp,syms) expr_builtin_symbol_addalls(esp,syms,NULL)
 
+#define expr_area_init(area,zone,size) expr_area_init4(area,zone,size,EXPR_ADEFAULT)
+
 #endif
 
 // visible also with EXPR_INLIB set, for expr-alloc.c use.

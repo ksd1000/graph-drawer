@@ -1296,28 +1296,32 @@ double expr_internal_sqrt(double x){
 	build_double(vx,mx,ex,0);
 	return vx.val;
 }
-uint64_t expr_internal_sqrt64(uint64_t x){
-	uint64_t bit,res,t;
-	if(unlikely(!x))
-		return 0;
-	bit=UINT64_C(1)<<((63-clz64(x))&~1);
-	res=0;
-	do {
-		t=res+bit;
-		if(t<=x){
-			x-=t;
-			res=(res>>1)|bit;
-		}else {
-			res>>=1;
-		}
-		bit>>=2;
-	}while(bit);
-	return res;
-}
 uint64_t expr_internal_sqrt128(uint64_t low,uint64_t high){
 	uint64_t bh,bl,rh,rl,th,tl;
-	if(unlikely(!high)){
-		return expr_internal_sqrt64(low);
+	if(!high){
+#define bit bl
+#define res rl
+#define t tl
+#define x low
+		if(unlikely(!x))
+			return 0;
+		bit=UINT64_C(1)<<((63-clz64(x))&~1);
+		res=0;
+		do {
+			t=res+bit;
+			if(t<=x){
+				x-=t;
+				res=(res>>1)|bit;
+			}else {
+				res>>=1;
+			}
+			bit>>=2;
+		}while(bit);
+		return res;
+#undef bit
+#undef res
+#undef t
+#undef x
 	}
 	bh=UINT64_C(1)<<((63-clz64(high))&~1);
 	bl=0;

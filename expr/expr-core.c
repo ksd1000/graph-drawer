@@ -2,6 +2,16 @@
  *License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>*
  *This is free software: you are free to change and redistribute it.           *
  *******************************************************************************/
+
+/*
+ * Historty: 2024-02 expr.c
+ * Renamed to expr_core.c on 2026-02-04
+ * Renamed to expr-core.c on 2026-10-08
+ * Expression scanner/parser core
+ * Motivation: For making the graph-drawer be able to draw the graph of functions given by runtime expressions, rather than to recompile the source file for replacing the expression.
+ * Dependencies: expr-internal.c
+ */
+
 #define _GNU_SOURCE
 #ifndef _EXPR_DEFS_H_
 #include <math.h>
@@ -16,15 +26,6 @@
 #include "expr.h"
 
 #define UNABLE_GETADDR_IN_PROTECTED_MODE 1
-
-/*
-#define printval(x) warn(#x ":%lu",(unsigned long)(x))
-#define printvalx(x) warn(#x ":%lx",(unsigned long)(x))
-#define printvali(x) warn(#x ":%d",(int)(x))
-#define printvall(x) warn(#x ":%ld",(long)(x))
-#define printvald(x) warn(#x ":%lf",(expr_t)(x))
-#define trap (warn("\nat file %s line %d",__FILE__,__LINE__),__builtin_trap())
-*/
 
 #define eval(_ep,_input) expr_eval(_ep,_input)
 

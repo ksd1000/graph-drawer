@@ -2,6 +2,34 @@
  *License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>*
  *This is free software: you are free to change and redistribute it.           *
  *******************************************************************************/
+
+/*
+ * Historty: 2026-02-03 separated from expr.c
+ * Format converter
+ * Motivation: For making the printf() available in expression.
+ * 	The multi-dimension(multi-argument) function that libexpr supports is like the form:
+ * 	f(args[],n);
+ * 	But the libc printf supports only the va_list for passing arguments, like:
+ * 	f(arg0,arg1,...); or f(arg0,ap);
+ * 	The printf for expression was implememted like so:
+ * 		double d_printf(double *args,size_t n){
+ * 			const char *fmt=cast(*args,const char *);
+ * 			switch(n){
+ * 				case 1:return (double)printf(fmt);
+ * 				case 2:return (double)printf(fmt,args[1]);
+ * 				case 3:return (double)printf(fmt,args[1],args[2]);
+ * 				case 4:return (double)printf(fmt,args[1],args[2],args[3]);
+ * 				case 5:return (double)printf(fmt,args[1],args[2],args[3],args[4]);
+ * 				case 6:return (double)printf(fmt,args[1],args[2],args[3],args[4],args[5]);
+ * 				case 7:return (double)printf(fmt,args[1],args[2],args[3],args[4],args[5],args[6]);
+ * 				case 8:return (double)printf(fmt,args[1],args[2],args[3],args[4],args[5],args[6],args[7]);
+ * 				default:return (double)printf("Too many args!");
+ * 			}
+ * 		}
+ * 	It only worked for double type, and at most 7 arguments.
+ * Dependencies: expr-internal.c
+ */
+
 #define _GNU_SOURCE
 #ifndef _EXPR_DEFS_H_
 #include <math.h>
@@ -13,6 +41,7 @@
 
 #define EXPR_INLIB 1
 #include "expr.h"
+
 /*
 	SSIZE_MIN+1: allocate fail
 	SSIZE_MIN+2: no enough bufsize

@@ -48,17 +48,54 @@
 #define expr_new2(e,asym) expr_new2_r(e,asym,expr_defmtl)
 #define expr_new1(e) expr_new1_r(e,expr_defmtl)
 
-#define expr_vapwritef_r(fmt,fmtlen,writer,fd,mtl,ap) expr_vapwriteft_r(fmt,fmtlen,writer,fd,expr_ftable_default,mtl,ap)
-#define expr_apwritef_r(fmt,fmtlen,writer,fd,mtl,...) expr_apwriteft_r(fmt,fmtlen,writer,fd,expr_ftable_default,mtl,##__VA_ARGS__)
+#define expr_vwritef_r(writer,fd,fmt,fmtlen,arg,addr,mtl) expr_vwriteft_r(writer,fd,fmt,fmtlen,arg,addr,expr_ftable_default,mtl)
 
-#define expr_vapwritef(fmt,fmtlen,writer,fd,ap) expr_vapwritef_r(fmt,fmtlen,writer,fd,expr_defmtl,ap)
-#define expr_apwritef(fmt,fmtlen,writer,fd,...) expr_apwritef_r(fmt,fmtlen,writer,fd,expr_defmtl,##__VA_ARGS__)
+#define expr_vwritef(writer,fd,fmt,fmtlen,arg,addr) expr_vwritef_r(writer,fd,fmt,fmtlen,arg,addr,expr_defmtl)
+
+#define expr_writef_r(writer,fd,fmt,fmtlen,args,arglen,mtl) expr_writeft_r(writer,fd,fmt,fmtlen,args,arglen,expr_ftable_default,mtl)
+
+#define expr_writef(writer,fd,fmt,fmtlen,args,arglen) expr_writef_r(writer,fd,fmt,fmtlen,args,arglen,expr_defmtl)
+
+#define expr_vapwritef_r(writer,fd,fmt,fmtlen,mtl,ap) expr_vapwriteft_r(writer,fd,fmt,fmtlen,expr_ftable_default,mtl,ap)
+#define expr_apwritef_r(writer,fd,fmt,fmtlen,mtl,...) expr_apwriteft_r(writer,fd,fmt,fmtlen,expr_ftable_default,mtl,##__VA_ARGS__)
+
+#define expr_vapwritef(writer,fd,fmt,fmtlen,ap) expr_vapwritef_r(writer,fd,fmt,fmtlen,expr_defmtl,ap)
+#define expr_apwritef(writer,fd,fmt,fmtlen,...) expr_apwritef_r(writer,fd,fmt,fmtlen,expr_defmtl,##__VA_ARGS__)
 
 #define expr_vsnprintf_r(buf,buflen,fmt,fmtlen,mtl,ap) expr_vsnprintft_r(buf,buflen,fmt,fmtlen,expr_ftable_default,mtl,ap)
 #define expr_snprintf_r(buf,buflen,fmt,fmtlen,mtl,...) expr_snprintft_r(buf,buflen,fmt,fmtlen,expr_ftable_default,mtl,##__VA_ARGS__)
 
 #define expr_vsnprintf(buf,buflen,fmt,fmtlen,ap) expr_vsnprintf_r(buf,buflen,fmt,fmtlen,expr_defmtl,ap)
 #define expr_snprintf(buf,buflen,fmt,fmtlen,...) expr_snprintf_r(buf,buflen,fmt,fmtlen,expr_defmtl,##__VA_ARGS__)
+
+#define expr_common_asprintft_r(strp,fmt,fmtlen,table,mtl,called,...) ({\
+	struct expr_buffered_file _fp[1];\
+	const struct expr_memtool *restrict _mtl=(mtl);\
+	ssize_t _r;\
+	expr_buffered_init_r(_fp,NULL,0,NULL,SIZE_MAX,_mtl);\
+	_r=called(expr_buffered_write_warp,(intptr_t)_fp,fmt,fmtlen,table,_mtl,##__VA_ARGS__);\
+	if(expr_likely(_r>=0)){\
+		((char *)_fp->buf)[_r]=0;\
+		/* buffer expands if the writer touches its limit*/\
+		*(strp)=_fp->buf;\
+	}else {\
+		expr_buffered_close(_fp);\
+		(void)(strp);\
+	}\
+	_r;\
+})
+
+#define expr_vasprintft_r(strp,fmt,fmtlen,table,mtl,ap) expr_common_asprintft_r(strp,fmt,fmtlen,table,mtl,expr_vapwriteft_r,ap)
+#define expr_asprintft_r(strp,fmt,fmtlen,table,mtl,...) expr_common_asprintft_r(strp,fmt,fmtlen,table,mtl,expr_apwriteft_r,##__VA_ARGS__)
+
+#define expr_vasprintf_r(strp,fmt,fmtlen,mtl,ap) expr_vasprintft_r(strp,fmt,fmtlen,expr_ftable_default,mtl,ap)
+#define expr_asprintf_r(strp,fmt,fmtlen,mtl,...) expr_asprintft_r(strp,fmt,fmtlen,expr_ftable_default,mtl,##__VA_ARGS__)
+
+#define expr_vasprintft(strp,fmt,fmtlen,table,ap) expr_vasprintft_r(strp,fmt,fmtlen,table,expr_defmtl,ap)
+#define expr_asprintft(strp,fmt,fmtlen,table,...) expr_asprintft_r(strp,fmt,fmtlen,table,expr_defmtl,##__VA_ARGS__)
+
+#define expr_vasprintf(strp,fmt,fmtlen,ap) expr_vasprintft_r(strp,fmt,fmtlen,expr_ftable_default,expr_defmtl,ap)
+#define expr_asprintf(strp,fmt,fmtlen,...) expr_asprintft_r(strp,fmt,fmtlen,expr_ftable_default,expr_defmtl,##__VA_ARGS__)
 
 #define expr_builtin_symbol_xaddall(esp,symsp,syms) expr_builtin_symbol_xaddalls(esp,symsp,syms,NULL)
 #define expr_builtin_symbol_addall(esp,syms) expr_builtin_symbol_addalls(esp,syms,NULL)

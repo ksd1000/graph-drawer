@@ -8,12 +8,14 @@ Graph Drawer Expression Evaluator Library
 .nf
 .BR #include\~"expr.h"
 .P
-.BI "ssize_t expr_vwritef[t][_r](const char *restrict " fmt ",size_t " fmtlen ",expr_writer " writer ",intptr_t " fd ",expr_argfetch " arg ",intptr_t " addr ",[const struct expr_ftable *restrict " table "],[const struct expr_memtool *restrict " mtl "]);"
-.BI "ssize_t expr_writef[t][_r](const char *restrict " fmt ",size_t " fmtlen ",expr_writer " writer ",intptr_t " fd ",const union expr_argf *restrict " args ",size_t " arglen ",[const struct expr_ftable *restrict " table "],[const struct expr_memtool *restrict " mtl "]);"
-.BI "ssize_t expr_vapwritef[t][_r](const char *restrict " fmt ",size_t " fmtlen ",expr_writer " writer ",intptr_t " fd ",[const struct expr_ftable *restrict " table "],[const struct expr_memtool *restrict " mtl "],va_list " ap ");"
-.BI "ssize_t expr_apwritef[t][_r](const char *restrict " fmt ",size_t " fmtlen ",expr_writer " writer ",intptr_t " fd ",[const struct expr_ftable *restrict " table "],[const struct expr_memtool *restrict " mtl "]," ... ");"
+.BI "ssize_t expr_vwritef[t][_r](expr_writer " writer ",intptr_t " fd ",const char *restrict " fmt ",size_t " fmtlen ",expr_argfetch " arg ",intptr_t " addr ",[const struct expr_ftable *restrict " table "],[const struct expr_memtool *restrict " mtl "]);"
+.BI "ssize_t expr_writef[t][_r](expr_writer " writer ",intptr_t " fd ",const char *restrict " fmt ",size_t " fmtlen ",const union expr_argf *restrict " args ",size_t " arglen ",[const struct expr_ftable *restrict " table "],[const struct expr_memtool *restrict " mtl "]);"
+.BI "ssize_t expr_vapwritef[t][_r](expr_writer " writer ",intptr_t " fd ",const char *restrict " fmt ",size_t " fmtlen ",[const struct expr_ftable *restrict " table "],[const struct expr_memtool *restrict " mtl "],va_list " ap ");"
+.BI "ssize_t expr_apwritef[t][_r](expr_writer " writer ",intptr_t " fd ",const char *restrict " fmt ",size_t " fmtlen ",[const struct expr_ftable *restrict " table "],[const struct expr_memtool *restrict " mtl "]," ... ");"
 .BI "ssize_t expr_vsnprintf[t][_r](char *" buf ",size_t " buflen ",const char *restrict " fmt ",size_t " fmtlen ",[const struct expr_ftable *restrict " table "],[const struct expr_memtool *restrict " mtl "],va_list " ap ");"
 .BI "ssize_t expr_snprintf[t][_r](char *" buf ",size_t " buflen ",const char *restrict " fmt ",size_t " fmtlen ",[const struct expr_ftable *restrict " table "],[const struct expr_memtool *restrict " mtl "]," ... ");"
+.BI "ssize_t expr_vasprintf[t][_r](char **" strp ",const char *restrict " fmt ",size_t " fmtlen ",[const struct expr_ftable *restrict " table "],[const struct expr_memtool *restrict " mtl "],va_list " ap ");"
+.BI "ssize_t expr_asprintf[t][_r](char **" strp ",const char *restrict " fmt ",size_t " fmtlen ",[const struct expr_ftable *restrict " table "],[const struct expr_memtool *restrict " mtl "]," ... ");"
 .BI "extern const struct expr_ftable " expr_ftable_default "[1];"
 .fi
 .SH DESCRIPTION
@@ -44,11 +46,21 @@ The
 .BR expr_[v]snprintf[t][_r]()
 function write the formatted string to
 .IR buf [ buflen ].
+.P
+The
+.BR expr_[v]asprintf[t][_r]()
+macro write the formatted string to a space with enough size and let
+.IR *strp
+point to it. The space must be deallocated by
+.I mtl
+->
+.B deallocate()
+when it is no longer needed.
 .SS DEFAULT FORMAT
 Defined by
 .IR expr_ftable_default .
 .P
-"%[width][.digit][:argsize]conversion_character"
+"%[flags][width][.digit][:argsize]conversion_character"
 .P
 width, digit, argsize can be "*", to read from argumant, or be "**" to read from the pointer provided by argument.
 .TP
@@ -106,6 +118,13 @@ return the number of bytes should be written to
 in the case that the space is enough. The return value that >=
 .I buflen
 means the output was truncated.
+.P
+The
+.BR expr_[v]asprintf[t][_r]()
+return the number of bytes be written to
+.IR *strp " (excluding the terminating zero)"
+on success, or negative value on
+.RI "fail(and " *strp " will be undefined)."
 .SH ATTRIBUTES
 .TS
 allbox;

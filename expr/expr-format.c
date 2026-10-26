@@ -49,7 +49,7 @@
 	SSIZE_MIN+4: digit not set
 	SSIZE_MIN+128: truncate
 */
-#define TRUNC_CODE (SSIZE_MIN+128)
+#define TRUNC_CODE EXPR_TRUNC_CODE
 
 
 #define expr_allocator(size) (xmtl->allocate((size),xmtl->arg))
@@ -480,7 +480,7 @@ static ssize_t converteru_##_name(expr_writer writer,intptr_t fd,const union exp
 	if(fsz){\
 		c_trywrite(p,fsz);\
 	}\
-	if(!f58&&(size_t)fsz<digit){\
+	if(!f58&&(size_t)fsz<=digit){\
 		if(!fsz){\
 			c_trywrite(".",1);\
 			c_trywriteext('0',digit-(size_t)fsz);\
@@ -1157,9 +1157,7 @@ out:
 		onfalse;\
 	}\
 })
-ssize_t expr_vwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,expr_argfetch arg,intptr_t addr,const struct expr_memtool *restrict mtl){
-	return expr_vwriteft_r(fmt,fmtlen,writer,fd,arg,addr,expr_ftable_default,mtl);
-}
+
 struct expr_vwritef_workspace {
 	const char *endp,*fmt_old,*fmt0;
 	ssize_t ret;
@@ -1182,7 +1180,7 @@ struct expr_vwritef_workspace {
 };
 #undef xmtl
 #define xmtl mtl
-ssize_t expr_vwriteft_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,expr_argfetch arg,intptr_t addr,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl){
+ssize_t expr_vwriteft_r(expr_writer writer,intptr_t fd,const char *restrict fmt,size_t fmtlen,expr_argfetch arg,intptr_t addr,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl){
 	struct expr_vwritef_workspace *restrict wsp;
 	if(unlikely(!fmtlen))
 		return 0;
@@ -1715,17 +1713,11 @@ err:
 	debug("getting arg[%zd] (base=%p,len=%zu)=NULL",index,(void *)(uintptr_t)wa->base,wa->arglen);
 	return NULL;
 }
-ssize_t expr_writef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const union expr_argf *restrict args,size_t arglen,const struct expr_memtool *restrict mtl){
+ssize_t expr_writeft_r(expr_writer writer,intptr_t fd,const char *restrict fmt,size_t fmtlen,const union expr_argf *restrict args,size_t arglen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl){
 	struct writef_args wa[1];
 	wa->base=args;
 	wa->arglen=arglen;
-	return expr_vwriteft_r(fmt,fmtlen,writer,fd,arr_arg,(intptr_t)wa,expr_ftable_default,mtl);
-}
-ssize_t expr_writeft_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const union expr_argf *restrict args,size_t arglen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl){
-	struct writef_args wa[1];
-	wa->base=args;
-	wa->arglen=arglen;
-	return expr_vwriteft_r(fmt,fmtlen,writer,fd,arr_arg,(intptr_t)wa,table,mtl);
+	return expr_vwriteft_r(writer,fd,fmt,fmtlen,arr_arg,(intptr_t)wa,table,mtl);
 }
 struct fmtarg {
 	va_list ap;
@@ -1783,13 +1775,13 @@ end:
 	struct fmtarg a[1];\
 	a->index_old=-1;\
 	_start;\
-	r=expr_vwriteft_r(fmt,fmtlen,writer,fd,ap_getarg,(intptr_t)a,_table,mtl);\
+	r=expr_vwriteft_r(writer,fd,fmt,fmtlen,ap_getarg,(intptr_t)a,_table,mtl);\
 	_end
-ssize_t expr_vapwriteft_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl,va_list ap){
+ssize_t expr_vapwriteft_r(expr_writer writer,intptr_t fd,const char *restrict fmt,size_t fmtlen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl,va_list ap){
 	ap_common(va_copy(a->ap,ap),va_end(a->ap),table);
 	return r;
 }
-ssize_t expr_apwriteft_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl,...){
+ssize_t expr_apwriteft_r(expr_writer writer,intptr_t fd,const char *restrict fmt,size_t fmtlen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl,...){
 	ap_common(va_start(a->ap,mtl),va_end(a->ap),table);
 	return r;
 }

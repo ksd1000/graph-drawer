@@ -54,7 +54,7 @@ double expr_eval(const struct expr *ep,double input);
 void expr_free(struct expr *ep);
 double expr_calc(const char *e);
 ```
-Note that the expr\_new(),expr\_init() and expr\_calc() are just marcos in current version, the functions be called are actually expr\_new9\_r(),expr\_init8\_r() and expr\_calc5\_r() with the default memory allocator(malloc(),realloc(),free()).
+Note that the expr\_new(),expr\_init() and expr\_calc() are just macros in current version, the functions be called are actually expr\_new9\_r(),expr\_init8\_r() and expr\_calc5\_r() with the default memory allocator(malloc(),realloc(),free()).
 
 ## Graph Generator: libgraph
 

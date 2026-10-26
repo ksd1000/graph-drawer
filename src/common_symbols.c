@@ -227,7 +227,7 @@ double d_printk(double *args,size_t n){
 	f.index=0;
 	f.dynamic=BUFSIZ;
 	f.length=0;
-	r=expr_writef(fmt,flen,linebuf,(intptr_t)&f,(const union expr_argf *)args+1,n-1);
+	r=expr_writef(linebuf,(intptr_t)&f,fmt,flen,(const union expr_argf *)args+1,n-1);
 	r1=expr_buffered_close(&f);
 	if(r>=0){
 		if(r1<0)

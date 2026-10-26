@@ -1000,6 +1000,8 @@ struct expr_ftable {
 		      unused_bf:sizeof(unsigned char)*8-5;
 	char unused[2];
 };
+#define EXPR_TRUNC_CODE (SSIZE_MIN+128)
+
 struct expr_memfd {
 	void *buf;
 	size_t size;
@@ -1010,7 +1012,7 @@ struct expr_memfd {
 #define expr_idprintf(fd,fmt,...) expr_idwprintf(fd,write,fmt,##__VA_ARGS__)
 #define expr_ibprintf(fd,fmt,...) expr_idwprintf(fd,expr_buffered_write,fmt,##__VA_ARGS__)
 #define expr_ilprintf(fd,fmt,...) expr_idwprintf(fd,expr_buffered_write_iolbf_warped,fmt,##__VA_ARGS__)
-#define expr_idwprintf(fd,writer,fmt,...) expr_apwritef(fmt,sizeof(fmt)-1,(expr_writer)(uintptr_t)(writer),(intptr_t)(fd),##__VA_ARGS__)
+#define expr_idwprintf(fd,writer,fmt,...) expr_apwritef((expr_writer)(uintptr_t)(writer),(intptr_t)(fd),fmt,sizeof(fmt)-1,##__VA_ARGS__)
 
 #define EXPR_BZERO 1
 #define EXPR_BTRUNC 2

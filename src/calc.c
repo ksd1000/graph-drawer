@@ -47,7 +47,7 @@ double d_printf(double *args,size_t n){
 	const char *fmt=expr_cast(*args,const char *);
 	size_t flen=strlen(fmt);
 	ssize_t r;
-	r=expr_writef(fmt,flen,linebuf,(intptr_t)&printff,(const union expr_argf *)args+1,n-1);
+	r=expr_writef(linebuf,(intptr_t)&printff,fmt,flen,(const union expr_argf *)args+1,n-1);
 	return (double)r;
 }
 double d_printl(double *args,size_t n){
@@ -804,4 +804,7 @@ break3:
 		pall();
 	}
 	return EXIT_SUCCESS;
+}
+ssize_t vasprintft_r(char **strp,const char *restrict fmt,size_t fmtlen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl,va_list ap){
+	return expr_vasprintft_r(strp,fmt,fmtlen,table,mtl,ap);
 }

@@ -2115,7 +2115,7 @@ extern int expr_mtl_setup;
 	ssize_t _r;\
 	expr_buffered_init_r(_fp,NULL,0,NULL,SIZE_MAX,_mtl);\
 	_r=called(expr_buffered_write_warp,(intptr_t)_fp,fmt,fmtlen,table,_mtl,##__VA_ARGS__);\
-	if(expr_likely(_r>=0)){\
+	if(expr_likely(_r>0)){\
 		((char *)_fp->buf)[_r]=0;\
 		/* buffer expands if the writer touches its limit*/\
 		*(strp)=_fp->buf;\

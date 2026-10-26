@@ -286,7 +286,7 @@ Tested by test/speedtest.c
 |Time complexity of builtin symbol search|No|O(ln(N))|O(N)|\-|
 |For commercial use|Yes|Yes|Yes(ensure the accessibility of code to users)|Yes|
 |Language|C|C|C with GNU extensions|C/C++|
-|Document completeness|100%|100%|10.9%|\-|
+|Document completeness|100%|100%|24.3%|\-|
 |API stability|Yes|Yes|No|\-|
 |Test coverage|No|High|Low|\-|
 |Start date|07-08-2016|01-21-2016|02-19-2024|\-|

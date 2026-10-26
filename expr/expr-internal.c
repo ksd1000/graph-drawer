@@ -3,6 +3,12 @@
  *License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>*
  *This is free software: you are free to change and redistribute it.           *
  *******************************************************************************/
+
+/*
+ * History: 2026-10-08 separated from expr.c
+ * Internal-used features for libexpr
+ */
+
 #define _GNU_SOURCE
 #if (defined(EXPR_LIBC_STRING_IMPL)&&(EXPR_LIBC_STRING_IMPL))
 #include <string.h>

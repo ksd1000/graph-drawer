@@ -11,6 +11,7 @@ dump expr-buffered.c
 dump expr-core.c
 dump expr-format.c
 dump expr-internal.c
+dump expr-pool.c
 dump expr-symext.c
 dump expr-builtin.c
 dump expr-global.c

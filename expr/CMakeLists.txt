@@ -19,12 +19,13 @@ if(ASAN)
 	add_link_options(-fsanitize=address,undefined)
 endif()
 add_library(expr
-	expr-core.c
-	expr-symext.c
-	expr-buffered.c
-	expr-format.c
 	expr-alloc.c
+	expr-buffered.c
+	expr-core.c
+	expr-format.c
 	expr-internal.c
+	expr-pool.c
+	expr-symext.c
 )
 if(NOT (CMAKE_BUILD_TYPE STREQUAL "Debug"))
 	target_compile_options(expr PRIVATE -ffreestanding -nostdinc -include expr-defs.h -Wframe-larger-than=1024)

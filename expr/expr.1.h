@@ -54,7 +54,6 @@ expr_static_assert(sizeof(void *)==sizeof(ptrdiff_t));
 #define expr_t double
 #define expr_ti int64_t
 #define expr_tu uint64_t
-expr_static_assert(sizeof(void *)>=sizeof(double));
 #define EXPR_FMTd "f"
 #define EXPR_FMTu "f"
 #define EXPR_FMTo "\xa8"
@@ -80,6 +79,8 @@ expr_static_assert(sizeof(void *)>=sizeof(double));
 #define expr_tmod(__a,__b) fmod(__a,__b)
 #define expr_tscan(_str,_size,_outsize,_mtl) expr_internal_strtod_mtl_force(_str,_size,_outsize,_mtl)
 #endif
+
+expr_static_assert(sizeof(void *)>=sizeof(expr_t));
 
 typedef ssize_t (*expr_writer)(intptr_t fd,const void *buf,size_t size);
 typedef ssize_t (*expr_reader)(intptr_t fd,void *buf,size_t size);

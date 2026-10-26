@@ -263,5 +263,6 @@ int main(int argc,char **argv){
 	expr_symset_free(es);
 #define areap ((const struct expr_area *)(expr_defmtl->arg))
 	assert(areap->monotonic_create==areap->monotonic_combine);
+	assert(areap->monotonic_deallocate==areap->monotonic_allocate+areap->monotonic_expand_move);
 	return 0;
 }

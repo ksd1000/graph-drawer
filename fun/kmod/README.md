@@ -31,3 +31,6 @@ The expected output in **dmesg** will be like this:
 ```
 
 The core of the expression evaluator library may also be able to run in QEMU directly without any operating system, but this is not tested, because the author does not know how to write the code for testing.
+
+*The licenses may be incompatible between libexpr and the kernel, do not distribute their source code together, and not distribute the .ko file.*
+

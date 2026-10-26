@@ -80,8 +80,6 @@ expr_static_assert(sizeof(void *)==sizeof(ptrdiff_t));
 #define expr_tscan(_str,_size,_outsize,_mtl) expr_internal_strtod_mtl_force(_str,_size,_outsize,_mtl)
 #endif
 
-expr_static_assert(sizeof(void *)>=sizeof(expr_t));
-
 typedef ssize_t (*expr_writer)(intptr_t fd,const void *buf,size_t size);
 typedef ssize_t (*expr_reader)(intptr_t fd,void *buf,size_t size);
 typedef void *(*expr_allocate_t)(size_t,intptr_t);
@@ -982,9 +980,9 @@ union expr_argf {
 	expr_imaxf_t smax;
 	expr_imaxf_t *smaddr;
 };
-expr_static_assert(sizeof(union expr_argf)>=sizeof(double));
-expr_static_assert(sizeof(union expr_argf)>=sizeof(expr_umaxf_t));
-typedef const union expr_argf *(*expr_argfetch)(ptrdiff_t index,const struct expr_writeflag *flag,void *addr);
+expr_static_assert(sizeof(union expr_argf)==sizeof(double));
+expr_static_assert(sizeof(union expr_argf)==sizeof(expr_umaxf_t));
+typedef const union expr_argf *(*expr_argfetch)(ptrdiff_t index,const struct expr_writeflag *flag,intptr_t addr);
 struct expr_writefmt {
 	ssize_t (*converter)(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
 	uint8_t op[7];
@@ -1271,9 +1269,9 @@ union expr_double {
 };
 
 struct expr_callback {
-	void (*before)(const struct expr *restrict ep,struct expr_inst *ip,void *arg);
-	void (*after)(const struct expr *restrict ep,struct expr_inst *ip,void *arg);
-	void *arg;
+	int (*before)(const struct expr *restrict ep,struct expr_inst *ip,intptr_t arg);
+	int (*after)(const struct expr *restrict ep,struct expr_inst *ip,intptr_t arg);
+	intptr_t arg;
 };
 typedef int (*expr_recursive_callback)(struct expr *restrict ep,void *arg);
 

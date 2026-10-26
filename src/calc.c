@@ -500,7 +500,7 @@ int gchr=0;
 static int stop(void){
 	return gchr?getchar():0;
 }
-void callee(const struct expr *ep,struct expr_inst *ip,void *arg){
+int callee(const struct expr *ep,struct expr_inst *ip,intptr_t arg){
 	static char abuf[128];
 	sprintf(abuf,"%zu:expr[%zu]->data[%td]",line++,indexof(ep),ip-ep->data);
 	if(hassubexpr(ip->op)){
@@ -509,8 +509,9 @@ void callee(const struct expr *ep,struct expr_inst *ip,void *arg){
 		stop();
 	}else
 		printf("%-26s %-28s ...",abuf,ainst(ep,ip));
+	return 0;
 }
-void callee_end(const struct expr *ep,struct expr_inst *ip,void *arg){
+int callee_end(const struct expr *ep,struct expr_inst *ip,intptr_t arg){
 	static char abuf[128];
 	if(hassubexpr(ip->op)){
 		sprintf(abuf,"%zu:expr[%zu]->data[%td]",pop(),indexof(ep),ip-ep->data);
@@ -519,23 +520,16 @@ void callee_end(const struct expr *ep,struct expr_inst *ip,void *arg){
 		printf(" ok dst=%s\n",adst(ip->dst.dst));
 	}
 	stop();
+	return 0;
 }
 struct expr_callback ec={
 	.before=callee,
 	.after=callee_end,
-	.arg=NULL,
+	.arg=0,
 };
 double callbackmode(struct expr *ep,double input){
 	line=0;
-	return expr_callback(ep,input,&ec);
-}
-double stepmode(struct expr *ep,double input){
-	struct expr_inst *ip=ep->data;
-	double r;
-	do{
-		printf("%-26s dst=%lg\n",ainst(ep,ip),*ip->dst.dst);
-	}while(!expr_step(ep,input,&r,&ip));
-	return r;
+	return expr_eval_callback(ep,input,&ec);
 }
 long atol2(const char *str){
 	long r;
@@ -762,8 +756,7 @@ break3:
 					r=expr_eval(ep,0);
 					break;
 				case STEP:
-					r=stepmode(ep,0);
-					break;
+					gchr=1;
 				case CALLBACK:
 					r=callbackmode(ep,0);
 					break;

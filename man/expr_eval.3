@@ -9,7 +9,7 @@ Graph Drawer Expression Evaluator Library
 .BR #include\~"expr.h"
 .P
 .BI "double expr_eval(const struct expr *" ep ",double " input ");"
-.BI "int expr_step(const struct expr *restrict " ep " ,expr_t " input ",expr_t *restrict " output ",struct expr_inst **restrict " saveip ");"
+.BI "[[removed]] int expr_step(const struct expr *restrict " ep " ,expr_t " input ",expr_t *restrict " output ",struct expr_inst **restrict " saveip ");"
 .BI "expr_t expr_callback(const struct expr *restrict " ep ",expr_t " input ",const struct expr_callback *" ec ");"
 .fi
 .SH DESCRIPTION

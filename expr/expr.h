@@ -80,8 +80,6 @@ expr_static_assert(sizeof(void *)==sizeof(ptrdiff_t));
 #define expr_tscan(_str,_size,_outsize,_mtl) expr_internal_strtod_mtl_force(_str,_size,_outsize,_mtl)
 #endif
 
-expr_static_assert(sizeof(void *)>=sizeof(expr_t));
-
 typedef ssize_t (*expr_writer)(intptr_t fd,const void *buf,size_t size);
 typedef ssize_t (*expr_reader)(intptr_t fd,void *buf,size_t size);
 typedef void *(*expr_allocate_t)(size_t,intptr_t);
@@ -982,9 +980,9 @@ union expr_argf {
 	expr_imaxf_t smax;
 	expr_imaxf_t *smaddr;
 };
-expr_static_assert(sizeof(union expr_argf)>=sizeof(double));
-expr_static_assert(sizeof(union expr_argf)>=sizeof(expr_umaxf_t));
-typedef const union expr_argf *(*expr_argfetch)(ptrdiff_t index,const struct expr_writeflag *flag,void *addr);
+expr_static_assert(sizeof(union expr_argf)==sizeof(double));
+expr_static_assert(sizeof(union expr_argf)==sizeof(expr_umaxf_t));
+typedef const union expr_argf *(*expr_argfetch)(ptrdiff_t index,const struct expr_writeflag *flag,intptr_t addr);
 struct expr_writefmt {
 	ssize_t (*converter)(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
 	uint8_t op[7];
@@ -1271,9 +1269,9 @@ union expr_double {
 };
 
 struct expr_callback {
-	void (*before)(const struct expr *restrict ep,struct expr_inst *ip,void *arg);
-	void (*after)(const struct expr *restrict ep,struct expr_inst *ip,void *arg);
-	void *arg;
+	int (*before)(const struct expr *restrict ep,struct expr_inst *ip,intptr_t arg);
+	int (*after)(const struct expr *restrict ep,struct expr_inst *ip,intptr_t arg);
+	intptr_t arg;
 };
 typedef int (*expr_recursive_callback)(struct expr *restrict ep,void *arg);
 
@@ -1817,22 +1815,19 @@ int expr_recursive(struct expr *restrict ep,expr_recursive_callback callback,voi
 int expr_optimize(struct expr *restrict ep);
 int expr_optimize_recursive(struct expr *restrict ep);
 expr_t expr_eval(const struct expr *restrict ep,expr_t input);
-int expr_step(const struct expr *restrict ep,expr_t input,expr_t *restrict output,struct expr_inst **restrict saveip);
-expr_t expr_callback(const struct expr *restrict ep,expr_t input,const struct expr_callback *ec);
+expr_t expr_eval_callback(const struct expr *restrict ep,expr_t input,const struct expr_callback *ec);
 //global externs of expr-core.c :
 extern const struct expr_builtin_keyword expr_keywords[];
 extern const size_t expr_keywords_size;
 //global functions of expr-format.c :
 ssize_t expr_writec_r(expr_writer writer,intptr_t fd,size_t count,int c,const struct expr_memtool *restrict mtl);
 ssize_t expr_converter_common(expr_writer writer,intptr_t fd,const void *buf,size_t size,const struct expr_writeflag *flag);
-ssize_t expr_vwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,expr_argfetch arg,void *addr,const struct expr_memtool *restrict mtl);
-ssize_t expr_vwriteft_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,expr_argfetch arg,void *addr,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl);
+ssize_t expr_vwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,expr_argfetch arg,intptr_t addr,const struct expr_memtool *restrict mtl);
+ssize_t expr_vwriteft_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,expr_argfetch arg,intptr_t addr,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl);
 ssize_t expr_writef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const union expr_argf *restrict args,size_t arglen,const struct expr_memtool *restrict mtl);
 ssize_t expr_writeft_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const union expr_argf *restrict args,size_t arglen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl);
 ssize_t expr_vapwriteft_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl,va_list ap);
 ssize_t expr_apwriteft_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl,...);
-ssize_t expr_memfd_write(struct expr_memfd *restrict mfd,const void *buf,size_t size);
-ssize_t expr_memfd_write_warped(intptr_t fd,const void *buf,size_t size);
 ssize_t expr_vsnprintft_r(char *buf,size_t buflen,const char *restrict fmt,size_t fmtlen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl,va_list ap);
 ssize_t expr_snprintft_r(char *buf,size_t buflen,const char *restrict fmt,size_t fmtlen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl,...);
 size_t expr_sscanf_r(const char *str,size_t len,const char *fmt,size_t fmtlen,void *const *addr,size_t addrlen,const struct expr_memtool *restrict mtl);

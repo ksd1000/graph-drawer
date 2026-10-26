@@ -100,6 +100,14 @@ for
 .BR expr_area_dealloc()
 cannot be
 .BR NULL .
+.P
+The behavior of
+.BR expr_area_realloc[4]()
+when
+.I old
+==
+.BR NULL
+is maybe not agreed in different version. libexpr does not ensure the stability of the behavior.
 .SH ATTRIBUTES
 .TS
 allbox;

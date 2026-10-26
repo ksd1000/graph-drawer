@@ -1,0 +1,135 @@
+.TH expr_format 3 2026-10-23 "Graph Drawer expr man-pages 1.0.13"
+.SH NAME
+expr_vwritef[t][_r], expr_writef[t][_r], expr_[v]apwritef[t][_r], expr_[v]sprintf[t][_r] \- string formatter
+.SH LIBRARY
+Graph Drawer Expression Evaluator Library
+.RI ( libexpr ,\~ \-lexpr )
+.SH SYNOPSIS
+.nf
+.BR #include\~"expr.h"
+.P
+.BI "ssize_t expr_vwritef[t][_r](const char *restrict " fmt ",size_t " fmtlen ",expr_writer " writer ",intptr_t " fd ",expr_argfetch " arg ",intptr_t " addr ",[const struct expr_ftable *restrict " table "],[const struct expr_memtool *restrict " mtl "]);"
+.BI "ssize_t expr_writef[t][_r](const char *restrict " fmt ",size_t " fmtlen ",expr_writer " writer ",intptr_t " fd ",const union expr_argf *restrict " args ",size_t " arglen ",[const struct expr_ftable *restrict " table "],[const struct expr_memtool *restrict " mtl "]);"
+.BI "ssize_t expr_vapwritef[t][_r](const char *restrict " fmt ",size_t " fmtlen ",expr_writer " writer ",intptr_t " fd ",[const struct expr_ftable *restrict " table "],[const struct expr_memtool *restrict " mtl "],va_list " ap ");"
+.BI "ssize_t expr_apwritef[t][_r](const char *restrict " fmt ",size_t " fmtlen ",expr_writer " writer ",intptr_t " fd ",[const struct expr_ftable *restrict " table "],[const struct expr_memtool *restrict " mtl "]," ... ");"
+.BI "ssize_t expr_vsnprintf[t][_r](char *" buf ",size_t " buflen ",const char *restrict " fmt ",size_t " fmtlen ",[const struct expr_ftable *restrict " table "],[const struct expr_memtool *restrict " mtl "],va_list " ap ");"
+.BI "ssize_t expr_snprintf[t][_r](char *" buf ",size_t " buflen ",const char *restrict " fmt ",size_t " fmtlen ",[const struct expr_ftable *restrict " table "],[const struct expr_memtool *restrict " mtl "]," ... ");"
+.BI "extern const struct expr_ftable " expr_ftable_default "[1];"
+.fi
+.SH DESCRIPTION
+The
+.BR expr_vwritef[t][_r]()
+function write the string formatted under
+.IR fmt [ fmtlen ]
+to
+.I fd
+by
+.IR writer .
+The arguments are fetched from
+.I addr
+by
+.IR arg.
+.P
+The
+.BR expr_writef[t][_r]()
+function fetch the argument from
+.IR args [ arglen ].
+.P
+The
+.BR expr_[v]apwritef[t][_r]()
+function fetch the argument from
+.IR "... " or " ap" .
+.P
+The
+.BR expr_[v]snprintf[t][_r]()
+function write the formatted string to
+.IR buf [ buflen ].
+.SS DEFAULT FORMAT
+Defined by
+.IR expr_ftable_default .
+.P
+"%[width][.digit][:argsize]conversion_character"
+.P
+width, digit, argsize can be "*", to read from argumant, or be "**" to read from the pointer provided by argument.
+.TP
+.B %
+% .
+.TQ
+.B s
+Standard string.
+.TQ
+.B S
+String with length
+.IR digit .
+.TQ
+.B f
+double.
+.TQ
+.B d
+.RB "signed integer(" ssize_t ")."
+.TQ
+.B u 
+.RB "unsigned integer(" size_t ")."
+.TQ
+.B x
+.RB "unsigned integer(" size_t "), in hex."
+.TQ
+.B o
+.RB "unsigned integer(" size_t "), in octal."
+.TQ
+.B b
+.RB "unsigned integer(" size_t "), in binary."
+.TQ 
+.BR m , M
+.RB "unsigned integer(" size_t "), in human readable format."
+.TQ
+.B c
+Character.
+.TQ
+.BR h , H
+Hexdump from the pointer provided by argument the with length
+.IR digit .
+.TQ
+.B p , P
+Address of a pointer.
+.SH RETURN VALUE
+The
+.BR expr_[v||vap|ap]writef[t][_r]()
+return the number of bytes written. On error or truncate, the negative code or the truncated size added by
+.B SSIZE_MIN+128
+will return.
+.P
+The
+.BR expr_[v]snprintf[t][_r]()
+return the number of bytes should be written to
+.IR buf " (excluding the terminating zero)"
+in the case that the space is enough. The return value that >=
+.I buflen
+means the output was truncated.
+.SH ATTRIBUTES
+.TS
+allbox;
+lbx lb lb
+l l l.
+Interface	Attribute	Value
+T{
+.na
+.nh
+.BR expr_vwritef[t][_r]() , expr_writef[t][_r]() , expr_[v]apwritef[t][_r]() , expr_[v]sprintf[t][_r]()
+T}	Thread safety	MT-Safe
+.TE
+.SH HISTORY
+.TP
+.BR expr_writef()
+2026-01-23
+.TP
+.BR expr_vwritef()
+2026-02-01
+.TP
+.BR expr_apwritef()
+2026-02-27
+.TP
+.BR expr_sprintff()
+2026-10-21
+.SH SEE ALSO
+\-

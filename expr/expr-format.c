@@ -5,7 +5,7 @@
 
 /*
  * History: 2026-02-03 separated from expr.c
- * Format converter
+ * String formatter
  * Motivation: For making the printf() available in expression.
  * 	The multi-dimension(multi-argument) function that libexpr supports is like the form:
  * 	f(args[],n);
@@ -47,8 +47,9 @@
 	SSIZE_MIN+2: no enough bufsize
 	SSIZE_MIN+3: arg fail
 	SSIZE_MIN+4: digit not set
+	SSIZE_MIN+128: truncate
 */
-
+#define TRUNC_CODE (SSIZE_MIN+128)
 
 
 #define expr_allocator(size) (xmtl->allocate((size),xmtl->arg))
@@ -60,10 +61,16 @@
 	if(unlikely(r<0))\
 		return r;\
 	sum+=r;\
+	if(unlikely(r<(ssize_t)(sz)))\
+		return TRUNC_CODE+sum;\
 }
 #define c_trywrite3(buf,sz,onerr) if(likely((r=(ssize_t)(sz))>0)){\
 	r=writer(fd,(buf),(size_t)r);\
 	if(unlikely(r<0)){\
+		onerr;\
+	}\
+	if(unlikely(r<(ssize_t)(sz))){\
+		r+=sum+TRUNC_CODE;\
 		onerr;\
 	}\
 	sum+=r;\
@@ -507,8 +514,10 @@ static ssize_t converteru_##_name(expr_writer writer,intptr_t fd,const union exp
 			}\
 		}\
 	}else {\
+		size_t wsz;\
 		++firp;\
-		c_trywrite(np,firp-np);\
+		wsz=(size_t)(firp-np);\
+		c_trywrite(np,wsz);\
 		if(digit)\
 			c_trywrite(".",1);\
 		r1=(np+ds)-firp-iz;\
@@ -523,8 +532,10 @@ static ssize_t converteru_##_name(expr_writer writer,intptr_t fd,const union exp
 			if(fsz){\
 				ext=fsz>ext?ext:fsz;\
 				c_trywrite(p,ext);\
-			}else \
-				c_trywrite("0",ext=1);\
+			}else {\
+				ext=1;\
+				c_trywrite("0",1);\
+			}\
 		}\
 		fsz=r1+ext;\
 	}\
@@ -764,7 +775,8 @@ static ssize_t faction_hb(expr_writer writer,intptr_t fd,const union expr_argf *
 			++datap;
 		}
 		if(likely(p>buf)){
-			c_trywrite(buf,p-buf);
+			len=(size_t)(p-buf);
+			c_trywrite(buf,len);
 		}
 	}
 	if(f61&&ext>0){
@@ -1145,7 +1157,7 @@ out:
 		onfalse;\
 	}\
 })
-ssize_t expr_vwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,expr_argfetch arg,void *addr,const struct expr_memtool *restrict mtl){
+ssize_t expr_vwritef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,expr_argfetch arg,intptr_t addr,const struct expr_memtool *restrict mtl){
 	return expr_vwriteft_r(fmt,fmtlen,writer,fd,arg,addr,expr_ftable_default,mtl);
 }
 struct expr_vwritef_workspace {
@@ -1170,7 +1182,7 @@ struct expr_vwritef_workspace {
 };
 #undef xmtl
 #define xmtl mtl
-ssize_t expr_vwriteft_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,expr_argfetch arg,void *addr,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl){
+ssize_t expr_vwriteft_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,expr_argfetch arg,intptr_t addr,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl){
 	struct expr_vwritef_workspace *restrict wsp;
 	if(unlikely(!fmtlen))
 		return 0;
@@ -1221,6 +1233,10 @@ ssize_t expr_vwriteft_r(const char *restrict fmt,size_t fmtlen,expr_writer write
 	v=writer(fd,(buf),(size_t)(sz));\
 	if(unlikely(v<0))\
 		wf_return(v);\
+	if(unlikely(v<(ssize_t)(sz))){\
+		v+=TRUNC_CODE+ret;\
+		wf_return(v);\
+	}\
 	ret+=v;\
 }
 	if(unlikely(!table->fph_set)){
@@ -1232,7 +1248,8 @@ ssize_t expr_vwriteft_r(const char *restrict fmt,size_t fmtlen,expr_writer write
 next:
 	fmt=memchr(fmt,table->fph,(size_t)(endp-fmt));
 	if(unlikely(!fmt)){
-		wf_trywrite(fmt_old,(size_t)(endp-fmt_old));
+		loop=(size_t)(endp-fmt_old);
+		wf_trywrite(fmt_old,loop);
 		goto end;
 	}
 	v=fmt-fmt_old;
@@ -1688,8 +1705,8 @@ struct writef_args {
 	const union expr_argf *base;
 	size_t arglen;
 };
-static const union expr_argf *arr_arg(ptrdiff_t index,const struct expr_writeflag *flag,void *addr){
-	struct writef_args *wa=addr;
+static const union expr_argf *arr_arg(ptrdiff_t index,const struct expr_writeflag *flag,intptr_t addr){
+	struct writef_args *wa=(struct writef_args *)addr;
 	const union expr_argf *r=wa->base+index;
 	range_checkn(r,wa->base,wa->arglen,goto err);
 	debug("getting arg[%zd] (base=%p,len=%zu)=%p",index,(void *)(uintptr_t)wa->base,wa->arglen,(void *)(uintptr_t)r);
@@ -1702,21 +1719,21 @@ ssize_t expr_writef_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,
 	struct writef_args wa[1];
 	wa->base=args;
 	wa->arglen=arglen;
-	return expr_vwriteft_r(fmt,fmtlen,writer,fd,arr_arg,wa,expr_ftable_default,mtl);
+	return expr_vwriteft_r(fmt,fmtlen,writer,fd,arr_arg,(intptr_t)wa,expr_ftable_default,mtl);
 }
 ssize_t expr_writeft_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const union expr_argf *restrict args,size_t arglen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl){
 	struct writef_args wa[1];
 	wa->base=args;
 	wa->arglen=arglen;
-	return expr_vwriteft_r(fmt,fmtlen,writer,fd,arr_arg,wa,table,mtl);
+	return expr_vwriteft_r(fmt,fmtlen,writer,fd,arr_arg,(intptr_t)wa,table,mtl);
 }
 struct fmtarg {
 	va_list ap;
 	ptrdiff_t index_old;
 	union expr_argf save[1];
 };
-static const union expr_argf *ap_getarg(ptrdiff_t index,const struct expr_writeflag *flag,void *addr){
-	struct fmtarg *restrict a=addr;
+static const union expr_argf *ap_getarg(ptrdiff_t index,const struct expr_writeflag *flag,intptr_t addr){
+	struct fmtarg *restrict a=(struct fmtarg *)addr;
 	int type=(int)flag->type,useaddr=!!flag->addr;
 	if(index==a->index_old){
 		goto end;
@@ -1766,7 +1783,7 @@ end:
 	struct fmtarg a[1];\
 	a->index_old=-1;\
 	_start;\
-	r=expr_vwriteft_r(fmt,fmtlen,writer,fd,ap_getarg,a,_table,mtl);\
+	r=expr_vwriteft_r(fmt,fmtlen,writer,fd,ap_getarg,(intptr_t)a,_table,mtl);\
 	_end
 ssize_t expr_vapwriteft_r(const char *restrict fmt,size_t fmtlen,expr_writer writer,intptr_t fd,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl,va_list ap){
 	ap_common(va_copy(a->ap,ap),va_end(a->ap),table);
@@ -1792,11 +1809,13 @@ ssize_t expr_apwriteft_r(const char *restrict fmt,size_t fmtlen,expr_writer writ
 		mfd->size-=size;\
 	}\
 	return (ssize_t)old_size
-ssize_t expr_memfd_write(struct expr_memfd *restrict mfd,const void *buf,size_t size){
+/*
+static ssize_t expr_memfd_write(struct expr_memfd *restrict mfd,const void *buf,size_t size){
 	memfd_write_common;
 }
-ssize_t expr_memfd_write_warped(intptr_t fd,const void *buf,size_t size){
-	struct expr_memfd *mfd=(struct expr_memfd *)fd;
+*/
+static ssize_t expr_memfd_write_warped(intptr_t fd,const void *buf,size_t size){
+	struct expr_memfd *restrict mfd=(struct expr_memfd *)fd;
 	memfd_write_common;
 }
 #define sp_common(_start,_end,_table) \

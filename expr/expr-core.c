@@ -6203,51 +6203,35 @@ break1:\
 		++ip;\
 break2:
 
-#define EXPR_EVAL_BODY \
-	EXPR_EVALVARS;\
-	for(struct expr_inst *ip=ep->data;;){\
-		EXPR_EVALSTEP(return *ip->dst.dst);\
-	}
 expr_noinline
 expr_t expr_eval(const struct expr *restrict ep,expr_t input){
-	EXPR_EVAL_BODY;
+	EXPR_EVALVARS;
+	for(struct expr_inst *ip=ep->data;;){
+		EXPR_EVALSTEP(return *ip->dst.dst);
+	}
 }
 
 #if !(defined(EXPR_NODEBUGEVAL)&&(EXPR_NODEBUGEVAL))
-//#if 0
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wfloat-overflow-conversion"
-expr_noinline
-int expr_step(const struct expr *restrict ep,expr_t input,expr_t *restrict output,struct expr_inst **restrict saveip){
-	EXPR_EVALVARS;
-	struct expr_inst *ip=*saveip;
-	EXPR_EVALSTEP(if(output)*output=*ip->dst.dst;return 1);
-	*saveip=ip;
-	return 0;
-}
-#pragma GCC diagnostic pop
 
 #undef eval
-#define eval(_ep,_input) expr_callback(_ep,_input,ec)
-#define EXPR_CALLBACK_BODY \
-	EXPR_EVALVARS;\
-	struct expr_inst *old_ip;\
-	expr_t out;\
-	for(struct expr_inst *ip=ep->data;;){\
-		old_ip=ip;\
-		if(ec->before)\
-			ec->before(ep,ip,ec->arg);\
-		EXPR_EVALSTEP(out=*ip->dst.dst;goto end);\
-		if(ec->after)\
-			ec->after(ep,old_ip,ec->arg);\
-	}\
-end:\
-	if(ec->after)\
-		ec->after(ep,old_ip,ec->arg);\
-	return out
+#define eval(_ep,_input) expr_eval_callback(_ep,_input,ec)
 expr_noinline
-expr_t expr_callback(const struct expr *restrict ep,expr_t input,const struct expr_callback *ec){
-	EXPR_CALLBACK_BODY;
+expr_t expr_eval_callback(const struct expr *restrict ep,expr_t input,const struct expr_callback *ec){
+	EXPR_EVALVARS;
+	struct expr_inst *old_ip;
+	expr_t out;
+	for(struct expr_inst *ip=ep->data;;){
+		old_ip=ip;
+		if(ec->before&&ec->before(ep,ip,ec->arg))
+			return EXPR_FAIL;
+		EXPR_EVALSTEP(out=*ip->dst.dst;goto end);
+		if(ec->after&&ec->after(ep,old_ip,ec->arg))
+			return EXPR_FAIL;
+	}
+end:
+	if(ec->after)
+		ec->after(ep,old_ip,ec->arg);
+	return out;
 }
 #undef eval
 

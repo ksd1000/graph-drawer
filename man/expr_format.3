@@ -133,7 +133,7 @@ Interface	Attribute	Value
 T{
 .na
 .nh
-.BR expr_vwritef[t][_r]() , expr_writef[t][_r]() , expr_[v]apwritef[t][_r]() , expr_[v]sprintf[t][_r]()
+.BR expr_vwritef[t][_r]() , expr_writef[t][_r]() , expr_[v]apwritef[t][_r]() , expr_[v]snprintf[t][_r]() , expr_[v]asprintf[t][_r]()
 T}	Thread safety	MT-Safe
 .TE
 .SH HISTORY
@@ -147,7 +147,10 @@ T}	Thread safety	MT-Safe
 .BR expr_apwritef()
 2026-02-27
 .TP
-.BR expr_sprintff()
+.BR expr_snprintf()
 2026-10-21
+.TP
+.BR expr_asprintf()
+2026-10-27
 .SH SEE ALSO
 \-

@@ -62,6 +62,10 @@
 #define expr_vapwritef(writer,fd,fmt,fmtlen,ap) expr_vapwritef_r(writer,fd,fmt,fmtlen,expr_defmtl,ap)
 #define expr_apwritef(writer,fd,fmt,fmtlen,...) expr_apwritef_r(writer,fd,fmt,fmtlen,expr_defmtl,##__VA_ARGS__)
 
+#define expr_swritef_r(buf,buflen,fmt,fmtlen,args,arglen,mtl) expr_swriteft_r(buf,buflen,fmt,fmtlen,args,arglen,expr_ftable_default,mtl)
+
+#define expr_swritef(buf,buflen,fmt,fmtlen,args,arglen) expr_swritef_r(buf,buflen,fmt,fmtlen,args,arglen,expr_defmtl)
+
 #define expr_vsnprintf_r(buf,buflen,fmt,fmtlen,mtl,ap) expr_vsnprintft_r(buf,buflen,fmt,fmtlen,expr_ftable_default,mtl,ap)
 #define expr_snprintf_r(buf,buflen,fmt,fmtlen,mtl,...) expr_snprintft_r(buf,buflen,fmt,fmtlen,expr_ftable_default,mtl,##__VA_ARGS__)
 

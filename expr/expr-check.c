@@ -221,6 +221,8 @@ end:
 	free(buf);
 }
 #define xmtl expr_defmtl
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 void checkfmt(const char *expect,const char *fmt,...){
 	char *p;
 	va_list ap;
@@ -237,6 +239,7 @@ void checkfmt(const char *expect,const char *fmt,...){
 	}
 	expr_xfree(p);
 }
+#pragma GCC diagnostic pop
 void checkfmts(void){
 	checkfmt("   1234","%7d",(ssize_t)1234);
 	checkfmt("1234  ","%-6d",(ssize_t)1234);

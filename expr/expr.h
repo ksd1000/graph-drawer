@@ -22,12 +22,15 @@
 
 expr_static_assert((!0)==1);
 
-#ifndef _SSIZE_T_DEFINED_
-#define _SSIZE_T_DEFINED_
-typedef ptrdiff_t ssize_t;
+#if !defined(_SSIZE_T_DEFINED_)&&!defined(ssize_t)
+#define _SSIZE_T_DEFINED_ 1
+#undef ssize_t
+#define ssize_t ptrdiff_t
 #else
 expr_static_assert(sizeof(ssize_t)==sizeof(ptrdiff_t));
 #endif
+
+expr_static_assert(sizeof(ssize_t)==sizeof(size_t));
 
 #ifndef SSIZE_MAX
 #define SSIZE_MAX PTRDIFF_MAX

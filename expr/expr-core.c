@@ -214,9 +214,6 @@ const char *expr_error(int error){
 #define malloc (use xmalloc() instead!)
 #define realloc (use xrealloc() instead!)
 
-#define expr_allocator(size) (xmtl->allocate((size),xmtl->arg))
-#define expr_reallocator(old,size) (xmtl->reallocate((old),(size),xmtl->arg))
-#define expr_deallocator(old) (xmtl->deallocate((old),xmtl->arg))
 #define xmtl mtl
 static void *xautoadd(void **restrict old,size_t *restrict size,size_t *restrict length,size_t n,size_t expand,const struct expr_memtool *restrict mtl){
 	void *r;
@@ -324,23 +321,27 @@ const struct expr_builtin_keyword expr_keywords[]={
 	{NULL,0,0,0,0}
 };
 const size_t expr_keywords_size=arrsize(expr_keywords)-1;
-static int keyword_diff(const char *str,size_t len,const struct expr_builtin_keyword *restrict s){
-	int r=(int)len-(int)s->strlen;
-	if(r)
-		return r;
-	return memcmp(str,s->str,len);
-}
-static const struct expr_builtin_keyword *expr_keyword_search(const char *str,size_t len,const struct expr_builtin_keyword *restrict kp,size_t n){
+#define EXPR_KEYWORD_MAXLEN 15
+const struct expr_builtin_keyword *expr_keyword_search(const char *str,size_t len,const struct expr_builtin_keyword *restrict kp,size_t n){
 	size_t index;
 	int r;
+	if(unlikely(len>(size_t)EXPR_KEYWORD_MAXLEN))
+		return NULL;
+	// avoid int - int overflow
 restart:
 	if(unlikely(!n))
 		return NULL;
 	index=n>>1;
-	r=keyword_diff(str,len,kp+index);
-	debug("diff(%s,%zu,%s)=%d",str,len,kp[index].str,r);
-	if(!r)
-		return kp+index;
+	{
+		const struct expr_builtin_keyword *restrict s;
+		s=kp+index;
+		r=(int)len-(int)s->strlen;
+		if(!r)
+			r=memcmp(str,s->str,len);
+		debug("diff(%s,%zu,%s)=%d",str,len,s->str,r);
+		if(!r)
+			return s;
+	}
 	if(r<0){
 		n=index;
 		goto restart;

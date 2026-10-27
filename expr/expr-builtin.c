@@ -22,10 +22,6 @@ expr_globals_define();
 
 #define eval(_ep,_input) expr_eval(_ep,_input)
 
-
-#define expr_allocator(size) (xmtl->allocate((size),xmtl->arg))
-#define expr_reallocator(old,size) (xmtl->reallocate((old),(size),xmtl->arg))
-#define expr_deallocator(old) (xmtl->deallocate((old),xmtl->arg))
 #define xmtl expr_defmtl
 static double expr_setup_mtl_b(double x){
 	return (double)expr_setup_mtl((int)x);

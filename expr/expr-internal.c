@@ -1099,10 +1099,9 @@ e2inf:
 	}
 	return val.val;//completed ?
 }
-#define expr_allocator(size) (xmtl->allocate((size),xmtl->arg))
-#define expr_reallocator(old,size) (xmtl->reallocate((old),(size),xmtl->arg))
-#define expr_deallocator(old) (xmtl->deallocate((old),xmtl->arg))
+
 #define xmtl mtl
+
 double expr_internal_strtod_mtl_force(const char *restrict nptr,size_t nsize,size_t *restrict end_index,const struct expr_memtool *restrict mtl){
 	struct expr_strtod_workspace *ws;
 	ws=xmalloc(sizeof(struct expr_strtod_workspace));

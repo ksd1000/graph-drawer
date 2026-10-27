@@ -24,9 +24,6 @@
 #define malloc (use xmalloc() instead!)
 #define realloc (use xrealloc() instead!)
 
-#define expr_allocator(size) (xmtl->allocate((size),xmtl->arg))
-#define expr_reallocator(old,size) (xmtl->reallocate((old),(size),xmtl->arg))
-#define expr_deallocator(old) (xmtl->deallocate((old),xmtl->arg))
 #define xmtl esp->mtl
 const struct expr_builtin_symbol *expr_builtin_symbol_search(const struct expr_builtin_symbol *syms,const char *sym,size_t sz){
 	for(;syms->str;++syms){

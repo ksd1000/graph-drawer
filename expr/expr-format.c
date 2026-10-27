@@ -51,11 +51,6 @@
 */
 #define TRUNC_CODE EXPR_TRUNC_CODE
 
-
-#define expr_allocator(size) (xmtl->allocate((size),xmtl->arg))
-#define expr_reallocator(old,size) (xmtl->reallocate((old),(size),xmtl->arg))
-#define expr_deallocator(old) (xmtl->deallocate((old),xmtl->arg))
-
 #define c_trywrite(buf,sz) if(likely((r=(ssize_t)(sz))>0)){\
 	r=writer(fd,(buf),(size_t)r);\
 	if(unlikely(r<0))\
@@ -361,6 +356,12 @@ struct doubleconverter_workspace {
 	char v[1096];
 	char n[];
 };
+
+#ifndef EXPR_FORMAT_NOFLOAT
+#define EXPR_FORMAT_NOFLOAT 0
+#endif
+
+#if !(EXPR_FORMAT_NOFLOAT)
 // the libc printf for double rounds to the closer one. but the code is too difficult to write, so this keeps truncate, round by the caller.
 #define conv_fu(_start,_name,_how,_before_how) \
 static ssize_t converteru_##_name(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag,uint32_t base,int64_t shouldleft,struct doubleconverter_workspace *bufst,uint32_t nsize){\
@@ -725,6 +726,37 @@ conv_fe(fe,10,0,nbuf_size(308+8));
 #undef ival
 #undef iival
 #undef workspace
+
+static ssize_t log10_floor_inaccurate(double x){
+	uint64_t ix;
+	ssize_t r;
+	if(x<1.0/10000)
+		return -5;
+	if(x<1.0)
+		return -1;
+	ix=(uint64_t)x;
+	r=0;
+#define check_div(v,e) if(ix>=UINT64_C(v)){ix/=UINT64_C(v);r+=(e);}
+	check_div(10000000000,10);
+	check_div(100000,5);
+	check_div(1000,3);
+	check_div(100,2);
+	return ix>=10?r+1:r;
+}
+static ssize_t faction_g(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+	double val=fabs(arg->dbl);
+	ssize_t vl;
+	return ((val==0.0||((vl=log10_floor_inaccurate(val))>=-4&&vl<(ssize_t)flag_digit(flag,6)))?
+	converter_xaa:converter_fe)(writer,fd,arg,(flag->eq=1,flag));
+}
+static ssize_t faction_G(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+	double val=fabs(arg->dbl);
+	ssize_t vl;
+	return ((val==0.0||((vl=log10_floor_inaccurate(val))>=-4&&vl<(ssize_t)flag_digit(flag,6)))?
+	converter_xaa:converter_fe)(writer,fd,arg,(flag->eq=1,flag));
+}
+
+#endif
 static ssize_t faction_s(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	size_t len;
 	ssize_t r,sum,ext,sz;
@@ -798,38 +830,6 @@ static ssize_t faction_c(expr_writer writer,intptr_t fd,const union expr_argf *a
 	ssize_t r,sum,ext,sz;
 	cwrite_common(&arg->ch,(ssize_t)1);
 }
-static double dbl_abs(double x){
-	*(uint64_t *)&x=UINT64_C(0x8000000000000000);
-	return x;
-}
-static ssize_t log10_floor_inaccurate(double x){
-	uint64_t ix;
-	ssize_t r;
-	if(x<1.0/10000)
-		return -5;
-	if(x<1.0)
-		return -1;
-	ix=(uint64_t)x;
-	r=0;
-#define check_div(v,e) if(ix>=UINT64_C(v)){ix/=UINT64_C(v);r+=(e);}
-	check_div(10000000000,10);
-	check_div(100000,5);
-	check_div(1000,3);
-	check_div(100,2);
-	return ix>=10?r+1:r;
-}
-static ssize_t faction_g(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
-	double val=dbl_abs(arg->dbl);
-	ssize_t vl;
-	return ((val==0.0||((vl=log10_floor_inaccurate(val))>=-4&&vl<(ssize_t)flag_digit(flag,6)))?
-	converter_xaa:converter_fe)(writer,fd,arg,(flag->eq=1,flag));
-}
-static ssize_t faction_G(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
-	double val=fabs(arg->dbl);
-	ssize_t vl;
-	return ((val==0.0||((vl=log10_floor_inaccurate(val))>=-4&&vl<(ssize_t)flag_digit(flag,6)))?
-	converter_xaa:converter_fe)(writer,fd,arg,(flag->eq=1,flag));
-}
 static ssize_t faction_p(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	if(!arg->addr){
 		ssize_t r,sum,ext,sz;
@@ -885,6 +885,18 @@ const struct expr_writefmt expr_writefmts_default[]={
 	fmtc_register(converter_x8e,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x9e'),
 	fmtc_register(converter_x8f,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x9f'),
 
+	fmtc_register(faction_s,1,EXPR_FLAGTYPE_ADDR,'s'),
+	fmtc_register(faction_S,2,EXPR_FLAGTYPE_ADDR,'S'),
+	fmtc_register(faction_c,1,EXPR_FLAGTYPE_UNSIGNED,'c'),
+	fmtc_register(converter_d,1,EXPR_FLAGTYPE_SIGNED,'d'),
+	fmtc_register(faction_p,1,EXPR_FLAGTYPE_ADDR,'p'),
+	fmtc_register(faction_P,1,EXPR_FLAGTYPE_ADDR,'P'),
+	fmtc_register(faction_h,2,EXPR_FLAGTYPE_ADDR,'h'),
+	fmtc_register(faction_h,2,EXPR_FLAGTYPE_ADDR,'H'),
+	fmtc_register(converter_size,1,EXPR_FLAGTYPE_SIGNED,'m'),
+	fmtc_register(converter_size,1,EXPR_FLAGTYPE_SIGNED,'M'),
+
+#if !(EXPR_FORMAT_NOFLOAT)
 	fmtc_register(converter_xa1,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xa1','a'),
 	fmtc_register(converter_xa2,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xa2'),
 	fmtc_register(converter_xa3,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xa3'),
@@ -917,21 +929,14 @@ const struct expr_writefmt expr_writefmts_default[]={
 	fmtc_register(converter_xae,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xbe'),
 	fmtc_register(converter_xaf,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xbf'),
 
-	fmtc_register(faction_s,1,EXPR_FLAGTYPE_ADDR,'s'),
-	fmtc_register(faction_S,2,EXPR_FLAGTYPE_ADDR,'S'),
-	fmtc_register(faction_c,1,EXPR_FLAGTYPE_UNSIGNED,'c'),
-	fmtc_register(converter_d,1,EXPR_FLAGTYPE_SIGNED,'d'),
 	fmtc_register(converter_fe,1,EXPR_FLAGTYPE_DOUBLE,'e'),
 	fmtc_register(converter_fe,1,EXPR_FLAGTYPE_DOUBLE,'E'),
 	fmtc_register(faction_g,1,EXPR_FLAGTYPE_DOUBLE,'g'),
 	fmtc_register(faction_G,1,EXPR_FLAGTYPE_DOUBLE,'G'),
-	fmtc_register(faction_p,1,EXPR_FLAGTYPE_ADDR,'p'),
-	fmtc_register(faction_P,1,EXPR_FLAGTYPE_ADDR,'P'),
-	fmtc_register(faction_h,2,EXPR_FLAGTYPE_ADDR,'h'),
-	fmtc_register(faction_h,2,EXPR_FLAGTYPE_ADDR,'H'),
-	fmtc_register(converter_size,1,EXPR_FLAGTYPE_SIGNED,'m'),
-	fmtc_register(converter_size,1,EXPR_FLAGTYPE_SIGNED,'M'),
-
+#define FLTIDX(n) n
+#else
+#define FLTIDX(n) 0
+#endif
 };
 const uint8_t expr_writefmts_default_size=arrsize(expr_writefmts_default);
 const struct expr_ftable expr_ftable_default[1]={{
@@ -990,50 +995,50 @@ const struct expr_ftable expr_ftable_default[1]={{
 [(uint8_t)'\x9d']=20,
 [(uint8_t)'\x9e']=21,
 [(uint8_t)'\x9f']=22,
-[(uint8_t)'\xa1']=23,['a']=23,
-[(uint8_t)'\xa2']=24,
-[(uint8_t)'\xa3']=25,
-[(uint8_t)'\xa4']=26,
-[(uint8_t)'\xa5']=27,
-[(uint8_t)'\xa6']=28,
-[(uint8_t)'\xa7']=29,
-[(uint8_t)'\xa8']=30,
-[(uint8_t)'\xa9']=31,
-[(uint8_t)'\xaa']=32,['f']=32,
-[(uint8_t)'\xab']=33,
-[(uint8_t)'\xac']=34,
-[(uint8_t)'\xad']=35,
-[(uint8_t)'\xae']=36,
-[(uint8_t)'\xaf']=37,
-[(uint8_t)'\xb1']=38,['A']=38,
-[(uint8_t)'\xb2']=39,['B']=39,
-[(uint8_t)'\xb3']=40,
-[(uint8_t)'\xb4']=41,
-[(uint8_t)'\xb5']=42,
-[(uint8_t)'\xb6']=43,
-[(uint8_t)'\xb7']=44,
-[(uint8_t)'\xb8']=45,['O']=45,
-[(uint8_t)'\xb9']=46,
-[(uint8_t)'\xba']=47,['F']=47,
-[(uint8_t)'\xbb']=48,
-[(uint8_t)'\xbc']=49,
-[(uint8_t)'\xbd']=50,
-[(uint8_t)'\xbe']=51,
-[(uint8_t)'\xbf']=52,
-['s']=53,
-['S']=54,
-['c']=55,
-['d']=56,
-['e']=57,
-['E']=58,
-['g']=59,
-['G']=60,
-['p']=61,
-['P']=62,
-['h']=63,
-['H']=64,
-['m']=65,
-['M']=66,
+['s']=23,
+['S']=24,
+['c']=25,
+['d']=26,
+['p']=27,
+['P']=28,
+['h']=29,
+['H']=30,
+['m']=31,
+['M']=32,
+[(uint8_t)'\xa1']=FLTIDX(33),['a']=FLTIDX(33),
+[(uint8_t)'\xa2']=FLTIDX(34),
+[(uint8_t)'\xa3']=FLTIDX(35),
+[(uint8_t)'\xa4']=FLTIDX(36),
+[(uint8_t)'\xa5']=FLTIDX(37),
+[(uint8_t)'\xa6']=FLTIDX(38),
+[(uint8_t)'\xa7']=FLTIDX(39),
+[(uint8_t)'\xa8']=FLTIDX(40),
+[(uint8_t)'\xa9']=FLTIDX(41),
+[(uint8_t)'\xaa']=FLTIDX(42),['f']=FLTIDX(42),
+[(uint8_t)'\xab']=FLTIDX(43),
+[(uint8_t)'\xac']=FLTIDX(44),
+[(uint8_t)'\xad']=FLTIDX(45),
+[(uint8_t)'\xae']=FLTIDX(46),
+[(uint8_t)'\xaf']=FLTIDX(47),
+[(uint8_t)'\xb1']=FLTIDX(48),['A']=FLTIDX(48),
+[(uint8_t)'\xb2']=FLTIDX(49),['B']=FLTIDX(49),
+[(uint8_t)'\xb3']=FLTIDX(50),
+[(uint8_t)'\xb4']=FLTIDX(51),
+[(uint8_t)'\xb5']=FLTIDX(52),
+[(uint8_t)'\xb6']=FLTIDX(53),
+[(uint8_t)'\xb7']=FLTIDX(54),
+[(uint8_t)'\xb8']=FLTIDX(55),['O']=FLTIDX(55),
+[(uint8_t)'\xb9']=FLTIDX(56),
+[(uint8_t)'\xba']=FLTIDX(57),['F']=FLTIDX(57),
+[(uint8_t)'\xbb']=FLTIDX(58),
+[(uint8_t)'\xbc']=FLTIDX(59),
+[(uint8_t)'\xbd']=FLTIDX(60),
+[(uint8_t)'\xbe']=FLTIDX(61),
+[(uint8_t)'\xbf']=FLTIDX(62),
+['e']=FLTIDX(63),
+['E']=FLTIDX(64),
+['g']=FLTIDX(65),
+['G']=FLTIDX(66),
 	},
 	.fph='%',.digit='.',.bitwidth=':',.readarg='*',.readarg2='*',
 	.fph_set=1,.digit_set=1,.bitwidth_set=1,.readarg_set=1,.readarg2_set=1,
@@ -1398,8 +1403,8 @@ current_get:
 			setdlm(tail,tailsz);
 			break;
 		case EXPR_FMTC_SETARR:
-			arrwid=(uint8_t)flag_digit(flag,8);
-			if(unlikely(arrwid>8||!arrwid))
+			arrwid=(uint8_t)flag_digit(flag,sizeof(size_t));
+			if(unlikely(arrwid>sizeof(union expr_argf)||!arrwid))
 				goto_argfail;
 			arrlen=flag_width(flag,0);
 			break;

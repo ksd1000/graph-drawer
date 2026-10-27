@@ -659,6 +659,11 @@ EXPR_END
 	__r.rd.base&&__r.rd.exp==2047;\
 })
 
+#define expr_allocator(size) ((xmtl)->allocate((size),(xmtl)->arg))
+#define expr_reallocator(old,size) ((xmtl)->reallocate((old),(size),(xmtl)->arg))
+#define expr_deallocator(old) ((xmtl)->deallocate((old),(xmtl)->arg))
+// WARNING: xmtl will be evaluated twice, the caller should ensure no side effect.
+
 #define expr_xmalloc(size) ({\
 	expr_allocator(size);\
 })

@@ -220,6 +220,37 @@ void areacheck(size_t size,size_t off,int shouldfail){
 end:
 	free(buf);
 }
+#define xmtl expr_defmtl
+void checkfmt(const char *expect,const char *fmt,...){
+	char *p;
+	va_list ap;
+	ssize_t r;
+	printf("checking \"%s\" --- expect \"%s\"\n",fmt,expect);
+	va_start(ap,fmt);
+	r=expr_vasprintf(&p,fmt,strlen(fmt),ap);
+	va_end(ap);
+	assert(r>=0);
+	if(strcmp(p,expect)){
+		printf("error result: \"%s\"\n",p);
+		printf("ABORTING\n");
+		abort();
+	}
+	expr_xfree(p);
+}
+void checkfmts(void){
+	checkfmt("   1234","%7d",(ssize_t)1234);
+	checkfmt("1234  ","%-6d",(ssize_t)1234);
+	checkfmt("1231 ","%-5.*S",(size_t)4,"123123");
+	checkfmt("76b3e4","%.3h","\x76\xb3\xe4");
+	checkfmt("k","%c",expr_mkval64('k'));
+	checkfmt("372u,372u,372u","%3l%1T,%1tu%u",(size_t)372);
+	checkfmt("{5459,-833,-9999,67}","{%4.*k%1T,%d}",sizeof(int),(int []){5459,-833,-9999,67});
+	checkfmt("{\"asd\",\"fhl\",\"HELLO\"}","{%3k%3T\",\"\"%s\"}",(const char *[]){"asd","fhl","HELLO","NOPRINT"});
+	checkfmt("null","%p",NULL);
+	checkfmt("1.5m","%=.-1m",(size_t)1024*1536);
+	checkfmt("1.7M","%.1M",(size_t)1024*1792);
+	printf("fotmat check ok\n");
+}
 static int keyword_diff(const char *str,size_t len,const struct expr_builtin_keyword *restrict s){
 	int r=(int)len-(int)s->strlen;
 	if(r)
@@ -250,6 +281,8 @@ int main(int argc,char **argv){
 			printf("ABORTING\n");
 			abort();
 		}
+		assert(expr_keyword_search(p->str,(size_t)p->strlen,expr_keywords,expr_keywords_size)==p);
+		assert(!expr_keyword_search("notkey",6,expr_keywords,expr_keywords_size));
 		if(expr_symset_search(es,p->str,p->strlen)){
 			printf("conflict %s\n",p->str);
 			printf("ABORTING\n");
@@ -261,6 +294,7 @@ int main(int argc,char **argv){
 	for(const struct eproj *p=eprojs;p->e;++p)
 		errcheck(p->e,p->expect,p->ee);
 	expr_symset_free(es);
+	checkfmts();
 #define areap ((const struct expr_area *)(expr_defmtl->arg))
 	assert(areap->monotonic_create==areap->monotonic_combine);
 	assert(areap->monotonic_deallocate==areap->monotonic_allocate+areap->monotonic_expand_move);

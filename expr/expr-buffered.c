@@ -21,9 +21,6 @@
 
 #define EXTEND_FRAC(x) (((x)/8)*3)
 
-#define expr_allocator(size) (xmtl->allocate((size),xmtl->arg))
-#define expr_reallocator(old,size) (xmtl->reallocate((old),(size),xmtl->arg))
-#define expr_deallocator(old) (xmtl->deallocate((old),xmtl->arg))
 #define xmtl fp->mtl
 
 #define CKPDM(v) if(unlikely((v)==SSIZE_MIN))fp->flag|=EXPR_BCALLBACK_PDMIN

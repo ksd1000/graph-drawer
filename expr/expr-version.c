@@ -115,11 +115,16 @@ void table_write(void){
 			nextline=1;
 			switch(isprint(c)){
 				case 0:
-					fprintf(stdout,"[(uint8_t)\'\\x%x\']=%d,",(int)c,(int)i);
+					fprintf(stdout,"[(uint8_t)\'\\x%x\']=",(int)c);
 					break;
 				default:
-					fprintf(stdout,"[\'%c\']=%d,",(int)c,(int)i);
+					fprintf(stdout,"[\'%c\']=",(int)c);
 					break;
+			}
+			if(f->type==EXPR_FLAGTYPE_DOUBLE){
+				fprintf(stdout,"FLTIDX(%d),",(int)i);
+			}else {
+				fprintf(stdout,"%d,",(int)i);
 			}
 		}
 		if(nextline){

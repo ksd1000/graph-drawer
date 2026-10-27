@@ -659,6 +659,11 @@ EXPR_END
 	__r.rd.base&&__r.rd.exp==2047;\
 })
 
+#define expr_allocator(size) ((xmtl)->allocate((size),(xmtl)->arg))
+#define expr_reallocator(old,size) ((xmtl)->reallocate((old),(size),(xmtl)->arg))
+#define expr_deallocator(old) ((xmtl)->deallocate((old),(xmtl)->arg))
+// WARNING: xmtl will be evaluated twice, the caller should ensure no side effect.
+
 #define expr_xmalloc(size) ({\
 	expr_allocator(size);\
 })
@@ -1818,6 +1823,7 @@ ssize_t expr_buffered_write_iolbf_warped(intptr_t fd,const void *buf,size_t size
 //global externs of expr-buffered.c :
 //global functions of expr-core.c :
 const char *expr_error(int error);
+const struct expr_builtin_keyword *expr_keyword_search(const char *str,size_t len,const struct expr_builtin_keyword *restrict kp,size_t n);
 void expr_free2mtl_r(struct expr *restrict ep,int flag,const struct expr_memtool *restrict mtl);
 void expr_free2(struct expr *restrict ep,int flag);
 void expr_free(struct expr *restrict ep);

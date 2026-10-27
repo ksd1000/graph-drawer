@@ -22,6 +22,8 @@
 
 expr_static_assert((!0)==1);
 
+#define expr_issigned(T) ((__typeof__(T))-1<(__typeof__(T))0)
+
 #if !defined(_SSIZE_T_DEFINED_)&&!defined(ssize_t)
 #define _SSIZE_T_DEFINED_ 1
 #undef ssize_t
@@ -30,6 +32,7 @@ expr_static_assert((!0)==1);
 expr_static_assert(sizeof(ssize_t)==sizeof(ptrdiff_t));
 #endif
 
+expr_static_assert(expr_issigned(ssize_t));
 expr_static_assert(sizeof(ssize_t)==sizeof(size_t));
 
 #ifndef SSIZE_MAX
@@ -636,8 +639,8 @@ EXPR_END
 #define expr_cast(x,type) \
 	({\
 		union {\
-			__typeof(x) _x;\
-			__typeof(type) _o;\
+			__typeof__(x) _x;\
+			__typeof__(type) _o;\
 			intmax_t _im;\
 		} _cast_un;\
 		if(sizeof(type)>sizeof(__typeof(x)))\

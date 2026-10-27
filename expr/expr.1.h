@@ -1071,6 +1071,22 @@ struct expr_buffered_file {
 	__fp->index=0;\
 	__fp->written=0;\
 })
+
+#define expr_buffered_ainit_r(fp,_len,_mtl) ({\
+	struct expr_buffered_file *__fp=(fp);\
+	__fp->mtl=(_mtl);\
+	__fp->buf=__fp->mtl->allocate(EXPR_BUFSIZE_INITIAL,__fp->mtl->arg);\
+	if(expr_likely(__fp->buf)){\
+		__fp->length=EXPR_BUFSIZE_INITIAL;\
+		__fp->dynamic=(_len);\
+		__fp->uaddr=NULL;\
+		__fp->fd=0;\
+		__fp->index=0;\
+		__fp->written=0;\
+		__fp->flag=0;\
+	}\
+	__fp->buf?0:-1;\
+})
 struct expr;
 struct expr_symset;
 struct expr_suminfo {

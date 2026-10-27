@@ -72,14 +72,18 @@
 	struct expr_buffered_file _fp[1];\
 	const struct expr_memtool *restrict _mtl=(mtl);\
 	ssize_t _r;\
-	expr_buffered_init_r(_fp,NULL,0,NULL,SIZE_MAX,_mtl);\
-	_r=called(expr_buffered_write_warp,(intptr_t)_fp,fmt,fmtlen,table,_mtl,##__VA_ARGS__);\
-	if(expr_likely(_r>0)){\
-		((char *)_fp->buf)[_r]=0;\
+	if(expr_likely(!expr_buffered_ainit_r(_fp,SIZE_MAX,_mtl))){\
+		_r=called(expr_buffered_write_warp,(intptr_t)_fp,fmt,fmtlen,table,_mtl,##__VA_ARGS__);\
+		if(expr_likely(_r>=0)){\
+			((char *)_fp->buf)[_r]=0;\
 		/* buffer expands if the writer touches its limit*/\
 		*(strp)=_fp->buf;\
+		}else {\
+			expr_buffered_close(_fp);\
+			(void)(strp);\
+		}\
 	}else {\
-		expr_buffered_close(_fp);\
+		_r=SSIZE_MIN;\
 		(void)(strp);\
 	}\
 	_r;\

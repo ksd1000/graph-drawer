@@ -26,7 +26,7 @@
 #define expr_deallocator(old) (xmtl->deallocate((old),xmtl->arg))
 #define xmtl fp->mtl
 
-#define CKPDM(v) if(unlikely((v)=SSIZE_MIN))fp->flag|=EXPR_BCALLBACK_PDMIN
+#define CKPDM(v) if(unlikely((v)==SSIZE_MIN))fp->flag|=EXPR_BCALLBACK_PDMIN
 
 #define reterr(V) {r=(V);goto err;}
 

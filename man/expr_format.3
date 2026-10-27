@@ -121,10 +121,9 @@ means the output was truncated.
 .P
 The
 .BR expr_[v]asprintf[t][_r]()
-return the positive number of bytes be written to
-.IR *strp " (excluding the terminating zero)"
-on success with at least 1 bytes written.
-.RI "If no byte written or fail, zero or negative value will rerurn(and " *strp " will be undefined)."
+return the number of bytes written to
+.IR *strp " (excluding the terminating zero)."
+.RI "On fail, negative value will rerurn(and " *strp " will be undefined)."
 .SH ATTRIBUTES
 .TS
 allbox;

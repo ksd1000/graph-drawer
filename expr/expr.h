@@ -1071,6 +1071,22 @@ struct expr_buffered_file {
 	__fp->index=0;\
 	__fp->written=0;\
 })
+
+#define expr_buffered_ainit_r(fp,_len,_mtl) ({\
+	struct expr_buffered_file *__fp=(fp);\
+	__fp->mtl=(_mtl);\
+	__fp->buf=__fp->mtl->allocate(EXPR_BUFSIZE_INITIAL,__fp->mtl->arg);\
+	if(expr_likely(__fp->buf)){\
+		__fp->length=EXPR_BUFSIZE_INITIAL;\
+		__fp->dynamic=(_len);\
+		__fp->uaddr=NULL;\
+		__fp->fd=0;\
+		__fp->index=0;\
+		__fp->written=0;\
+		__fp->flag=0;\
+	}\
+	__fp->buf?0:-1;\
+})
 struct expr;
 struct expr_symset;
 struct expr_suminfo {
@@ -2113,14 +2129,18 @@ extern int expr_mtl_setup;
 	struct expr_buffered_file _fp[1];\
 	const struct expr_memtool *restrict _mtl=(mtl);\
 	ssize_t _r;\
-	expr_buffered_init_r(_fp,NULL,0,NULL,SIZE_MAX,_mtl);\
-	_r=called(expr_buffered_write_warp,(intptr_t)_fp,fmt,fmtlen,table,_mtl,##__VA_ARGS__);\
-	if(expr_likely(_r>0)){\
-		((char *)_fp->buf)[_r]=0;\
+	if(expr_likely(!expr_buffered_ainit_r(_fp,SIZE_MAX,_mtl))){\
+		_r=called(expr_buffered_write_warp,(intptr_t)_fp,fmt,fmtlen,table,_mtl,##__VA_ARGS__);\
+		if(expr_likely(_r>=0)){\
+			((char *)_fp->buf)[_r]=0;\
 		/* buffer expands if the writer touches its limit*/\
 		*(strp)=_fp->buf;\
+		}else {\
+			expr_buffered_close(_fp);\
+			(void)(strp);\
+		}\
 	}else {\
-		expr_buffered_close(_fp);\
+		_r=SSIZE_MIN;\
 		(void)(strp);\
 	}\
 	_r;\

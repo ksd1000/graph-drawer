@@ -152,10 +152,11 @@ ssize_t expr_converter_common(expr_writer writer,intptr_t fd,const void *buf,siz
 		*(--p)=(char)('0'+val%10);\
 		val/=10;\
 	}while(val)
+#define XUNBUF (sizeof(size_t)*8+8)
 static ssize_t converter_d(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
-	char nbuf[32];
+	char nbuf[XUNBUF];
 	size_t val=(size_t)arg->tint;
-	char *endp=nbuf+32;
+	char *endp=nbuf+XUNBUF;
 	char *p=endp;
 	ssize_t ext,sum,r,sz;
 	int minus;
@@ -265,9 +266,9 @@ no_digit:
 static const char conv_btox[]={"0123456789abcdefx"};
 static const char conv_btoX[]={"0123456789ABCDEFX"};
 static ssize_t converter_xu(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag,uint32_t base){
-	char nbuf[72];
+	char nbuf[XUNBUF];
 	size_t val=arg->zint,mod;
-	char *endp=nbuf+72;
+	char *endp=nbuf+XUNBUF;
 	char *p=endp;
 	ssize_t ext,sum,r,sz;
 	int positive;

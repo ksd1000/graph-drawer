@@ -1805,7 +1805,7 @@ static ssize_t expr_memfd_write_warped(intptr_t fd,const void *buf,size_t size){
 	struct expr_memfd *restrict mfd=(struct expr_memfd *)fd;
 	memfd_write_common;
 }
-ssize_t expr_swriteft_r(char *buf,size_t buflen,const char *restrict fmt,size_t fmtlen,const union expr_argf *restrict args,size_t arglen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl){
+ssize_t expr_snwriteft_r(char *buf,size_t buflen,const char *restrict fmt,size_t fmtlen,const union expr_argf *restrict args,size_t arglen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl){
 	struct writef_args wa[1];
 	struct expr_memfd mfd[1];
 	ssize_t r;

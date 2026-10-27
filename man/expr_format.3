@@ -1,6 +1,6 @@
 .TH expr_format 3 2026-10-23 "Graph Drawer expr man-pages 1.0.13"
 .SH NAME
-expr_vwritef[t][_r], expr_writef[t][_r], expr_[v]apwritef[t][_r], expr_[v]snprintf[t][_r], expr_[v]asprintf[t][_r]  \- string formatter
+expr_vwritef[t][_r], expr_writef[t][_r], expr_[v]apwritef[t][_r], expr_[v]snprintf[t][_r], expr_[v]asprintf[t][_r], expr_[sn|as]writef[t][_r] \- string formatter
 .SH LIBRARY
 Graph Drawer Expression Evaluator Library
 .RI ( libexpr ,\~ \-lexpr )
@@ -56,6 +56,13 @@ point to it. The space must be deallocated by
 ->
 .B deallocate()
 when it is no longer needed.
+.P
+The
+.BR expr_snwritef[t][_r]() , expr_aswritef[t][_r]()
+behaves like
+.BR expr_snprintf[t][_r]() , expr_asprintf[t][_r]()
+but fetch the argument from
+.IR args [ arglen ].
 .SS DEFAULT FORMAT
 Defined by
 .IR expr_ftable_default .
@@ -112,7 +119,7 @@ return the number of bytes written. On error or truncate, the negative code or t
 will return.
 .P
 The
-.BR expr_[v]snprintf[t][_r]()
+.BR expr_[v]snprintf[t][_r]() , expr_[v]snwritef[t][_r]()
 return the number of bytes should be written to
 .IR buf " (excluding the terminating zero)"
 in the case that the space is enough. The return value that >=
@@ -120,7 +127,7 @@ in the case that the space is enough. The return value that >=
 means the output was truncated.
 .P
 The
-.BR expr_[v]asprintf[t][_r]()
+.BR expr_[v]asprintf[t][_r]() , expr_aswritef[t][_r]()
 return the number of bytes written to
 .IR *strp " (excluding the terminating zero)."
 .RI "On fail, negative value will rerurn(and " *strp " will be undefined)."
@@ -133,7 +140,7 @@ Interface	Attribute	Value
 T{
 .na
 .nh
-.BR expr_vwritef[t][_r]() , expr_writef[t][_r]() , expr_[v]apwritef[t][_r]() , expr_[v]snprintf[t][_r]() , expr_[v]asprintf[t][_r]()
+.BR expr_vwritef[t][_r]() , expr_writef[t][_r]() , expr_[v]apwritef[t][_r]() , expr_[v]snprintf[t][_r]() , expr_[v]asprintf[t][_r]() , expr_[sn|as]writef[t][_r]
 T}	Thread safety	MT-Safe
 .TE
 .SH HISTORY
@@ -150,6 +157,10 @@ T}	Thread safety	MT-Safe
 .BR expr_snprintf()
 2026-10-21
 .TP
+.BR expr_snwritef()
+.TQ
+.BR expr_aswritef()
+.TQ
 .BR expr_asprintf()
 2026-10-27
 .SH SEE ALSO

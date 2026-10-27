@@ -643,7 +643,7 @@ EXPR_END
 			__typeof__(type) _o;\
 			intmax_t _im;\
 		} _cast_un;\
-		if(sizeof(type)>sizeof(__typeof(x)))\
+		if(sizeof(type)>sizeof(__typeof__(x)))\
 	 		_cast_un._im=0;\
 		_cast_un._x=(x);\
 		_cast_un._o;\

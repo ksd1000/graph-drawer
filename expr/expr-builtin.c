@@ -912,8 +912,8 @@ static double expr_assign(const struct expr *args,size_t n,double input){
 	double *p;
 	const struct expr *endp=args+(n&~(size_t)1);
 	while(args<endp){
-		p=expr_cast(eval(args++,input),__typeof(p));
-		*p=(__typeof(*p))eval(args++,input);
+		p=expr_cast(eval(args++,input),__typeof__(p));
+		*p=(__typeof__(*p))eval(args++,input);
 	}
 	return input;
 }
@@ -921,8 +921,8 @@ static double expr_assigni(const struct expr *args,size_t n,double input){
 	int64_t *p;
 	const struct expr *endp=args+(n&~(size_t)1);
 	while(args<endp){
-		p=expr_cast(eval(args++,input),__typeof(p));
-		*p=(__typeof(*p))eval(args++,input);
+		p=expr_cast(eval(args++,input),__typeof__(p));
+		*p=(__typeof__(*p))eval(args++,input);
 	}
 	return input;
 }
@@ -930,8 +930,8 @@ static double expr_assignu(const struct expr *args,size_t n,double input){
 	uint64_t *p;
 	const struct expr *endp=args+(n&~(size_t)1);
 	while(args<endp){
-		p=expr_cast(eval(args++,input),__typeof(p));
-		*p=(__typeof(*p))eval(args++,input);
+		p=expr_cast(eval(args++,input),__typeof__(p));
+		*p=(__typeof__(*p))eval(args++,input);
 	}
 	return input;
 }

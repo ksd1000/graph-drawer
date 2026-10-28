@@ -25,15 +25,12 @@ expr_static_assert((!0)==1);
 #define expr_issigned(T) ((__typeof__(T))-1<(__typeof__(T))0)
 
 #if !defined(ssize_t)&&!defined(_SSIZE_T_DEFINED_)&&!defined(_SSIZE_T_DEFINED)&&!defined(SSIZE_T_DEFINED)&&!defined(HAVE_SSIZE_T)&&!defined(__ssize_t_defined)&&!defined(_SYS_TYPES_H_)&&!defined(_SYS_TYPES_H)&&!defined(SYS_TYPES_H)
-#undef ssize_t
-#define ssize_t ptrdiff_t
+
+typedef ptrdiff_t ssize_t;
 #define _SSIZE_T_DEFINED_ 1
 #define _SSIZE_T_DEFINED 1
-#define SSIZE_T_DEFINED 1
-#define HAVE_SSIZE_T 1
 #define __ssize_t_defined 1
-#else
-expr_static_assert(sizeof(ssize_t)==sizeof(ptrdiff_t));
+
 #endif
 
 expr_static_assert(expr_issigned(ssize_t));

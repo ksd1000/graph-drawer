@@ -7,7 +7,7 @@
  * History: 2024-02 expr.c
  * Renamed to expr_core.c on 2026-02-04
  * Renamed to expr-core.c on 2026-10-08
- * Expression scanner/parser core
+ * Expression scanner/parser and evaluator core
  * Motivation: For making the graph-drawer be able to draw the graph of functions given by runtime expressions, rather than to recompile the source file for replacing the expression.
  * Dependencies: expr-internal.c
  */

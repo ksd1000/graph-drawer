@@ -71,18 +71,18 @@
 	const struct expr_memtool *restrict _mtl=(mtl);\
 	ssize_t _r;\
 	if(expr_likely(!expr_buffered_ainit_r(_fp,SIZE_MAX,_mtl))){\
-		_r=expr_writeft_r(expr_buffered_write_warp,(intptr_t)_fp,fmt,fmtlen,args,arglen,table,_mtl);\
+		_r=expr_writeft_r(expr_buffered_write_warped,(intptr_t)_fp,fmt,fmtlen,args,arglen,table,_mtl);\
 		if(expr_likely(_r>=0)){\
 			((char *)_fp->buf)[_r]=0;\
 		/* buffer expands if the writer touches its limit*/\
 		*(strp)=_fp->buf;\
 		}else {\
 			expr_buffered_close(_fp);\
-			(void)(strp);\
+			*(strp)=NULL;\
 		}\
 	}else {\
 		_r=SSIZE_MIN;\
-		(void)(strp);\
+		*(strp)=NULL;\
 	}\
 	_r;\
 })
@@ -104,18 +104,18 @@
 	const struct expr_memtool *restrict _mtl=(mtl);\
 	ssize_t _r;\
 	if(expr_likely(!expr_buffered_ainit_r(_fp,SIZE_MAX,_mtl))){\
-		_r=called(expr_buffered_write_warp,(intptr_t)_fp,fmt,fmtlen,table,_mtl,##__VA_ARGS__);\
+		_r=called(expr_buffered_write_warped,(intptr_t)_fp,fmt,fmtlen,table,_mtl,##__VA_ARGS__);\
 		if(expr_likely(_r>=0)){\
 			((char *)_fp->buf)[_r]=0;\
 		/* buffer expands if the writer touches its limit*/\
 		*(strp)=_fp->buf;\
 		}else {\
 			expr_buffered_close(_fp);\
-			(void)(strp);\
+			*(strp)=NULL;\
 		}\
 	}else {\
 		_r=SSIZE_MIN;\
-		(void)(strp);\
+		*(strp)=NULL;\
 	}\
 	_r;\
 })

@@ -158,7 +158,7 @@ size_le_c:
 	debug("%zd bytes written",s0);
 	return (ssize_t)s0;
 }
-ssize_t expr_buffered_write_warp(intptr_t fd,const void *buf,size_t size){
+ssize_t expr_buffered_write_warped(intptr_t fd,const void *buf,size_t size){
 	return expr_buffered_write((struct expr_buffered_file *)fd,buf,size);
 }
 ssize_t expr_buffered_read(struct expr_buffered_file *restrict fp,void *buf,size_t size){

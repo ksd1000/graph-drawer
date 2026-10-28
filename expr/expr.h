@@ -1807,7 +1807,7 @@ int expr_setup_heapmtl4(struct expr_memtool *restrict mtl,void *heap,size_t size
 //global externs of expr-alloc.c :
 //global functions of expr-buffered.c :
 ssize_t expr_buffered_write(struct expr_buffered_file *restrict fp,const void *buf,size_t size);
-ssize_t expr_buffered_write_warp(intptr_t fd,const void *buf,size_t size);
+ssize_t expr_buffered_write_warped(intptr_t fd,const void *buf,size_t size);
 ssize_t expr_buffered_read(struct expr_buffered_file *restrict fp,void *buf,size_t size);
 ssize_t expr_buffered_write_flushatc(struct expr_buffered_file *restrict fp,const void *buf,size_t size,int c);
 ssize_t expr_buffered_write_flushatt(struct expr_buffered_file *restrict fp,const void *buf,size_t size,expr_test_t test,intptr_t arg);
@@ -2139,18 +2139,18 @@ extern int expr_mtl_setup;
 	const struct expr_memtool *restrict _mtl=(mtl);\
 	ssize_t _r;\
 	if(expr_likely(!expr_buffered_ainit_r(_fp,SIZE_MAX,_mtl))){\
-		_r=expr_writeft_r(expr_buffered_write_warp,(intptr_t)_fp,fmt,fmtlen,args,arglen,table,_mtl);\
+		_r=expr_writeft_r(expr_buffered_write_warped,(intptr_t)_fp,fmt,fmtlen,args,arglen,table,_mtl);\
 		if(expr_likely(_r>=0)){\
 			((char *)_fp->buf)[_r]=0;\
 		/* buffer expands if the writer touches its limit*/\
 		*(strp)=_fp->buf;\
 		}else {\
 			expr_buffered_close(_fp);\
-			(void)(strp);\
+			*(strp)=NULL;\
 		}\
 	}else {\
 		_r=SSIZE_MIN;\
-		(void)(strp);\
+		*(strp)=NULL;\
 	}\
 	_r;\
 })
@@ -2172,18 +2172,18 @@ extern int expr_mtl_setup;
 	const struct expr_memtool *restrict _mtl=(mtl);\
 	ssize_t _r;\
 	if(expr_likely(!expr_buffered_ainit_r(_fp,SIZE_MAX,_mtl))){\
-		_r=called(expr_buffered_write_warp,(intptr_t)_fp,fmt,fmtlen,table,_mtl,##__VA_ARGS__);\
+		_r=called(expr_buffered_write_warped,(intptr_t)_fp,fmt,fmtlen,table,_mtl,##__VA_ARGS__);\
 		if(expr_likely(_r>=0)){\
 			((char *)_fp->buf)[_r]=0;\
 		/* buffer expands if the writer touches its limit*/\
 		*(strp)=_fp->buf;\
 		}else {\
 			expr_buffered_close(_fp);\
-			(void)(strp);\
+			*(strp)=NULL;\
 		}\
 	}else {\
 		_r=SSIZE_MIN;\
-		(void)(strp);\
+		*(strp)=NULL;\
 	}\
 	_r;\
 })

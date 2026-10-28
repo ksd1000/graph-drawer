@@ -1883,7 +1883,7 @@ dflt:
 	}
 	p=getsym(e,endp);
 symget:
-	if(asym&&(size_t)(p-e)==asymlen&&!memcmp(e,asym,(size_t)(p-e))){
+	if(asym&&!ep->noinput&&(size_t)(p-e)==asymlen&&!memcmp(e,asym,(size_t)(p-e))){
 		v0=expr_newvar(ep);
 		cknp(ep,v0,return NULL);
 		cknp(ep,expr_addinput(ep,v0),return NULL);
@@ -2243,7 +2243,14 @@ sa_fail:\
 					default:
 						break;
 				}
-				if(unlikely(!ep->sset||!(sym.es=expr_symset_search(ep->sset,e+1,(size_t)(p-e-1))))){
+				sv.i=(size_t)(p-e-1);
+				if(asym&&sv.i==asymlen&&!memcmp(e+1,asym,sv.i)){
+					ep->noinput=1;
+					v0=EXPR_VOID;
+					e=p+1;
+					goto vend;
+				}
+				if(unlikely(!ep->sset||!(sym.es=expr_symset_search(ep->sset,e+1,sv.i)))){
 					++e;
 					goto_symerr;
 				}
@@ -3972,6 +3979,7 @@ int expr_init8_r(struct expr *restrict ep,const char *e,size_t len,const char *a
 		}
 		--ep->recursive;
 		mtl=ep->parent->mtl;
+		ep->noinput=ep->parent->noinput;
 		sub=1;
 	}else {
 		if(flag&EXPR_IRECURSIVELIMIT){

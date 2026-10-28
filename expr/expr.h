@@ -1777,7 +1777,7 @@ struct expr {
 	};
 	int error;
 	unsigned int recursive,iflag;
-	unsigned int unused:sizeof(unsigned int)*8-3,freeable:1,sset_shouldfree:1,isconst:1;
+	unsigned int unused:sizeof(unsigned int)*8-4,noinput:1,freeable:1,sset_shouldfree:1,isconst:1;
 };
 
 struct expr_extarg {

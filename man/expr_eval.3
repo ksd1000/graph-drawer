@@ -9,6 +9,8 @@ Graph Drawer Expression Evaluator Library
 .BR #include\~"expr.h"
 .P
 .BI "double expr_eval(const struct expr *" ep ",double " input ");"
+.BI "double expr_vevalx(const struct expr *" ep ",va_list " ap ");"
+.BI "double expr_evalx(const struct expr *" ep "," ... ");"
 .BI "[[removed]] int expr_step(const struct expr *restrict " ep " ,expr_t " input ",expr_t *restrict " output ",struct expr_inst **restrict " saveip ");"
 .BI "expr_t expr_callback(const struct expr *restrict " ep ",expr_t " input ",const struct expr_callback *" ec ");"
 .fi
@@ -27,6 +29,13 @@ argument in
 .BR expr_new()
 and
 .BR expr_init() .
+.P
+The
+.BR expr_vevalx() , expr_evalx()
+functions behave like
+.BR expr_eval()
+but fetch arguments from
+.IR ap , ... .
 .P
 The
 .BR expr_step()
@@ -57,6 +66,14 @@ The
 returns 1 if completed and write the result to
 .I *output
 or 0 if not completed.
+.SH WARNING
+The
+.BR expr_vevalx() , expr_evalx()
+are not safe when the source of expression is untrusted, even with the
+.B EXPR_IPROTECT
+flag. In the case, a string in the from "
+.IR asym -->x0; asym -->x1;...;undef( asym );
+" must be patched at the head of the expression to limit the number of arguments.
 .SH ATTRIBUTES
 .TS
 allbox;
@@ -66,7 +83,7 @@ Interface	Attribute	Value
 T{
 .na
 .nh
-.BR expr_eval() , expr_step() , expr_callback()
+.BR expr_eval() , expr_vevalx() , expr_evalx() , expr_step() , expr_callback()
 T}	Thread safety	MT-Safe
 .TE
 .SH HISTORY
@@ -80,5 +97,10 @@ on 2024-02-29
 .TQ
 .BR expr_callback()
 2026-01-16
+.TP
+.BR expr_vevalx()
+.TQ
+.BR expr_evalx()
+2026-10-28
 .SH SEE ALSO
 .BR expr_new (3), expr_init (3), expr_free (3), expr_calc (3)

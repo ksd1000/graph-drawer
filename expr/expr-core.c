@@ -4661,11 +4661,11 @@ static int expr_constexpr(const struct expr *restrict ep,expr_t *except){
 			CALSUM(EXPR_LCMN,sum=likely(inited)?lcm2(sum,y):(inited=1,y),inited=0,sum,dest);\
 			CALSUM(EXPR_FOR,,,sum,dest)
 #define CALMD_INSWITCH(dest) case EXPR_MD:\
-				ap=ip->un.em->args;\
-				endp=ap+ip->un.em->dim;\
+				ap1=ip->un.em->args;\
+				endp=ap1+ip->un.em->dim;\
 				epp=ip->un.em->eps;\
-				for(;likely(ap<endp);++ap)\
-					*ap=eval(epp++,input);\
+				for(;likely(ap1<endp);++ap1)\
+					*ap1=eval(epp++,input);\
 				*dest=ip->un.em->un.func(ip->un.em->args,ip->un.em->dim);\
 				break;\
 			case EXPR_MEP:\
@@ -4674,11 +4674,11 @@ static int expr_constexpr(const struct expr *restrict ep,expr_t *except){
 				*dest=ip->un.em->un.funcep(ip->un.em->eps,ip->un.em->dim,input);\
 				break
 #define CALHMD_INSWITCH(dest) case EXPR_HMD:\
-				ap=ip->un.eh->args;\
-				endp=ap+ip->un.eh->dim;\
+				ap1=ip->un.eh->args;\
+				endp=ap1+ip->un.eh->dim;\
 				epp=ip->un.eh->eps;\
-				for(;likely(ap<endp);++ap)\
-					*ap=eval(epp++,input);\
+				for(;likely(ap1<endp);++ap1)\
+					*ap1=eval(epp++,input);\
 				*dest=eval(ip->un.eh->hotfunc,input);\
 				break
 
@@ -4712,10 +4712,10 @@ static int expr_constexpr(const struct expr *restrict ep,expr_t *except){
 		}\
 	}\
 	_args=_ev->args?_ev->args:alloca(_max*sizeof(expr_t));\
-	ap=_args;\
+	ap1=_args;\
 	_ev->index=from;\
 	for(;likely(_max);--_max){\
-		*(ap++)=eval(_ev->ep,input);\
+		*(ap1++)=eval(_ev->ep,input);\
 		if(likely(from<to)){\
 			_ev->index+=step;\
 			if(_ev->index>to)\
@@ -4728,7 +4728,7 @@ static int expr_constexpr(const struct expr *restrict ep,expr_t *except){
 			break;\
 		}\
 	}\
-	_ev->func(_args,(size_t)(ap-_args));\
+	_ev->func(_args,(size_t)(ap1-_args));\
 }\
 )
 
@@ -4773,7 +4773,7 @@ static int expr_constexpr(const struct expr *restrict ep,expr_t *except){
 #define step (un.s0._step)
 #define y (un.s0._y)
 #define neg (un.s0._neg)
-#define ap (un.s1._ap)
+#define ap1 (un.s1._ap)
 #define endp (un.s1._endp)
 #define epp (un.s1._epp)
 #define _max (un.sv.__max)
@@ -5002,7 +5002,7 @@ force_continue:
 #undef step
 #undef y
 #undef neg
-#undef ap
+#undef ap1
 #undef endp
 #undef epp
 #undef _max
@@ -5885,7 +5885,7 @@ int expr_optimize_recursive(struct expr *restrict ep){
 #define step (un.s0._step)
 #define y (un.s0._y)
 #define neg (un.s0._neg)
-#define ap (un.s1._ap)
+#define ap1 (un.s1._ap)
 #define endp (un.s1._endp)
 #define epp (un.s1._epp)
 #define _max (un.sv.__max)
@@ -5893,13 +5893,13 @@ int expr_optimize_recursive(struct expr *restrict ep){
 #define _args (un.sv.__args)
 #define inited (un.s0._inited)
 
-#define EXPR_EVALSTEP(_out) \
+#define EXPR_EVALSTEP(_getinput,_out) \
 		switch(ip->op){\
 			case EXPR_COPY:\
 				*ip->dst.dst=*ip->un.src;\
 				break;\
 			case EXPR_INPUT:\
-				*ip->dst.dst=input;\
+				*ip->dst.dst=(_getinput);\
 				break;\
 			case EXPR_BL:\
 				*ip->dst.dst=ip->un.func(*ip->dst.dst);\
@@ -6110,11 +6110,11 @@ int expr_optimize_recursive(struct expr *restrict ep){
 				*ip->dst.dst=(*ip->un.zafunc2)();\
 				break;\
 			case EXPR_PMD:\
-				ap=ip->un.em->args;\
-				endp=ap+ip->un.em->dim;\
+				ap1=ip->un.em->args;\
+				endp=ap1+ip->un.em->dim;\
 				epp=ip->un.em->eps;\
-				for(;likely(ap<endp);++ap)\
-					*ap=eval(epp++,input);\
+				for(;likely(ap1<endp);++ap1)\
+					*ap1=eval(epp++,input);\
 				*ip->dst.dst=(*ip->dst.md2)(ip->un.em->args,ip->un.em->dim);\
 				break;\
 			case EXPR_PMEP:\
@@ -6208,9 +6208,31 @@ expr_noinline
 expr_t expr_eval(const struct expr *restrict ep,expr_t input){
 	EXPR_EVALVARS;
 	for(struct expr_inst *ip=ep->data;;){
-		EXPR_EVALSTEP(return *ip->dst.dst);
+		EXPR_EVALSTEP(input,return *ip->dst.dst);
 	}
 }
+
+#if !(defined(EXPR_NOVAEVAL)&&(EXPR_NOVAEVAL))
+expr_noinline
+expr_t expr_vevalx(const struct expr *restrict ep,va_list ap){
+	EXPR_EVALVARS;
+	for(struct expr_inst *ip=ep->data;;){
+#define input EXPR_ZERO
+		EXPR_EVALSTEP(va_arg(ap,expr_t),return *ip->dst.dst);
+#undef input
+	}
+}
+
+expr_noinline
+expr_t expr_evalx(const struct expr *restrict ep,...){
+	va_list ap;
+	expr_t r;
+	va_start(ap,ep);
+	r=expr_vevalx(ep,ap);
+	va_end(ap);
+	return r;
+}
+#endif
 
 #if !(defined(EXPR_NODEBUGEVAL)&&(EXPR_NODEBUGEVAL))
 
@@ -6225,7 +6247,7 @@ expr_t expr_eval_callback(const struct expr *restrict ep,expr_t input,const stru
 		old_ip=ip;
 		if(ec->before&&ec->before(ep,ip,ec->arg))
 			return EXPR_FAIL;
-		EXPR_EVALSTEP(out=*ip->dst.dst;goto end);
+		EXPR_EVALSTEP(input,out=*ip->dst.dst;goto end);
 		if(ec->after&&ec->after(ep,old_ip,ec->arg))
 			return EXPR_FAIL;
 	}
@@ -6244,7 +6266,7 @@ end:
 #undef step
 #undef y
 #undef neg
-#undef ap
+#undef ap1
 #undef endp
 #undef epp
 #undef _max

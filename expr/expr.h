@@ -1843,6 +1843,8 @@ int expr_recursive(struct expr *restrict ep,expr_recursive_callback callback,voi
 int expr_optimize(struct expr *restrict ep);
 int expr_optimize_recursive(struct expr *restrict ep);
 expr_t expr_eval(const struct expr *restrict ep,expr_t input);
+expr_t expr_vevalx(const struct expr *restrict ep,va_list ap);
+expr_t expr_evalx(const struct expr *restrict ep,...);
 expr_t expr_eval_callback(const struct expr *restrict ep,expr_t input,const struct expr_callback *ec);
 //global externs of expr-core.c :
 extern const struct expr_builtin_keyword expr_keywords[];

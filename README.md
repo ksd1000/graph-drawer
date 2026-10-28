@@ -135,6 +135,26 @@ int main(void){
 }
 ```
 
+Passing more than 1 arguments:
+```C
+#define _GNU_SOURCE
+#include <stdio.h>
+#include <stdlib.h>
+#include <assert.h>
+#include "expr.h"
+expr_globals_define();
+// Remove if libexpr-lc is linked.
+int main(void){
+	struct expr *ep;
+	ep=expr_new2("t**2+t**2","t");
+	assert(ep);
+	printf("result:%lf\n",expr_evalx(ep,3.0,4.0));
+    // 25.0
+	expr_free(ep);
+	return EXIT_SUCCESS;
+}
+```
+
 Add custom variable and function:
 ```C
 #define _GNU_SOURCE

@@ -1777,16 +1777,18 @@ struct expr {
 	};
 	int error;
 	unsigned int recursive,iflag;
-	unsigned int unused:sizeof(unsigned int)*8-4,noinput:1,freeable:1,sset_shouldfree:1,isconst:1;
+	unsigned int input_count:8,noinput:1,freeable:1,sset_shouldfree:1,isconst:1,unused:sizeof(unsigned int)*8-12;
 };
 
 struct expr_extarg {
 	unsigned int recursive;
+	unsigned int argc:8,unused:sizeof(unsigned int)*8-8;
 };
 #define EXPR_EXTARG_DEFAULT {\
 	.recursive=EXPR_RECURSIVE_DEFAULT,\
+	.argc=0,\
+	.unused=0,\
 }
-#define expr_extarg_default ((const struct expr_extarg[1]){EXPR_EXTARG_DEFAULT})
 
 #define expr_extarg_get(argp,field) (((const struct expr_extarg *)(argp))->field)
 

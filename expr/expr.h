@@ -1777,16 +1777,18 @@ struct expr {
 	};
 	int error;
 	unsigned int recursive,iflag;
-	unsigned int unused:sizeof(unsigned int)*8-4,noinput:1,freeable:1,sset_shouldfree:1,isconst:1;
+	unsigned int input_count:8,noinput:1,freeable:1,sset_shouldfree:1,isconst:1,unused:sizeof(unsigned int)*8-12;
 };
 
 struct expr_extarg {
 	unsigned int recursive;
+	unsigned int argc:8,unused:sizeof(unsigned int)*8-8;
 };
 #define EXPR_EXTARG_DEFAULT {\
 	.recursive=EXPR_RECURSIVE_DEFAULT,\
+	.argc=0,\
+	.unused=0,\
 }
-#define expr_extarg_default ((const struct expr_extarg[1]){EXPR_EXTARG_DEFAULT})
 
 #define expr_extarg_get(argp,field) (((const struct expr_extarg *)(argp))->field)
 
@@ -1849,6 +1851,7 @@ expr_t expr_eval_callback(const struct expr *restrict ep,expr_t input,const stru
 //global externs of expr-core.c :
 extern const struct expr_builtin_keyword expr_keywords[];
 extern const size_t expr_keywords_size;
+extern const struct expr_extarg expr_extarg_default[1];
 //global functions of expr-format.c :
 ssize_t expr_writec_r(expr_writer writer,intptr_t fd,size_t count,int c,const struct expr_memtool *restrict mtl);
 ssize_t expr_converter_common(expr_writer writer,intptr_t fd,const void *buf,size_t size,const struct expr_writeflag *flag);

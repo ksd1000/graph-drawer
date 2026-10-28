@@ -73,7 +73,11 @@ are not safe when the source of expression is untrusted, even with the
 .B EXPR_IPROTECT
 flag. In the case, a string in the from "
 .IR asym -->x0; asym -->x1;...;undef( asym );
-" must be patched at the head of the expression to limit the number of arguments.
+" must be patched at the head of the expression to limit the number of arguments. Or the
+.I argc
+field in
+.I extarg
+must be set to the count of arguments(<=255).
 .SH ATTRIBUTES
 .TS
 allbox;

@@ -1892,6 +1892,11 @@ symget:
 		v0=expr_newvar(ep);
 		cknp(ep,v0,return NULL);
 		cknp(ep,expr_addinput(ep,v0),return NULL);
+		if(ep->input_count){
+			--ep->input_count;
+			if(!ep->input_count)
+				ep->noinput=1;
+		}
 		e=p;
 		goto vend;
 	}
@@ -3963,6 +3968,7 @@ void expr_shink(struct expr *restrict ep){
 		expr_remove_unused_vars(ep,mtl);
 	}
 }
+const struct expr_extarg expr_extarg_default[1]={EXPR_EXTARG_DEFAULT};
 int expr_init8_r(struct expr *restrict ep,const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,const void *extarg,const struct expr_memtool *restrict mtl){
 	union {
 		expr_t *p;
@@ -3991,6 +3997,7 @@ int expr_init8_r(struct expr *restrict ep,const char *e,size_t len,const char *a
 		if(flag&EXPR_IRECURSIVELIMIT){
 			ep->recursive=extget(extarg,recursive);
 		}
+		ep->input_count=extget(extarg,argc);
 		sub=0;
 	}
 	ep->sset=esp;
@@ -4083,7 +4090,7 @@ expr_t expr_calc5_r(const char *e,int *error,char errinfo[EXPR_SYMLEN],struct ex
 	struct expr *ep;
 	expr_t r;
 	flag&=~EXPR_IINSTANT_FREE;
-	ep=expr_new9_r(e,e?strlen(e):0,NULL,0,esp,flag,error,errinfo,NULL,mtl);
+	ep=expr_new9_r(e,e?strlen(e):0,NULL,0,esp,flag,error,errinfo,expr_extarg_default,mtl);
 	if(unlikely(!ep)){
 		return EXPR_FAIL;
 	}

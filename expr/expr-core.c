@@ -5545,7 +5545,7 @@ from_tstl_to_neg:
 static int expr_optimize_contcopy(struct expr *restrict ep){
 	int r=0;
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
-		if(ip->op!=EXPR_COPY||ip[1].op!=EXPR_COPY)
+		if((ip->op!=EXPR_COPY&&ip->op!=EXPR_INPUT)||ip[1].op!=EXPR_COPY)
 			continue;
 		if(ip[1].un.src!=ip->dst.dst)
 			continue;

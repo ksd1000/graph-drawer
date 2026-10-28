@@ -6212,6 +6212,7 @@ break1:\
 		++ip;\
 break2:
 
+#if !(defined(EXPR_NOEVAL)&&(EXPR_NOEVAL))
 expr_noinline
 expr_t expr_eval(const struct expr *restrict ep,expr_t input){
 	EXPR_EVALVARS;
@@ -6219,6 +6220,7 @@ expr_t expr_eval(const struct expr *restrict ep,expr_t input){
 		EXPR_EVALSTEP(input,return *ip->dst.dst);
 	}
 }
+#endif
 
 #if !(defined(EXPR_NOVAEVAL)&&(EXPR_NOVAEVAL))
 expr_noinline

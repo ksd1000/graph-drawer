@@ -1883,7 +1883,12 @@ dflt:
 	}
 	p=getsym(e,endp);
 symget:
-	if(asym&&!ep->noinput&&(size_t)(p-e)==asymlen&&!memcmp(e,asym,(size_t)(p-e))){
+	if(asym&&(size_t)(p-e)==asymlen&&!memcmp(e,asym,(size_t)(p-e))){
+		if(ep->noinput){
+			seterri(ep,EXPR_ESYMBOL);
+			serrinfo(ep->errinfo,asym,asymlen);
+			return NULL;
+		}
 		v0=expr_newvar(ep);
 		cknp(ep,v0,return NULL);
 		cknp(ep,expr_addinput(ep,v0),return NULL);
@@ -3979,7 +3984,8 @@ int expr_init8_r(struct expr *restrict ep,const char *e,size_t len,const char *a
 		}
 		--ep->recursive;
 		mtl=ep->parent->mtl;
-		ep->noinput=ep->parent->noinput;
+		//ep->noinput=ep->parent->noinput;
+		// subexpr gets only zero
 		sub=1;
 	}else {
 		if(flag&EXPR_IRECURSIVELIMIT){

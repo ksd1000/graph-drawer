@@ -3,8 +3,7 @@
 # Graph Drawer
 
 [![CI](https://github.com/ksd1000/graph-drawer/actions/workflows/ci.yml/badge.svg)](https://github.com/ksd1000/graph-drawer/actions/workflows/ci.yml)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23488030.svg)](https://doi.org/10.5281/zenodo.23488030)
-
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23591190.svg)](https://doi.org/10.5281/zenodo.23591190)
 This is a product able to parse expressions and generate image and audio, with two backend libraries, an expression evaluator and a graph drawing library.
 
 ## Project Structure

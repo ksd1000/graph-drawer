@@ -42,8 +42,8 @@ struct expr_memtool expr_defmtl[1];
 //and https://raw.githubusercontent.com/codeplea/tinyexpr/refs/heads/master/tinyexpr.c
 //patch the malloc by include
 
-//compile: gcc -I ../expr -I ../tinyexpr -I ../graph-drawer/expr -I ../graph-drawer/graph ../graph-drawer/test/speedtest.c ../graph-drawer/expr/expr-{core,internal,alloc}.c graph/libgraph.a -o speedtest -Wall -Wextra -O3 -lm
-//
+//compile: gcc -I ../expr -I ../tinyexpr -I ../graph-drawer/expr -I ../graph-drawer/graph ../graph-drawer/test/speedtest.c ../graph-drawer/expr/expr-{core,internal,alloc}.c graph/libgraph.a -o speedtest -Wall -Wextra -O3 -lm -DEXPR_EVAL1=1
+
 long atol2(const char *str){
 	long r;
 	char *c;
@@ -92,12 +92,28 @@ void eval_noop(size_t count){
 		expr_eval(ep,0.0);
 	expr_free(ep);
 }
-void eval_default(size_t count){
+void eval_v(size_t count){
+	struct expr *ep;
+	ep=expr_new4(expression,"t",es,0);
+	assert(ep);
+	while(count--)
+		expr_evalx(ep);
+	expr_free(ep);
+}
+void eval_1(size_t count){
 	struct expr *ep;
 	ep=expr_new4(expression,"t",es,0);
 	assert(ep);
 	while(count--)
 		expr_eval1(ep);
+	expr_free(ep);
+}
+void eval_default(size_t count){
+	struct expr *ep;
+	ep=expr_new4(expression,"t",es,0);
+	assert(ep);
+	while(count--)
+		expr_eval(ep,0.0);
 	expr_free(ep);
 }
 void (*eval)(size_t)=eval_default;
@@ -207,7 +223,7 @@ int main(int argc,char **argv){
 	const char *file=NULL;
 	opterr=1;
 	for(;;){
-		switch(getopt(argc,argv,"a:n:Neztgo::")){
+		switch(getopt(argc,argv,"a:n:NeEvztgo::")){
 			case 'a':
 				avgn=(size_t)atol2(optarg);
 				break;
@@ -224,6 +240,12 @@ int main(int argc,char **argv){
 				break;
 			case 'e':
 				eval=eval_default;
+				break;
+			case 'E':
+				eval=eval_1;
+				break;
+			case 'v':
+				eval=eval_v;
 				break;
 			case 't':
 				eval=eval_t;

@@ -11,8 +11,9 @@ Graph Drawer Expression Evaluator Library
 .BI "double expr_eval(const struct expr *" ep ",double " input ");"
 .BI "double expr_vevalx(const struct expr *" ep ",va_list " ap ");"
 .BI "double expr_evalx(const struct expr *" ep "," ... ");"
-.BI "[[removed]] int expr_step(const struct expr *restrict " ep " ,expr_t " input ",expr_t *restrict " output ",struct expr_inst **restrict " saveip ");"
-.BI "expr_t expr_callback(const struct expr *restrict " ep ",expr_t " input ",const struct expr_callback *" ec ");"
+.BI "double expr_eval1(const struct expr *" ep ");"
+.BI "[[removed]] int expr_step(const struct expr *" ep " ,expr_t " input ",expr_t *restrict " output ",struct expr_inst **restrict " saveip ");"
+.BI "expr_t expr_eval_callback(const struct expr *" ep ",expr_t " input ",const struct expr_eval_callback *" ec ");"
 .fi
 .SH DESCRIPTION
 The
@@ -38,6 +39,11 @@ but fetch arguments from
 .IR ap , ... .
 .P
 The
+.BR expr_eval1()
+function is equivalent to
+.RI expr_eval( ep ,0.0).
+.P
+The
 .BR expr_step()
 function evaluates the
 .B struct expr
@@ -50,7 +56,7 @@ must be set to
 at the start.
 .P
 The
-.BR expr_callback()
+.BR expr_eval_callback()
 function evaluates the
 .B struct expr
 object
@@ -58,7 +64,7 @@ object
 and run the callback function at the begin and end of each instruments.
 .SH RETURN VALUE
 The
-.BR expr_eval() , expr_callback()
+.BR expr_eval() , expr_eval_callback()
 returns the result of the evaluation.
 .P
 The
@@ -87,7 +93,7 @@ Interface	Attribute	Value
 T{
 .na
 .nh
-.BR expr_eval() , expr_vevalx() , expr_evalx() , expr_step() , expr_callback()
+.BR expr_eval() , expr_vevalx() , expr_evalx() , expr_eval1() , expr_step() , expr_eval_callback()
 T}	Thread safety	MT-Safe
 .TE
 .SH HISTORY
@@ -99,12 +105,15 @@ on 2024-02-29
 .TP
 .BR expr_step()
 .TQ
-.BR expr_callback()
+.BR expr_eval_callback()
 2026-01-16
 .TP
 .BR expr_vevalx()
 .TQ
 .BR expr_evalx()
 2026-10-28
+.TP
+.BR expr_eval1()
+2026-10-29
 .SH SEE ALSO
 .BR expr_new (3), expr_init (3), expr_free (3), expr_calc (3)

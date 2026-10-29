@@ -1731,6 +1731,40 @@ struct expr_strtod_workspace {
 	}\
 })
 
+#if (defined(EXPR_EVAL_MINSIZE)&&(EXPR_EVAL_MINSIZE))
+
+#ifndef EXPR_VAEVAL
+#define EXPR_VAEVAL 0
+#endif
+
+#ifndef EXPR_EVAL1
+#define EXPR_EVAL1 0
+#endif
+
+#ifndef EXPR_DEBUGEVAL
+#define EXPR_DEBUGEVAL 0
+#endif
+
+#else
+
+#ifndef EXPR_VAEVAL
+#define EXPR_VAEVAL 1
+#endif
+
+#ifndef EXPR_EVAL1
+#define EXPR_EVAL1 1
+#endif
+
+#ifndef EXPR_DEBUGEVAL
+#define EXPR_DEBUGEVAL 1
+#endif
+
+#endif
+
+#ifndef EXPR_EVAL2
+#define EXPR_EVAL2 1
+#endif
+
 #define EXPR_RECURSIVE_DEFAULT 8
 
 //expr initial flag
@@ -1847,6 +1881,7 @@ int expr_optimize_recursive(struct expr *restrict ep);
 expr_t expr_eval(const struct expr *restrict ep,expr_t input);
 expr_t expr_vevalx(const struct expr *restrict ep,va_list ap);
 expr_t expr_evalx(const struct expr *restrict ep,...);
+expr_t expr_eval1(const struct expr *restrict ep);
 expr_t expr_eval_callback(const struct expr *restrict ep,expr_t input,const struct expr_callback *ec);
 //global externs of expr-core.c :
 extern const struct expr_builtin_keyword expr_keywords[];

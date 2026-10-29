@@ -10,11 +10,13 @@ Steps:
 ```
 make ustest
 ./userspace-test
+make ustest-stack
+./userspace-test
 ```
 Ensure there are no errors and ASAN reports. And the output is only like this:
 ```
-evaluate: 2.5+3.5
-result=6.000000
+evaluate: 2.5+3.5+sum(n,1,100,1,n)
+result=5056.000000
 exiting ...
 ```
 3. Build the kernel module and load it:
@@ -25,9 +27,9 @@ sudo rmmod kexpr.ko
 ```
 The expected output in **dmesg** will be like this:
 ```
-[613733.621003] evaluate: 2.5+3.5
-[613733.621020] result=6.000000
-[613743.767143] exiting ...
+[504246.974745] evaluate: 2.5+3.5+sum(n,1,100,1,n)
+[504246.974779] result=5056.000000
+[504251.933693] exiting ...
 ```
 
 The core of the expression evaluator library may also be able to run in QEMU directly without any operating system, but this is not tested, because the author does not know how to write the code for testing.

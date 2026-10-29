@@ -1,6 +1,7 @@
 #ifdef USERSPACE_TEST
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/resource.h>
 #define MODULE_LICENSE(lic) const char *license=(lic)
 #define MODULE_VERSION(ver) const char *version=(ver)
 #define MODULE_DESCRIPTION(desc) const char *description=(desc)
@@ -17,7 +18,16 @@
 static int __init einit(void);
 static void __exit eexit(void);
 int main(void){
-	int r=einit();
+	int r;
+#if !(ASAN)
+	struct rlimit rlim[1];
+	if(getrlimit(RLIMIT_STACK,rlim)<0)
+		return -1;
+	rlim->rlim_cur=8*1024;
+	if(setrlimit(RLIMIT_STACK,rlim)<0)
+		return -1;
+#endif
+	r=einit();
 	eexit();
 	return r;
 }
@@ -34,7 +44,7 @@ MODULE_VERSION("0.01");
 MODULE_DESCRIPTION("Test module for graph-drawer expr");
 int eval_expr_write_result(const char *e,char *buf,size_t len,void *heap,size_t size);
 #define MTL_HEAP_SIZE 8192
-static char *expression="2.5+3.5";
+static char *expression="2.5+3.5+sum(n,1,100,1,n)";
 static int __init einit(void){
 	char outbuf[64];
 	void *p;

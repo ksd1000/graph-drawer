@@ -27,7 +27,14 @@
 
 #define UNABLE_GETADDR_IN_PROTECTED_MODE 1
 
+#if (EXPR_EVAL2)
 #define eval(_ep,_input) expr_eval(_ep,_input)
+#elif (EXPR_EVAL1)
+#define eval(_ep,_input) expr_eval1(_ep)
+#else
+#error "no expr_eval or expr_eval1"
+#define eval(_ep,_input) (__builtin_trap(),0.0)
+#endif
 
 #define seterr(_ep,_eperror) ({\
 		(_ep)->error=(_eperror);\
@@ -239,6 +246,13 @@ static void *xautoadd(void **restrict old,size_t *restrict size,size_t *restrict
 #define gcd2 expr_gcd2
 #define lcm2 expr_lcm2
 
+#if !(defined(EXPR_SETJMP_IMPL)&&(EXPR_SETJMP_IMPL))
+#define setjmp(buf) 0
+#define longjmp(buf,val) ((void)0)
+#endif
+
+#if !(defined(EXPR_NOKEYWORD)&&(EXPR_NOKEYWORD))
+
 #define REGKEY(s,op,dim,desc) {s,op,0,sizeof(s)-1,desc}
 #define REGKEYS(s,op,dim,desc) {s,op,EXPR_KSUBEXPR,sizeof(s)-1,desc}
 #define REGKEYC(s,op,dim,desc) {s,op,EXPR_KSEPCOMMA,sizeof(s)-1,desc}
@@ -247,6 +261,7 @@ static void *xautoadd(void **restrict old,size_t *restrict size,size_t *restrict
 #define REGKEYCN(s,op,dim,desc) {s,op,EXPR_KSEPCOMMA|EXPR_KNOPROTECT,sizeof(s)-1,desc}
 #define REGKEYSN(s,op,dim,desc) {s,op,EXPR_KSUBEXPR|EXPR_KNOPROTECT,sizeof(s)-1,desc}
 #define REGKEYSCN(s,op,dim,desc) {s,op,EXPR_KSUBEXPR|EXPR_KSEPCOMMA|EXPR_KNOPROTECT,sizeof(s)-1,desc}
+
 const struct expr_builtin_keyword expr_keywords[]={
 	REGKEYS("do",EXPR_DO,1,"do(body) do{body}"),
 	REGKEYSC("if",EXPR_IF,3,"if(cond,if_value,else_value) if(cond){body}[{else_body}]"),
@@ -308,9 +323,6 @@ const struct expr_builtin_keyword expr_keywords[]={
 	REGKEY("include",EXPR_DIF0,1,"include(package)"),
 #if (defined(EXPR_SETJMP_IMPL)&&(EXPR_SETJMP_IMPL))
 	REGKEYCN("longjmp",EXPR_LJ,2,"longjmp(jmp_buf,val)"),
-#else
-#define setjmp(buf) 0
-#define longjmp(buf,val) ((void)0)
 #endif
 
 	REGKEYS("constant",EXPR_DIFF,1,"constant(expression value)"),
@@ -352,7 +364,7 @@ restart:
 		goto restart;
 	}
 }
-
+#endif
 static const char *findpair_dmark(const char *c,const char *endp){
 	for(++c;c<endp;++c){
 		if(*c==(char)'\"'&&c[-1]!=(char)'\\')
@@ -627,6 +639,7 @@ static int expr_createconst(struct expr *restrict ep,const char *symbol,size_t s
 	0:-1;
 }
 //some compiler may throw a maybe-uninitialized warning if inlined for unknown reason here
+#if !(defined(EXPR_NOKEYWORD)&&(EXPR_NOKEYWORD))
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 static int expr_createsvar(struct expr *restrict ep,const char *symbol,size_t symlen,expr_t val){
@@ -644,6 +657,7 @@ static int expr_createsvar(struct expr *restrict ep,const char *symbol,size_t sy
 	return expr_symset_addl(ep->sset,symbol,symlen,EXPR_VARIABLE,0,r->un.addr)?0:-1;
 }
 #pragma GCC diagnostic pop
+#endif
 static int expr_createvar4(struct expr *restrict ep,const char *symbol,size_t symlen,expr_t val){
 	expr_t *r;
 	if(unlikely(!symlen)){
@@ -1026,6 +1040,7 @@ static expr_t consteval(const char *e,size_t len,const char *asym,size_t asymlen
 	expr_free_r(ep);
 	return r;
 }
+#if !(defined(EXPR_NOKEYWORD)&&(EXPR_NOKEYWORD))
 static expr_t nonconsteval(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *sset,struct expr *restrict parent){
 	struct expr *ep;
 	expr_t r;
@@ -1318,6 +1333,7 @@ err0:
 		vfree2(v);
 	return NULL;
 }
+#endif
 static size_t vsize2(char *const *v){
 	char *const *p1=v;
 	for(;*p1;++p1);
@@ -1424,6 +1440,7 @@ err0:
 	vfree2(v);
 	return NULL;
 }
+#if !(defined(EXPR_NOKEYWORD)&&(EXPR_NOKEYWORD))
 static int expr_rmsymt(struct expr *restrict ep,struct expr_symbol **buf,size_t sz,int type){
 	struct expr_symbol **bufp=buf;
 	struct expr_symbol **bufp_end=buf+sz;
@@ -1477,6 +1494,7 @@ static int expr_rmsym(struct expr *restrict ep,const char *sym,size_t sz){
 			return expr_symset_remove(ep->sset,sym,sz)<0;
 	}
 }
+#endif
 static const struct expr_symbol *alias_target(struct expr *restrict ep,const struct expr_symbol *alias,int symerr){
 	size_t len,len0;
 	const char *p,*p0;
@@ -1587,6 +1605,7 @@ esymbol:
 	}
 	return NULL;
 }
+#if !(defined(EXPR_NOKEYWORD)&&(EXPR_NOKEYWORD))
 #define IMPORT_ERROR_BLOCK(SP) {\
 	if(!ignore){\
 		seterri(ep,EXPR_EDS);\
@@ -1631,6 +1650,7 @@ err:
 	}
 	return 0;
 }
+#endif
 static expr_t *getvalue(struct expr *restrict ep,const char *e,const char *endp,const char **_p,const char *asym,size_t asymlen){
 	const char *p,*p2,*p4,*e0=e;
 	expr_t *v0=NULL,*v1;
@@ -1673,11 +1693,13 @@ static expr_t *getvalue(struct expr *restrict ep,const char *e,const char *endp,
 	} sv;
 	int type,flag;
 	size_t dim;
+#define goto_eev ({\
+	debug("e=%p,endp=%p,*e=%d",(void *)(uintptr_t)e,(void *)(uintptr_t)endp,(int)*e);\
+	seterr(ep,EXPR_EEV);\
+	return NULL;\
+})
 	if(unlikely(e>=endp)){
-eev:
-		debug("e=%p,endp=%p,*e=%d",(void *)(uintptr_t)e,(void *)(uintptr_t)endp,(int)*e);
-		seterr(ep,EXPR_EEV);
-		return NULL;
+		goto_eev;
 	}
 	switch(*e){
 		case '(':
@@ -1915,7 +1937,22 @@ symget:
 		flag=sym.es->flag;
 		goto found;
 	}
+#define goto_symerr {\
+	seterri(ep,EXPR_ESYMBOL);\
+	serrinfo(ep->errinfo,e,(size_t)(p-e));\
+	return NULL;\
+}
+#define addinfo(_op,dal) \
+	if(unlikely(!un.uaddr)){\
+		return NULL;\
+	}\
+	v0=expr_newvar(ep);\
+	cknp(ep,v0,dal(un.uaddr,0,xmtl);return NULL);\
+	cknp(ep,expr_addop(ep,v0,un.uaddr,_op,flag),dal(un.uaddr,0,xmtl);return NULL);\
+	e=p+1;\
+	goto vend
 keyword:
+#if !(defined(EXPR_NOKEYWORD)&&(EXPR_NOKEYWORD))
 	if(ep->iflag&EXPR_INOKEYWORD)
 		goto number;
 	{
@@ -2076,7 +2113,7 @@ alias_found_decl:
 				}
 				dim=strlenv(sym.vv[0]);
 				if(unlikely(!dim))
-					goto eev;
+					goto_eev;
 				p4=getsym(sym.vv[0],sym.vv[0]+dim);
 				if(unlikely(*p4)){
 					seterri(ep,EXPR_EUO);
@@ -2215,11 +2252,6 @@ sa_fail:\
 				cknp(ep,expr_addconst(ep,v0,un.v),return NULL);
 				e=p+1;
 				goto vend;
-#define goto_symerr {\
-	seterri(ep,EXPR_ESYMBOL);\
-	serrinfo(ep->errinfo,e,(size_t)(p-e));\
-	return NULL;\
-}
 
 #define symfield(_field,_dest) \
 				if(likely(ep->sset&&(sym.es=expr_symset_search(ep->sset,e+1,(size_t)(p-e-1))))){\
@@ -2417,7 +2449,7 @@ flpm:
 				if(!p2)
 					goto pterr;
 				if(p2==p+2)
-					goto eev;
+					goto_eev;
 				switch(e[1]){
 					case ')':
 						type=0;
@@ -2460,7 +2492,7 @@ flpm:
 				}
 				dim=strlenv(sym.vv[0]);
 				if(unlikely(!dim))
-					goto eev;
+					goto_eev;
 				p4=getsym(sym.vv[0],sym.vv[0]+dim);
 				if(unlikely(*p4)){
 					seterri(ep,EXPR_EUO);
@@ -2850,15 +2882,6 @@ vzero:
 				cknp(ep,expr_addop(ep,v0=EXPR_VOID_NR,un.ep,EXPR_DO,0),expr_free_r(un.ep);return NULL);
 				e=p+1;
 				goto vend;
-#define addinfo(_op,dal) \
-				if(unlikely(!un.uaddr)){\
-					return NULL;\
-				}\
-				v0=expr_newvar(ep);\
-				cknp(ep,v0,dal(un.uaddr,0,xmtl);return NULL);\
-				cknp(ep,expr_addop(ep,v0,un.uaddr,_op,flag),dal(un.uaddr,0,xmtl);return NULL);\
-				e=p+1;\
-				goto vend
 			case EXPR_VMD:
 				un.ev=getvmdinfo(ep,p2,(size_t)(e-p2),e,(size_t)(p-e+1),asym,asymlen,&flag);
 				addinfo(EXPR_VMD,freevmdinfo);
@@ -2870,6 +2893,7 @@ vzero:
 		}
 		__builtin_unreachable();
 	}
+#endif
 	goto number;
 found:
 	switch(type){
@@ -2999,6 +3023,7 @@ fok:
 			v0=expr_newvar(ep);
 			cknp(ep,v0,return NULL);
 			cknp(ep,expr_addcopy(ep,v0,expr_symbol_un(sym.es)->addr),return NULL);
+#if !(defined(EXPR_NOFP)&&(EXPR_NOFP))
 			p2=e;
 			e=p;
 			if(e<endp&&*e=='('){
@@ -3068,6 +3093,9 @@ fok:
 				}
 				v0=v1;
 			}
+#else
+			e=p;
+#endif
 			goto vend;
 		case EXPR_MDFUNCTION:
 		case EXPR_MDEPFUNCTION:
@@ -6234,6 +6262,7 @@ break1:\
 		++ip;\
 break2:
 
+#if (EXPR_EVAL2)
 expr_noinline
 expr_t expr_eval(const struct expr *restrict ep,expr_t input){
 	EXPR_EVALVARS;
@@ -6241,8 +6270,9 @@ expr_t expr_eval(const struct expr *restrict ep,expr_t input){
 		EXPR_EVALSTEP(input,return *ip->dst.dst);
 	}
 }
+#endif
 
-#if !(defined(EXPR_NOVAEVAL)&&(EXPR_NOVAEVAL))
+#if (EXPR_VAEVAL)
 expr_noinline
 expr_t expr_vevalx(const struct expr *restrict ep,va_list ap){
 	EXPR_EVALVARS;
@@ -6264,7 +6294,22 @@ expr_t expr_evalx(const struct expr *restrict ep,...){
 }
 #endif
 
-#if !(defined(EXPR_NODEBUGEVAL)&&(EXPR_NODEBUGEVAL))
+#if (EXPR_EVAL1)
+expr_noinline
+expr_t expr_eval1(const struct expr *restrict ep){
+	EXPR_EVALVARS;
+	for(struct expr_inst *ip=ep->data;;){
+#undef eval
+#define eval(_ep,_input) expr_eval1(_ep)
+#define input EXPR_ZERO
+		EXPR_EVALSTEP(EXPR_ZERO,return *ip->dst.dst);
+#undef input
+#undef eval
+	}
+}
+#endif
+
+#if (EXPR_DEBUGEVAL)
 
 #undef eval
 #define eval(_ep,_input) expr_eval_callback(_ep,_input,ec)

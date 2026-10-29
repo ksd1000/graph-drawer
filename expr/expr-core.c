@@ -526,11 +526,12 @@ static struct expr_inst *expr_addop_i(struct expr *restrict ep,void *dst,uintptr
 #define expr_addcall(ep,dst,src,flag) expr_addop(ep,dst,src,EXPR_BL,flag)
 #define expr_addlj(ep,dst,src) expr_addop(ep,dst,src,EXPR_LJ,0)
 #define expr_addun(ep,dst,op) expr_addop(ep,dst,NULL,op,0)
+#define expr_addunf(ep,dst,op,flag) expr_addop(ep,dst,NULL,op,flag)
 #define expr_addsj(ep,dst) expr_addun(ep,dst,EXPR_SJ)
 #define expr_addneg(ep,dst) expr_addun(ep,dst,EXPR_NEG)
 #define expr_addnot(ep,dst) expr_addun(ep,dst,EXPR_NOT)
 #define expr_addnotl(ep,dst) expr_addun(ep,dst,EXPR_NOTL)
-#define expr_addinput(ep,dst) expr_addun(ep,dst,EXPR_INPUT)
+//#define expr_addinput(ep,dst) expr_addun(ep,dst,EXPR_INPUT)
 #define expr_addto(ep,dst) expr_addun(ep,dst,EXPR_TO)
 #define expr_addto1(ep,dst) expr_addun(ep,dst,EXPR_TO1)
 #define expr_addend(ep,dst) expr_addun(ep,dst,EXPR_END)
@@ -1889,9 +1890,14 @@ symget:
 			serrinfo(ep->errinfo,asym,asymlen);
 			return NULL;
 		}
+		if(p+1<endp&&p[0]=='['&&p[1]==']'){
+			p+=2;
+			type=1;
+		}else
+			type=0;
 		v0=expr_newvar(ep);
 		cknp(ep,v0,return NULL);
-		cknp(ep,expr_addinput(ep,v0),return NULL);
+		cknp(ep,expr_addunf(ep,v0,EXPR_INPUT,type?EXPR_SPURE:0),return NULL);
 		if(ep->input_count){
 			--ep->input_count;
 			if(!ep->input_count)
@@ -4576,7 +4582,8 @@ static int expr_usesrc(enum expr_op op){
 static int expr_vused(struct expr_inst *ip1,expr_t *v){
 	int ov;
 	for(;;++ip1){
-		if(ip1->op==EXPR_CONST&&(ip1->flag&EXPR_SPURE)&&cast(ip1->un.value,expr_t *)==v)
+		debug("op: %d",ip1->op);
+		if((ip1->flag&EXPR_SPURE)&&((ip1->op==EXPR_CONST&&cast(ip1->un.value,expr_t *)==v)||ip1->op==EXPR_INPUT))
 			return 1;
 		ov=expr_override(ip1->op);
 		if((expr_usesrc(ip1->op)&&ip1->un.src==v)
@@ -4588,7 +4595,7 @@ static int expr_vused(struct expr_inst *ip1,expr_t *v){
 			return 0;
 		}
 		if(ip1->op==EXPR_END){
-			return 0;
+			return ip1->dst.dst==v;
 		}
 	}
 	return 0;
@@ -5143,6 +5150,8 @@ static int expr_optimize_unused(struct expr *restrict ep){
 
 		if(!expr_varofep(ep,ip->dst.dst)
 			||expr_side(ip->op))continue;
+		if(ip->op==EXPR_INPUT&&(ip->flag&EXPR_SPURE))
+			continue;
 		if(!expr_vcheck_ep(ep,ip+1,ip->dst.dst)){
 			ip->dst.dst=NULL;
 			r=1;

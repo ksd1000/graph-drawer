@@ -146,7 +146,7 @@ expr_globals_define();
 // Remove if libexpr-lc is linked.
 int main(void){
 	struct expr *ep;
-	ep=expr_new2("t**2+t**2","t");
+	ep=expr_new2("t[]**2+t[]**2","t");
 	assert(ep);
 	printf("result:%lf\n",expr_evalx(ep,3.0,4.0));
     // 25.0

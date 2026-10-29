@@ -97,7 +97,7 @@ void eval_default(size_t count){
 	ep=expr_new4(expression,"t",es,0);
 	assert(ep);
 	while(count--)
-		expr_eval(ep,0.0);
+		expr_eval1(ep);
 	expr_free(ep);
 }
 void (*eval)(size_t)=eval_default;

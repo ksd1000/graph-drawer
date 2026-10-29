@@ -2260,7 +2260,7 @@ sa_fail:\
 						break;
 				}
 				sv.i=(size_t)(p-e-1);
-				if(asym&&sv.i==asymlen&&!memcmp(e+1,asym,sv.i)){
+				if(asym&&!ep->noinput&&sv.i==asymlen&&!memcmp(e+1,asym,sv.i)){
 					ep->noinput=1;
 					v0=EXPR_VOID;
 					e=p+1;

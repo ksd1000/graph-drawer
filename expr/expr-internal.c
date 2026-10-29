@@ -689,6 +689,85 @@ size_t expr_extint_ascii_convert(uint64_t *buf,const char *inbuf,size_t inbuf_si
 	}
 	return size;
 }
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+ssize_t expr_internal_strtou(const char *restrict nptr,size_t nsize,size_t *restrict end_index,int base){
+	size_t r=0;
+	unsigned int get;
+	const char *startp,*endp;
+	startp=(const char *)nptr;
+	endp=startp+nsize;
+	if(!base){
+		if(nptr+1<endp&&*nptr=='0'){
+			++nptr;
+			if(nptr+1<endp&&(get=(unsigned int)(unsigned char)*nptr|32,get=='x'||get=='b')){
+				base=(get=='x'?16:2);
+				++nptr;
+				get=expr_ntable(*nptr);
+				if(unlikely(get>=(unsigned int)base)){
+					--nptr;
+					goto out;
+				}
+				goto got;
+			}else {
+				base=8;
+				get=expr_ntable(*nptr);
+				if(unlikely(get>=8)){
+					goto out;
+				}
+				goto got;
+			}
+		}else {
+			base=10;
+		}
+	}
+	if(unlikely(nptr>=endp)){
+		goto atend;
+	}
+	// base cannot be >36
+	get=expr_ntable(*nptr);
+	if(unlikely(get>=(unsigned int)base)){
+atend:
+		if(nptr==startp+1){
+			--nptr;
+		}
+		goto out;
+	}
+got:
+	if(unlikely(mulo(r,base)))
+		goto overflow;
+	if(unlikely(addo(r,get)))
+		goto overflow;
+	++nptr;
+	while(nptr<endp){
+		get=expr_ntable(*nptr);
+		if(unlikely(get>=(unsigned int)base))
+			goto out;
+		if(unlikely(mulo(r,base)))
+			goto overflow;
+		if(unlikely(addo(r,get)))
+			goto overflow;
+		++nptr;
+	}
+out:
+	*end_index=(size_t)(nptr-startp);
+	debug("result:%zu",r);
+	return r;
+overflow:
+	*end_index=0;
+	return SIZE_MAX;
+	/*
+	++nptr;
+	while(nptr<endp){
+		get=expr_ntable(*nptr);
+		if(unlikely(get>=(unsigned int)base))
+			break;
+		++nptr;
+	}
+	*end_index=(size_t)(nptr-startp);
+	debug("overflow result:%zu",SIZE_MAX);
+	*/
+}
 ssize_t expr_internal_strtoz(const char *restrict nptr,size_t nsize,size_t *restrict end_index,int base){
 	ssize_t r=0;
 	int neg=0;
@@ -708,9 +787,9 @@ ssize_t expr_internal_strtoz(const char *restrict nptr,size_t nsize,size_t *rest
 	if(!base){
 		if(nptr+1<endp&&*nptr=='0'){
 			++nptr;
-			if(nptr+1<endp&&(*nptr=='x'||*nptr=='b')){
+			if(nptr+1<endp&&(get=(unsigned int)(unsigned char)*nptr|32,get=='x'||get=='b')){
+				base=(get=='x'?16:2);
 				++nptr;
-				base=(*nptr=='x'?16:2);
 				get=expr_ntable(*nptr);
 				if(unlikely(get>=(unsigned int)base)){
 					--nptr;
@@ -762,6 +841,9 @@ out:
 	debug("result:%zd",(ssize_t)(neg?-r:r));
 	return (ssize_t)(neg?-r:r);
 overflow:
+	*end_index=0;
+	return (ssize_t)(neg?SSIZE_MIN:SSIZE_MAX);
+	/*
 	++nptr;
 	while(nptr<endp){
 		get=expr_ntable(*nptr);
@@ -771,8 +853,9 @@ overflow:
 	}
 	*end_index=(size_t)(nptr-startp);
 	debug("overflow result:%zd",(ssize_t)(neg?SSIZE_MIN:SSIZE_MAX));
-	return (ssize_t)(neg?SSIZE_MIN:SSIZE_MAX);
+	*/
 }
+#pragma GCC diagnostic pop
 
 #define set_index(idx) {debug("set index: %zu",(size_t)(idx));if(end_index)*end_index=(idx);}
 

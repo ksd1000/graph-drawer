@@ -181,20 +181,20 @@ struct expr_internal_jmpbuf {
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 //#pragma GCC diagnostic ignored "-Wcast-function-type-mismatch"
 #pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
-//#pragma GCC diagnostic ignored "-Wclobbered"
+#pragma GCC diagnostic ignored "-Wclobbered"
 //#pragma GCC diagnostic ignored "-Wcast-function-type"
 //#pragma GCC diagnostic ignored "-Waddress"
-#pragma GCC diagnostic ignored "-Wextra-semi"
-#pragma GCC diagnostic ignored "-Wc2y-extensions"
-#pragma GCC diagnostic ignored "-Wgnu-auto-type"
-#pragma GCC diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
+//#pragma GCC diagnostic ignored "-Wextra-semi"
+//#pragma GCC diagnostic ignored "-Wc2y-extensions"
+//#pragma GCC diagnostic ignored "-Wgnu-auto-type"
+//#pragma GCC diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
 #pragma GCC diagnostic ignored "-Wpedantic"
 #pragma GCC diagnostic ignored "-Wnull-dereference"
 #pragma GCC diagnostic ignored "-Wconversion"
 
 #pragma GCC diagnostic ignored "-Wgnu-statement-expression-from-macro-expansion"
 #pragma GCC diagnostic ignored "-Wshadow"
-#pragma GCC diagnostic ignored "-Wflexible-array-extensions"
+//#pragma GCC diagnostic ignored "-Wflexible-array-extensions"
 
 #endif
 
@@ -644,10 +644,9 @@ EXPR_END
 		union {\
 			__typeof__(x) _x;\
 			__typeof__(type) _o;\
-			intmax_t _im;\
 		} _cast_un;\
-		if(sizeof(type)>sizeof(__typeof__(x)))\
-	 		_cast_un._im=0;\
+		if(sizeof(__typeof__(type))>sizeof(__typeof__(x)))\
+	 		_cast_un._o=(__typeof__(type))0;\
 		_cast_un._x=(x);\
 		_cast_un._o;\
 	})

@@ -386,7 +386,7 @@ double d_readline(double x){
 }
 struct expr_buffered_file r1f=EXPR_BUFFERED_INITIALIZER(read,0,NULL,SIZE_MAX);
 static void *memchr_warped(const void *buf,intptr_t c,size_t size){
-	return memchr(buf,(int)c,size);
+	return (void *)(uintptr_t)memchr(buf,(int)c,size);
 }
 double d_readline1(double x){
 	ssize_t r;

@@ -72,12 +72,15 @@ double d_sscanf(double *args,size_t n){
 	flen=strlen(fmt);
 	return (double)expr_sscanf(s,slen,fmt,flen,(void **)(args+2),n-2);
 }
+static void *memchr_warped(const void *buf,intptr_t c,size_t size){
+	return (void *)(uintptr_t)memchr(buf,(int)c,size);
+}
 char scanfbuf[BUFSIZ];
 struct expr_buffered_file scanff=EXPR_BUFFERED_INITIALIZER(read,0,scanfbuf,BUFSIZ);
 double d_scanf(double *args,size_t n){
 	const char *s,*fmt;
 	size_t slen,flen;
-	slen=(size_t)expr_buffered_readline(&scanff,'\n',&s,NULL);
+	slen=(size_t)expr_buffered_readline(&scanff,memchr_warped,'\n',&s);
 	if(expr_unlikely((ssize_t)slen<0))
 		return -1;
 	fmt=expr_cast(args[0],const char *);

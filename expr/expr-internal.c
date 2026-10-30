@@ -105,9 +105,9 @@ size_t expr_strscan(const char *restrict s,size_t sz,char *restrict buf,size_t o
 					v=0;\
 					while(p<endp){\
 						v1=expr_ntable((uint8_t)*p);\
-						if(unlikely(v1>=base))\
+						if(unlikely(v1>=(uint8_t)base))\
 							break;\
-						v=v*base+v1;\
+						v=v*(uint8_t)base+v1;\
 						++p;\
 						if(p-s>=maxlen){\
 							if(base==16){\

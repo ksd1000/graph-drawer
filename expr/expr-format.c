@@ -210,20 +210,20 @@ static ssize_t converter_size(expr_writer writer,intptr_t fd,const union expr_ar
 			dig=32;
 		if(dig){
 			char *dp,*dp_end;
-			uint64_t r;
+			uint64_t r1;
 			int feq;
 			feq=!!flag->eq;
 			dp=dbuf;
 			dp_end=dbuf+dig;
 			dimm1=(UINT64_C(1)<<dim)-1;
-			r=val&dimm1;
-			if(!r&&feq)
+			r1=val&dimm1;
+			if(!r1&&feq)
 				goto no_digit;
 			do {
-				r*=10;
-				*(dp++)=(char)('0'+(r>>dim));
-				r&=dimm1;
-				if(!r&&feq){
+				r1*=10;
+				*(dp++)=(char)('0'+(r1>>dim));
+				r1&=dimm1;
+				if(!r1&&feq){
 					dig=(size_t)(dp-dbuf);
 					break;
 				}

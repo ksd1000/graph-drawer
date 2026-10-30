@@ -691,7 +691,7 @@ size_t expr_extint_ascii_convert(uint64_t *buf,const char *inbuf,size_t inbuf_si
 }
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
-ssize_t expr_internal_strtou(const char *restrict nptr,size_t nsize,size_t *restrict end_index,int base){
+size_t expr_internal_strtou(const char *restrict nptr,size_t nsize,size_t *restrict end_index,int base){
 	size_t r=0;
 	unsigned int get;
 	const char *startp,*endp;

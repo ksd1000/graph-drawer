@@ -155,7 +155,7 @@ ssize_t expr_converter_common(expr_writer writer,intptr_t fd,const void *buf,siz
 #define XUNBUF (sizeof(size_t)*8+8)
 static ssize_t converter_d(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	char nbuf[XUNBUF];
-	size_t val=(size_t)arg->tint;
+	expr_ut val=(expr_ut)arg->sint;
 	char *endp=nbuf+XUNBUF;
 	char *p=endp;
 	ssize_t ext,sum,r,sz;
@@ -193,20 +193,13 @@ static ssize_t converter_d(expr_writer writer,intptr_t fd,const union expr_argf 
 static ssize_t converter_size(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	char nbuf[64];
 	char dbuf[32];
-	int64_t val=(int64_t)arg->tint;
+	uint64_t val=(uint64_t)arg->uint;
 	char *endp=nbuf+32;
 	char *p=endp;
 	ssize_t ext,sum,r,sz;
-	int minus,dim;
-	if(!val)
-		minus=2;
-	else if(val<0){
-		val=-val;
-		minus=1;
-	}else
-		minus=0;
+	int dim;
 	if(val){
-		int64_t sdimm1;
+		uint64_t dimm1;
 		size_t dig;
 		dim=(63-clz64((uint64_t)val))/10;
 		if(dim||flag->sharp)
@@ -217,19 +210,19 @@ static ssize_t converter_size(expr_writer writer,intptr_t fd,const union expr_ar
 			dig=32;
 		if(dig){
 			char *dp,*dp_end;
-			int64_t r;
+			uint64_t r;
 			int feq;
 			feq=!!flag->eq;
 			dp=dbuf;
 			dp_end=dbuf+dig;
-			sdimm1=(INT64_C(1)<<dim)-1;
-			r=val&sdimm1;
+			dimm1=(UINT64_C(1)<<dim)-1;
+			r=val&dimm1;
 			if(!r&&feq)
 				goto no_digit;
 			do {
 				r*=10;
 				*(dp++)=(char)('0'+(r>>dim));
-				r&=sdimm1;
+				r&=dimm1;
 				if(!r&&feq){
 					dig=(size_t)(dp-dbuf);
 					break;
@@ -244,30 +237,17 @@ no_digit:
 		write_val10_to_p(val);
 	}else
 		*(--p)='0';
-	switch(minus){
-		case 0:
-			if(flag_plus(flag))
-				*(--p)='+';
-			else if(flag_space(flag))
-				*(--p)=' ';
-			break;
-		case 1:
-			*(--p)='-';
-			break;
-		case 2:
-			if(flag->plus)
-				*(--p)='+';
-			break;
-		default:
-			__builtin_unreachable();
-	}
+	if(flag_plus(flag))
+		*(--p)='+';
+	else if(flag_space(flag))
+		*(--p)=' ';
 	cwrite_common(p,(endp-p));
 }
 static const char conv_btox[]={"0123456789abcdefx"};
 static const char conv_btoX[]={"0123456789ABCDEFX"};
 static ssize_t converter_xu(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag,uint32_t base){
 	char nbuf[XUNBUF];
-	size_t val=arg->zint,mod;
+	expr_ut val=arg->uint,mod;
 	char *endp=nbuf+XUNBUF;
 	char *p=endp;
 	ssize_t ext,sum,r,sz;
@@ -1411,7 +1391,7 @@ current_get:
 			break;
 		case EXPR_FMTC_EXITIF:
 			if(flag->plus){
-				if(save.umax)
+				if(save.uint)
 					goto end;
 			}else {
 				if(arg1->uint)
@@ -1480,80 +1460,80 @@ current_get:
 			if(flag->zero){
 				if(flag->digit_set){
 					if(flag->plus)
-						save.smax+=flag->digit;
+						save.sint+=flag->digit;
 					else
-						save.smax=flag->digit;
+						save.sint=flag->digit;
 				}else
-					save.umax=0;
+					save.uint=0;
 			}else {
-				save.umax=*arg1->umaddr;
+				save.uint=*arg1->uiaddr;
 				argnext1;
 			}
 			break;
 		case EXPR_FMTC_EVAL:
 			{
-				old.umax=*arg1->umaddr;
+				old.uint=*arg1->uiaddr;
 				switch(flag_width(flag,0)){
 					case 0:
-						old.umax=save.umax;
+						old.uint=save.uint;
 						break;
 					case 1:
-						old.umax+=save.umax;
+						old.uint+=save.uint;
 						break;
 					case 2:
-						old.umax-=save.umax;
+						old.uint-=save.uint;
 						break;
 					case 3:
-						old.umax*=save.umax;
+						old.uint*=save.uint;
 						break;
 					case 4:
-						old.umax/=save.umax;
+						old.uint/=save.uint;
 						break;
 					case 5:
-						old.umax%=save.umax;
+						old.uint%=save.uint;
 						break;
 					case 6:
-						old.umax&=save.umax;
+						old.uint&=save.uint;
 						break;
 					case 7:
-						old.umax^=save.umax;
+						old.uint^=save.uint;
 						break;
 					case 8:
-						old.umax|=save.umax;
+						old.uint|=save.uint;
 						break;
 					case 9:
-						old.umax<<=save.umax;
+						old.uint<<=save.uint;
 						break;
 					case 10:
-						old.umax>>=save.umax;
+						old.uint>>=save.uint;
 						break;
 					case 11:
-						old.umax=((uintmax_t (*)(const union expr_argf *,intptr_t))save.addr)(&old,fd);
+						old.uint=((uintmax_t (*)(const union expr_argf *,intptr_t))save.addr)(&old,fd);
 						break;
 					case 12:
-						old.umax=~old.umax;
+						old.uint=~old.uint;
 						break;
 					case 13:
-						old.umax=-old.umax;
+						old.uint=-old.uint;
 						break;
 					case 14:
-						save.umax=~save.umax;
+						save.uint=~save.uint;
 						break;
 					case 15:
-						save.umax=-save.umax;
+						save.uint=-save.uint;
 						break;
 					case 16:
-						save.umax=!save.umax;
+						save.uint=!save.uint;
 						break;
 					case 17:
-						save.umax=!!save.umax;
+						save.uint=!!save.uint;
 						break;
 					default:
 						goto_argfail;
 				}
-				*arg1->umaddr=old.umax;
+				*arg1->uiaddr=old.uint;
 				if(flag->eq)
-					save.umax=old.umax;
+					save.uint=old.uint;
 			}
 			argnext1;
 			break;
@@ -1610,7 +1590,7 @@ wfp_get:
 				fmt_dorepeat((const union expr_argf *)&save);
 				forward=0;
 			}else if(arrlen){
-				expr_umaxf_t val,mask;
+				expr_ut val,mask;
 				flag->argsize=sizeof(void *);
 				aps=arg1->uint;
 				mask=(UINT64_C(1)<<(arrwid*8))-1;
@@ -1752,20 +1732,20 @@ static const union expr_argf *ap_getarg(ptrdiff_t index,const struct expr_writef
 		case EXPR_FLAGTYPE_SIGNED:
 			switch(flag->argsize){
 				case 1 ... sizeof(int):
-					a->save->sint=va_arg(a->ap,int);
+					a->save->sint=(expr_it)va_arg(a->ap,int);
 					break;
 				default:
-					a->save->smax=va_arg(a->ap,ssize_t);
+					a->save->sint=va_arg(a->ap,expr_it);
 					break;
 			}
 			break;
 		case EXPR_FLAGTYPE_UNSIGNED:
 			switch(flag->argsize){
 				case 1 ... sizeof(int):
-					a->save->uint=va_arg(a->ap,unsigned int);
+					a->save->uint=(expr_ut)va_arg(a->ap,unsigned int);
 					break;
 				default:
-					a->save->umax=va_arg(a->ap,size_t);
+					a->save->uint=va_arg(a->ap,expr_ut);
 					break;
 			}
 			break;

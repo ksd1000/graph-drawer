@@ -59,8 +59,8 @@ expr_static_assert(sizeof(void *)==sizeof(ptrdiff_t));
 
 #ifndef expr_t
 #define expr_t double
-#define expr_ti int64_t
-#define expr_tu uint64_t
+#define expr_it int64_t
+#define expr_ut uint64_t
 #define EXPR_FMTd "f"
 #define EXPR_FMTu "f"
 #define EXPR_FMTo "\xa8"
@@ -967,33 +967,21 @@ struct expr_writeflag {
 expr_static_assert(offsetof(struct expr_writeflag,bit)+sizeof(uint64_t)==sizeof(struct expr_writeflag));
 union expr_argf {
 	void *addr;
-	intptr_t sint;
-	uintptr_t uint;
+	expr_it sint;
+	expr_ut uint;
+	expr_it *siaddr;
+	expr_ut *uiaddr;
 	double dbl;
 	size_t zint;
 	ssize_t tint;
-	intptr_t *siaddr;
-	uintptr_t *uiaddr;
 	double *daddr;
 	size_t *zaddr;
 	ssize_t *taddr;
 	const char *str;
 	union expr_argf *aaddr;
 	char ch;
-#if __SIZEOF_POINTER__<8
-#define expr_umaxf_t uint64_t
-#define expr_imaxf_t int64_t
-#else
-#define expr_umaxf_t uintptr_t
-#define expr_imaxf_t intptr_t
-#endif
-	expr_umaxf_t umax;
-	expr_umaxf_t *umaddr;
-	expr_imaxf_t smax;
-	expr_imaxf_t *smaddr;
 };
-expr_static_assert(sizeof(union expr_argf)==sizeof(double));
-expr_static_assert(sizeof(union expr_argf)==sizeof(expr_umaxf_t));
+expr_static_assert(sizeof(union expr_argf)==sizeof(expr_t));
 typedef const union expr_argf *(*expr_argfetch)(ptrdiff_t index,const struct expr_writeflag *flag,intptr_t addr);
 struct expr_writefmt {
 	ssize_t (*converter)(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
@@ -1148,7 +1136,7 @@ struct expr_inst {
 	union {
 		expr_t *dst;
 		double *ddst;
-		expr_ti *idst;
+		expr_it *idst;
 		intptr_t *pdst;
 		void *uaddr;
 		void **uaddr2;
@@ -1162,7 +1150,7 @@ struct expr_inst {
 	union {
 		expr_t *src;
 		double *dsrc;
-		expr_ti *isrc;
+		expr_it *isrc;
 		intptr_t *psrc;
 		expr_t **src2;
 		double **dsrc2;
@@ -1190,8 +1178,8 @@ struct expr_inst {
 union expr_symvalue {
 	expr_t value;
 	double dvalue;
-	expr_ti ivalue;
-	expr_tu uvalue;
+	expr_it ivalue;
+	expr_ut uvalue;
 	size_t size;
 	ssize_t off;
 	expr_t *addr;

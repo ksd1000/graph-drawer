@@ -11,6 +11,10 @@
 #ifndef _EXPR_H_
 #define _EXPR_H_
 
+#ifdef __BEGIN_DECLS
+__BEGIN_DECLS
+#endif
+
 #ifndef _EXPR_DEFS_H_
 #include <stddef.h>
 #include <stdint.h>
@@ -2259,6 +2263,10 @@ extern int expr_mtl_setup;
 	struct expr_area *restrict __areap=(area);\
 	expr_area_malloc3(__areap,size,__areap->flag|EXPR_AZERO);\
 })
+
+#ifdef __END_DECLS
+__END_DECLS
+#endif
 
 #endif
 

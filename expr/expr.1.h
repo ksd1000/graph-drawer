@@ -11,6 +11,10 @@
 #ifndef _EXPR_H_
 #define _EXPR_H_
 
+#ifdef __BEGIN_DECLS
+__BEGIN_DECLS
+#endif
+
 #ifndef _EXPR_DEFS_H_
 #include <stddef.h>
 #include <stdint.h>

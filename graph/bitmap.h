@@ -4,6 +4,7 @@
  *******************************************************************************/
 #ifndef _BITMAP_H_
 #define _BITMAP_H_
+#include <stddef.h>
 #include <stdint.h>
 struct bitmap {
 	uint16_t magic;//0x4d42
@@ -33,7 +34,7 @@ _Static_assert(sizeof(struct bitmap)==54,"error on size of bitmap header");
 #define bm_l16(x) __builtin_bswap16((uint16_t)(x))
 #define bm_l32(x) __builtin_bswap32((uint32_t)(x))
 #endif
-#define bm_byte_width(_w,_bpp) ((((_w)*(_bpp)+31)>>5)<<2)
+#define bm_byte_width(_w,_bpp) ((uint64_t)((((_w)*(_bpp)+31)>>5)<<2))
 #define bm_byte_widthof(__bm) ({const struct bitmap *restrict _bm=(__bm);bm_byte_width(_bm->width,_bm->bpp);})
 #define bm_dsize(_w,_h,_bpp) (bm_byte_width((_w),(_bpp))*(_h))
 #define bm_size(_w,_h,_bpp) (bm_dsize((_w),(_h),(_bpp))+54)
@@ -95,8 +96,23 @@ _Static_assert(sizeof(struct bitmap)==54,"error on size of bitmap header");
 	_r;\
 }\
 )
-#define bm_read24(__p) ({const char *_p=(__p);(*(uint16_t *)_p)|((uint32_t)(*(uint8_t *)(_p+2))<<16);})
-#define bm_write24(__p,__v) ({char *_p=(__p);uint32_t _v=(__v);*(uint16_t *)_p=(uint16_t)_v;*(uint8_t *)(_p+2)=(uint8_t)(_v>>16);(void)0;})
+#define bm_read24(__p) bm_l32(({\
+	const char *_p=(__p);\
+	(uintptr_t)_p&1?\
+	(bm_l32(*(uint16_t *)(_p+1))<<8)|((uint32_t)*(uint8_t *)_p):\
+	(bm_l32(*(uint16_t *)_p))|((uint32_t)(*(uint8_t *)(_p+2))<<16);\
+}))
+#define bm_write24(__p,__v) ({\
+	char *_p=(__p);\
+	uint32_t _v=(__v);\
+	if((uintptr_t)_p&1){\
+		*(uint16_t *)(_p+1)=bm_l16(_v)>>8;\
+		*(uint8_t *)_p=(uint8_t)_v;\
+	}else {\
+		*(uint16_t *)_p=bm_l16(_v);\
+		*(uint8_t *)(_p+2)=(uint8_t)(_v>>16);\
+	}\
+})
 #define bm_setpixel6(_data,_bypp,_bw,_x,_y,_color) (\
 {\
 	switch((_bypp)){\

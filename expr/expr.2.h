@@ -155,5 +155,9 @@
 	expr_area_malloc3(__areap,size,__areap->flag|EXPR_AZERO);\
 })
 
+#ifdef __END_DECLS
+__END_DECLS
+#endif
+
 #endif
 

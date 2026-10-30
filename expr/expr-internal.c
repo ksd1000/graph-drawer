@@ -2728,7 +2728,7 @@ void expr_symset_detacha_s(struct expr_symset *restrict esp,struct expr_symbol *
 	size_t depthm1;
 	struct expr_symbol *const *spa_cur=spa;
 	struct expr_symbol *const *spa_end=spa+n;
-	if(likely(esp->depth<=(UINT64_C(1)<<EXPR_SYMBOL_DEPTHM1_WIDTH))){
+	if(likely(esp->depth<=(size_t)(UINT64_C(1)<<EXPR_SYMBOL_DEPTHM1_WIDTH))){
 		depthm1=esp->depth-1;
 		do {
 			*(*spa_cur)->tail=NULL;

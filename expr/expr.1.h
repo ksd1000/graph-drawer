@@ -1470,7 +1470,6 @@ struct expr_strtod_workspace {
 	expr_symbols_default,\
 	expr_symbols_expr,\
 	expr_symbols_common,\
-	expr_symbols_syscall,\
 	expr_symbols_superseed48,\
 	expr_symbols_string,\
 	expr_symbols_symset,\

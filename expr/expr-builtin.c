@@ -646,46 +646,6 @@ static double expr_bxfree(double x){
 	return un.dr;
 }
 
-static double bsyscall(double *args,size_t n){
-	intptr_t num;
-	intptr_t a[6];
-	unsigned int i,argt;
-	if(n<1)
-		return -1;
-	if(n>7)
-		n=7;
-	num=(intptr_t)*args;
-	argt=(unsigned int)(num>>32);
-	num&=0x0ffffffff;
-	for(i=1;i<(unsigned int)n;++i){
-		a[i-1]=argt&(1u<<i)?cast(args[i],intptr_t):(intptr_t)args[i];
-	}
-	for(;i<7;++i){
-		a[i-1]=0;
-	}
-	num=expr_internal_syscall6(num,a[0],a[1],a[2],a[3],a[4],a[5]);
-	return (argt&1u)?cast(num,double):(double)num;
-}
-static double systype(double x){
-	const char *p;
-	size_t len;
-	unsigned int r=0;
-	p=cast(x,const char *);
-	len=strlen(p);
-	if(len>7)
-		len=7;
-	for(size_t i=0;i<len;++i){
-		switch(p[i]){
-			case '*':
-				r|=1u<<(unsigned int)i;
-				break;
-			default:
-				break;
-		}
-	}
-	return (double)((int64_t)r<<32);
-}
-
 #define RMEM(sym,type)\
 static double expr_r##sym(double x){\
 	union {\
@@ -1276,7 +1236,6 @@ const struct expr_builtin_symbol expr_symbols_packages[]={
 	REGPACK(default),
 	REGPACK(expr),
 	REGPACK(common),
-	REGPACK(syscall),
 	REGPACK(superseed48),
 	REGPACK(string),
 	REGPACK(symset),
@@ -1446,18 +1405,6 @@ const struct expr_builtin_symbol expr_symbols_common[]={
 	REGMDEPSYM2("root",expr_root,0),
 	REGMDEPSYM2("root2",expr_root2,0),
 	REGMDEPSYM2("rooti",expr_rooti,0),
-	{.str=NULL}
-};
-const struct expr_builtin_symbol expr_symbols_syscall[]={
-	REGMDSYM2_NIU("syscall",bsyscall,0),
-	REGFSYM_U(systype),
-	REGCSYM2("sysp0",INT64_C(1)<<32),
-	REGCSYM2("sysp1",INT64_C(1)<<33),
-	REGCSYM2("sysp2",INT64_C(1)<<34),
-	REGCSYM2("sysp3",INT64_C(1)<<35),
-	REGCSYM2("sysp4",INT64_C(1)<<36),
-	REGCSYM2("sysp5",INT64_C(1)<<37),
-	REGCSYM2("sysp6",INT64_C(1)<<38),
 	{.str=NULL}
 };
 const struct expr_builtin_symbol expr_symbols_superseed48[]={

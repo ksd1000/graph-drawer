@@ -1470,7 +1470,6 @@ struct expr_strtod_workspace {
 	expr_symbols_default,\
 	expr_symbols_expr,\
 	expr_symbols_common,\
-	expr_symbols_syscall,\
 	expr_symbols_superseed48,\
 	expr_symbols_string,\
 	expr_symbols_symset,\
@@ -2038,7 +2037,6 @@ extern const struct expr_builtin_symbol expr_symbols_default[];
 extern const struct expr_builtin_symbol expr_symbols_packages[];
 extern const struct expr_builtin_symbol expr_symbols_expr[];
 extern const struct expr_builtin_symbol expr_symbols_common[];
-extern const struct expr_builtin_symbol expr_symbols_syscall[];
 extern const struct expr_builtin_symbol expr_symbols_superseed48[];
 extern const struct expr_builtin_symbol expr_symbols_memory[];
 extern const struct expr_builtin_symbol expr_symbols_symset[];

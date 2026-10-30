@@ -1835,25 +1835,12 @@ ssize_t expr_snprintft_r(char *buf,size_t buflen,const char *restrict fmt,size_t
 #undef writer
 #undef fd
 // libexpr will never provide sprintf()
-static inline const char *internal_strtom_10(const char *restrict nptr,const char *endp,ssize_t *restrict outval){
-	size_t r=0;
-	int neg=0;
+static inline const char *internal_strtom_10(const char *restrict nptr,const char *endp,size_t *restrict outval){
+	uint64_t r=0;
 	unsigned int get;
-	if(likely(nptr<endp)){
-		if(*nptr=='-'){
-			++nptr;
-			neg=1;
-		}
-		switch(*nptr){
-			case '0' ... '9':
-				break;
-			default:
-				return neg?nptr-1:nptr;
-		}
-	}
 	scannum(10);
 out:
-	debug("result:%zd",(ssize_t)(neg?-r:r));
+	debug("result:%llu",r);
 	if(nptr<endp){
 		switch(*nptr){
 			case 'B':
@@ -1864,7 +1851,7 @@ out:
 			case (d):\
 			case (d)^32:\
 				++nptr;\
-				if(likely(r<=(SIZE_MAX>>(n))))\
+				if(likely(r<=(UINT64_MAX>>(n))))\
 					r<<=(n);\
 				else{\
 					*outval=SSIZE_MAX;\
@@ -1879,7 +1866,7 @@ out:
 			setdim('E',60);
 		}
 	}
-	*outval=(ssize_t)(neg?-r:r);
+	*outval=(size_t)r;
 	return nptr;
 }
 static inline const char *internal_strtos(const char *nptr,const char *endp,const char *c,char *restrict out,size_t *restrict outval){
@@ -1926,9 +1913,11 @@ size_t expr_sscanf_r(const char *str,size_t len,const char *fmt,size_t fmtlen,vo
 	size_t r,n=0;
 	union {
 		ssize_t _zi;
+		size_t _zu;
 		double _dbl;
 		char _ch;
 	} un;
+#define zu un._zu
 #define zi un._zi
 #define dbl un._dbl
 #define ch un._ch
@@ -2017,7 +2006,7 @@ next:
 		case 'o':
 			do_scan(p=internal_strtoz_o(str,end,&zi),*(ssize_t *)a=zi);
 		case 'm':
-			do_scan(p=internal_strtom_10(str,end,&zi),*(ssize_t *)a=zi);
+			do_scan(p=internal_strtom_10(str,end,&zu),*(size_t *)a=zu);
 		default:
 			return n;
 	}

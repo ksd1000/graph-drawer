@@ -5,7 +5,7 @@
  *******************************************************************************/
 #define _GNU_SOURCE
 
-#define EXPR_VERSION "1.0.16-5"
+#define EXPR_VERSION "1.0.16-6"
 
 #if (defined(EXPR_LIBC_STRING_IMPL)&&(EXPR_LIBC_STRING_IMPL))
 #include <string.h>
@@ -128,7 +128,7 @@ ssize_t expr_file_readfd_r(expr_reader reader,intptr_t fd,size_t tail,void *save
 	ssize_t r;
 	ssize_t ret;
 	expr_buffered_init_r(vf,reader,fd,NULL,SIZE_MAX,mtl);
-	r=expr_buffered_read(vf,NULL,0);
+	r=expr_buffered_read(vf,NULL,0,NULL);
 	checkr(vf);
 	if(tail){
 		size_t total;
@@ -137,7 +137,7 @@ ssize_t expr_file_readfd_r(expr_reader reader,intptr_t fd,size_t tail,void *save
 			vf->reader=zero_reader;
 			vf->dynamic=total;
 			debug("before add %zu zeros",tail);
-			r=expr_buffered_read(vf,NULL,0);
+			r=expr_buffered_read(vf,NULL,0,NULL);
 			debug("add %zu zeros,r=%zd",tail,r);
 			checkr(vf);
 		}else {
@@ -320,7 +320,6 @@ int expr_setup_heapmtl4_nonnull(struct expr_memtool *restrict mtl,void *heap,siz
 	mtl->allocate=expr_heapmtl_malloc_nonnull;
 	mtl->reallocate=expr_heapmtl_realloc_nonnull;
 	mtl->deallocate=expr_heapmtl_dealloc;
-	mtl->test=NULL;
 	mtl->arg=(intptr_t)heap;
 	return 0;
 }

@@ -161,10 +161,9 @@ size_le_c:
 ssize_t expr_buffered_write_warped(intptr_t fd,const void *buf,size_t size){
 	return expr_buffered_write((struct expr_buffered_file *)fd,buf,size);
 }
-ssize_t expr_buffered_read(struct expr_buffered_file *restrict fp,void *buf,size_t size){
+ssize_t expr_buffered_read(struct expr_buffered_file *restrict fp,void *buf,size_t size,const struct expr_test *restrict test){
 	size_t i;
 	ssize_t r;
-	expr_test_t test;
 	if(unlikely(size>SSIZE_MAX)){
 		if(size==SIZE_MAX){
 			i=fp->index-fp->written;
@@ -182,7 +181,6 @@ ssize_t expr_buffered_read(struct expr_buffered_file *restrict fp,void *buf,size
 	}
 	*/
 	debug("start index=%zu",fp->index);
-	test=xmtl?xmtl->test:NULL;
 	while(fp->length<fp->dynamic){
 		void *p;
 		i=align(fp->length+BUFSIZE_INITIAL+EXTEND_FRAC(fp->length));
@@ -203,7 +201,7 @@ try_read_again:
 			r=fp->reader(fp->fd,p,(size_t)r);
 			if(unlikely(r<0))
 				goto err;
-			if(unlikely(test&&test(p,xmtl->arg,(size_t)r))){
+			if(unlikely(test&&test->test(p,test->arg,(size_t)r))){
 				fp->index+=(size_t)r;
 				debug("end index=%zu",fp->index);
 				return 0;
@@ -289,6 +287,9 @@ err:
 	return r;
 }
 #undef reterr
+ssize_t expr_buffered_read_warped(intptr_t fd,void *buf,size_t size){
+	return expr_buffered_read((struct expr_buffered_file *)fd,buf,size,NULL);
+}
 
 #define rcheckadd(V) r=(V);\
 	if(unlikely(r<0)){\
@@ -427,16 +428,17 @@ void expr_buffered_rclose(struct expr_buffered_file *restrict fp){
 	if(fp->dynamic&&fp->buf)
 		xfree(fp->buf);
 }
-ssize_t expr_buffered_readline(struct expr_buffered_file *restrict fp,int c,void *savep){
+
+ssize_t expr_buffered_readline(struct expr_buffered_file *restrict fp,expr_test_t test,intptr_t c,void *savep){
 	ssize_t r;
 	size_t in;
 	char *p,*end,*cp;
-	struct expr_memtool tempmtl[1];
+	struct expr_test test_arg[1];
 	p=fp->buf+fp->written;
 	end=fp->buf+fp->index;
 	r=end-p;
 	if(r){
-		cp=memchr(p,c,(size_t)r);
+		cp=test(p,c,(size_t)r);
 		if(cp){
 			*cp=0;
 			fp->written=(size_t)(cp+1-(char *)fp->buf);
@@ -452,12 +454,9 @@ ssize_t expr_buffered_readline(struct expr_buffered_file *restrict fp,int c,void
 		fp->written=0;
 	}
 	in=fp->index;
-	tempmtl->allocate=xmtl->allocate;
-	tempmtl->reallocate=xmtl->reallocate;
-	tempmtl->deallocate=xmtl->deallocate;
-	tempmtl->test=(expr_test_t)memchr;
-	tempmtl->arg=(intptr_t)c;
-	r=expr_buffered_read(fp,NULL,0);
+	test_arg->test=test;
+	test_arg->arg=c;
+	r=expr_buffered_read(fp,NULL,0,test_arg);
 	if(unlikely(r<0)){
 		debug("read fail %zd",r);
 		return r;
@@ -483,7 +482,7 @@ ssize_t expr_buffered_readline(struct expr_buffered_file *restrict fp,int c,void
 		debug("return %zd",in);
 		return (ssize_t)in;
 	}
-	cp=memchr(fp->buf,c,fp->index);
+	cp=test(fp->buf,c,fp->index);
 	if(cp){
 		*cp=0;
 		fp->written=(size_t)(cp+1-(char *)fp->buf);
@@ -499,10 +498,6 @@ ssize_t expr_buffered_readline(struct expr_buffered_file *restrict fp,int c,void
 	*(char *)(fp->buf+in)=0;
 	*(void **)savep=fp->buf;
 	return (ssize_t)in;
-}
-ssize_t expr_buffered_write_iolbf(struct expr_buffered_file *restrict fp,const void *buf,size_t size){
-	debug("iolbf size=%zu",size);
-	return expr_buffered_write_sflushatc(fp,buf,size,'\n');
 }
 ssize_t expr_buffered_write_iolbf_warped(intptr_t fd,const void *buf,size_t size){
 	debug("iolbf size=%zu",size);

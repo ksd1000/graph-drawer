@@ -460,7 +460,6 @@ int expr_setup_heapmtl4(struct expr_memtool *restrict mtl,void *heap,size_t size
 	mtl->allocate=expr_heapmtl_malloc;
 	mtl->reallocate=expr_heapmtl_realloc;
 	mtl->deallocate=expr_heapmtl_dealloc;
-	mtl->test=NULL;
 	mtl->arg=(intptr_t)heap;
 	return 0;
 }

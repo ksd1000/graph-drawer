@@ -1026,7 +1026,7 @@ break2:
 		signal(SIGINT,sig);
 #endif
 	if(buffer_size){
-		expr_buffered_init(&bf,(expr_writer)write,outfd,NULL,buffer_size);
+		expr_buffered_init(&bf,write,outfd,NULL,buffer_size);
 	}
 	if(ept)
 		endt=expr_eval(ept,0.0)*sample_freq;

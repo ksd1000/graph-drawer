@@ -221,7 +221,7 @@ double d_printk(double *args,size_t n){
 	int kfd=open("/dev/kmsg",O_WRONLY);
 	if(kfd<0)
 		return kfd;
-	f.writer=(expr_writer)write;
+	f.writer=write;
 	f.fd=kfd;
 	f.buf=NULL;
 	f.index=0;
@@ -244,7 +244,7 @@ double d_getchar(void){
 	unsigned char c;
 	ssize_t r;
 	getchf.fd=STDIN_FILENO;
-	r=expr_buffered_read(&getchf,&c,1);
+	r=expr_buffered_read(&getchf,&c,1,NULL);
 	if(r<1)
 		return -1;
 	return (double)c;
@@ -385,11 +385,14 @@ double d_readline(double x){
 	return expr_cast(buf,double);
 }
 struct expr_buffered_file r1f=EXPR_BUFFERED_INITIALIZER(read,0,NULL,SIZE_MAX);
+static void *memchr_warped(const void *buf,intptr_t c,size_t size){
+	return memchr(buf,(int)c,size);
+}
 double d_readline1(double x){
 	ssize_t r;
 	char *p;
 	r1f.fd=STDIN_FILENO;
-	r=expr_buffered_readline(&r1f,'\n',&p);
+	r=expr_buffered_readline(&r1f,memchr_warped,'\n',&p);
 	*expr_cast(x,void **)=p;
 	return (double)r;
 }

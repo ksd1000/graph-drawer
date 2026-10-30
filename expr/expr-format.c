@@ -1158,7 +1158,7 @@ struct expr_vwritef_workspace {
 	const char **fmt_save_current;
 	union {
 		const union expr_argf *arg_cur;
-		uintptr_t aps;
+		expr_ut aps;
 		union expr_argf old;
 	};
 	union expr_argf save;
@@ -1593,7 +1593,7 @@ wfp_get:
 				expr_ut val,mask;
 				flag->argsize=sizeof(void *);
 				aps=arg1->uint;
-				mask=(UINT64_C(1)<<(arrwid*8))-1;
+				mask=(UINT64_MAX>>(64-(int)arrwid*8));
 				argnext1;
 				for(;;){
 					if(arrwid<8){

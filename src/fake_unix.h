@@ -6,35 +6,36 @@
 #ifndef _FAKE_UNIX_H_
 #define _FAKE_UNIX_H_
 
-#ifdef REAL_UNIX
+#ifdef __unix__
 #include <unistd.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <err.h>
 #include <pthread.h>
+#include <syscall.h>
 #define fderr(fd) ((fd)<0)
 #define ERRFD (-1)
 #define O_WRONLY_CREAT O_WRONLY|O_CREAT|O_TRUNC,S_IRUSR|S_IWUSR
+static __attribute__((unused)) ssize_t real_read(intptr_t fd,void *buf,size_t size){
+	return (ssize_t)expr_internal_syscall(SYS_read,fd,buf,size);
+}
+static __attribute__((unused)) ssize_t real_write(intptr_t fd,const void *buf,size_t size){
+	return (ssize_t)expr_internal_syscall(SYS_write,fd,buf,size);
+}
+#define read real_read
+#define write real_write
+
 #else
 
 #include <stdio.h>
 #include <errno.h>
 
-#ifdef STDIN_FILENO
 #undef STDIN_FILENO
-#endif
-
-#ifdef STDOUT_FILENO
 #undef STDOUT_FILENO
-#endif
-
-#ifdef STDERR_FILENO
 #undef STDERR_FILENO
-#endif
-
-#define STDIN_FILENO ((intptr_t)stdin)
-#define STDOUT_FILENO ((intptr_t)stdout)
-#define STDERR_FILENO ((intptr_t)stderr)
+#define STDIN_FILENO ((intptr_t)0)
+#define STDOUT_FILENO ((intptr_t)1)
+#define STDERR_FILENO ((intptr_t)2)
 
 #ifdef O_RDONLY
 #undef O_RDONLY
@@ -48,6 +49,24 @@
 #define O_WRONLY_CREAT "wb"
 #define fderr(fd) (!(fd))
 #define ERRFD ((intptr_t)NULL)
+static FILE *fake_d2p(intptr_t fd){
+	FILE *fp;
+	switch(fd){
+		case STDIN_FILENO:
+			fp=stdin;
+			break;
+		case STDOUT_FILENO:
+			fp=stdout;
+			break;
+		case STDERR_FILENO:
+			fp=stderr;
+			break;
+		default:
+			fp=(FILE *)fd;
+			break;
+	}
+	return fp;
+}
 static __attribute__((unused)) intptr_t fake_open(const char *path,const char *flags){
 	FILE *fp;
 	errno=0;
@@ -57,7 +76,7 @@ static __attribute__((unused)) intptr_t fake_open(const char *path,const char *f
 #define open(fd,flag,...) fake_open((fd),(flag))
 static __attribute__((unused)) int fake_close(intptr_t fd){
 	errno=0;
-	fclose((FILE *)fd);
+	fclose(fake_d2p(fd));
 	if(errno)
 		return -errno;
 	return 0;
@@ -66,7 +85,7 @@ static __attribute__((unused)) int fake_close(intptr_t fd){
 static __attribute__((unused)) ssize_t fake_read(intptr_t fd,void *buf,size_t size){
 	ssize_t r;
 	errno=0;
-	r=fread(buf,1,size,(FILE *)fd);
+	r=fread(buf,1,size,fake_d2p(fd));
 	if(errno)
 		return -errno;
 	return r;
@@ -74,11 +93,12 @@ static __attribute__((unused)) ssize_t fake_read(intptr_t fd,void *buf,size_t si
 #define read fake_read
 static __attribute__((unused)) ssize_t fake_write(intptr_t fd,const void *buf,size_t size){
 	ssize_t r;
+	FILE *fp=fake_d2p(fd);
 	errno=0;
-	r=fwrite(buf,1,size,(FILE *)fd);
+	r=fwrite(buf,1,size,fp);
 	if(errno)
 		return -errno;
-	fflush((FILE *)fd);
+	fflush(fp);
 	return r;
 }
 #define write fake_write

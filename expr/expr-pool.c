@@ -158,7 +158,6 @@ void expr_setup_poolmtl(struct expr_memtool *restrict mtl,struct expr_pool *pool
 	mtl->allocate=expr_poolmtl_malloc;
 	mtl->reallocate=expr_poolmtl_realloc;
 	mtl->deallocate=expr_poolmtl_dealloc;
-	mtl->test=NULL;
 	mtl->arg=(intptr_t)pool;
 }
 

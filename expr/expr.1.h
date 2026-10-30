@@ -92,11 +92,14 @@ typedef ssize_t (*expr_reader)(intptr_t fd,void *buf,size_t size);
 typedef void *(*expr_allocate_t)(size_t,intptr_t);
 typedef void *(*expr_reallocate_t)(void *,size_t,intptr_t);
 typedef void (*expr_deallocate_t)(void *,intptr_t);
-typedef intptr_t (*expr_test_t)(const void *buf,intptr_t arg,size_t size);
+typedef void *(*expr_test_t)(const void *buf,intptr_t arg,size_t size);
 struct expr_memtool {
 	expr_allocate_t allocate;
 	expr_reallocate_t reallocate;
 	expr_deallocate_t deallocate;
+	intptr_t arg;
+};
+struct expr_test {
 	expr_test_t test;
 	intptr_t arg;
 };
@@ -129,7 +132,6 @@ struct expr_memtool expr_defmtl[1]={{\
 	.allocate=expr_allocator_default,\
 	.reallocate=expr_reallocator_default,\
 	.deallocate=expr_deallocator_default,\
-	.test=NULL,\
 	.arg=0,\
 }}
 
@@ -173,15 +175,15 @@ struct expr_internal_jmpbuf {
 #pragma GCC diagnostic ignored "-Wpragmas"
 #endif
 
-#pragma GCC diagnostic ignored "-Wzero-length-bounds"
-#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+//#pragma GCC diagnostic ignored "-Wzero-length-bounds"
+//#pragma GCC diagnostic ignored "-Wstrict-aliasing"
 #pragma GCC diagnostic ignored "-Wpointer-arith"
 #pragma GCC diagnostic ignored "-Wunused-parameter"
-#pragma GCC diagnostic ignored "-Wcast-function-type-mismatch"
+//#pragma GCC diagnostic ignored "-Wcast-function-type-mismatch"
 #pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
-#pragma GCC diagnostic ignored "-Wclobbered"
-#pragma GCC diagnostic ignored "-Wcast-function-type"
-#pragma GCC diagnostic ignored "-Waddress"
+//#pragma GCC diagnostic ignored "-Wclobbered"
+//#pragma GCC diagnostic ignored "-Wcast-function-type"
+//#pragma GCC diagnostic ignored "-Waddress"
 #pragma GCC diagnostic ignored "-Wextra-semi"
 #pragma GCC diagnostic ignored "-Wc2y-extensions"
 #pragma GCC diagnostic ignored "-Wgnu-auto-type"
@@ -1007,12 +1009,8 @@ struct expr_memfd {
 	size_t size;
 };
 
-#define expr_iprintf(fmt,...) expr_idprintf(STDOUT_FILENO,fmt,##__VA_ARGS__)
-#define expr_ieprintf(fmt,...) expr_idprintf(STDERR_FILENO,fmt,##__VA_ARGS__)
-#define expr_idprintf(fd,fmt,...) expr_idwprintf(fd,write,fmt,##__VA_ARGS__)
-#define expr_ibprintf(fd,fmt,...) expr_idwprintf(fd,expr_buffered_write,fmt,##__VA_ARGS__)
-#define expr_ilprintf(fd,fmt,...) expr_idwprintf(fd,expr_buffered_write_iolbf_warped,fmt,##__VA_ARGS__)
-#define expr_idwprintf(fd,writer,fmt,...) expr_apwritef((expr_writer)(uintptr_t)(writer),(intptr_t)(fd),fmt,sizeof(fmt)-1,##__VA_ARGS__)
+#define expr_ilprintf(fd,fmt,...) expr_idwprintf(expr_buffered_write_iolbf_warped,fd,fmt,##__VA_ARGS__)
+#define expr_idwprintf(writer,fd,fmt,...) expr_apwritef(writer,(intptr_t)(fd),fmt,sizeof(fmt)-1,##__VA_ARGS__)
 
 #define EXPR_BZERO 1
 #define EXPR_BTRUNC 2
@@ -1546,7 +1544,7 @@ struct expr_strtod_workspace {
 #define EXPR_SYSAM 0
 #define EXPR_ARCHN "unknown_arch"
 #if !(defined(EXPR_NOSYSCALL)&&(EXPR_NOSYSCALL))
-#pragma message("internal syscall is not implemented")
+#pragma message("internal syscall is not implemented. set EXPR_NOSYSCALL=1 to silence it, or implement it.")
 #endif
 #endif
 

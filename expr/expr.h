@@ -176,7 +176,7 @@ struct expr_internal_jmpbuf {
 #endif
 
 //#pragma GCC diagnostic ignored "-Wzero-length-bounds"
-//#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
 #pragma GCC diagnostic ignored "-Wpointer-arith"
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 //#pragma GCC diagnostic ignored "-Wcast-function-type-mismatch"
@@ -184,7 +184,7 @@ struct expr_internal_jmpbuf {
 #pragma GCC diagnostic ignored "-Wclobbered"
 //#pragma GCC diagnostic ignored "-Wcast-function-type"
 //#pragma GCC diagnostic ignored "-Waddress"
-//#pragma GCC diagnostic ignored "-Wextra-semi"
+#pragma GCC diagnostic ignored "-Wextra-semi"
 //#pragma GCC diagnostic ignored "-Wc2y-extensions"
 //#pragma GCC diagnostic ignored "-Wgnu-auto-type"
 //#pragma GCC diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
@@ -194,6 +194,22 @@ struct expr_internal_jmpbuf {
 
 #pragma GCC diagnostic ignored "-Wgnu-statement-expression-from-macro-expansion"
 #pragma GCC diagnostic ignored "-Wshadow"
+#pragma GCC diagnostic ignored "-Wpre-c11-compat"
+#pragma GCC diagnostic ignored "-Wunsafe-buffer-usage"
+#pragma GCC diagnostic ignored "-Wimplicit-void-ptr-cast"
+#pragma GCC diagnostic ignored "-Wreserved-macro-identifier"
+#pragma GCC diagnostic ignored "-Wreserved-identifier"
+#pragma GCC diagnostic ignored "-Wdate-time"
+#pragma GCC diagnostic ignored "-Walloca"
+#pragma GCC diagnostic ignored "-Wdouble-promotion"
+#pragma GCC diagnostic ignored "-Wcast-align"
+#pragma GCC diagnostic ignored "-Wextra-semi-stmt"
+#pragma GCC diagnostic ignored "-Wbad-function-cast"
+#pragma GCC diagnostic ignored "-Wfloat-equal"
+#pragma GCC diagnostic ignored "-Wpadded"
+#pragma GCC diagnostic ignored "-Wc++-keyword"
+#pragma GCC diagnostic ignored "-Wswitch-enum"
+#pragma GCC diagnostic ignored "-Wcovered-switch-default"
 //#pragma GCC diagnostic ignored "-Wflexible-array-extensions"
 
 #endif
@@ -859,22 +875,22 @@ expr_static_assert(__builtin_constant_p(expr_mkval(0)));
 	(void *)(uintptr_t)___r;\
 })
 #define expr_ntable(c) ({\
-	unsigned char __c=(unsigned char)(c);\
-	switch(__c){\
+	unsigned char ___c=(unsigned char)(c);\
+	switch(___c){\
 		case '0' ... '9':\
-			__c-=(unsigned char)'0';\
+			___c-=(unsigned char)'0';\
 			break;\
 		case 'A' ... 'Z':\
-			__c-=(unsigned char)('A'-10);\
+			___c-=(unsigned char)('A'-10);\
 			break;\
 		case 'a' ... 'z':\
-			__c-=(unsigned char)('a'-10);\
+			___c-=(unsigned char)('a'-10);\
 			break;\
 		default:\
-			__c=(unsigned char)127;\
+			___c=(unsigned char)127;\
 			break;\
 	}\
-	__c;\
+	___c;\
 })
 struct expr_libinfo {
 	const char *version;
@@ -884,10 +900,7 @@ struct expr_libinfo {
 	const char *time;
 	const char *license;
 };
-#define EXPR_FLAGTYPE_ADDR 0
-#define EXPR_FLAGTYPE_SIGNED 1
-#define EXPR_FLAGTYPE_UNSIGNED 2
-#define EXPR_FLAGTYPE_DOUBLE 3
+
 struct expr_writeflag {
 	size_t width;
 	ssize_t digit;
@@ -896,10 +909,10 @@ struct expr_writeflag {
 		uint64_t bit;
 		struct {
 #if (!defined(__BIG_ENDIAN__)||!(__BIG_ENDIAN__))
-			uint64_t unused:35,
+			uint64_t unused:34,
 				 op:8,
 				 argsize:8,
-				 type:2,
+				 type:3,
 				 addr:1,
 				 width_set:1,
 				 digit_set:1,
@@ -923,10 +936,10 @@ struct expr_writeflag {
 				 digit_set:1,
 				 width_set:1,
 				 addr:1,
-				 type:2,
+				 type:3,
 				 argsize:8,
 				 op:8,
-				 unused:35;
+				 unused:34;
 #endif
 		};
 	};
@@ -966,6 +979,14 @@ struct expr_writeflag {
 #define EXPR_FCAP 222
 
 expr_static_assert(offsetof(struct expr_writeflag,bit)+sizeof(uint64_t)==sizeof(struct expr_writeflag));
+
+#define EXPR_FLAGTYPE_ADDR 0
+#define EXPR_FLAGTYPE_SIGNED 1
+#define EXPR_FLAGTYPE_UNSIGNED 2
+#define EXPR_FLAGTYPE_DOUBLE 3
+#define EXPR_FLAGTYPE_SSIZE 4
+#define EXPR_FLAGTYPE_SIZE 5
+
 union expr_argf {
 	void *addr;
 	expr_it sint;
@@ -973,8 +994,10 @@ union expr_argf {
 	expr_it *siaddr;
 	expr_ut *uiaddr;
 	double dbl;
-	size_t zint;
 	ssize_t tint;
+	size_t zint;
+	uintptr_t upint;
+	intptr_t pint;
 	double *daddr;
 	size_t *zaddr;
 	ssize_t *taddr;
@@ -1046,43 +1069,43 @@ struct expr_buffered_file {
 }
 #define EXPR_BUFFERED_INITIALIZER(_wrer,_fd,_buf,_len) EXPR_BUFFERED_INITIALIZER_R(_wrer,_fd,_buf,_len,expr_defmtl)
 #define expr_buffered_init_r(fp,_wrer,_fd,_buf,_len,_mtl) ({\
-	struct expr_buffered_file *__fp=(fp);\
-	__fp->uaddr=(const void *)(uintptr_t)(_wrer);\
-	__fp->fd=(_fd);\
-	if((__fp->buf=(_buf))){\
-		__fp->length=(_len);\
-		__fp->dynamic=0;\
+	struct expr_buffered_file *___fp=(fp);\
+	___fp->uaddr=(const void *)(uintptr_t)(_wrer);\
+	___fp->fd=(_fd);\
+	if((___fp->buf=(_buf))){\
+		___fp->length=(_len);\
+		___fp->dynamic=0;\
 	}else {\
-		__fp->length=0;\
-		__fp->dynamic=(_len);\
+		___fp->length=0;\
+		___fp->dynamic=(_len);\
 	}\
-	__fp->mtl=(_mtl);\
-	__fp->index=0;\
-	__fp->written=0;\
-	__fp->flag=0;\
+	___fp->mtl=(_mtl);\
+	___fp->index=0;\
+	___fp->written=0;\
+	___fp->flag=0;\
 })
 #define expr_buffered_init(fp,_wrer,_fd,_buf,_len) expr_buffered_init_r(fp,_wrer,_fd,_buf,_len,expr_defmtl)
 #define expr_buffered_drop(fp) ((fp)->index=0)
 #define expr_buffered_rdrop(fp) ({\
-	struct expr_buffered_file *__fp=(fp);\
-	__fp->index=0;\
-	__fp->written=0;\
+	struct expr_buffered_file *___fp=(fp);\
+	___fp->index=0;\
+	___fp->written=0;\
 })
 
 #define expr_buffered_ainit_r(fp,_len,_mtl) ({\
-	struct expr_buffered_file *__fp=(fp);\
-	__fp->mtl=(_mtl);\
-	__fp->buf=__fp->mtl->allocate(EXPR_BUFSIZE_INITIAL,__fp->mtl->arg);\
-	if(expr_likely(__fp->buf)){\
-		__fp->length=EXPR_BUFSIZE_INITIAL;\
-		__fp->dynamic=(_len);\
-		__fp->uaddr=NULL;\
-		__fp->fd=0;\
-		__fp->index=0;\
-		__fp->written=0;\
-		__fp->flag=0;\
+	struct expr_buffered_file *___fp=(fp);\
+	___fp->mtl=(_mtl);\
+	___fp->buf=___fp->mtl->allocate(EXPR_BUFSIZE_INITIAL,___fp->mtl->arg);\
+	if(expr_likely(___fp->buf)){\
+		___fp->length=EXPR_BUFSIZE_INITIAL;\
+		___fp->dynamic=(_len);\
+		___fp->uaddr=NULL;\
+		___fp->fd=0;\
+		___fp->index=0;\
+		___fp->written=0;\
+		___fp->flag=0;\
 	}\
-	__fp->buf?0:-1;\
+	___fp->buf?0:-1;\
 })
 struct expr;
 struct expr_symset;
@@ -1154,6 +1177,8 @@ struct expr_inst {
 		void *uaddr;
 		void **uaddr2;
 		expr_t value;
+		expr_it ivalue;
+		expr_ut uvalue;
 		double dvalue;
 		intptr_t pvalue;
 		size_t zu;
@@ -1715,7 +1740,8 @@ struct expr_strtod_workspace {
 #define expr_internal_syscall_eval(dest,cast,N,num,a0,a1,a2,a3,a4,a5,a6) ({\
 	switch(N){\
 		expr_internal_syscall_ncase_inswitch(dest,cast,num,a0,a1,a2,a3,a4,a5,a6);\
-		__builtin_unreachable();\
+		default:\
+			__builtin_unreachable();\
 	}\
 })
 
@@ -1857,7 +1883,7 @@ struct expr *expr_new_const_r(expr_t val,const struct expr_memtool *restrict mtl
 void expr_shink(struct expr *restrict ep);
 int expr_init8_r(struct expr *restrict ep,const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,const void *extarg,const struct expr_memtool *restrict mtl);
 struct expr *expr_new9_r(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,int *error,char errinfo[EXPR_SYMLEN],const void *extarg,const struct expr_memtool *restrict mtl);
-expr_t expr_calc5_r(const char *e,int *error,char errinfo[EXPR_SYMLEN],struct expr_symset *esp,int flag,const struct expr_memtool *restrict mtl);
+expr_t expr_calc6_r(const char *e,size_t len,int *error,char errinfo[EXPR_SYMLEN],struct expr_symset *esp,int flag,const struct expr_memtool *restrict mtl);
 size_t expr_varofep(const struct expr *restrict ep,expr_t *v);
 int expr_recursive(struct expr *restrict ep,expr_recursive_callback callback,void *arg);
 int expr_optimize(struct expr *restrict ep);
@@ -2063,14 +2089,13 @@ void *expr_heapmtl_realloc_nonnull(void *old,size_t size,intptr_t arg);
 int expr_setup_heapmtl4_nonnull(struct expr_memtool *restrict mtl,void *heap,size_t size,int flag);
 //global externs of expr-global.c :
 extern const struct expr_libinfo expr_libinfo_current[1];
-extern int expr_mtl_setup;
 #if !(defined(EXPR_INLIB)&&(EXPR_INLIB))
 #define expr_free2mtl(ep,flag) expr_free2mtl_r(ep,flag,expr_defmtl)
 #define expr_init_const(ep,val) expr_init_const_r(ep,val,expr_defmtl)
 #define expr_new_const(val) expr_new_const_r(val,expr_defmtl)
 #define expr_init8(ep,e,len,asym,asymlen,esp,flag,extarg) expr_init8_r(ep,e,len,asym,asymlen,esp,flag,extarg,expr_defmtl)
 #define expr_new9(e,len,asym,asymlen,esp,flag,error,errinfo,extarg) expr_new9_r(e,len,asym,asymlen,esp,flag,error,errinfo,extarg,expr_defmtl)
-#define expr_calc5(e,error,errinfo,esp,flag) expr_calc5_r(e,error,errinfo,esp,flag,expr_defmtl)
+#define expr_calc6(e,len,error,errinfo,esp,flag) expr_calc6_r(e,len,error,errinfo,esp,flag,expr_defmtl)
 #define expr_writec(writer,fd,count,c) expr_writec_r(writer,fd,count,c,expr_defmtl)
 #define expr_vwriteft(writer,fd,fmt,fmtlen,arg,addr,table) expr_vwriteft_r(writer,fd,fmt,fmtlen,arg,addr,table,expr_defmtl)
 #define expr_writeft(writer,fd,fmt,fmtlen,args,arglen,table) expr_writeft_r(writer,fd,fmt,fmtlen,args,arglen,table,expr_defmtl)
@@ -2091,6 +2116,10 @@ extern int expr_mtl_setup;
 #define expr_sort4(v,n) expr_sort4_r(v,n,expr_defmtl)
 #define expr_file_readfd(reader,fd,tail,savep) expr_file_readfd_r(reader,fd,tail,savep,expr_defmtl)
 
+#define expr_calc5_r(e,error,errinfo,esp,flag,mtl) ({\
+	const char *_e=(e);\
+	expr_calc6_r(_e,strlen(_e),error,errinfo,esp,flag,mtl);\
+})
 #define expr_calc4_r(e,error,errinfo,esp,mtl) expr_calc5_r(e,error,errinfo,esp,EXPR_INOOPTIMIZE|EXPR_IDEFAULT,mtl)
 #define expr_calc3_r(e,error,errinfo,mtl) expr_calc5_r(e,error,errinfo,NULL,EXPR_INOOPTIMIZE|EXPR_IDEFAULT,mtl)
 #define expr_calc2_r(e,flag,mtl) expr_calc5_r(e,NULL,NULL,NULL,flag,mtl)
@@ -2107,7 +2136,7 @@ extern int expr_mtl_setup;
 #define expr_init5_r(ep,e,len,asym,asymlen,mtl) expr_init8_r(ep,e,len,asym,asymlen,NULL,0,expr_extarg_default,mtl)
 #define expr_init_r(ep,e,asym,esp,flag,mtl) ({\
 	const char *_e=(e),*_asym=(asym);\
-	expr_init8_r(ep,_e,_e?expr_internal_strlen(_e):0,_asym,_asym?expr_internal_strlen(_asym):0,esp,flag,expr_extarg_default,mtl);\
+	expr_init8_r(ep,_e,_e?strlen(_e):0,_asym,_asym?strlen(_asym):0,esp,flag,expr_extarg_default,mtl);\
 })
 #define expr_init4_r(ep,e,asym,flag,mtl) expr_init_r(ep,e,asym,NULL,flag,mtl)
 #define expr_init3_r(ep,e,asym,mtl) expr_init_r(ep,e,asym,NULL,EXPR_IDEFAULT,mtl)
@@ -2125,7 +2154,7 @@ extern int expr_mtl_setup;
 #define expr_new6_r(e,len,asym,asymlen,esp,flag,mtl) expr_new9_r(e,len,asym,asymlen,esp,flag,NULL,NULL,expr_extarg_default,mtl)
 #define expr_new_r(e,asym,esp,flag,error,errinfo,mtl) ({\
 	const char *_e=(e),*_asym=(asym);\
-	expr_new9_r(_e,_e?expr_internal_strlen(_e):0,_asym,_asym?expr_internal_strlen(_asym):0,esp,flag,error,errinfo,expr_extarg_default,mtl);\
+	expr_new9_r(_e,_e?strlen(_e):0,_asym,_asym?strlen(_asym):0,esp,flag,error,errinfo,expr_extarg_default,mtl);\
 })
 #define expr_new4_r(e,asym,esp,flag,mtl) expr_new_r(e,asym,esp,flag,NULL,NULL,mtl)
 #define expr_new3_r(e,asym,flag,mtl) expr_new_r(e,asym,NULL,flag,NULL,NULL,mtl)

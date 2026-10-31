@@ -199,7 +199,7 @@ static int double_compar(const double *restrict x,const double *restrict y){
 }
 void expr_sortq(double *restrict v,size_t n){
 	expr_fry(v,n);
-	qsort((void *)v,n,sizeof(double),(int (*)(const void *,const void *))double_compar);
+	qsort((void *)v,n,sizeof(double),(int (*)(const void *,const void *))(uintptr_t)double_compar);
 }
 void expr_sort_old(double *restrict v,size_t n){
 	double swapbuf;
@@ -395,7 +395,7 @@ static double expr_pow_old(double x,uintmax_t y){
 	}
 	return r;
 }
-#define SIZE_BITS (8*sizeof(size_t))
+//#define SIZE_BITS (8*sizeof(size_t))
 static double expr_pow_old_n(double *args,size_t n){
 	return expr_pow_old(*args,(uintmax_t)args[1]);
 }
@@ -410,35 +410,35 @@ static double expr_strtod_b(double *args,size_t n){
 }
 static double expr_qmed(double *args,size_t n){
 	expr_sortq(args,n);
-	return n&1?args[n>>1]:(n>>=1,(args[n]+args[n-1])/2);
+	return n&1?args[n>>1]:((void)(n>>=1),(args[n]+args[n-1])/2);
 }
 static double expr_med(double *args,size_t n){
 	expr_sort(args,n);
-	return n&1?args[n>>1]:(n>>=1,(args[n]+args[n-1])/2);
+	return n&1?args[n>>1]:((void)(n>>=1),(args[n]+args[n-1])/2);
 }
 static double expr_hmed(double *args,size_t n){
 	expr_sort4_r(args,n,expr_defmtl);
-	return n&1?args[n>>1]:(n>>=1,(args[n]+args[n-1])/2);
+	return n&1?args[n>>1]:((void)(n>>=1),(args[n]+args[n-1])/2);
 }
 static double expr_med_old(double *args,size_t n){
 	expr_sort_old(args,n);
-	return n&1?args[n>>1]:(n>>=1,(args[n]+args[n-1])/2);
+	return n&1?args[n>>1]:((void)(n>>=1),(args[n]+args[n-1])/2);
 }
 static double expr_qgmed(double *args,size_t n){
 	expr_sort(args,n);
-	return n&1?args[n>>1]:(n>>=1,sqrt(args[n]*args[n-1]));
+	return n&1?args[n>>1]:((void)(n>>=1),sqrt(args[n]*args[n-1]));
 }
 static double expr_gmed(double *args,size_t n){
 	expr_sort(args,n);
-	return n&1?args[n>>1]:(n>>=1,sqrt(args[n]*args[n-1]));
+	return n&1?args[n>>1]:((void)(n>>=1),sqrt(args[n]*args[n-1]));
 }
 static double expr_hgmed(double *args,size_t n){
 	expr_sort4_r(args,n,expr_defmtl);
-	return n&1?args[n>>1]:(n>>=1,sqrt(args[n]*args[n-1]));
+	return n&1?args[n>>1]:((void)(n>>=1),sqrt(args[n]*args[n-1]));
 }
 static double expr_gmed_old(double *args,size_t n){
 	expr_sort_old(args,n);
-	return n&1?args[n>>1]:(n>>=1,sqrt(args[n]*args[n-1]));
+	return n&1?args[n>>1]:((void)(n>>=1),sqrt(args[n]*args[n-1]));
 }
 static double expr_mode0(size_t n,double *args,int heap){
 	double max,cnt;
@@ -1125,18 +1125,18 @@ double expr_not(double x){
 	return not(x);
 }
 //#define REGSYM(s) {#s,s}
-#define REGZASYM(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.zafunc=s},.type=EXPR_ZAFUNCTION,.flag=0}
-#define REGZASYM_U(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.zafunc=s},.type=EXPR_ZAFUNCTION,.flag=EXPR_SUNSAFE}
+//#define REGZASYM(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.zafunc=s},.type=EXPR_ZAFUNCTION,.flag=0}
+//#define REGZASYM_U(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.zafunc=s},.type=EXPR_ZAFUNCTION,.flag=EXPR_SUNSAFE}
 #define REGFSYM(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.func=s},.type=EXPR_FUNCTION,.flag=EXPR_SPURE}
-#define REGFSYM_U(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.func=s},.type=EXPR_FUNCTION,.flag=EXPR_SPURE|EXPR_SUNSAFE}
+//#define REGFSYM_U(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.func=s},.type=EXPR_FUNCTION,.flag=EXPR_SPURE|EXPR_SUNSAFE}
 #define REGCSYM(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.value=(double)(s)},.type=EXPR_CONSTANT}
 #define REGCSYM_E(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.value=(double)(EXPR_##s)},.type=EXPR_CONSTANT}
 #define REGFSYM2(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SPURE}
 #define REGFSYM2_NI(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SUNSAFE}
 #define REGFSYM2_U(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SPURE|EXPR_SUNSAFE}
-#define REGFSYM2_NIU(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SUNSAFE}
+//#define REGFSYM2_NIU(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SUNSAFE}
 #define REGFSYM2_UA(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SALLOWADDR|EXPR_SUNSAFE}
-#define REGZASYM2(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.zafunc=sym},.type=EXPR_ZAFUNCTION,.flag=0}
+//#define REGZASYM2(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.zafunc=sym},.type=EXPR_ZAFUNCTION,.flag=0}
 #define REGZASYM2_U(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.zafunc=sym},.type=EXPR_ZAFUNCTION,.flag=EXPR_SUNSAFE}
 #define REGMDSYM2(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdfunc=sym},.dim=d,.type=EXPR_MDFUNCTION,.flag=EXPR_SPURE}
 #define REGMDSYM2_U(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdfunc=sym},.dim=d,.type=EXPR_MDFUNCTION,.flag=EXPR_SPURE|EXPR_SUNSAFE}
@@ -1286,7 +1286,7 @@ const struct expr_builtin_symbol expr_symbols_expr[]={
 	REGCSYM(__SIZEOF_POINTER__),
 	{.str=NULL}
 };
-#define REGVSYM(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.addr=(double *)&(s)},.type=EXPR_CONSTANT}
+//#define REGVSYM(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.addr=(double *)&(s)},.type=EXPR_CONSTANT}
 const struct expr_builtin_symbol expr_symbols_common[]={
 	REGMDEPSYM2_NIW("assert",bassert,1),
 	REGMDEPSYM2_NI("ldr",expr_ldr,2),
@@ -1305,11 +1305,11 @@ const struct expr_builtin_symbol expr_symbols_common[]={
 	REGMDSYM2_NIU("longjmp_out",expr_longjmp_out,0),
 #endif
 
-	REGZASYM2_U("abort",(double (*)(void))abort),
-	REGZASYM2_U("explode",(double (*)(void))expr_explode),
+	REGZASYM2_U("abort",(double (*)(void))(uintptr_t)abort),
+	REGZASYM2_U("explode",(double (*)(void))(uintptr_t)expr_explode),
 	REGZASYM2_U("frame",expr_frame),
-	REGZASYM2_U("trap",(double (*)(void))expr_trap),
-	REGZASYM2_U("ubehavior",(double (*)(void))expr_ubehavior),
+	REGZASYM2_U("trap",(double (*)(void))(uintptr_t)expr_trap),
+	REGZASYM2_U("ubehavior",(double (*)(void))(uintptr_t)expr_ubehavior),
 
 	REGFSYM2_NI("exit",expr_exit),
 	REGFSYM2_NI("exitif",expr_exitif),
@@ -1466,10 +1466,10 @@ warpp(memrmem,wp(0),wi(1,size_t),wp(2),wi(3,size_t));
 static double expr_##name##_b(double *args,size_t n){\
 	return cast(expr_##name(__VA_ARGS__),double);\
 }
-#define rwarpz(name,...) \
+/*#define rwarpz(name,...) \
 static double expr_##name##_b(double *args,size_t n){\
 	return cast(expr_##name(__VA_ARGS__),double);\
-}
+}*/
 #define REGWARP(name,dim) REGMDSYM2_NIU(#name,expr_##name##_b,dim)
 #define REGWARPZA(name) REGZASYM2_U(#name,(double (*)(void))expr_##name##_b)
 #define REGWARPF(name) REGFSYM2_U(#name,expr_##name##_b)

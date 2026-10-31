@@ -5,7 +5,7 @@
  *******************************************************************************/
 #define _GNU_SOURCE
 
-#define EXPR_VERSION "1.0.16-7"
+#define EXPR_VERSION "1.0.17"
 
 #if (defined(EXPR_LIBC_STRING_IMPL)&&(EXPR_LIBC_STRING_IMPL))
 #include <string.h>
@@ -118,11 +118,12 @@ static ssize_t zero_reader(intptr_t fd,void *buf,size_t size){
 	debug("write %zu zeros on %p",size,buf);
 	return (ssize_t)size;
 }
-#define checkr(_fp) \
+#define checkr(_fp) ({\
 	if(unlikely(r<0)){\
 		expr_buffered_rclose(_fp);\
 		return r;\
-	}
+	}\
+})
 ssize_t expr_file_readfd_r(expr_reader reader,intptr_t fd,size_t tail,void *savep,const struct expr_memtool *restrict mtl){
 	struct expr_buffered_file vf[1];
 	ssize_t r;
@@ -223,15 +224,15 @@ intptr_t expr_warped_syscall7(int num,intptr_t a0,intptr_t a1,intptr_t a2,intptr
 
 #if EXPR_SETUP_ENABLED
 #define r_fail \
-	{\
+	({\
 		fprintf(stderr,"cannot allocate memory,size=%zu\n",size);\
 		fprintf(stderr,"ABORTING\n");\
 		abort();\
-	}
+	})
 static int nonnull=0,ckleak=0;
-int expr_mtl_setup=0;
+static int expr_mtl_setup=0;
 static uint32_t mutex[1]={0};
-ssize_t count=0;
+static ssize_t count=0;
 static void *malloc_setup(size_t size,intptr_t arg){
 	void *r;
 	r=size>expr_allocate_max?NULL:malloc(size);

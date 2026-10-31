@@ -12,8 +12,8 @@
 #endif
 #define EXPR_BLOCKWARNING 1
 #include "expr.h"
-struct expr_symset *es;
-const struct proj {
+static struct expr_symset *es;
+static const struct proj {
 	const char *e;
 	double expect;
 } projs[]={
@@ -88,7 +88,7 @@ const struct proj {
 	{NULL,0.0}
 
 };
-const struct eproj {
+static const struct eproj {
 	const char *e;
 	int expect;
 	const char *ee;
@@ -139,10 +139,10 @@ const struct eproj {
 	{"throw(EPT,\"12345\")",EXPR_EPT,"12345"},
 	{"throw(9999,\"customerror9999\")",9999,"customerror9999"},
 	{"1+(1+(1+(1+(1+(1+(1+(1+(t))))))))",EXPR_EREC,""},
-	{"byte(0x1000000000)",EXPR_EMEM,""},
+	{"byte(0x10000000)",EXPR_EMEM,""},
 	{NULL,0,NULL}
 };
-void errcheck(const char *e,int expect,const char *expect_errinfo){
+static void errcheck(const char *e,int expect,const char *expect_errinfo){
 	int error;
 	int flag=EXPR_IRECURSIVELIMIT;
 	char errinfo[EXPR_SYMLEN];
@@ -165,7 +165,7 @@ ab:
 	printf("ABORTING\n");
 	abort();
 }
-void check(const char *e,double expect){
+static void check(const char *e,double expect){
 	double r;
 //	struct expr ep[1];
 	//static int k=0;if(k++==39)exit(0);
@@ -192,11 +192,11 @@ ab:
 	abort();
 }
 #define REDZONE 1024
-void ckal(void *buf,size_t size){
+static void ckal(void *buf,size_t size){
 	(void)size;
 	assert(!((uintptr_t)buf%sizeof(struct expr_zoneunit)));
 }
-void areacheck(size_t size,size_t off,int shouldfail){
+static void areacheck(size_t size,size_t off,int shouldfail){
 	char *buf;
 	struct expr_memtool mtl[1];
 	buf=malloc(size+off+REDZONE*2);
@@ -223,7 +223,7 @@ end:
 #define xmtl expr_defmtl
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
-void checkfmt(const char *expect,const char *fmt,...){
+static void checkfmt(const char *expect,const char *fmt,...){
 	char *p;
 	va_list ap;
 	ssize_t r;
@@ -240,18 +240,18 @@ void checkfmt(const char *expect,const char *fmt,...){
 	expr_xfree(p);
 }
 #pragma GCC diagnostic pop
-void checkfmts(void){
-	checkfmt("   1234","%7d",(ssize_t)1234);
-	checkfmt("1234  ","%-6d",(ssize_t)1234);
+static void checkfmts(void){
+	checkfmt("   1234","%7d",(expr_it)1234);
+	checkfmt("1234  ","%-6d",(expr_it)1234);
 	checkfmt("1231 ","%-5.*S",(size_t)4,"123123");
 	checkfmt("76b3e4","%.3h","\x76\xb3\xe4");
 	checkfmt("k","%c",expr_mkval64('k'));
-	checkfmt("372u,372u,372u","%3l%1T,%1tu%u",(size_t)372);
+	checkfmt("372u,372u,372u","%3l%1T,%1tu%u",(expr_ut)372);
 	checkfmt("{5459,-833,-9999,67}","{%4.*k%1T,%d}",sizeof(int),(int []){5459,-833,-9999,67});
-	checkfmt("{\"asd\",\"fhl\",\"HELLO\"}","{%3k%3T\",\"\"%s\"}",(const char *[]){"asd","fhl","HELLO","NOPRINT"});
+	checkfmt("{\"asd\",\"fhl\",\"HELLO\"}","{%3k%3T\",\"\"%.5s\"}",(const char *[]){"asd\0aa","fhl\0aaa","HELLO","NOPRINT"});
 	checkfmt("null","%p",NULL);
-	checkfmt("1.5m","%=.-1m",(size_t)1024*1536);
-	checkfmt("1.7M","%.1M",(size_t)1024*1792);
+	checkfmt("1.5m","%=.-1m",(expr_ut)1024*1536);
+	checkfmt("1.7M","%.1M",(expr_ut)1024*1792);
 	printf("fotmat check ok\n");
 }
 static int keyword_diff(const char *str,size_t len,const struct expr_builtin_keyword *restrict s){
@@ -261,14 +261,14 @@ static int keyword_diff(const char *str,size_t len,const struct expr_builtin_key
 	return memcmp(str,s->str,len);
 }
 #pragma GCC diagnostic ignored "-Wunused-parameter"
-char buf[8192*1024];
+static char buf[8192*1024];
 int main(int argc,char **argv){
 	double x0=expr_cast(expr_seed48(time(NULL)),double);
 	expr_setup_heapmtl(expr_defmtl,buf,sizeof(buf));
 	es=expr_builtin_symbol_converts_r(expr_defmtl,expr_symbols_all);
 	assert(es);
-	expr_symset_add(es,"x0",EXPR_VARIABLE,0,&x0);
-	expr_symset_add(es,"defined_symbol",EXPR_CONSTANT,0,2304.0);
+	expr_symset_addl(es,"x0",2,EXPR_VARIABLE,0,&x0);
+	expr_symset_addl(es,"defined_symbol",14,EXPR_CONSTANT,0,2304.0);
 	setvbuf(stdout,NULL,_IONBF,0);
 	printf("checking area[%zu-%zu] + %zu-%zu",(size_t)0,(size_t)4096,(size_t)0,sizeof(struct expr_zoneunit)-1);
 	for(size_t i=0;i<=4096;++i)

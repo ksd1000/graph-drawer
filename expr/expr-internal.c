@@ -173,7 +173,7 @@ void expr_contract(void *buf,size_t size){
 void expr_explode_r(void (*contractor)(void *,size_t),size_t max,const struct expr_memtool *restrict mtl){
 	void *r;
 	do {
-		debug("allocate %zu bytes",max);
+		//debug("allocate %zu bytes",max);
 		while((r=mtl->allocate(max,mtl->arg))){
 			if(contractor)
 				contractor(r,max);
@@ -424,8 +424,8 @@ size_t expr_extint_mul(uint64_t *buf,size_t size,uint32_t factor,uint64_t *works
 		uint64_t v;
 		size_t size;
 	} un;
-	buf[size]=0;
 	size_t size32=size<<1,csize32;
+	buf[size]=0;
 	for(p=(uint32_t *)buf,wp=(uint32_t *)workspace;
 			(size_t)(p-(uint32_t *)buf)<size32;
 			++p,++wp){
@@ -525,10 +525,10 @@ size_t expr_extint_div(uint64_t *buf,size_t size,uint32_t divisor,uint32_t *mod)
 		return 0;
 }
 #define bitindexof_ze2(buf,size) ((ssize_t)(63-clz64((buf)[(size)-1]))+(ssize_t)((size)-1)*64)
-#define bitindexof(buf,size) ({\
+/*#define bitindexof(buf,size) ({\
 	size_t _size=(size);\
 	bitindexof_ze2(buf,_size);\
-})
+})*/
 size_t expr_extint_div2(uint64_t *buf,size_t size,uint64_t *divisor_buf,size_t divisor_size,uint64_t *out,size_t *outsize){
 	size_t qz;
 	size_t lf=(size_t)(bitindexof_ze2(buf,size)-bitindexof_ze2(divisor_buf,divisor_size));
@@ -700,7 +700,7 @@ size_t expr_internal_strtou(const char *restrict nptr,size_t nsize,size_t *restr
 	if(!base){
 		if(nptr+1<endp&&*nptr=='0'){
 			++nptr;
-			if(nptr+1<endp&&(get=(unsigned int)(unsigned char)*nptr|32,get=='x'||get=='b')){
+			if(nptr+1<endp&&((void)(get=(unsigned int)(unsigned char)*nptr|32),get=='x'||get=='b')){
 				base=(get=='x'?16:2);
 				++nptr;
 				get=expr_ntable(*nptr);
@@ -782,12 +782,14 @@ ssize_t expr_internal_strtoz(const char *restrict nptr,size_t nsize,size_t *rest
 			case '+':
 				++nptr;
 				break;
+			default:
+				break;
 		}
 	}
 	if(!base){
 		if(nptr+1<endp&&*nptr=='0'){
 			++nptr;
-			if(nptr+1<endp&&(get=(unsigned int)(unsigned char)*nptr|32,get=='x'||get=='b')){
+			if(nptr+1<endp&&((void)(get=(unsigned int)(unsigned char)*nptr|32),get=='x'||get=='b')){
 				base=(get=='x'?16:2);
 				++nptr;
 				get=expr_ntable(*nptr);
@@ -957,6 +959,8 @@ fail0:
 				negative=1;
 			case '+':
 				++nptr;
+				break;
+			default:
 				break;
 		}
 	}
@@ -1725,41 +1729,21 @@ double expr_internal_fabs(double x){
 #define BYTE_COPY_ALIGN8K BYTE_COPY_ALIGN1PK
 #else
 #define BYTE_COPY_ALIGN8P(d,s,n) do {\
-	(*(uintptr_t *)(uintptr_t)(d))=(*(uintptr_t *)(uintptr_t)(s));\
-	((uintptr_t *)(uintptr_t)(d))[1]=((uintptr_t *)(uintptr_t)(s))[1];\
-	((uintptr_t *)(uintptr_t)(d))[2]=((uintptr_t *)(uintptr_t)(s))[2];\
-	((uintptr_t *)(uintptr_t)(d))[3]=((uintptr_t *)(uintptr_t)(s))[3];\
-	((uintptr_t *)(uintptr_t)(d))[4]=((uintptr_t *)(uintptr_t)(s))[4];\
-	((uintptr_t *)(uintptr_t)(d))[5]=((uintptr_t *)(uintptr_t)(s))[5];\
-	((uintptr_t *)(uintptr_t)(d))[6]=((uintptr_t *)(uintptr_t)(s))[6];\
-	((uintptr_t *)(uintptr_t)(d))[7]=((uintptr_t *)(uintptr_t)(s))[7];\
+	__builtin_memcpy((void *)(d),(const void *)(s),8*PALIGN);\
 	d=(void *)((uintptr_t)(d)+8*PALIGN);\
 	s=(void *)((uintptr_t)(s)+8*PALIGN);\
 	n-=8*PALIGN;\
 }while(n);
 #define BYTE_COPY_ALIGN8PK(d,s) ({\
-	(*(uintptr_t *)(uintptr_t)(d))=(*(uintptr_t *)(uintptr_t)(s));\
-	((uintptr_t *)(uintptr_t)(d))[1]=((uintptr_t *)(uintptr_t)(s))[1];\
-	((uintptr_t *)(uintptr_t)(d))[2]=((uintptr_t *)(uintptr_t)(s))[2];\
-	((uintptr_t *)(uintptr_t)(d))[3]=((uintptr_t *)(uintptr_t)(s))[3];\
-	((uintptr_t *)(uintptr_t)(d))[4]=((uintptr_t *)(uintptr_t)(s))[4];\
-	((uintptr_t *)(uintptr_t)(d))[5]=((uintptr_t *)(uintptr_t)(s))[5];\
-	((uintptr_t *)(uintptr_t)(d))[6]=((uintptr_t *)(uintptr_t)(s))[6];\
-	((uintptr_t *)(uintptr_t)(d))[7]=((uintptr_t *)(uintptr_t)(s))[7];\
+	__builtin_memcpy((void *)(d),(const void *)(s),8*PALIGN);\
 })
 #define BYTE_COPY_ALIGN4P(d,s) ({\
-	(*(uintptr_t *)(uintptr_t)(d))=(*(uintptr_t *)(uintptr_t)(s));\
-	((uintptr_t *)(uintptr_t)(d))[1]=((uintptr_t *)(uintptr_t)(s))[1];\
-	((uintptr_t *)(uintptr_t)(d))[2]=((uintptr_t *)(uintptr_t)(s))[2];\
-	((uintptr_t *)(uintptr_t)(d))[3]=((uintptr_t *)(uintptr_t)(s))[3];\
+	__builtin_memcpy((void *)(d),(const void *)(s),4*PALIGN);\
 	d=(void *)((uintptr_t)(d)+4*PALIGN);\
 	s=(void *)((uintptr_t)(s)+4*PALIGN);\
 })
 #define BYTE_COPY_ALIGN4PK(d,s) ({\
-	(*(uintptr_t *)(uintptr_t)(d))=(*(uintptr_t *)(uintptr_t)(s));\
-	((uintptr_t *)(uintptr_t)(d))[1]=((uintptr_t *)(uintptr_t)(s))[1];\
-	((uintptr_t *)(uintptr_t)(d))[2]=((uintptr_t *)(uintptr_t)(s))[2];\
-	((uintptr_t *)(uintptr_t)(d))[3]=((uintptr_t *)(uintptr_t)(s))[3];\
+	__builtin_memcpy((void *)(d),(const void *)(s),4*PALIGN);\
 })
 #define BYTE_SET_ALIGN4P(d,s,n) do {\
 	(*(uintptr_t *)(uintptr_t)(d))=(*(uintptr_t *)(uintptr_t)(s));\
@@ -1770,36 +1754,30 @@ double expr_internal_fabs(double x){
 	n-=4*PALIGN;\
 }while(n);
 #define BYTE_COPY_ALIGN2P(d,s) ({\
-	(*(uintptr_t *)(uintptr_t)(d))=(*(uintptr_t *)(uintptr_t)(s));\
-	((uintptr_t *)(uintptr_t)(d))[1]=((uintptr_t *)(uintptr_t)(s))[1];\
+	__builtin_memcpy((void *)(d),(const void *)(s),2*PALIGN);\
 	d=(void *)((uintptr_t)(d)+2*PALIGN);\
 	s=(void *)((uintptr_t)(s)+2*PALIGN);\
 })
 #define BYTE_COPY_ALIGN2PK(d,s) ({\
-	(*(uintptr_t *)(uintptr_t)(d))=(*(uintptr_t *)(uintptr_t)(s));\
-	((uintptr_t *)(uintptr_t)(d))[1]=((uintptr_t *)(uintptr_t)(s))[1];\
+	__builtin_memcpy((void *)(d),(const void *)(s),2*PALIGN);\
 })
 #define BYTE_SET_ALIGN2P(d,s) ({\
-	(*(uintptr_t *)(uintptr_t)(d))=(*(uintptr_t *)(uintptr_t)(s));\
-	((uintptr_t *)(uintptr_t)(d))[1]=(*(uintptr_t *)(uintptr_t)(s));\
+	__builtin_memcpy((void *)(d),(const void *)(s),2*PALIGN);\
 	d=(void *)((uintptr_t)(d)+2*PALIGN);\
 })
 #define BYTE_COPY_ALIGN1P(d,s) ({\
-	(*(uintptr_t *)(uintptr_t)(d))=(*(uintptr_t *)(uintptr_t)(s));\
+	__builtin_memcpy((void *)(d),(const void *)(s),PALIGN);\
 	d=(void *)((uintptr_t)(d)+PALIGN);\
 	s=(void *)((uintptr_t)(s)+PALIGN);\
 })
 #define BYTE_COPY_ALIGN1PK(d,s) ({\
-	(*(uintptr_t *)(uintptr_t)(d))=(*(uintptr_t *)(uintptr_t)(s));\
+	__builtin_memcpy((void *)(d),(const void *)(s),PALIGN);\
 })
 #define BYTE_COPY_ALIGN32K(d,s) ({\
-	(*(uint64_t *)(uintptr_t)(d))=(*(uint64_t *)(uintptr_t)(s));\
-	((uint64_t *)(uintptr_t)(d))[1]=((uint64_t *)(uintptr_t)(s))[1];\
-	((uint64_t *)(uintptr_t)(d))[2]=((uint64_t *)(uintptr_t)(s))[2];\
-	((uint64_t *)(uintptr_t)(d))[3]=((uint64_t *)(uintptr_t)(s))[3];\
+	__builtin_memcpy((void *)(d),(const void *)(s),32);\
 })
 #define BYTE_COPY_ALIGN8K(d,s) ({\
-	(*(uint64_t *)(uintptr_t)(d))=(*(uint64_t *)(uintptr_t)(s));\
+	__builtin_memcpy((void *)(d),(const void *)(s),8);\
 })
 #define BYTE_SET(d,s,n) do {\
 	(*(uint8_t *)(uintptr_t)(d))=(*(uint8_t *)(uintptr_t)(s));\
@@ -1923,7 +1901,6 @@ void expr_internal_memcpy(void *dst,const void *src,size_t size){
 				++bp;
 				++sbp;
 			}
-			return;
 		case PALIGN:
 			BYTE_COPY_ALIGN1PK(bp,sbp);
 			return;
@@ -2535,6 +2512,9 @@ struct expr_symbol *expr_symset_addcopy(struct expr_symset *restrict esp,const s
 	if(unlikely(!tail||!(ep=xmalloc(es->length)))){
 		return NULL;
 	}
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#pragma GCC diagnostic ignored "-Wconditional-uninitialized"
 	memcpy(ep,es,es->length);
 	memset(ep->next,0,EXPR_SYMNEXT*sizeof(struct expr_symbol *));
 	*tail=ep;
@@ -2543,6 +2523,7 @@ struct expr_symbol *expr_symset_addcopy(struct expr_symset *restrict esp,const s
 	ep->saved=0;
 	sset_inc(esp,ep->length,depth);
 	return ep;
+#pragma GCC diagnostic pop
 }
 struct expr_symbol **expr_symset_search0(const struct expr_symset *restrict esp,const char *sym,size_t sz){
 	expr_strdiff_t r;
@@ -2813,6 +2794,7 @@ struct expr_symbol *expr_symbol_vcreate_r(const char *sym,int type,int flag,cons
 }
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#pragma GCC diagnostic ignored "-Wconditional-uninitialized"
 struct expr_symbol *expr_symbol_vcreatel_r(const char *sym,size_t symlen,int type,int flag,const struct expr_memtool *restrict mtl,va_list ap){
 	struct expr_symbol *esp;
 	size_t len,len_expr;

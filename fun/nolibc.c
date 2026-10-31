@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <syscall.h>
 #include "expr.h"
+#define strlen expr_internal_strlen
 ssize_t warped_write(intptr_t fd,const void *buf,size_t size){
 	return (ssize_t)expr_internal_syscall(SYS_write,fd,buf,size);
 }

@@ -27,7 +27,7 @@
 
 #define reterr(V) {r=(V);goto err;}
 
-#define FLUSH(size,trunc,onerr) \
+#define FLUSH(size,trunc,onerr) ({\
 	r=fp->writer(fp->fd,fp->buf,size);\
 	if(unlikely(r<0)){\
 		onerr;\
@@ -68,7 +68,8 @@
 			}\
 		}else\
 			fp->index=0;\
-	}
+	}\
+})
 ssize_t expr_buffered_write(struct expr_buffered_file *restrict fp,const void *buf,size_t size){
 	size_t i,c,s0;
 	ssize_t r,r1,r2;
@@ -321,7 +322,6 @@ ssize_t expr_buffered_read_warped(intptr_t fd,void *buf,size_t size){
 	}\
 	return ret
 ssize_t expr_buffered_write_flushatc(struct expr_buffered_file *restrict fp,const void *buf,size_t size,int c){
-	debug("memrchr \"%d\",%d,%zu",*(const char *)buf,c,size);
 	flushat_common(memrchr(buf,c,size),++rc);
 }
 ssize_t expr_buffered_write_flushatt(struct expr_buffered_file *restrict fp,const void *buf,size_t size,expr_test_t test,intptr_t arg){

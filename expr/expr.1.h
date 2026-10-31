@@ -176,7 +176,7 @@ struct expr_internal_jmpbuf {
 #endif
 
 //#pragma GCC diagnostic ignored "-Wzero-length-bounds"
-//#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
 #pragma GCC diagnostic ignored "-Wpointer-arith"
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 //#pragma GCC diagnostic ignored "-Wcast-function-type-mismatch"
@@ -184,7 +184,7 @@ struct expr_internal_jmpbuf {
 #pragma GCC diagnostic ignored "-Wclobbered"
 //#pragma GCC diagnostic ignored "-Wcast-function-type"
 //#pragma GCC diagnostic ignored "-Waddress"
-//#pragma GCC diagnostic ignored "-Wextra-semi"
+#pragma GCC diagnostic ignored "-Wextra-semi"
 //#pragma GCC diagnostic ignored "-Wc2y-extensions"
 //#pragma GCC diagnostic ignored "-Wgnu-auto-type"
 //#pragma GCC diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
@@ -194,6 +194,22 @@ struct expr_internal_jmpbuf {
 
 #pragma GCC diagnostic ignored "-Wgnu-statement-expression-from-macro-expansion"
 #pragma GCC diagnostic ignored "-Wshadow"
+#pragma GCC diagnostic ignored "-Wpre-c11-compat"
+#pragma GCC diagnostic ignored "-Wunsafe-buffer-usage"
+#pragma GCC diagnostic ignored "-Wimplicit-void-ptr-cast"
+#pragma GCC diagnostic ignored "-Wreserved-macro-identifier"
+#pragma GCC diagnostic ignored "-Wreserved-identifier"
+#pragma GCC diagnostic ignored "-Wdate-time"
+#pragma GCC diagnostic ignored "-Walloca"
+#pragma GCC diagnostic ignored "-Wdouble-promotion"
+#pragma GCC diagnostic ignored "-Wcast-align"
+#pragma GCC diagnostic ignored "-Wextra-semi-stmt"
+#pragma GCC diagnostic ignored "-Wbad-function-cast"
+#pragma GCC diagnostic ignored "-Wfloat-equal"
+#pragma GCC diagnostic ignored "-Wpadded"
+#pragma GCC diagnostic ignored "-Wc++-keyword"
+#pragma GCC diagnostic ignored "-Wswitch-enum"
+#pragma GCC diagnostic ignored "-Wcovered-switch-default"
 //#pragma GCC diagnostic ignored "-Wflexible-array-extensions"
 
 #endif
@@ -859,22 +875,22 @@ expr_static_assert(__builtin_constant_p(expr_mkval(0)));
 	(void *)(uintptr_t)___r;\
 })
 #define expr_ntable(c) ({\
-	unsigned char __c=(unsigned char)(c);\
-	switch(__c){\
+	unsigned char ___c=(unsigned char)(c);\
+	switch(___c){\
 		case '0' ... '9':\
-			__c-=(unsigned char)'0';\
+			___c-=(unsigned char)'0';\
 			break;\
 		case 'A' ... 'Z':\
-			__c-=(unsigned char)('A'-10);\
+			___c-=(unsigned char)('A'-10);\
 			break;\
 		case 'a' ... 'z':\
-			__c-=(unsigned char)('a'-10);\
+			___c-=(unsigned char)('a'-10);\
 			break;\
 		default:\
-			__c=(unsigned char)127;\
+			___c=(unsigned char)127;\
 			break;\
 	}\
-	__c;\
+	___c;\
 })
 struct expr_libinfo {
 	const char *version;
@@ -884,10 +900,7 @@ struct expr_libinfo {
 	const char *time;
 	const char *license;
 };
-#define EXPR_FLAGTYPE_ADDR 0
-#define EXPR_FLAGTYPE_SIGNED 1
-#define EXPR_FLAGTYPE_UNSIGNED 2
-#define EXPR_FLAGTYPE_DOUBLE 3
+
 struct expr_writeflag {
 	size_t width;
 	ssize_t digit;
@@ -896,10 +909,10 @@ struct expr_writeflag {
 		uint64_t bit;
 		struct {
 #if (!defined(__BIG_ENDIAN__)||!(__BIG_ENDIAN__))
-			uint64_t unused:35,
+			uint64_t unused:34,
 				 op:8,
 				 argsize:8,
-				 type:2,
+				 type:3,
 				 addr:1,
 				 width_set:1,
 				 digit_set:1,
@@ -923,10 +936,10 @@ struct expr_writeflag {
 				 digit_set:1,
 				 width_set:1,
 				 addr:1,
-				 type:2,
+				 type:3,
 				 argsize:8,
 				 op:8,
-				 unused:35;
+				 unused:34;
 #endif
 		};
 	};
@@ -966,6 +979,14 @@ struct expr_writeflag {
 #define EXPR_FCAP 222
 
 expr_static_assert(offsetof(struct expr_writeflag,bit)+sizeof(uint64_t)==sizeof(struct expr_writeflag));
+
+#define EXPR_FLAGTYPE_ADDR 0
+#define EXPR_FLAGTYPE_SIGNED 1
+#define EXPR_FLAGTYPE_UNSIGNED 2
+#define EXPR_FLAGTYPE_DOUBLE 3
+#define EXPR_FLAGTYPE_SSIZE 4
+#define EXPR_FLAGTYPE_SIZE 5
+
 union expr_argf {
 	void *addr;
 	expr_it sint;
@@ -973,8 +994,10 @@ union expr_argf {
 	expr_it *siaddr;
 	expr_ut *uiaddr;
 	double dbl;
-	size_t zint;
 	ssize_t tint;
+	size_t zint;
+	uintptr_t upint;
+	intptr_t pint;
 	double *daddr;
 	size_t *zaddr;
 	ssize_t *taddr;
@@ -1046,43 +1069,43 @@ struct expr_buffered_file {
 }
 #define EXPR_BUFFERED_INITIALIZER(_wrer,_fd,_buf,_len) EXPR_BUFFERED_INITIALIZER_R(_wrer,_fd,_buf,_len,expr_defmtl)
 #define expr_buffered_init_r(fp,_wrer,_fd,_buf,_len,_mtl) ({\
-	struct expr_buffered_file *__fp=(fp);\
-	__fp->uaddr=(const void *)(uintptr_t)(_wrer);\
-	__fp->fd=(_fd);\
-	if((__fp->buf=(_buf))){\
-		__fp->length=(_len);\
-		__fp->dynamic=0;\
+	struct expr_buffered_file *___fp=(fp);\
+	___fp->uaddr=(const void *)(uintptr_t)(_wrer);\
+	___fp->fd=(_fd);\
+	if((___fp->buf=(_buf))){\
+		___fp->length=(_len);\
+		___fp->dynamic=0;\
 	}else {\
-		__fp->length=0;\
-		__fp->dynamic=(_len);\
+		___fp->length=0;\
+		___fp->dynamic=(_len);\
 	}\
-	__fp->mtl=(_mtl);\
-	__fp->index=0;\
-	__fp->written=0;\
-	__fp->flag=0;\
+	___fp->mtl=(_mtl);\
+	___fp->index=0;\
+	___fp->written=0;\
+	___fp->flag=0;\
 })
 #define expr_buffered_init(fp,_wrer,_fd,_buf,_len) expr_buffered_init_r(fp,_wrer,_fd,_buf,_len,expr_defmtl)
 #define expr_buffered_drop(fp) ((fp)->index=0)
 #define expr_buffered_rdrop(fp) ({\
-	struct expr_buffered_file *__fp=(fp);\
-	__fp->index=0;\
-	__fp->written=0;\
+	struct expr_buffered_file *___fp=(fp);\
+	___fp->index=0;\
+	___fp->written=0;\
 })
 
 #define expr_buffered_ainit_r(fp,_len,_mtl) ({\
-	struct expr_buffered_file *__fp=(fp);\
-	__fp->mtl=(_mtl);\
-	__fp->buf=__fp->mtl->allocate(EXPR_BUFSIZE_INITIAL,__fp->mtl->arg);\
-	if(expr_likely(__fp->buf)){\
-		__fp->length=EXPR_BUFSIZE_INITIAL;\
-		__fp->dynamic=(_len);\
-		__fp->uaddr=NULL;\
-		__fp->fd=0;\
-		__fp->index=0;\
-		__fp->written=0;\
-		__fp->flag=0;\
+	struct expr_buffered_file *___fp=(fp);\
+	___fp->mtl=(_mtl);\
+	___fp->buf=___fp->mtl->allocate(EXPR_BUFSIZE_INITIAL,___fp->mtl->arg);\
+	if(expr_likely(___fp->buf)){\
+		___fp->length=EXPR_BUFSIZE_INITIAL;\
+		___fp->dynamic=(_len);\
+		___fp->uaddr=NULL;\
+		___fp->fd=0;\
+		___fp->index=0;\
+		___fp->written=0;\
+		___fp->flag=0;\
 	}\
-	__fp->buf?0:-1;\
+	___fp->buf?0:-1;\
 })
 struct expr;
 struct expr_symset;
@@ -1154,6 +1177,8 @@ struct expr_inst {
 		void *uaddr;
 		void **uaddr2;
 		expr_t value;
+		expr_it ivalue;
+		expr_ut uvalue;
 		double dvalue;
 		intptr_t pvalue;
 		size_t zu;
@@ -1715,7 +1740,8 @@ struct expr_strtod_workspace {
 #define expr_internal_syscall_eval(dest,cast,N,num,a0,a1,a2,a3,a4,a5,a6) ({\
 	switch(N){\
 		expr_internal_syscall_ncase_inswitch(dest,cast,num,a0,a1,a2,a3,a4,a5,a6);\
-		__builtin_unreachable();\
+		default:\
+			__builtin_unreachable();\
 	}\
 })
 

@@ -38,7 +38,7 @@
 
 int expr_area_init4(struct expr_area *restrict area,void *zone,size_t size,int flag){
 	size_t sizemu;
-	debug("size=%zu flag=%x\n",size,flag);
+	//debug("size=%zu flag=%x\n",size,flag);
 	if(flag_align_start(flag)){
 		uintptr_t alp;
 		size_t dif;
@@ -55,7 +55,7 @@ int expr_area_init4(struct expr_area *restrict area,void *zone,size_t size,int f
 	sizemu=size-UNIT_SIZE;
 	if(unlikely(sizemu>((size_t)SSIZE_MAX-UNIT_SIZE)))
 		return -1;
-	debug("sizemu=%zd flag=%x\n",(ssize_t)size,flag);
+	//debug("sizemu=%zd flag=%x\n",(ssize_t)size,flag);
 	area->data=(struct expr_zoneunit *)zone;
 	area->data->unprev=size|HBITZ;
 	area->data->unsize=sizemu;
@@ -108,7 +108,7 @@ int expr_area_init4(struct expr_area *restrict area,void *zone,size_t size,int f
 	size_t __prev_extra=0,__extra;\
 	__zp=area->data;\
 	if(flag_lazy(_flag)){\
-		debug("check case 0");\
+		/*debug("check case 0");*/\
 		if(likely(size+UNIT_SIZE<=area->tail->size)){\
 			dest=(uintptr_t)area->tail;\
 			goto case_0;\
@@ -456,7 +456,7 @@ int expr_setup_heapmtl4(struct expr_memtool *restrict mtl,void *heap,size_t size
 		return -1;
 	if(unlikely(expr_area_init4((struct expr_area *)heap,expr_zoneof(heap),size-sizeof(struct expr_area),flag)<0))
 		return -1;
-	debug("setup size=%zu",size-sizeof(struct expr_area));
+	//debug("setup size=%zu",size-sizeof(struct expr_area));
 	mtl->allocate=expr_heapmtl_malloc;
 	mtl->reallocate=expr_heapmtl_realloc;
 	mtl->deallocate=expr_heapmtl_dealloc;

@@ -139,6 +139,7 @@ void do_calc(const char *e,int flag){
 	int error=0;
 	char errinfo[EXPR_SYMLEN];
 	struct expr_symset *esp=expr_builtin_symbol_converts_r(expr_defmtl,expr_symbols_all);
+#define strlen expr_internal_strlen
 	result=expr_calc5(e,&error,errinfo,esp,flag);
 	if(esp)
 		expr_symset_free(esp);

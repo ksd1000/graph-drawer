@@ -20,10 +20,6 @@
 	_stack##_size=STACK_SIZEOFSSET(esp);\
 	_stack=alloca(_stack##_size)
 
-#define free (use xfree() instead!)
-#define malloc (use xmalloc() instead!)
-#define realloc (use xrealloc() instead!)
-
 #define xmtl esp->mtl
 const struct expr_builtin_symbol *expr_builtin_symbol_search(const struct expr_builtin_symbol *syms,const char *sym,size_t sz){
 	for(;syms->str;++syms){

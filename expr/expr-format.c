@@ -152,7 +152,7 @@ ssize_t expr_converter_common(expr_writer writer,intptr_t fd,const void *buf,siz
 		*(--p)=(char)('0'+val%10);\
 		val/=10;\
 	}while(val)
-#define XUNBUF (sizeof(size_t)*8+8)
+#define XUNBUF (sizeof(expr_ut)*8+8)
 static ssize_t converter_d(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	char nbuf[XUNBUF];
 	expr_ut val=(expr_ut)arg->sint;
@@ -162,7 +162,7 @@ static ssize_t converter_d(expr_writer writer,intptr_t fd,const union expr_argf 
 	int minus;
 	if(!val)
 		minus=2;
-	else if(val>(size_t)SSIZE_MAX){
+	else if((expr_it)val<0){
 		val=-val;
 		minus=1;
 	}else
@@ -314,8 +314,8 @@ conv_x(x8e,14);
 conv_x(x8f,15);
 
 #define extint_left(i,l,b) expr_extint_left(i,(size_t)(l),(uint64_t)(b))
-#define extint_right(i,l,b) expr_extint_right(i,(size_t)(l),(uint64_t)(b))
-#define extint_mul(i,l,m,w) expr_extint_mul(i,(size_t)(l),m,w)
+//#define extint_right(i,l,b) expr_extint_right(i,(size_t)(l),(uint64_t)(b))
+//#define extint_mul(i,l,m,w) expr_extint_mul(i,(size_t)(l),m,w)
 #define extint_ascii_rev expr_extint_ascii_rev
 #define extint_mirror(buf,size) ({\
 	volatile char *_buf=(buf);\
@@ -347,7 +347,6 @@ struct doubleconverter_workspace {
 #define conv_fu(_start,_name,_how,_before_how) \
 static ssize_t converteru_##_name(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag,uint32_t base,int64_t shouldleft,struct doubleconverter_workspace *bufst,uint32_t nsize){\
 	double val=arg->dbl;\
-	;\
 	char *endp;\
 	char *p,*np;\
 	int positive,f61,f58;\
@@ -360,9 +359,9 @@ static ssize_t converteru_##_name(expr_writer writer,intptr_t fd,const union exp
 		p=nbuf;\
 		write_sign_to_p(EXPR_EDSIGN(&val));\
 		if(flag->cap)\
-			*(uint32_t *)p=*(const uint32_t *)(expr_isinf(val)?"INF":"NAN");\
+			memcpy(p,(expr_isinf(val)?"INF":"NAN"),4);\
 		else\
-			*(uint32_t *)p=*(const uint32_t *)(expr_isinf(val)?"inf":"nan");\
+			memcpy(p,(expr_isinf(val)?"inf":"nan"),4);\
 		cwrite_common(nbuf,(ssize_t)(p==nbuf?3:4));\
 	}\
 	f61=!!(flag->minus);\
@@ -728,13 +727,13 @@ static ssize_t faction_g(expr_writer writer,intptr_t fd,const union expr_argf *a
 	double val=fabs(arg->dbl);
 	ssize_t vl;
 	return ((val==0.0||((vl=log10_floor_inaccurate(val))>=-4&&vl<(ssize_t)flag_digit(flag,6)))?
-	converter_xaa:converter_fe)(writer,fd,arg,(flag->eq=1,flag));
+	converter_xaa:converter_fe)(writer,fd,arg,((void)(flag->eq=1),flag));
 }
 static ssize_t faction_G(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	double val=fabs(arg->dbl);
 	ssize_t vl;
 	return ((val==0.0||((vl=log10_floor_inaccurate(val))>=-4&&vl<(ssize_t)flag_digit(flag,6)))?
-	converter_xaa:converter_fe)(writer,fd,arg,(flag->eq=1,flag));
+	converter_xaa:converter_fe)(writer,fd,arg,((void)(flag->eq=1),flag));
 }
 
 #endif
@@ -816,14 +815,14 @@ static ssize_t faction_p(expr_writer writer,intptr_t fd,const union expr_argf *a
 		ssize_t r,sum,ext,sz;
 		cwrite_common("null",(ssize_t)4);
 	}
-	return converter_x81(writer,fd,arg,(flag->sharp=1,flag));
+	return converter_x81(writer,fd,arg,((void)(flag->sharp=1),flag));
 }
 static ssize_t faction_P(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	if(!arg->addr){
 		ssize_t r,sum,ext,sz;
 		cwrite_common("NULL",(ssize_t)4);
 	}
-	return converter_x81(writer,fd,arg,(flag->sharp=1,flag));
+	return converter_x81(writer,fd,arg,((void)(flag->sharp=1),flag));
 }
 static ssize_t faction_percent(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	return writer(fd,"%",1);
@@ -874,8 +873,8 @@ const struct expr_writefmt expr_writefmts_default[]={
 	fmtc_register(faction_P,1,EXPR_FLAGTYPE_ADDR,'P'),
 	fmtc_register(faction_h,2,EXPR_FLAGTYPE_ADDR,'h'),
 	fmtc_register(faction_h,2,EXPR_FLAGTYPE_ADDR,'H'),
-	fmtc_register(converter_size,1,EXPR_FLAGTYPE_SIGNED,'m'),
-	fmtc_register(converter_size,1,EXPR_FLAGTYPE_SIGNED,'M'),
+	fmtc_register(converter_size,1,EXPR_FLAGTYPE_UNSIGNED,'m'),
+	fmtc_register(converter_size,1,EXPR_FLAGTYPE_UNSIGNED,'M'),
 
 #if !(EXPR_FORMAT_NOFLOAT)
 	fmtc_register(converter_xa1,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xa1','a'),
@@ -1127,42 +1126,46 @@ out:
 	*outval=(ssize_t)(neg?-r:r);
 	return nptr;
 }
+/*
 #define range_check(val,closed_min,open_max,onfalse) ({\
 	uintptr_t register __val=(uintptr_t)(val);\
 	if(unlikely(__val<(uintptr_t)(closed_min)||__val>=(uintptr_t)(open_max))){\
 		onfalse;\
 	}\
 })
+*/
 #define range_checkn(val,closed_min,open_n,onfalse) ({\
 	if(unlikely((uintptr_t)((val)-(closed_min))>=(uintptr_t)(open_n))){\
 		onfalse;\
 	}\
 })
+/*
 #define range_checkcn(val,closed_min,closed_n,onfalse) ({\
 	if(unlikely((uintptr_t)((val)-(closed_min))>(uintptr_t)(closed_n))){\
 		onfalse;\
 	}\
 })
+*/
 
 struct expr_vwritef_workspace {
-	const char *endp,*fmt_old,*fmt0;
-	ssize_t ret;
-	ssize_t v;
-	const struct expr_writefmt *wfp;
-	const char *delim,*tail,*d1;
-	size_t delimsz,tailsz,arrlen;
-	size_t loop;
-	ptrdiff_t index;
-	struct expr_writeflag flag[1];
-	const char *fmt_save[8];
-	const char **fmt_save_current;
+	const char *_endp,*_fmt_old,*_fmt0;
+	ssize_t _ret;
+	ssize_t _v;
+	const struct expr_writefmt *_wfp;
+	const char *_delim,*_tail,*_d1;
+	size_t _delimsz,_tailsz,_arrlen;
+	size_t _loop;
+	struct expr_writeflag _flag[1];
+	const char *_fmt_save[8];
+	const char **_fmt_save_current;
 	union {
-		const union expr_argf *arg_cur;
-		expr_ut aps;
-		union expr_argf old;
+		const union expr_argf *_arg_cur;
+		union expr_argf _old;
+		uintptr_t _aps;
 	};
-	union expr_argf save;
-	uint8_t forward,arrwid,current,r1;
+	union expr_argf _save;
+	ptrdiff_t _index;
+	uint8_t _forward,_arrwid,_current,_r1;
 };
 #undef xmtl
 #define xmtl mtl
@@ -1170,31 +1173,31 @@ ssize_t expr_vwriteft_r(expr_writer writer,intptr_t fd,const char *restrict fmt,
 	struct expr_vwritef_workspace *restrict wsp;
 	if(unlikely(!fmtlen))
 		return 0;
-#define endp wsp->endp
-#define fmt_old wsp->fmt_old
-#define fmt0 wsp->fmt0
-#define ret wsp->ret
-#define v wsp->v
-#define wfp wsp->wfp
-#define flag wsp->flag
-#define delim wsp->delim
-#define tail wsp->tail
-#define d1 wsp->d1
-#define delimsz wsp->delimsz
-#define tailsz wsp->tailsz
-#define arrlen wsp->arrlen
-#define loop wsp->loop
-#define index wsp->index
-#define forward wsp->forward
-#define arrwid wsp->arrwid
-#define current wsp->current
-#define r1 wsp->r1
-#define fmt_save wsp->fmt_save
-#define fmt_save_current wsp->fmt_save_current
-#define save wsp->save
-#define arg_cur wsp->arg_cur
-#define aps wsp->aps
-#define old wsp->old
+#define endp wsp->_endp
+#define fmt_old wsp->_fmt_old
+#define fmt0 wsp->_fmt0
+#define ret wsp->_ret
+#define v wsp->_v
+#define wfp wsp->_wfp
+#define flag wsp->_flag
+#define delim wsp->_delim
+#define tail wsp->_tail
+#define d1 wsp->_d1
+#define delimsz wsp->_delimsz
+#define tailsz wsp->_tailsz
+#define arrlen wsp->_arrlen
+#define loop wsp->_loop
+#define index wsp->_index
+#define forward wsp->_forward
+#define arrwid wsp->_arrwid
+#define current wsp->_current
+#define r1 wsp->_r1
+#define fmt_save wsp->_fmt_save
+#define fmt_save_current wsp->_fmt_save_current
+#define save wsp->_save
+#define arg_cur wsp->_arg_cur
+#define aps wsp->_aps
+#define old wsp->_old
 	wsp=xmalloc(sizeof(struct expr_vwritef_workspace));
 	if(unlikely(!wsp)){
 		return SSIZE_MIN+1;
@@ -1273,11 +1276,11 @@ reflag:
 		default:
 			break;
 	}
-#define t_copy(_d,_s,T) *(T *)(_d)=*(T *)(_s)
-#define t_ocopy(_d,_s,T,_off) *(T *)((uintptr_t)(_d)+(_off))=*(T *)((uintptr_t)(_s)+(_off))
+//#define t_copy(_d,_s,T) *(T *)(_d)=*(T *)(_s)
+//#define t_ocopy(_d,_s,T,_off) *(T *)((uintptr_t)(_d)+(_off))=*(T *)((uintptr_t)(_s)+(_off))
 #define bit_copy(_d,_s,_bit) memcpy(_d,_s,_bit)
 #define argnext1 ++index;debug("arg index to %zd",index)
-#define argnext(N) index+=(ptrdiff_t)(N);debug("arg index to %zd",index)
+//#define argnext(N) index+=(ptrdiff_t)(N);debug("arg index to %zd",index)
 #define argback(N) index-=(ptrdiff_t)(N);debug("arg index back to %zd",index)
 #define goto_argfail {debug("arg failed");wf_return(SSIZE_MIN+3);}
 #define goto_argfail1(e) {debug("arg failed");wf_return(e);}
@@ -1303,14 +1306,14 @@ reflag:
 				goto end;\
 		}\
 	}
-	get_next_arg64(flag->width,size_t,flag->width_set=1,EXPR_FLAGTYPE_UNSIGNED,zint,zaddr);
+	get_next_arg64(flag->width,size_t,flag->width_set=1,EXPR_FLAGTYPE_SIZE,zint,zaddr);
 	if(table->digit_set&&*fmt==table->digit){
 		fmt_inc_check;
-		get_next_arg64(flag->digit,ssize_t,flag->digit_set=1,EXPR_FLAGTYPE_SIGNED,tint,taddr);
+		get_next_arg64(flag->digit,ssize_t,flag->digit_set=1,EXPR_FLAGTYPE_SSIZE,tint,taddr);
 	}
 	if(table->bitwidth_set&&*fmt==table->bitwidth){
 		fmt_inc_check;
-		get_next_arg64(flag->argsize,uint64_t,,EXPR_FLAGTYPE_UNSIGNED,zint,zaddr);
+		get_next_arg64(flag->argsize,uint64_t,,EXPR_FLAGTYPE_SIZE,zint,zaddr);
 	}
 	current=*(const uint8_t *)fmt;
 current_get:
@@ -1592,7 +1595,7 @@ wfp_get:
 			}else if(arrlen){
 				expr_ut val,mask;
 				flag->argsize=sizeof(void *);
-				aps=arg1->uint;
+				aps=arg1->upint;
 				mask=(UINT64_MAX>>(64-(int)arrwid*8));
 				argnext1;
 				for(;;){
@@ -1722,12 +1725,19 @@ static const union expr_argf *ap_getarg(ptrdiff_t index,const struct expr_writef
 	if(useaddr){
 		type=EXPR_FLAGTYPE_ADDR;
 	}
+	a->save->uint=0;
 	switch(type){
 		case EXPR_FLAGTYPE_DOUBLE:
 			a->save->dbl=va_arg(a->ap,double);
 			break;
 		case EXPR_FLAGTYPE_ADDR:
 			a->save->addr=va_arg(a->ap,void *);
+			break;
+		case EXPR_FLAGTYPE_SSIZE:
+			a->save->tint=va_arg(a->ap,ssize_t);
+			break;
+		case EXPR_FLAGTYPE_SIZE:
+			a->save->zint=va_arg(a->ap,size_t);
 			break;
 		case EXPR_FLAGTYPE_SIGNED:
 			switch(flag->argsize){
@@ -1840,7 +1850,7 @@ static inline const char *internal_strtom_10(const char *restrict nptr,const cha
 	unsigned int get;
 	scannum(10);
 out:
-	debug("result:%llu",r);
+	debug("result:%lu",r);
 	if(nptr<endp){
 		switch(*nptr){
 			case 'B':
@@ -1864,6 +1874,8 @@ out:
 			setdim('T',40);
 			setdim('P',50);
 			setdim('E',60);
+			default:
+				break;
 		}
 	}
 	*outval=(size_t)r;

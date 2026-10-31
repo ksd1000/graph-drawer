@@ -58,6 +58,25 @@ jobs:
       - name: test
         run: ctest --test-dir build --output-on-failure --timeout 180
 
+  asan32:
+    name: asan32/${{ matrix.cc }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        cc: [gcc,clang]
+    steps:
+      - uses: actions/checkout@v4
+      - name: start
+        env:
+          CC: ${{ matrix.cc }}
+        run: cmake -B build32 -DCMAKE_BUILD_TYPE=Release -DFUN=OFF -DASAN=ON -DCMAKE_C_FLAGS="-m32 -DEXPR_NOSYSCALL=1"
+      - name: build32
+        run: cmake --build build32 --parallel --target=expr-check
+      - name: test
+        run: ctest --test-dir build32 --output-on-failure --timeout 180
+
+
   non-unix:
     name: mingw64/${{ matrix.cc }}
     runs-on: windows-latest

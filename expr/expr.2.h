@@ -1,4 +1,8 @@
 
+#define expr_calc5_r(e,error,errinfo,esp,flag,mtl) ({\
+	const char *_e=(e);\
+	expr_calc6_r(_e,strlen(_e),error,errinfo,esp,flag,mtl);\
+})
 #define expr_calc4_r(e,error,errinfo,esp,mtl) expr_calc5_r(e,error,errinfo,esp,EXPR_INOOPTIMIZE|EXPR_IDEFAULT,mtl)
 #define expr_calc3_r(e,error,errinfo,mtl) expr_calc5_r(e,error,errinfo,NULL,EXPR_INOOPTIMIZE|EXPR_IDEFAULT,mtl)
 #define expr_calc2_r(e,flag,mtl) expr_calc5_r(e,NULL,NULL,NULL,flag,mtl)
@@ -15,7 +19,7 @@
 #define expr_init5_r(ep,e,len,asym,asymlen,mtl) expr_init8_r(ep,e,len,asym,asymlen,NULL,0,expr_extarg_default,mtl)
 #define expr_init_r(ep,e,asym,esp,flag,mtl) ({\
 	const char *_e=(e),*_asym=(asym);\
-	expr_init8_r(ep,_e,_e?expr_internal_strlen(_e):0,_asym,_asym?expr_internal_strlen(_asym):0,esp,flag,expr_extarg_default,mtl);\
+	expr_init8_r(ep,_e,_e?strlen(_e):0,_asym,_asym?strlen(_asym):0,esp,flag,expr_extarg_default,mtl);\
 })
 #define expr_init4_r(ep,e,asym,flag,mtl) expr_init_r(ep,e,asym,NULL,flag,mtl)
 #define expr_init3_r(ep,e,asym,mtl) expr_init_r(ep,e,asym,NULL,EXPR_IDEFAULT,mtl)
@@ -33,7 +37,7 @@
 #define expr_new6_r(e,len,asym,asymlen,esp,flag,mtl) expr_new9_r(e,len,asym,asymlen,esp,flag,NULL,NULL,expr_extarg_default,mtl)
 #define expr_new_r(e,asym,esp,flag,error,errinfo,mtl) ({\
 	const char *_e=(e),*_asym=(asym);\
-	expr_new9_r(_e,_e?expr_internal_strlen(_e):0,_asym,_asym?expr_internal_strlen(_asym):0,esp,flag,error,errinfo,expr_extarg_default,mtl);\
+	expr_new9_r(_e,_e?strlen(_e):0,_asym,_asym?strlen(_asym):0,esp,flag,error,errinfo,expr_extarg_default,mtl);\
 })
 #define expr_new4_r(e,asym,esp,flag,mtl) expr_new_r(e,asym,esp,flag,NULL,NULL,mtl)
 #define expr_new3_r(e,asym,flag,mtl) expr_new_r(e,asym,NULL,flag,NULL,NULL,mtl)

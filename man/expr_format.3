@@ -65,12 +65,11 @@ but fetch the argument from
 .IR args [ arglen ].
 .SS DEFAULT FORMAT
 Defined by
-.IR expr_ftable_default
-on 64-bit system.
+.IR expr_ftable_default .
 .P
 "%[flags][width][.digit][:argsize]conversion_character"
 .P
-width, digit, argsize can be "*", to read from argumant, or be "**" to read from the pointer provided by argument.
+width, digit, argsize can be "*", to read from argument(width,argsize:size_t. digit:ssize_t), or be "**" to read from the pointer provided by argument.
 .TP
 .B %
 % .
@@ -86,22 +85,22 @@ String with length
 double.
 .TQ
 .B d
-.RB "signed integer(" ssize_t ")."
+.RB "signed integer(" expr_it ")."
 .TQ
 .B u 
-.RB "unsigned integer(" size_t ")."
+.RB "unsigned integer(" expr_ut ")."
 .TQ
 .B x
-.RB "unsigned integer(" size_t "), in hex."
+.RB "unsigned integer(" expr_ut "), in hex."
 .TQ
 .B o
-.RB "unsigned integer(" size_t "), in octal."
+.RB "unsigned integer(" expr_ut "), in octal."
 .TQ
 .B b
-.RB "unsigned integer(" size_t "), in binary."
+.RB "unsigned integer(" expr_ut "), in binary."
 .TQ 
 .BR m , M
-.RB "unsigned integer(" size_t "), in human readable format."
+.RB "unsigned integer(" expr_ut "), in human readable format."
 .TQ
 .B c
 Character.

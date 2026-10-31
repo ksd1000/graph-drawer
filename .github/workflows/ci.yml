@@ -67,6 +67,10 @@ jobs:
         cc: [gcc,clang]
     steps:
       - uses: actions/checkout@v4
+      - name: deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-multilib libc6-dev-i386 lib32asan8
       - name: start
         env:
           CC: ${{ matrix.cc }}

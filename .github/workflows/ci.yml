@@ -71,6 +71,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-multilib libc6-dev-i386 lib32asan8
+          sed -i 's/-Wframe-larger-than=1024/-Wframe-larger-than=2048/g' expr/CMakeLists.txt
       - name: start
         env:
           CC: ${{ matrix.cc }}

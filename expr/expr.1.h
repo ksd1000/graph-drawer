@@ -1157,6 +1157,7 @@ struct expr_inst {
 		expr_t *dst;
 		double *ddst;
 		expr_it *idst;
+		expr_ut *udst;
 		intptr_t *pdst;
 		void *uaddr;
 		void **uaddr2;
@@ -1171,6 +1172,7 @@ struct expr_inst {
 		expr_t *src;
 		double *dsrc;
 		expr_it *isrc;
+		expr_ut *usrc;
 		intptr_t *psrc;
 		expr_t **src2;
 		double **dsrc2;

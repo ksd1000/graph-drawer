@@ -5320,7 +5320,7 @@ static int expr_pure_hotmdfunction_check(struct expr_hmdinfo *eh){
 					return 0;
 				break;
 			default:
-			case EXPR_INPUT:
+			//case EXPR_INPUT:
 				return 0;
 		}
 	}
@@ -5453,8 +5453,8 @@ static int expr_optimize_copyend(struct expr *restrict ep){
 			r=1;
 		}
 	}else if(ip->dst.dst==ip[-1].un.src){
-			ip->dst.dst=ip[-1].dst.dst;
-			r=1;
+		ip->dst.dst=ip[-1].dst.dst;
+		r=1;
 	}
 end:
 	optimize_end;
@@ -5608,7 +5608,7 @@ from_tstl_to_neg:
 static int expr_optimize_contcopy(struct expr *restrict ep){
 	int r=0;
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
-		if((ip->op!=EXPR_COPY&&ip->op!=EXPR_INPUT)||ip[1].op!=EXPR_COPY)
+		if((ip->op!=EXPR_COPY&&ip->op!=EXPR_INPUT&&ip->op!=EXPR_IP)||ip[1].op!=EXPR_COPY)
 			continue;
 		if(ip[1].un.src!=ip->dst.dst)
 			continue;
@@ -6006,13 +6006,13 @@ int expr_optimize_recursive(struct expr *restrict ep){
 				*ip->dst.dst=xor2(*ip->dst.dst,*ip->un.src);\
 				break;\
 			case EXPR_SHL:\
-				ip->dst.rdst->exp+=(int64_t)*ip->un.src;\
+				ip->dst.rdst->exp+=(expr_it)*ip->un.src;\
 				break;\
 			case EXPR_SHR:\
-				ip->dst.rdst->exp-=(int64_t)*ip->un.src;\
+				ip->dst.rdst->exp-=(expr_it)*ip->un.src;\
 				break;\
 			case EXPR_NEXT:\
-				*ip->dst.idst+=(int64_t)*ip->un.src;\
+				*ip->dst.udst+=(expr_ut)(expr_it)*ip->un.src;\
 				break;\
 			case EXPR_DIFF:\
 				*ip->dst.dst=(expr_t)(*ip->dst.idst-*ip->un.isrc);\
@@ -6024,7 +6024,7 @@ int expr_optimize_recursive(struct expr *restrict ep){
 				*ip->dst.dst=lcm2(*ip->dst.dst,*ip->un.src);\
 				break;\
 			case EXPR_OFF:\
-				*ip->dst.idst+=(int64_t)*ip->un.src*(int64_t)sizeof(expr_t);\
+				*ip->dst.udst+=(expr_ut)(expr_it)*ip->un.src*(expr_ut)sizeof(expr_t);\
 				break;\
 			case EXPR_NEG:\
 				*ip->dst.dst=-*ip->dst.dst;\
@@ -6033,7 +6033,7 @@ int expr_optimize_recursive(struct expr *restrict ep){
 				*ip->dst.dst=not(*ip->dst.dst);\
 				break;\
 			case EXPR_NEX0:\
-				*ip->dst.idst=(int64_t)*ip->dst.dst;\
+				*ip->dst.udst=(expr_ut)(expr_it)*ip->dst.dst;\
 				break;\
 			case EXPR_DIF0:\
 				*ip->dst.dst=(expr_t)*ip->dst.idst;\

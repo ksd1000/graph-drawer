@@ -22,8 +22,12 @@ static __attribute__((unused)) ssize_t real_read(intptr_t fd,void *buf,size_t si
 static __attribute__((unused)) ssize_t real_write(intptr_t fd,const void *buf,size_t size){
 	return (ssize_t)expr_internal_syscall(SYS_write,fd,buf,size);
 }
+static __attribute__((unused)) int real_close(intptr_t fd){
+	return (int)expr_internal_syscall(SYS_close,fd);
+}
 #define read real_read
 #define write real_write
+#define close real_close
 
 #else
 
@@ -33,16 +37,12 @@ static __attribute__((unused)) ssize_t real_write(intptr_t fd,const void *buf,si
 #undef STDIN_FILENO
 #undef STDOUT_FILENO
 #undef STDERR_FILENO
-#define STDIN_FILENO ((intptr_t)0)
-#define STDOUT_FILENO ((intptr_t)1)
-#define STDERR_FILENO ((intptr_t)2)
+#define STDIN_FILENO 0
+#define STDOUT_FILENO 1
+#define STDERR_FILENO 2
 
-#ifdef O_RDONLY
 #undef O_RDONLY
-#endif
-#ifdef O_WRONLY
 #undef O_WRONLY
-#endif
 
 #define O_RDONLY "rb"
 #define O_WRONLY "wb"

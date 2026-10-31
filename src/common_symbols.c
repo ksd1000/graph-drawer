@@ -239,11 +239,10 @@ double d_printk(double *args,size_t n){
 	return (double)r;
 }
 char getchbuf[6];
-struct expr_buffered_file getchf=EXPR_BUFFERED_INITIALIZER(read,0,getchbuf,sizeof(getchf));
+struct expr_buffered_file getchf=EXPR_BUFFERED_INITIALIZER(read,STDIN_FILENO,getchbuf,sizeof(getchf));
 double d_getchar(void){
 	unsigned char c;
 	ssize_t r;
-	getchf.fd=STDIN_FILENO;
 	r=expr_buffered_read(&getchf,&c,1,NULL);
 	if(r<1)
 		return -1;
@@ -384,14 +383,13 @@ double d_readline(double x){
 	*expr_cast(x,double *)=(double)n;
 	return expr_cast(buf,double);
 }
-struct expr_buffered_file r1f=EXPR_BUFFERED_INITIALIZER(read,0,NULL,SIZE_MAX);
+struct expr_buffered_file r1f=EXPR_BUFFERED_INITIALIZER(read,STDIN_FILENO,NULL,SIZE_MAX);
 static void *memchr_warped(const void *buf,intptr_t c,size_t size){
 	return (void *)(uintptr_t)memchr(buf,(int)c,size);
 }
 double d_readline1(double x){
 	ssize_t r;
 	char *p;
-	r1f.fd=STDIN_FILENO;
 	r=expr_buffered_readline(&r1f,memchr_warped,'\n',&p);
 	*expr_cast(x,void **)=p;
 	return (double)r;

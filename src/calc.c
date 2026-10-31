@@ -33,8 +33,8 @@ static ssize_t linebuf(intptr_t fd,const void *buf,size_t size){
 }
 char printfbuf[BUFSIZ];
 char eprintfbuf[BUFSIZ];
-struct expr_buffered_file printff=EXPR_BUFFERED_INITIALIZER(write,0,printfbuf,BUFSIZ);
-struct expr_buffered_file eprintff=EXPR_BUFFERED_INITIALIZER(write,0,eprintfbuf,BUFSIZ);
+struct expr_buffered_file printff=EXPR_BUFFERED_INITIALIZER(write,STDOUT_FILENO,printfbuf,BUFSIZ);
+struct expr_buffered_file eprintff=EXPR_BUFFERED_INITIALIZER(write,STDERR_FILENO,eprintfbuf,BUFSIZ);
 static void __attribute__((constructor)) ffstart(void){
 	//expr_setup_mtl(3);
 }
@@ -76,7 +76,7 @@ static void *memchr_warped(const void *buf,intptr_t c,size_t size){
 	return (void *)(uintptr_t)memchr(buf,(int)c,size);
 }
 char scanfbuf[BUFSIZ];
-struct expr_buffered_file scanff=EXPR_BUFFERED_INITIALIZER(read,0,scanfbuf,BUFSIZ);
+struct expr_buffered_file scanff=EXPR_BUFFERED_INITIALIZER(read,STDIN_FILENO,scanfbuf,BUFSIZ);
 double d_scanf(double *args,size_t n){
 	const char *s,*fmt;
 	size_t slen,flen;
@@ -720,9 +720,6 @@ break3:
 	if(!es)
 		err(EXIT_FAILURE,"cannot allocate memory");
 	add_common_symbols(es);
-	printff.fd=STDOUT_FILENO;
-	eprintff.fd=STDERR_FILENO;
-	scanff.fd=STDIN_FILENO;
 	expr_symset_add(es,"ret",EXPR_HOTFUNCTION,0,"(ep,val){reset(end);([ep]#([ep#SIZE_OFF]##(0#1))*INSTLEN)-->end;(end#-INSTLEN)->[[ep#IPP_OFF]];val->[[end]]}");
 	expr_symset_add(es,"destructor",EXPR_HOTFUNCTION,0,"(val){destruct(&#,&longjmp_out,&outbuf,val)}");
 	expr_symset_add(es,"calc_show_result",EXPR_VARIABLE,0,&show_result);

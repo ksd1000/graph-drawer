@@ -3934,6 +3934,7 @@ struct expr *expr_new_const_r(expr_t val,const struct expr_memtool *restrict mtl
 	return r;
 }
 //static int expr_vcheck_ep(struct expr *restrict ep,struct expr_inst *ip,expr_t *v);
+/*
 static int expr_find_recursive_callback(struct expr *restrict ep,void *arg){
 	for(struct expr_inst *ip=ep->data;ip->op!=EXPR_END;++ip){
 		if(unlikely(ip->op==EXPR_CONST&&(ip->flag&EXPR_SPURE)&&ip->un.uaddr==arg)){
@@ -3944,27 +3945,6 @@ static int expr_find_recursive_callback(struct expr *restrict ep,void *arg){
 		}
 	}
 	return 0;
-}
-static char *stpcpy_noblank(char *restrict s1,const char *restrict s2,const char *endp,int subexpr){
-	const char *s20=(const char *)s2,*p;
-	int instr=0;
-	for(;s2<endp;++s2){
-		if(unlikely(*s2=='\"'&&(s2==s20||s2[-1]!='\\')))
-			instr^=1;
-		else if(unlikely(!subexpr&&!instr&&*s2=='#'&&(s2==s20||s2[-1]=='\n'))){
-			p=memchr(s2+1,'\n',(size_t)(endp-s2-1));
-			if(unlikely(!p))
-				s2=endp;
-			else
-				s2=p;
-			continue;
-		}
-		if(!instr&&expr_blank(*s2))
-			continue;
-		*(s1++)=*s2;
-	}
-	*s1=0;
-	return s1;
 }
 static int expr_remove_unused_vars(struct expr *restrict ep,const struct expr_memtool *restrict mtl){
 	expr_t **p=ep->vars;
@@ -4000,6 +3980,29 @@ static int expr_remove_unused_vars(struct expr *restrict ep,const struct expr_me
 	debug("removed %d vars",r);
 	return r;
 }
+*/
+// a heap-use-after-free bug cannot fix
+static char *stpcpy_noblank(char *restrict s1,const char *restrict s2,const char *endp,int subexpr){
+	const char *s20=(const char *)s2,*p;
+	int instr=0;
+	for(;s2<endp;++s2){
+		if(unlikely(*s2=='\"'&&(s2==s20||s2[-1]!='\\')))
+			instr^=1;
+		else if(unlikely(!subexpr&&!instr&&*s2=='#'&&(s2==s20||s2[-1]=='\n'))){
+			p=memchr(s2+1,'\n',(size_t)(endp-s2-1));
+			if(unlikely(!p))
+				s2=endp;
+			else
+				s2=p;
+			continue;
+		}
+		if(!instr&&expr_blank(*s2))
+			continue;
+		*(s1++)=*s2;
+	}
+	*s1=0;
+	return s1;
+}
 void expr_shink(struct expr *restrict ep){
 	const struct expr_memtool *restrict mtl=ep->mtl;
 	struct expr_inst *ip;
@@ -4010,9 +4013,9 @@ void expr_shink(struct expr *restrict ep){
 			ep->length=ep->size;
 		}
 	}
-	if(ep->vars){
+	/*if(ep->vars){
 		expr_remove_unused_vars(ep,mtl);
-	}
+	}*/
 }
 const struct expr_extarg expr_extarg_default[1]={EXPR_EXTARG_DEFAULT};
 int expr_init8_r(struct expr *restrict ep,const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *esp,int flag,const void *extarg,const struct expr_memtool *restrict mtl){

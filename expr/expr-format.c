@@ -1215,7 +1215,7 @@ ssize_t expr_vwriteft_r(expr_writer writer,intptr_t fd,const char *restrict fmt,
 	index=0;
 	forward=0;
 	arrwid=0;
-#define wf_return(retval) {xfree(wsp);return (retval);}
+#define wf_return(retval) {fmtlen=(size_t)(retval);xfree(wsp);return (ssize_t)fmtlen;}
 #define wf_trywrite(buf,sz) {\
 	v=writer(fd,(buf),(size_t)(sz));\
 	if(unlikely(v<0))\

@@ -1805,6 +1805,7 @@ struct expr {
 	struct expr_symset *sset;
 	struct expr_resource *res,*tail;
 	expr_t **vars;
+	struct expr_inst **ipp;
 	size_t vsize,vlength;
 	const struct expr_memtool *restrict mtl;
 	// the restrict in field may be ignored, might work in the future
@@ -1815,7 +1816,6 @@ struct expr {
 				struct expr_inst endinst[1];
 				expr_t val;
 			} end[1];
-			struct expr_inst **ipp;
 		};
 		char errinfo[expr_align(EXPR_SYMLEN)];
 	};

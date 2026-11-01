@@ -11,6 +11,6 @@ Maybe it will be refactored in the future, but the date will be not assured and 
 ## Where did the author see the terminology about lexer,tokenization,AST and the theory about compiling?
 
 Recently(2026-10) from a GPT-like Chat after it received the code of libexpr.
-Earlier, the author has only seen the word of the theory about compiling and believed that the theory was used for only writing the compiler(like gcc) and unrelated with parsing expressions.
+Earlier, the author has only seen the word of the theory about compiling and believed that the theory was only for writing the compiler(like gcc) and unrelated with parsing expressions.
 
 

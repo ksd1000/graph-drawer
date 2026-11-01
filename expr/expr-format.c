@@ -1644,12 +1644,13 @@ switch(wfp->type){
 	case EXPR_FLAGTYPE_ADDR:
 		arrwid=(uint8_t)sizeof(void *);
 		break;
-	case EXPR_FLAGTYPE_SSIZE:
+	//case EXPR_FLAGTYPE_SSIZE:
 		//arrwid=(uint8_t)sizeof(ssize_t);
 		//break;
-	case EXPR_FLAGTYPE_SIZE:
-		arrwid=(uint8_t)sizeof(size_t);
-		break;
+	//case EXPR_FLAGTYPE_SIZE:
+	//	arrwid=(uint8_t)sizeof(size_t);
+	//	break;
+	//	FLAGTYPE_[S]SIZE will not appear here
 	default:
 		arrwid=(uint8_t)sizeof(expr_t);
 		break;

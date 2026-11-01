@@ -124,7 +124,7 @@ jobs:
       - name: start
         env:
           CC: ${{ matrix.cc }}
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DFUN=OFF
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DFUN=OFF -DASAN=ON
       - name: build
         run: cmake --build build --parallel
       - name: test

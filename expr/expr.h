@@ -464,7 +464,6 @@ EXPR_END
 };
 
 #define EXPR_VOID ((void *)-1)
-#define EXPR_VOID_NR ((void *)-2)
 
 #define EXPR_SYMSET_INITIALIZER(mtl) {NULL,0,0,0,0,0,0,0,0,0,0,0,(mtl),0,0}
 #define EXPR_MUTEX_INITIALIZER ((uint32_t)(0))
@@ -2066,6 +2065,7 @@ extern const struct expr_builtin_symbol expr_symbols_superseed48[];
 extern const struct expr_builtin_symbol expr_symbols_memory[];
 extern const struct expr_builtin_symbol expr_symbols_symset[];
 extern const struct expr_builtin_symbol expr_symbols_string[];
+extern const struct expr_builtin_symbol expr_symbols_errno[];
 //global functions of expr-global.c :
 double expr_internal_strtod(const char *restrict nptr,size_t nsize,size_t *restrict end_index);
 __attribute__((noreturn)) void expr_explode(void);

@@ -139,7 +139,7 @@ int addr2sym(const struct expr *restrict ep,const struct expr_symset *restrict e
 		const struct expr_symbol *es;
 	} sym;
 	if(!addr)return -1;
-	if(addr==EXPR_VOID||addr==EXPR_VOID_NR){
+	if(addr==EXPR_VOID){
 		strcpy(buf,"EXPR_VOID");
 		return 0;
 	}
@@ -270,7 +270,7 @@ const struct inst_info ii[]={
 };
 const char *adst(const double *dst){
 	static char abuf[64+EXPR_SYMLEN];
-	if(dst==EXPR_VOID||dst==EXPR_VOID_NR)
+	if(dst==EXPR_VOID)
 		strcpy(abuf,"[void]");
 	else
 		sprintf(abuf,"%lg",*dst);
@@ -300,7 +300,7 @@ const char *od(const struct expr *restrict ep,void *addr){
 	const char *p;
 	double val;
 	int r;
-	if(addr==EXPR_VOID||addr==EXPR_VOID_NR){
+	if(addr==EXPR_VOID){
 		strcpy(abuf,"[void]");
 		return abuf;
 	}

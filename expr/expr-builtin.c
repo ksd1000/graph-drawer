@@ -11,9 +11,7 @@
 //#endif
 
 #include <stdlib.h>
-#if defined(EXPR_ISOLATED)&&(EXPR_ISOLATED)
-expr_globals_define();
-#endif
+#include <errno.h>
 
 #define EXPR_INLIB 1
 #include "expr.h"
@@ -1240,6 +1238,7 @@ const struct expr_builtin_symbol expr_symbols_packages[]={
 	REGPACK(string),
 	REGPACK(symset),
 	REGPACK(memory),
+	REGPACK(errno),
 	{.str=NULL}
 };
 const struct expr_builtin_symbol expr_symbols_expr[]={
@@ -1494,8 +1493,8 @@ const struct expr_builtin_symbol expr_symbols_symset[]={
 	REGCSYM_E(FUNCTION),
 	REGCSYM_E(MDFUNCTION),
 	REGCSYM_E(MDEPFUNCTION),
-	REGCSYM_E(HOTFUNCTION),
 	REGCSYM_E(ZAFUNCTION),
+	REGCSYM_E(HOTFUNCTION),
 	REGCSYM_E(ALIAS),
 
 	REGCSYM_E(SPURE),
@@ -1521,5 +1520,21 @@ const struct expr_builtin_symbol expr_symbols_string[]={
 	REGWARP(memrchr,3),
 	REGWARP(memmem,4),
 	REGWARP(memrmem,4),
+	{.str=NULL}
+};
+static double expr_geterrno(void){
+	return (double)errno;
+}
+static double expr_seterrno(double x){
+	errno=(int)x;
+	return 0.0;
+}
+static double expr_errno2str(double x){
+	return cast(strerror((int)x),double);
+}
+const struct expr_builtin_symbol expr_symbols_errno[]={
+	REGZASYM2_U("geterrno",expr_geterrno),
+	REGFSYM2_NI("seterrno",expr_seterrno),
+	REGFSYM2_NI("errno2str",expr_errno2str),
 	{.str=NULL}
 };

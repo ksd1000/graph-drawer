@@ -464,7 +464,6 @@ EXPR_END
 };
 
 #define EXPR_VOID ((void *)-1)
-#define EXPR_VOID_NR ((void *)-2)
 
 #define EXPR_SYMSET_INITIALIZER(mtl) {NULL,0,0,0,0,0,0,0,0,0,0,0,(mtl),0,0}
 #define EXPR_MUTEX_INITIALIZER ((uint32_t)(0))

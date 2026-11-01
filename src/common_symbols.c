@@ -356,9 +356,6 @@ double d_prime_old(double x){
 double d_isprime(double x){
 	return (double)isprime((uint64_t)(fabs(x)));
 }
-double geterrno(void){
-	return cast(&errno,double);
-}
 void *readall(intptr_t fd,size_t *len){
 	char *save;
 	ssize_t r=expr_file_readfd((void *)read,fd,1,&save);
@@ -427,8 +424,6 @@ void add_common_symbols(struct expr_symset *es){
 		sprintf(buf,"x%zu",i);
 		symset_add(es,buf,EXPR_VARIABLE,0,vx+i);
 	}
-	symset_add(es,"errno",EXPR_VARIABLE,0,&errno);
-	symset_add(es,"geterrno",EXPR_ZAFUNCTION,EXPR_SUNSAFE,geterrno);
 	setza(getchar);
 	setfunc(readline);
 	setfunc(readline1);

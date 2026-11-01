@@ -155,6 +155,7 @@
 	memcpy(_ei,(s),_n);_ei[_n]=0;\
 })
 #define serrinfoc(ei,s) memcpy(ei,s,mincc(sizeof(s)-1,EXPR_SYMLEN))
+/*
 #define expr_void(addr) ({\
 	int _r;\
 	switch((ssize_t)addr){\
@@ -168,6 +169,8 @@
 	}\
 	_r;\
 })
+*/
+#define expr_void(addr) ((addr)==EXPR_VOID)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #define LOGIC(a,b,_s) (((a)!=EXPR_ZERO) _s ((b)!=EXPR_ZERO))
@@ -687,11 +690,17 @@ static int expr_createhot(struct expr *restrict ep,const char *symbol,size_t sym
 	return expr_symset_addl(ep->sset,symbol,symlen,type,flag|EXPR_SPURE,hotexpr,hotlen)?
 	0:-1;
 }
-const char *expr_findpair(const char *c,const char *endp,int oth){
+const char *expr_findpair(const char *restrict c,const char *endp,int oth){
 	//assuming c<endp
 	char ch=*c;
 	size_t lv=1;
+	int instr=0;
 	for(++c;c<endp;++c){
+		if(unlikely(*c=='\"'&&c[-1]!='\\')){
+			instr^=1;
+		}
+		if(instr)
+			continue;
 		if(*c==ch)
 			++lv;
 		else if(*c==(char)oth&&!(--lv))
@@ -699,103 +708,9 @@ const char *expr_findpair(const char *c,const char *endp,int oth){
 	}
 	return NULL;
 }
-/*
 #define findpair(c,endp) expr_findpair(c,endp,')')
 #define findpair_bracket(c,endp) expr_findpair(c,endp,']')
 #define findpair_brace(c,endp) expr_findpair(c,endp,'}')
-*/
-// lib will reduce 1k if keep the 3 functions.
-static const char *findpair(const char *c,const char *endp){
-	size_t lv=1;
-	if(*c!='(')
-		goto err;
-	++c;
-	while(c<endp){
-		switch(*c){
-			case '(':
-				++lv;
-				break;
-			case ')':
-				--lv;
-				if(!lv)
-					return c;
-				break;
-			default:
-				break;
-		}
-		++c;
-	}
-err:
-	return NULL;
-}
-static const char *findpair_bracket(const char *c,const char *endp){
-	size_t lv=1;
-	if(*c!='[')
-		goto err;
-	++c;
-	while(c<endp){
-		switch(*c){
-			case '[':
-				++lv;
-				break;
-			case ']':
-				--lv;
-				if(!lv)
-					return c;
-				break;
-			default:
-				break;
-		}
-		++c;
-	}
-err:
-	return NULL;
-}
-static const char *findpair_brace(const char *c,const char *endp){
-	size_t lv=1;
-	if(*c!='{')
-		goto err;
-	++c;
-	while(c<endp){
-		switch(*c){
-			case '{':
-				++lv;
-				break;
-			case '}':
-				--lv;
-				if(!lv)
-					return c;
-				break;
-			default:
-				break;
-		}
-		++c;
-	}
-err:
-	return NULL;
-}
-static const char *unfindpair(const char *e,const char *c){
-	size_t lv=0;
-	if(*c!=')')
-		goto err;
-	while(c>=e){
-		switch(*c){
-			case ')':
-				++lv;
-				break;
-			case '(':
-				--lv;
-				if(!lv)
-					return c;
-				break;
-			default:
-				break;
-		}
-		--c;
-	}
-err:
-	return NULL;
-}
 static const char *getsym_p(const char *c,const char *endp){
 	const char *p;
 	while(c<endp){
@@ -1747,7 +1662,9 @@ envp:
 			if(e+2>endp||e[1]!='o'||e[2]!='{')
 				break;
 			e+=2;
+			r0=0;
 			dim=1;
+			goto block;
 		case '{':
 			r0=0;
 			dim=0;
@@ -2885,7 +2802,8 @@ vzero:
 				un.ep=expr_new8p(e+1,(size_t)(p-e-1),asym,asymlen,ep->sset,(int)ep->iflag,&ep->error,ep->errinfo,ep);
 				if(unlikely(!un.ep))
 					return NULL;
-				cknp(ep,expr_addop(ep,v0=EXPR_VOID_NR,un.ep,EXPR_DO,0),expr_free_r(un.ep);return NULL);
+				cknp(ep,expr_addop(ep,EXPR_VOID,un.ep,EXPR_DO,0),expr_free_r(un.ep);return NULL);
+				v0=EXPR_VOID;
 				e=p+1;
 				goto vend;
 			case EXPR_VMD:
@@ -3401,7 +3319,7 @@ static void vnfree(struct expr *restrict ep,struct vnode *vp){
 //scan mark
 static expr_t *scan(struct expr *restrict ep,const char *e,const char *endp,const char *asym,size_t asymlen){
 	expr_t *v1;
-	const char *e0=e,*e1;
+	const char /*e0=e,*/*e1;
 	enum expr_op op=EXPR_COPY,op0;
 	uint64_t unary;
 	struct vnode *ev=NULL,*p;
@@ -3808,11 +3726,9 @@ v2_get:
 			++e;
 			goto end1;
 		case ')':
-			if(unlikely(!unfindpair(e0,e))){
 pterr:
-				seterr(ep,EXPR_EPT);
-				goto err;
-			}
+			seterr(ep,EXPR_EPT);
+			goto err;
 		default:
 			if(unlikely(expr_operator(*e)))
 				goto euo;
@@ -4946,7 +4862,7 @@ static int expr_optimize_constexpr(struct expr *restrict ep){
 				break;
 			case EXPR_WHILE:
 				if(!expr_constexpr(ip->un.eb->cond,NULL)){
-					if(expr_constexpr(ip->un.eb->body,NULL)){
+					if(expr_constexpr(ip->un.eb->body,NULL)&&expr_eval(ip->un.eb->body,EXPR_ZERO)==EXPR_ZERO){
 wif:
 						hep=ip->un.eb->cond;
 						expr_free_r(ip->un.eb->body);
@@ -4977,8 +4893,8 @@ endless:
 				expr_free_r(ip->un.eb->body);
 				goto free_eb;
 			case EXPR_DON:
-				if(expr_constexpr(ip->un.eb->body,NULL))
-					goto delete_eb;
+				//if(expr_constexpr(ip->un.eb->body,NULL))
+				//	goto delete_eb;
 				if(!expr_constexpr(ip->un.eb->cond,NULL))
 					continue;
 				switch((size_t)eval(ip->un.eb->cond,input)){
@@ -4987,7 +4903,7 @@ endless:
 						expr_free_r(ip->un.eb->cond);
 						expr_free_r(ip->un.eb->body);
 						goto free_eb1;*/
-delete_eb:
+//delete_eb:
 						expr_free_r(ip->un.eb->cond);
 						expr_free_r(ip->un.eb->body);
 						expr_free_r(ip->un.eb->value);
@@ -5004,7 +4920,7 @@ delete_eb:
 				}
 			case EXPR_DOW:
 				if(!expr_constexpr(ip->un.eb->cond,NULL)){
-					if(expr_constexpr(ip->un.eb->body,NULL))
+					if(expr_constexpr(ip->un.eb->body,NULL)&&expr_eval(ip->un.eb->body,EXPR_ZERO)==EXPR_ZERO)
 						goto wif;
 					continue;
 				}
@@ -6134,24 +6050,28 @@ int expr_optimize_recursive(struct expr *restrict ep){
 				eval(ip->un.eb->value,input);\
 				break;\
 			case EXPR_WHILE:\
-				while(likely(eval(ip->un.eb->cond,input)!=EXPR_ZERO))\
-					eval(ip->un.eb->body,input);\
+				while(eval(ip->un.eb->cond,input)!=EXPR_ZERO){\
+					if(unlikely(eval(ip->un.eb->body,input)!=EXPR_ZERO))\
+						break;\
+				}\
 				break;\
 			case EXPR_WIF:\
 				while(likely(eval(ip->un.hotfunc,input)!=EXPR_ZERO));\
 				break;\
 			case EXPR_DOW:\
-				do\
-					eval(ip->un.eb->body,input);\
-				while(likely(eval(ip->un.eb->cond,input)!=EXPR_ZERO));\
+				do {\
+					if(unlikely(eval(ip->un.eb->body,input)!=EXPR_ZERO))\
+						break;\
+				}while(likely(eval(ip->un.eb->cond,input)!=EXPR_ZERO));\
 				break;\
 			case EXPR_DO:\
-				for(;;)\
-					eval(ip->un.hotfunc,input);\
+				while(eval(ip->un.hotfunc,input)==EXPR_ZERO);\
+				break;\
 			case EXPR_DON:\
 				un.index=(size_t)eval(ip->un.eb->cond,input);\
 				while(likely(un.index)){\
-					eval(ip->un.eb->body,input);\
+					if(unlikely(eval(ip->un.eb->body,input)!=EXPR_ZERO))\
+						break;\
 					--un.index;\
 				}\
 				break;\

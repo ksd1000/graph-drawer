@@ -6,8 +6,11 @@ import(symset);
 expr_setup_mtl(1);
 p=:0;
 symset_new()-->set;
-while(readline1(&p)-->r,andl(orl(r>=0,!cmp(r,-0)),p)){
-	printf("%s\n",p);
+while(readline1(&p)-->r,andl(orl(r>=0,r=-0),p)){
+	if(symset_add(set,p,ALIAS,0,"")){
+		printf("%s\n",p);
+	};
+	0
 };
 symset_free(set);
 endline1();

@@ -201,6 +201,38 @@ T{
 .BR expr_vwritef[t][_r]() , expr_writef[t][_r]() , expr_[v]apwritef[t][_r]() , expr_[v]snprintf[t][_r]() , expr_[v]asprintf[t][_r]() , expr_[sn|as]writef[t][_r]
 T}	Thread safety	MT-Safe
 .TE
+.SH EXAMPLE
+.SS Source
+.EX
+#define _GNU_SOURCE
+#include <unistd.h>
+#include <stdlib.h>
+#include <math.h>
+#include "expr.h"
+expr_globals_define();
+// Remove if libexpr-lc is linked.
+static ssize_t write_warped(intptr_t fd,const void *buf,size_t size){
+	return write((int)fd,buf,size);
+}
+char buf[12341234];
+#define handy_printf(fmt,...) expr_apwritef(write_warped,(intptr_t)STDOUT_FILENO,fmt,sizeof(fmt)-1,##__VA_ARGS__)
+int main(void){
+	handy_printf("hello\\n");
+	handy_printf("six=%:id\\n",6);
+	handy_printf("e=%f\\n",M_E);
+	handy_printf("City1:%s City2:%s\\n","Kawasaki","Osaka");
+	handy_printf("buf has %.2:zM size\\n",sizeof(buf));
+	return EXIT_SUCCESS;
+}
+.EE
+.SS Output
+.EX
+hello
+six=6
+e=2.718281
+City1:Kawasaki City2:Osaka
+buf has 11.76M size
+.EE
 .SH HISTORY
 .TP
 .BR expr_writef()

@@ -1878,7 +1878,8 @@ void expr_internal_memset64(void *buf,uintptr_t val,size_t size){
 		bp+=PALIGN;
 	}
 	if(size){
-		BYTE_SET_4PM1(size,bp,((uint8_t *)val4));
+		*((uintptr_t *)bp)=(val&(UINTPTR_MAX>>((PALIGN-size)*8)))|(*((uintptr_t *)bp)&(UINTPTR_MAX<<((size)*8)));
+		//BYTE_SET_4PM1(size,bp,((uint8_t *)val4));
 	}
 }
 #define BYTE_COPY_4PM1(v_len,v_bp,v_sbp) ({\

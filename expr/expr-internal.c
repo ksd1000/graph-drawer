@@ -691,8 +691,8 @@ size_t expr_extint_ascii_convert(uint64_t *buf,const char *inbuf,size_t inbuf_si
 }
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
-size_t expr_internal_strtou(const char *restrict nptr,size_t nsize,size_t *restrict end_index,int base){
-	size_t r=0;
+expr_ut expr_internal_strtou(const char *restrict nptr,size_t nsize,size_t *restrict end_index,int base,int flag){
+	expr_ut r=0;
 	unsigned int get;
 	const char *startp,*endp;
 	startp=(const char *)nptr;
@@ -754,22 +754,33 @@ out:
 	debug("result:%zu",r);
 	return r;
 overflow:
-	*end_index=0;
-	return SIZE_MAX;
-	/*
-	++nptr;
-	while(nptr<endp){
-		get=expr_ntable(*nptr);
-		if(unlikely(get>=(unsigned int)base))
-			break;
-		++nptr;
+	if(flag&EXPR_NPZERO){
+		*end_index=0;
+		goto ovret;
 	}
+	if(flag&EXPR_NPMAX){
+		*end_index=SIZE_MAX;
+		return (expr_ut)(nptr-startp);
+	}
+	if(flag&EXPR_NPJUMP){
+		++nptr;
+		while(nptr<endp){
+			get=expr_ntable(*nptr);
+			if(unlikely(get>=(unsigned int)base))
+				break;
+			++nptr;
+		}
+	}
+	*end_index=(size_t)(nptr-startp);
+ovret:
+	return EXPR_UMAX;
+	/*
 	*end_index=(size_t)(nptr-startp);
 	debug("overflow result:%zu",SIZE_MAX);
 	*/
 }
-ssize_t expr_internal_strtoz(const char *restrict nptr,size_t nsize,size_t *restrict end_index,int base){
-	ssize_t r=0;
+expr_it expr_internal_strtoi(const char *restrict nptr,size_t nsize,size_t *restrict end_index,int base,int flag){
+	expr_it r=0;
 	int neg=0;
 	unsigned int get;
 	const char *startp,*endp;
@@ -841,10 +852,28 @@ got:
 out:
 	*end_index=(size_t)(nptr-startp);
 	debug("result:%zd",(ssize_t)(neg?-r:r));
-	return (ssize_t)(neg?-r:r);
+	return (expr_it)(neg?-r:r);
 overflow:
-	*end_index=0;
-	return (ssize_t)(neg?SSIZE_MIN:SSIZE_MAX);
+	if(flag&EXPR_NPZERO){
+		*end_index=0;
+		goto ovret;
+	}
+	if(flag&EXPR_NPMAX){
+		*end_index=SIZE_MAX;
+		return (expr_it)(nptr-startp);
+	}
+	if(flag&EXPR_NPJUMP){
+		++nptr;
+		while(nptr<endp){
+			get=expr_ntable(*nptr);
+			if(unlikely(get>=(unsigned int)base))
+				break;
+			++nptr;
+		}
+	}
+	*end_index=(size_t)(nptr-startp);
+ovret:
+	return (expr_it)(neg?EXPR_IMIN:EXPR_IMAX);
 	/*
 	++nptr;
 	while(nptr<endp){
@@ -894,7 +923,7 @@ overflow:
 				return negative?-(defv):(defv);\
 			}\
 			trunc=(ssize_t)(np-nptr);\
-			expo=expr_internal_strtoz(nptr,(size_t)trunc,&npsize,0);\
+			expo=(ssize_t)expr_internal_strtoi(nptr,(size_t)trunc,&npsize,0,EXPR_NPZERO);\
 			val.uval=(constructor);\
 			set_index((size_t)(np-nptr0)+1);\
 			return val.val
@@ -1060,7 +1089,7 @@ fail0:
 	}
 	if(nptr+1<endp&&(*nptr|32)==(base==10?'e':'p')){
 		++nptr;
-		expo=expr_internal_strtoz(nptr,(size_t)(endp-nptr),&npsize,0);
+		expo=expr_internal_strtoi(nptr,(size_t)(endp-nptr),&npsize,0,EXPR_NPJUMP);
 		if(unlikely(!npsize)){
 			--nptr;
 			goto no_expo;
@@ -1826,7 +1855,7 @@ void expr_internal_memset64(void *buf,uintptr_t val,size_t size){
 	val4[3]=val;
 	end=(uintptr_t)(4*PALIGN)-((uintptr_t)bp&(4*PALIGN-1));
 	if(end!=4*PALIGN){
-		if(size<end){
+		if(size<=end){
 			BYTE_SET_4PM1(size,bp,((uint8_t *)val4));
 			return;
 		}
@@ -1849,7 +1878,7 @@ void expr_internal_memset64(void *buf,uintptr_t val,size_t size){
 		bp+=PALIGN;
 	}
 	if(size){
-		*((uintptr_t *)bp)=(val&(UINTPTR_MAX>>((PALIGN-size)*8)))|(*((uintptr_t *)bp)&(UINTPTR_MAX<<((size)*8)));
+		BYTE_SET_4PM1(size,bp,((uint8_t *)val4));
 	}
 }
 #define BYTE_COPY_4PM1(v_len,v_bp,v_sbp) ({\

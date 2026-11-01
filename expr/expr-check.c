@@ -247,7 +247,7 @@ static void checkfmts(void){
 	checkfmt("76b3e4","%.3h","\x76\xb3\xe4");
 	checkfmt("k","%c",expr_mkval64('k'));
 	checkfmt("372u,372u,372u","%3l%1T,%1tu%u",(expr_ut)372);
-	checkfmt("{5459,-833,-9999,67}","{%4.*k%1T,%d}",sizeof(int),(int []){5459,-833,-9999,67});
+	checkfmt("{5459,-833,-9999,67}","{%4k%1T,%:id}",(int []){5459,-833,-9999,67});
 	checkfmt("{\"asd\",\"fhl\",\"HELLO\"}","{%3k%3T\",\"\"%.5s\"}",(const char *[]){"asd\0aa","fhl\0aaa","HELLO","NOPRINT"});
 	checkfmt("null","%p",NULL);
 	checkfmt("1.5m","%=.-1m",(expr_ut)1024*1536);

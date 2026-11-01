@@ -61,6 +61,9 @@ expr_static_assert(sizeof(void *)==sizeof(ptrdiff_t));
 #define expr_t double
 #define expr_it int64_t
 #define expr_ut uint64_t
+#define EXPR_UMAX UINT64_MAX
+#define EXPR_IMAX INT64_MAX
+#define EXPR_IMIN INT64_MIN
 #define EXPR_FMTd "f"
 #define EXPR_FMTu "f"
 #define EXPR_FMTo "\xa8"
@@ -86,6 +89,9 @@ expr_static_assert(sizeof(void *)==sizeof(ptrdiff_t));
 #define expr_tmod(__a,__b) fmod(__a,__b)
 #define expr_tscan(_str,_size,_outsize,_mtl) expr_internal_strtod_mtl_force(_str,_size,_outsize,_mtl)
 #endif
+
+expr_static_assert(sizeof(expr_it)==sizeof(expr_t));
+expr_static_assert(sizeof(expr_ut)==sizeof(expr_t));
 
 typedef ssize_t (*expr_writer)(intptr_t fd,const void *buf,size_t size);
 typedef ssize_t (*expr_reader)(intptr_t fd,void *buf,size_t size);
@@ -1014,14 +1020,32 @@ struct expr_writefmt {
 struct expr_ftable {
 	const struct expr_writefmt *fmts;
 	uint8_t c[256];
-	char fph,digit,bitwidth,readarg,readarg2;
-	unsigned char fph_set:1,
-		      digit_set:1,
-		      bitwidth_set:1,
-		      readarg_set:1,
-		      readarg2_set:1,
-		      unused_bf:sizeof(unsigned char)*8-5;
+	char fph,
+	     digit,
+	     bitwidth,
+	     readarg,
+	     readarg2,
+	     bitwidth_addr,
+	     bitwidth_size,
+	     bitwidth_char,
+	     bitwidth_short,
+	     bitwidth_int,
+	     bitwidth_long,
+	     bitwidth_llong;
 	char unused[2];
+	uint16_t fph_set:1,
+	      digit_set:1,
+	      bitwidth_set:1,
+	      readarg_set:1,
+	      readarg2_set:1,
+	      bitwidth_addr_set:1,
+	      bitwidth_size_set:1,
+	      bitwidth_char_set:1,
+	      bitwidth_short_set:1,
+	      bitwidth_int_set:1,
+	      bitwidth_long_set:1,
+	      bitwidth_llong_set:1,
+	      unused_bf:4;
 };
 #define EXPR_TRUNC_CODE (SSIZE_MIN+128)
 
@@ -1478,6 +1502,10 @@ struct expr_pool {
 	.flag=(area_flag),\
 }
 
+#define EXPR_NPMAX 1
+#define EXPR_NPZERO 2
+#define EXPR_NPJUMP 4
+
 struct expr_strtod_workspace {
 	uint64_t dbuf[96];
 	union {
@@ -1877,7 +1905,7 @@ const struct expr_builtin_keyword *expr_keyword_search(const char *str,size_t le
 void expr_free2mtl_r(struct expr *restrict ep,int flag,const struct expr_memtool *restrict mtl);
 void expr_free2(struct expr *restrict ep,int flag);
 void expr_free(struct expr *restrict ep);
-const char *expr_findpair(const char *c,const char *endp,int oth);
+const char *expr_findpair(const char *restrict c,const char *endp,int oth);
 int expr_isconst(const struct expr *restrict ep);
 void expr_init_const_r(struct expr *restrict ep,expr_t val,const struct expr_memtool *restrict mtl);
 struct expr *expr_new_const_r(expr_t val,const struct expr_memtool *restrict mtl);
@@ -1938,8 +1966,8 @@ size_t expr_extint_mulnp(uint64_t *buf,size_t size,uint32_t factor,uint32_t powe
 size_t expr_extint_ascii(uint64_t *buf,size_t size,const char *chars,char *outbuf,uint32_t base);
 size_t expr_extint_ascii_rev(uint64_t *buf,size_t size,const char *chars,char *outbuf,uint32_t base);
 size_t expr_extint_ascii_convert(uint64_t *buf,const char *inbuf,size_t inbuf_size,uint32_t base,uint64_t *workspace);
-size_t expr_internal_strtou(const char *restrict nptr,size_t nsize,size_t *restrict end_index,int base);
-ssize_t expr_internal_strtoz(const char *restrict nptr,size_t nsize,size_t *restrict end_index,int base);
+expr_ut expr_internal_strtou(const char *restrict nptr,size_t nsize,size_t *restrict end_index,int base,int flag);
+expr_it expr_internal_strtoi(const char *restrict nptr,size_t nsize,size_t *restrict end_index,int base,int flag);
 double expr_internal_strtod4(const char *restrict nptr,size_t nsize,size_t *restrict end_index,struct expr_strtod_workspace *restrict ws);
 double expr_internal_strtod_mtl_force(const char *restrict nptr,size_t nsize,size_t *restrict end_index,const struct expr_memtool *restrict mtl);
 double expr_internal_trunc(double x);

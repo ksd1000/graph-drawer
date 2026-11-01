@@ -63,13 +63,71 @@ behaves like
 .BR expr_snprintf[t][_r]() , expr_asprintf[t][_r]()
 but fetch the argument from
 .IR args [ arglen ].
-.SS DEFAULT FORMAT
+.SH DEFAULT FORMAT
 Defined by
 .IR expr_ftable_default .
 .P
 "%[flags][width][.digit][:argsize]conversion_character"
 .P
 width, digit, argsize can be "*", to read from argument(width,argsize:size_t. digit:ssize_t), or be "**" to read from the pointer provided by argument.
+.SS FLAGS
+.TP
+.B #
+Append a 0/0x to the start of a nonzero octal/hex number.
+.TQ
+.B +
+Append a + to the start of a positive number.
+.TQ
+.B 0
+Pad with zeros instead of whitespaces.
+.TQ
+.B -
+Left justification.
+.TQ
+.B ' '
+Append a whitespace to the start of a positive number if '+' not set.
+.TQ
+.B =
+Stop if no more effective digits.
+.TQ
+.B ?
+Use the saved value instead read from arguments.
+.TQ
+.B &
+Read the value from the pointer provided by argument.
+.TQ
+.B !
+Set cap explicitly.
+.SS ARGSIZE
+.TP
+.B number
+Use the number as size.
+.TQ
+.B empty
+expr_t
+.TQ
+.B p
+pointer
+.TQ
+.B z
+size_t
+.TQ
+.B c
+char
+.TQ
+.B h
+short
+.TQ
+.B i
+int
+.TQ
+.B l
+long
+.TQ
+.B q
+long long
+.TQ
+.SS CONVERSION
 .TP
 .B %
 % .

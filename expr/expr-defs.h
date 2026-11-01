@@ -82,6 +82,19 @@
 #define UINT8_MAX __UINT8_MAX__
 #endif
 
+#ifndef INT8_MIN
+#define INT8_MIN (-INT8_MAX-1)
+#endif
+#ifndef INT16_MIN
+#define INT16_MIN (-INT16_MAX-1)
+#endif
+#ifndef INT32_MIN
+#define INT32_MIN (-INT32_MAX-1)
+#endif
+#ifndef INT64_MIN
+#define INT64_MIN (-INT64_MAX-1)
+#endif
+
 #define EXPR_DEFS_CAT0(a,b) a ## b
 #define EXPR_DEFS_CAT(a,b) EXPR_DEFS_CAT0(a,b)
 

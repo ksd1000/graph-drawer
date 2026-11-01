@@ -1020,10 +1020,32 @@ const struct expr_ftable expr_ftable_default[1]={{
 ['g']=FLTIDX(65),
 ['G']=FLTIDX(66),
 	},
-	.fph='%',.digit='.',.bitwidth=':',.readarg='*',.readarg2='*',
-	.fph_set=1,.digit_set=1,.bitwidth_set=1,.readarg_set=1,.readarg2_set=1,
-	.unused_bf=0,
+	.fph='%',
+	.digit='.',
+	.bitwidth=':',
+	.readarg='*',
+	.readarg2='*',
+	.bitwidth_addr='p',
+	.bitwidth_size='z',
+	.bitwidth_char='c',
+	.bitwidth_short='h',
+	.bitwidth_int='i',
+	.bitwidth_long='l',
+	.bitwidth_llong='q',
 	.unused={0},
+	.fph_set=1,
+	.digit_set=1,
+	.bitwidth_set=1,
+	.readarg_set=1,
+	.readarg2_set=1,
+	.bitwidth_addr_set=1,
+	.bitwidth_size_set=1,
+	.bitwidth_char_set=1,
+	.bitwidth_short_set=1,
+	.bitwidth_int_set=1,
+	.bitwidth_long_set=1,
+	.bitwidth_llong_set=1,
+	.unused_bf=0,
 }};
 #define scannum(base) \
 	while(nptr<endp){\
@@ -1313,7 +1335,23 @@ reflag:
 	}
 	if(table->bitwidth_set&&*fmt==table->bitwidth){
 		fmt_inc_check;
-		get_next_arg64(flag->argsize,uint64_t,,EXPR_FLAGTYPE_SIZE,zint,zaddr);
+#define type_check(type,T) \
+		if(table->bitwidth_##type##_set&&*fmt==table->bitwidth_##type){\
+			flag->argsize=(uint64_t)sizeof(T);\
+			fmt_inc_check;\
+		}
+		type_check(addr,void *)
+		else type_check(size,size_t)
+		else type_check(char,char)
+		else type_check(short,short)
+		else type_check(int,int)
+		else type_check(long,long)
+#if defined(__SIZEOF_LONG_LONG__)||(defined(__STDC_VERSION__)&&(__STDC_VERSION__>=199901L))
+		else type_check(llong,long long)
+#endif
+		else {
+			get_next_arg64(flag->argsize,uint64_t,,EXPR_FLAGTYPE_SIZE,zint,zaddr);
+		}
 	}
 	current=*(const uint8_t *)fmt;
 current_get:
@@ -1387,8 +1425,8 @@ current_get:
 			setdlm(tail,tailsz);
 			break;
 		case EXPR_FMTC_SETARR:
-			arrwid=(uint8_t)flag_digit(flag,sizeof(size_t));
-			if(unlikely(arrwid>sizeof(union expr_argf)||!arrwid))
+			arrwid=(uint8_t)flag_digit(flag,0);
+			if(unlikely(arrwid>sizeof(union expr_argf)))
 				goto_argfail;
 			arrlen=flag_width(flag,0);
 			break;
@@ -1594,6 +1632,13 @@ wfp_get:
 				forward=0;
 			}else if(arrlen){
 				expr_ut val,mask;
+				if(!arrwid){
+					arrwid=(uint8_t)flag->argsize;
+					if(unlikely(arrwid>sizeof(union expr_argf)))
+						goto_argfail;
+					if(!arrwid)
+						arrwid=(uint8_t)sizeof(expr_t);
+				}
 				flag->argsize=sizeof(void *);
 				aps=arg1->upint;
 				mask=(UINT64_MAX>>(64-(int)arrwid*8));
@@ -1619,6 +1664,7 @@ wfp_get:
 						break;
 					aps+=arrwid;
 				}
+				arrwid=0;
 			}else {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"

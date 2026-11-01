@@ -1636,8 +1636,25 @@ wfp_get:
 					arrwid=(uint8_t)flag->argsize;
 					if(unlikely(arrwid>sizeof(union expr_argf)))
 						goto_argfail;
-					if(!arrwid)
-						arrwid=(uint8_t)sizeof(expr_t);
+					if(!arrwid){
+switch(wfp->type){
+	//case EXPR_FLAGTYPE_DOUBLE:
+		//arrwid=(uint8_t)sizeof(double);
+		//break;
+	case EXPR_FLAGTYPE_ADDR:
+		arrwid=(uint8_t)sizeof(void *);
+		break;
+	case EXPR_FLAGTYPE_SSIZE:
+		//arrwid=(uint8_t)sizeof(ssize_t);
+		//break;
+	case EXPR_FLAGTYPE_SIZE:
+		arrwid=(uint8_t)sizeof(size_t);
+		break;
+	default:
+		arrwid=(uint8_t)sizeof(expr_t);
+		break;
+}
+					}
 				}
 				flag->argsize=sizeof(void *);
 				aps=arg1->upint;

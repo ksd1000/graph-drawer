@@ -13,4 +13,15 @@ Maybe it will be refactored in the future, but the date will be not assured and 
 Recently(2026-10) from a GPT-like Chat after it received the code of libexpr.
 Earlier, the author has only seen the word of the theory about compiling and believed that the theory was only for writing the compiler(like gcc) and unrelated with parsing expressions.
 
+## Why the kmain.c build failed on my (virtual) system?
 
+It is tested by the author on Fedora, some other platfrom maybe has no fpu.h or at other path.
+
+## Why does not encourage the use of Windows in the note of Release but makes .exe and CI for it.
+
+It is a closed-source(and non-libre) software(system). The .exe and CI is for testing the system independence(although some features lost), not for using on the target system. The macos in CI is like so.
+
+## What is the predecessor of kmain.c
+
+A simple module can only print messages to /dev/kmsg at init and exit, modeled after a helloworld module on the web.
+kmalloc() and fpu_\*() was added for testing libexpr later, under the guidance of a GPT-like Chat.

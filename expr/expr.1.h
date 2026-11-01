@@ -1002,7 +1002,7 @@ union expr_argf {
 	ssize_t tint;
 	size_t zint;
 	uintptr_t upint;
-	intptr_t pint;
+	intptr_t spint;
 	double *daddr;
 	size_t *zaddr;
 	ssize_t *taddr;
@@ -1464,7 +1464,6 @@ struct expr_areainfo {
 	.allocate=expr_heapmtl_malloc,\
 	.reallocate=expr_heapmtl_realloc,\
 	.deallocate=expr_heapmtl_dealloc,\
-	.test=NULL,\
 	.arg=(intptr_t)(heap),\
 }
 

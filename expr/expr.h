@@ -1002,7 +1002,7 @@ union expr_argf {
 	ssize_t tint;
 	size_t zint;
 	uintptr_t upint;
-	intptr_t pint;
+	intptr_t spint;
 	double *daddr;
 	size_t *zaddr;
 	ssize_t *taddr;

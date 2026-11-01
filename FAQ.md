@@ -16,7 +16,7 @@ Earlier, the author has only seen the word of the theory about compiling and bel
 
 ## Why the kmain.c build failed on my (virtual) system?
 
-It is tested by the author on Fedora, some other platfrom maybe has no fpu.h or at other path.
+It is tested by the author on Fedora, some other platform maybe has no fpu.h or at other path.
 
 ## Why does not encourage the use of Windows in the note of Release but makes .exe and CI for it.
 

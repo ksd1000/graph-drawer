@@ -298,7 +298,7 @@ Tested by test/speedtest.c
 |Library size(-Os)|17k|18k|304k(153k+151k)|
 |Project type|standalone library|standalone library|backend library of graph-drawer|
 |Allow pass size of expression|Yes|No|Yes|
-|Bugfix speed|Unactive|Fast|Slow|
+|Bugfix speed|Inactive|Fast|Slow|
 |Coding tool|Unknown|Unknown|Vim,Gedit|
 |Code readability|Clear|Clear|Chaos|
 |Build system|make|make|cmake|

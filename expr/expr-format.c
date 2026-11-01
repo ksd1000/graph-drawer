@@ -1638,9 +1638,9 @@ wfp_get:
 						goto_argfail;
 					if(!arrwid){
 switch(wfp->type){
-	//case EXPR_FLAGTYPE_DOUBLE:
-		//arrwid=(uint8_t)sizeof(double);
-		//break;
+	case EXPR_FLAGTYPE_DOUBLE:
+		arrwid=(uint8_t)sizeof(double);
+		break;
 	case EXPR_FLAGTYPE_ADDR:
 		arrwid=(uint8_t)sizeof(void *);
 		break;

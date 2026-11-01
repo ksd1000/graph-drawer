@@ -1,6 +1,7 @@
 #include "expr-defs.h"
 #include "expr.h"
 int eval_expr_write_result(const char *e,char *buf,size_t len,void *heap,size_t size);
+#define strlen expr_internal_strlen
 int eval_expr_write_result(const char *e,char *buf,size_t len,void *heap,size_t size){
 	struct expr_memtool mtl[1];
 	struct expr *ep;

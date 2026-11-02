@@ -51,13 +51,15 @@
 */
 #define TRUNC_CODE EXPR_TRUNC_CODE
 
+expr_static_assert(TRUNC_CODE<0);
+
 #define c_trywrite(buf,sz) if(likely((r=(ssize_t)(sz))>0)){\
 	r=writer(fd,(buf),(size_t)r);\
 	if(unlikely(r<0))\
 		return r;\
 	sum+=r;\
 	if(unlikely(r<(ssize_t)(sz)))\
-		return TRUNC_CODE+sum;\
+		return TRUNC_CODE;\
 }
 #define c_trywrite3(buf,sz,onerr) if(likely((r=(ssize_t)(sz))>0)){\
 	r=writer(fd,(buf),(size_t)r);\
@@ -65,7 +67,7 @@
 		onerr;\
 	}\
 	if(unlikely(r<(ssize_t)(sz))){\
-		r+=sum+TRUNC_CODE;\
+		r=TRUNC_CODE;\
 		onerr;\
 	}\
 	sum+=r;\
@@ -91,6 +93,8 @@ ssize_t expr_writec_r(expr_writer writer,intptr_t fd,size_t count,int c,const st
 			return SSIZE_MIN+1;
 		memset(buf,c,count);
 		r=writer(fd,buf,count);
+		if(unlikely((size_t)r<count))
+			r=TRUNC_CODE;
 		xfree(buf);
 		return r;
 	}
@@ -1238,13 +1242,13 @@ ssize_t expr_vwriteft_r(expr_writer writer,intptr_t fd,const char *restrict fmt,
 	forward=0;
 	arrwid=0;
 #define wf_return(retval) {fmtlen=(size_t)(retval);xfree(wsp);return (ssize_t)fmtlen;}
+#define wf_returnc(retval) {xfree(wsp);return (ssize_t)(retval);}
 #define wf_trywrite(buf,sz) {\
 	v=writer(fd,(buf),(size_t)(sz));\
 	if(unlikely(v<0))\
 		wf_return(v);\
 	if(unlikely(v<(ssize_t)(sz))){\
-		v+=TRUNC_CODE+ret;\
-		wf_return(v);\
+		wf_returnc(TRUNC_CODE);\
 	}\
 	ret+=v;\
 }

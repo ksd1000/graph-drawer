@@ -172,7 +172,8 @@ Address of a pointer.
 .SH RETURN VALUE
 The
 .BR expr_[v||vap|ap]writef[t][_r]()
-return the number of bytes written. On error or truncate, the negative code or the truncated size added by
+return the number of bytes written. On error the negative code or
+will return. On truncate
 .B SSIZE_MIN+128
 will return.
 .P
@@ -215,13 +216,15 @@ static ssize_t write_warped(intptr_t fd,const void *buf,size_t size){
 	return write((int)fd,buf,size);
 }
 char buf[12341234];
-#define handy_printf(fmt,...) expr_apwritef(write_warped,(intptr_t)STDOUT_FILENO,fmt,sizeof(fmt)-1,##__VA_ARGS__)
+struct expr_buffered_file buffer[1]={EXPR_BUFFERED_INITIALIZER(write_warped,STDOUT_FILENO,buf,sizeof(buf))};
+#define handy_printf(fmt,...) expr_apwritef(expr_buffered_write_iolbf_warped,(intptr_t)buffer,fmt,sizeof(fmt)-1,##__VA_ARGS__)
 int main(void){
 	handy_printf("hello\\n");
 	handy_printf("six=%:id\\n",6);
 	handy_printf("e=%f\\n",M_E);
 	handy_printf("City1:%s City2:%s\\n","Kawasaki","Osaka");
 	handy_printf("buf has %.2:zM size\\n",sizeof(buf));
+	// buffer is flushed by iolbf here.
 	return EXIT_SUCCESS;
 }
 .EE

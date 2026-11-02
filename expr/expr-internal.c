@@ -1757,6 +1757,7 @@ double expr_internal_fabs(double x){
 #define BYTE_COPY_ALIGN32K BYTE_COPY_ALIGN4PK
 #define BYTE_COPY_ALIGN8K BYTE_COPY_ALIGN1PK
 #else
+#define BUILTIN_MEMCPY_IMPL 1
 #define BYTE_COPY_ALIGN8P(d,s,n) do {\
 	__builtin_memcpy((void *)(d),(const void *)(s),8*PALIGN);\
 	d=(void *)((uintptr_t)(d)+8*PALIGN);\
@@ -2071,15 +2072,18 @@ void expr_internal_memmove(void *dst,const void *src,size_t size){
 		,s=(uintptr_t)src
 		,de,se;
 	size_t v;
-	if(unlikely(!size||d==s||(d|s|size)>=(size_t)SSIZE_MAX))
+	if(unlikely(!size||d==s))
 		return;
 	de=d+size;
 	se=s+size;
+	if(unlikely(de<d||se<s))
+		return;
 	if(s>=de||d>=se){
 		expr_internal_memcpy((void *)d,(void *)s,size);
 		return;
 	}
 	if(d<s){
+#if !defined(BUILTIN_MEMCPY_IMPL)||!(BUILTIN_MEMCPY_IMPL)
 		while(size>4*PALIGN){
 			BYTE_COPY_ALIGN4PK(d,s);
 			d+=4*PALIGN;
@@ -2090,6 +2094,7 @@ void expr_internal_memmove(void *dst,const void *src,size_t size){
 			BYTE_COPY_ALIGN4PK(d,s);
 			return;
 		}
+#endif
 		v=(size_t)(s-d);
 		while(size>v){
 			expr_internal_memcpy((void *)d,(void *)s,v);
@@ -2101,6 +2106,7 @@ void expr_internal_memmove(void *dst,const void *src,size_t size){
 			expr_internal_memcpy((void *)d,(void *)s,size);
 		return;
 	}
+#if !defined(BUILTIN_MEMCPY_IMPL)||!(BUILTIN_MEMCPY_IMPL)
 	while(size>4*PALIGN){
 		de-=4*PALIGN;
 		se-=4*PALIGN;
@@ -2111,6 +2117,7 @@ void expr_internal_memmove(void *dst,const void *src,size_t size){
 		BYTE_COPY_ALIGN4PK(d,s);
 		return;
 	}
+#endif
 	v=(size_t)(d-s);
 	while(size>v){
 		de-=v;

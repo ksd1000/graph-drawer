@@ -31,7 +31,21 @@ expr_static_assert((!0)==1);
 #if !defined(EXPR_NOPOLLUTE_SSIZE_T)||!(EXPR_NOPOLLUTE_SSIZE_T)
 // ssize_t, SSIZE_MAX, SSIZE_MIN must be provided by command-line -D or -include if EXPR_NOPOLLUTE_SSIZE_T is set.
 
-#if !defined(ssize_t)&&!defined(_SSIZE_T_DEFINED_)&&!defined(_SSIZE_T_DEFINED)&&!defined(SSIZE_T_DEFINED)&&!defined(HAVE_SSIZE_T)&&!defined(__ssize_t_defined)&&!defined(_SYS_TYPES_H_)&&!defined(_SYS_TYPES_H)&&!defined(SYS_TYPES_H)
+#if !defined(ssize_t)&&\
+!defined(_SSIZE_T_DEFINED_)&&\
+!defined(_SSIZE_T_DEFINED)&&\
+!defined(SSIZE_T_DEFINED)&&\
+!defined(_SSIZE_T_DECLARED_)&&\
+!defined(_SSIZE_T_DECLARED)&&\
+!defined(SSIZE_T_DECLARED)&&\
+!defined(_SSIZE_T_)&&\
+!defined(_SSIZE_T)&&\
+!defined(SSIZE_T)&&\
+!defined(HAVE_SSIZE_T)&&\
+!defined(__ssize_t_defined)&&\
+!defined(_SYS_TYPES_H_)&&\
+!defined(_SYS_TYPES_H)&&\
+!defined(SYS_TYPES_H)
 
 typedef
 #ifdef __SIZEOF_SIZE_T__

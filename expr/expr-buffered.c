@@ -499,7 +499,13 @@ ssize_t expr_buffered_readline(struct expr_buffered_file *restrict fp,expr_test_
 	*(void **)savep=fp->buf;
 	return (ssize_t)in;
 }
+#if !defined(EXPR_IOLBF_NOSPLIT)||!(EXPR_IOLBF_NOSPLIT)
+#define expr_buffered_write_iolbf expr_buffered_write_sflushatc
+#else
+#define expr_buffered_write_iolbf expr_buffered_write_flushatc
+#endif
+//use sflushatc instead of flushatc as default to agree with libc.
 ssize_t expr_buffered_write_iolbf_warped(intptr_t fd,const void *buf,size_t size){
 	debug("iolbf size=%zu",size);
-	return expr_buffered_write_sflushatc((struct expr_buffered_file *)fd,buf,size,'\n');
+	return expr_buffered_write_iolbf((struct expr_buffered_file *)fd,buf,size,'\n');
 }

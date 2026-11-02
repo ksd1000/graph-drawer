@@ -49,7 +49,9 @@ expr_static_assert((!0)==1);
 
 typedef
 #ifdef __SIZEOF_SIZE_T__
-#if __SIZEOF_SIZE_T__==8
+#if defined(__SIZEOF_PTRDIFF_T__)&&(__SIZEOF_SIZE_T__==__SIZEOF_PTRDIFF_T__)
+ptrdiff_t
+#elif __SIZEOF_SIZE_T__==8
 int64_t
 #elif __SIZEOF_SIZE_T__==4
 int32_t

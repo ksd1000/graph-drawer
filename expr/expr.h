@@ -28,6 +28,9 @@ expr_static_assert((!0)==1);
 
 #define expr_issigned(T) ((__typeof__(T))-1<(__typeof__(T))0)
 
+#if !defined(EXPR_NOPOLLUTE_SSIZE_T)||!(EXPR_NOPOLLUTE_SSIZE_T)
+// ssize_t, SSIZE_MAX, SSIZE_MIN must be provided by command-line -D or -include if EXPR_NOPOLLUTE_SSIZE_T is set.
+
 #if !defined(ssize_t)&&!defined(_SSIZE_T_DEFINED_)&&!defined(_SSIZE_T_DEFINED)&&!defined(SSIZE_T_DEFINED)&&!defined(HAVE_SSIZE_T)&&!defined(__ssize_t_defined)&&!defined(_SYS_TYPES_H_)&&!defined(_SYS_TYPES_H)&&!defined(SYS_TYPES_H)
 
 typedef
@@ -54,9 +57,6 @@ ssize_t;
 
 #endif
 
-expr_static_assert(expr_issigned(ssize_t));
-expr_static_assert(sizeof(ssize_t)==sizeof(size_t));
-
 #ifndef SSIZE_MAX
 #define SSIZE_MAX ((ssize_t)(SIZE_MAX>>1))
 #endif
@@ -65,14 +65,14 @@ expr_static_assert(sizeof(ssize_t)==sizeof(size_t));
 #define SSIZE_MIN ((ssize_t)((SIZE_MAX>>1)+1))
 #endif
 
-expr_static_assert(sizeof(ssize_t)==sizeof(ptrdiff_t));
-expr_static_assert(sizeof(size_t)==sizeof(ptrdiff_t));
-expr_static_assert(sizeof(void *)==sizeof(ptrdiff_t));
+#endif
 
 #ifndef expr_noinline
 #define expr_noinline __attribute__((noinline))
 #endif
 
+expr_static_assert(sizeof(ssize_t)==sizeof(size_t));
+expr_static_assert(expr_issigned(ssize_t));
 
 #ifndef expr_t
 #define expr_t double
@@ -138,7 +138,7 @@ extern size_t expr_allocate_max;
 #define expr_internal_strlen(s) ({const char *_s=(s);(size_t)((const char *)expr_internal_memchr2(_s,0)-_s);})
 
 #define expr_globals_define() \
-size_t expr_allocate_max=SSIZE_MAX;\
+size_t expr_allocate_max=(size_t)SSIZE_MAX;\
 void *expr_allocator_default(size_t size,intptr_t arg){\
 	(void)arg;\
 	return size>=expr_allocate_max?NULL:malloc(size);\

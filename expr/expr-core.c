@@ -966,7 +966,7 @@ static expr_t consteval(const char *e,size_t len,const char *asym,size_t asymlen
 static expr_t nonconsteval(const char *e,size_t len,const char *asym,size_t asymlen,struct expr_symset *sset,struct expr *restrict parent){
 	struct expr *ep;
 	expr_t r;
-	ep=expr_new8p(e,len,asym,asymlen,sset,(int)parent->iflag&~EXPR_INOOPTIMIZE,&parent->error,parent->errinfo,parent);
+	ep=expr_new8p(e,len,asym,asymlen,sset,((int)parent->iflag&~EXPR_INOOPTIMIZE)|EXPR_IPROTECT,&parent->error,parent->errinfo,parent);
 	if(unlikely(!ep))
 		return EXPR_FAIL;
 	r=eval(ep,EXPR_ZERO);

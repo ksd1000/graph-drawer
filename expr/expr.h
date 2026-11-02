@@ -67,6 +67,13 @@ ssize_t;
 
 #define _SSIZE_T_DEFINED_ 1
 #define _SSIZE_T_DEFINED 1
+#define SSIZE_T_DEFINED 1
+#define _SSIZE_T_DECLARED_ 1
+#define _SSIZE_T_DECLARED 1
+#define SSIZE_T_DECLARED 1
+#define _SSIZE_T_ 1
+#define _SSIZE_T 1
+#define SSIZE_T 1
 #define __ssize_t_defined 1
 
 #endif

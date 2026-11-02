@@ -239,10 +239,11 @@ double d_printk(double *args,size_t n){
 	return (double)r;
 }
 char getchbuf[6];
-struct expr_buffered_file getchf=EXPR_BUFFERED_INITIALIZER(read,STDIN_FILENO,getchbuf,sizeof(getchf));
+struct expr_buffered_file getchf=EXPR_BUFFERED_INITIALIZER(read,STDIN_FILENO,NULL,sizeof(getchf));
 double d_getchar(void){
 	unsigned char c;
 	ssize_t r;
+	getchf.buf=getchbuf;
 	r=expr_buffered_read(&getchf,&c,1,NULL);
 	if(r<1)
 		return -1;

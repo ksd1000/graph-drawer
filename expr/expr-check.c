@@ -12,6 +12,9 @@
 #endif
 #define EXPR_BLOCKWARNING 1
 #include "expr.h"
+#undef warn
+#define warn(fmt,...) fprintf(stderr,fmt "\n",##__VA_ARGS__)
+#define check_abort() ({warn("==expr-check==ABORTING");fflush(stderr);abort();})
 static struct expr_symset *es;
 static const struct proj {
 	const char *e;
@@ -162,8 +165,7 @@ static void errcheck(const char *e,int expect,const char *expect_errinfo){
 	printf(" ... ok errinfo=\"%s\"\n",errinfo);
 	return;
 ab:
-	printf("ABORTING\n");
-	abort();
+	check_abort();
 }
 static void check(const char *e,double expect){
 	double r;
@@ -188,8 +190,7 @@ static void check(const char *e,double expect){
 	printf(" ... ok\n");
 	return;
 ab:
-	printf("ABORTING\n");
-	abort();
+	check_abort();
 }
 #define REDZONE 1024
 static void ckal(void *buf,size_t size){
@@ -206,8 +207,7 @@ static void areacheck(size_t size,size_t off,int shouldfail){
 		if(expr_setup_heapmtl4(mtl,buf+off+REDZONE,size,EXPR_ADEFAULT|EXPR_AZERO)<0)
 			goto end;
 		printf("%zu,%zu should fail\n",size,off);
-		printf("ABORTING\n");
-		abort();
+		check_abort();
 	}
 	assert(!expr_setup_heapmtl4(mtl,buf+off+REDZONE,size,EXPR_ADEFAULT|EXPR_AZERO));
 	expr_explode_r(ckal,SIZE_MAX,mtl);
@@ -234,8 +234,7 @@ static void checkfmt(const char *expect,const char *fmt,...){
 	assert(r>=0);
 	if(strcmp(p,expect)){
 		printf("error result: \"%s\"\n",p);
-		printf("ABORTING\n");
-		abort();
+		check_abort();
 	}
 	expr_xfree(p);
 }
@@ -281,15 +280,13 @@ int main(int argc,char **argv){
 		}
 		if(p[1].str&&keyword_diff(p->str,(size_t)p->strlen,p+1)>=0){
 			printf("keyword %s >= %s\n",p->str,p[1].str);
-			printf("ABORTING\n");
-			abort();
+			check_abort();
 		}
 		assert(expr_keyword_search(p->str,(size_t)p->strlen,expr_keywords,expr_keywords_size)==p);
 		assert(!expr_keyword_search("notkey",6,expr_keywords,expr_keywords_size));
 		if(expr_symset_search(es,p->str,p->strlen)){
 			printf("conflict %s\n",p->str);
-			printf("ABORTING\n");
-			abort();
+			check_abort();
 		}
 	}
 	for(const struct proj *p=projs;p->e;++p)

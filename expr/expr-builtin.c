@@ -538,9 +538,9 @@ static double bassert(const struct expr *args,size_t n,double input){
 		p=strchr(e,'(');
 		if(unlikely(!p))
 			p=e;
-		warn("assertion %s failed",p);
-		warn("ABORTING");
-		abort();
+		expr_runtime_throw((struct expr *)(uintptr_t)args,EXPR_ESAF);
+		// may be used if the handler of SIGABRT.
+		warn_abort("expr-lc/runtime-assertion","assertion %s failed",p);
 	}
 	return x;
 }
@@ -605,9 +605,7 @@ static double expr_destruct(double *args,size_t n){
 			cast(*a,double (*)(double *,size_t))(a+1,n-2);
 			break;
 	}
-	warn("function for destruct() returns");
-	warn("ABORTING");
-	abort();
+	warn_abort("expr-lc/runtime-destructor","function for destruct() returns");
 }
 static double expr_malloc(double x){
 	union {

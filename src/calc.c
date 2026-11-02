@@ -30,11 +30,20 @@ const char *sysname(unsigned int id);
 void add_common_symbols(struct expr_symset *);
 char printfbuf[BUFSIZ];
 char eprintfbuf[BUFSIZ];
-struct expr_buffered_file printff=EXPR_BUFFERED_INITIALIZER(write,STDOUT_FILENO,printfbuf,BUFSIZ);
-struct expr_buffered_file eprintff=EXPR_BUFFERED_INITIALIZER(write,STDERR_FILENO,eprintfbuf,BUFSIZ);
+struct expr_buffered_file printff=EXPR_BUFFERED_INITIALIZER(write,STDOUT_FILENO,(void *)1,BUFSIZ);
+struct expr_buffered_file eprintff=EXPR_BUFFERED_INITIALIZER(write,STDERR_FILENO,(void *)1,BUFSIZ);
+char scanfbuf[BUFSIZ];
+struct expr_buffered_file scanff=EXPR_BUFFERED_INITIALIZER(read,STDIN_FILENO,(void *)1,BUFSIZ);
 static void __attribute__((constructor)) ffstart(void){
-	//expr_setup_mtl(3);
+	printff.buf=printfbuf;
+	eprintff.buf=eprintfbuf;
+	scanff.buf=scanfbuf;
+	expr_setup_mtl(4);
 }
+#define xmtl expr_defmtl
+#define xmalloc expr_xmalloc
+#define xrealloc expr_xrealloc
+#define xfree expr_xfree
 static void __attribute__((destructor)) ffend(void){
 	expr_buffered_close(&eprintff);
 	expr_buffered_close(&printff);
@@ -73,8 +82,6 @@ double d_sscanf(double *args,size_t n){
 static void *memchr_warped(const void *buf,intptr_t c,size_t size){
 	return (void *)(uintptr_t)memchr(buf,(int)c,size);
 }
-char scanfbuf[BUFSIZ];
-struct expr_buffered_file scanff=EXPR_BUFFERED_INITIALIZER(read,STDIN_FILENO,scanfbuf,BUFSIZ);
 double d_scanf(double *args,size_t n){
 	const char *s,*fmt;
 	size_t slen,flen;
@@ -84,28 +91,6 @@ double d_scanf(double *args,size_t n){
 	fmt=expr_cast(args[0],const char *);
 	flen=strlen(fmt);
 	return (double)expr_sscanf(s,slen,fmt,flen,(void **)(args+1),n-1);
-}
-static void *xmalloc(size_t size){
-	void *r;
-	r=malloc(size);
-	if(unlikely(!r)){
-		warn("IN xmalloc(size=%zu)\n"
-			"CANNOT ALLOCATE MEMORY",size);
-		warnx("ABORTING");
-		abort();
-	}
-	return r;
-}
-static void *xrealloc(void *old,size_t size){
-	void *r;
-	r=realloc(old,size);
-	if(unlikely(!r)){
-		warn("IN xrealloc(old=%p,size=%zu)\n"
-			"CANNOT REALLOCATE MEMORY",old,size);
-		warnx("ABORTING");
-		abort();
-	}
-	return r;
 }
 //char prefix[PREFIX_SIZE]={[0 ... (PREFIX_SIZE-1)]=' '};
 unsigned long level=0;

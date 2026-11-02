@@ -272,6 +272,7 @@ struct expr_internal_jmpbuf {
 
 #if (defined(EXPR_DEBUG)&&(EXPR_DEBUG))
 #include <stdio.h>
+#undef debug
 #define debug(fmt,...) ((void)fprintf(stderr,"[DEBUG]%s:%d: " fmt "\n",__func__,__LINE__,##__VA_ARGS__))
 //the debug() must not be provided by expr-format.c
 #else
@@ -330,7 +331,9 @@ struct expr_internal_jmpbuf {
 #define strend(s) ({const char *_s=(s);_s+strlen(_s);})
 #endif
 
+#undef warn
 #define warn(fmt,...) fprintf(stderr,fmt "\n",##__VA_ARGS__)
+#define warn_abort(unit,fmt,...) ({warn(fmt,##__VA_ARGS__);warn("==" unit "==ABORTING");fflush(stderr);abort();})
 
 #define addo(V,A) __builtin_add_overflow((V),(A),&(V))
 #define mulo(V,A) __builtin_mul_overflow((V),(A),&(V))
@@ -1892,9 +1895,9 @@ struct expr {
 		};
 		char errinfo[expr_align(EXPR_SYMLEN)];
 	};
-	int error;
-	unsigned int recursive,iflag;
-	unsigned int input_count:8,noinput:1,freeable:1,sset_shouldfree:1,isconst:1,unused:sizeof(unsigned int)*8-12;
+	int error,rterror;
+	unsigned int recursive,iflag,unused;
+	unsigned int input_count:8,noinput:1,freeable:1,sset_shouldfree:1,isconst:1,unused1:sizeof(unsigned int)*8-12;
 };
 
 struct expr_extarg {

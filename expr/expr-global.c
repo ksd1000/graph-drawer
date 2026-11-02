@@ -5,7 +5,7 @@
  *******************************************************************************/
 #define _GNU_SOURCE
 
-#define EXPR_VERSION "1.0.18-5"
+#define EXPR_VERSION "1.0.18-6"
 
 #if (defined(EXPR_LIBC_STRING_IMPL)&&(EXPR_LIBC_STRING_IMPL))
 #include <string.h>
@@ -224,11 +224,7 @@ intptr_t expr_warped_syscall7(int num,intptr_t a0,intptr_t a1,intptr_t a2,intptr
 
 #if EXPR_SETUP_ENABLED
 #define r_fail \
-	({\
-		fprintf(stderr,"cannot allocate memory,size=%zu\n",size);\
-		fprintf(stderr,"ABORTING\n");\
-		abort();\
-	})
+	warn_abort("expr-lc/nonnull-allocator","cannot allocate memory,size=%zu",size)
 static int nonnull=0,ckleak=0;
 static int expr_mtl_setup=0;
 static uint32_t mutex[1]={0};
@@ -271,13 +267,16 @@ static const struct expr_memtool expr_setupmtl[1]={{
 }};
 static struct expr_memtool expr_oldmtl[1];
 int expr_setup_mtl(int flag){
+	if(flag&4){
+		nonnull=1;
+		memcpy(expr_defmtl,expr_setupmtl,sizeof(struct expr_memtool));
+		return 0;
+	}
 	if(expr_mtl_setup){
 		memcpy(expr_defmtl,expr_oldmtl,sizeof(struct expr_memtool));
 		expr_mtl_setup=0;
 		if(unlikely(ckleak&&count)){
-			fprintf(stderr,"DETECTED MEMORY LEAK IN %zd OBJECTS\n",count);
-			fprintf(stderr,"ABORTING\n");
-			abort();
+			warn_abort("expr-lc/leak-detector","DETECTED MEMORY LEAK IN %zd OBJECTS",count);
 		}
 		return 1;
 	}else {

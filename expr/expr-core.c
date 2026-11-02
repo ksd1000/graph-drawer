@@ -507,8 +507,18 @@ void expr_free2(struct expr *restrict ep,int flag){
 void expr_free(struct expr *restrict ep){
 	expr_free2mtl_r(ep,0,ep->mtl);
 }
+void expr_runtime_throw(struct expr *restrict ep,int error){
+	struct expr *restrict p;
+	if(ep->parent){
+		p=ep->parent;
+		do {
+			p->rterror=error;
+		}while((p=p->parent));
+	}
+	ep->rterror=error;
+}
 static void setunsafe(struct expr *restrict ep){
-	struct expr *p;
+	struct expr *restrict p;
 	if(ep->parent){
 		p=ep->parent;
 		do {
@@ -5840,16 +5850,19 @@ int expr_recursive(struct expr *restrict ep,expr_recursive_callback callback,voi
 #undef do_recur
 int expr_optimize(struct expr *restrict ep){
 	struct expr_resource *rp;
+	struct expr *parent;
 	expr_t v;
 	unsigned int sf;
 	int r=expr_optimize0(ep);
 	if(expr_isconst(ep)){
-		sf=ep->freeable;
 		rp=ep->res;
+		parent=ep->parent;
+		sf=ep->freeable;
 		v=eval(ep,EXPR_ZERO);
 		expr_free_keepres(ep,0,xmtl);
 		expr_init_const_r(ep,v,xmtl);
 		ep->res=rp;
+		ep->parent=parent;
 		ep->freeable=sf;
 		addo(r,1);
 	}

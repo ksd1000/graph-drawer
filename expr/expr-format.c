@@ -80,7 +80,7 @@ expr_static_assert(TRUNC_CODE<0);
 }
 #define xmtl mtl
 #define EXPR_WCBUFSIZE 1024
-ssize_t expr_writec_r(expr_writer writer,intptr_t fd,size_t count,int c,const struct expr_memtool *restrict mtl){
+ssize_t expr_writec_r(expr_writer_t writer,intptr_t fd,size_t count,int c,const struct expr_memtool *restrict mtl){
 	char *buf;
 	ssize_t r,sum;
 	if(unlikely(!count))
@@ -145,7 +145,7 @@ err:
 	sz=(_sz);\
 	cwrite_common0(_s)
 
-ssize_t expr_converter_common(expr_writer writer,intptr_t fd,const void *buf,size_t size,const struct expr_writeflag *flag){
+ssize_t expr_converter_common(expr_writer_t writer,intptr_t fd,const void *buf,size_t size,const struct expr_writeflag *flag){
 	ssize_t ext,r,sum;
 #define sz ((ssize_t)size)
 	cwrite_common0(buf);
@@ -157,7 +157,7 @@ ssize_t expr_converter_common(expr_writer writer,intptr_t fd,const void *buf,siz
 		val/=10;\
 	}while(val)
 #define XUNBUF (sizeof(expr_ut)*8+8)
-static ssize_t converter_d(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+static ssize_t converter_d(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	char nbuf[XUNBUF];
 	expr_ut val=(expr_ut)arg->sint;
 	char *endp=nbuf+XUNBUF;
@@ -194,7 +194,7 @@ static ssize_t converter_d(expr_writer writer,intptr_t fd,const union expr_argf 
 	}
 	cwrite_common(p,(endp-p));
 }
-static ssize_t converter_size(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+static ssize_t converter_size(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	char nbuf[64];
 	char dbuf[32];
 	uint64_t val=(uint64_t)arg->uint;
@@ -249,7 +249,7 @@ no_digit:
 }
 static const char conv_btox[]={"0123456789abcdefx"};
 static const char conv_btoX[]={"0123456789ABCDEFX"};
-static ssize_t converter_xu(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag,uint32_t base){
+static ssize_t converter_xu(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag,uint32_t base){
 	char nbuf[XUNBUF];
 	expr_ut val=arg->uint,mod;
 	char *endp=nbuf+XUNBUF;
@@ -298,7 +298,7 @@ static ssize_t converter_xu(expr_writer writer,intptr_t fd,const union expr_argf
 	cwrite_common(p,(endp-p));
 }
 #define conv_x(name,base) \
-static ssize_t converter_##name(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){\
+static ssize_t converter_##name(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){\
 	return converter_xu(writer,fd,arg,flag,base);\
 }
 conv_x(x81,16);
@@ -349,7 +349,7 @@ struct doubleconverter_workspace {
 #if !(EXPR_FORMAT_NOFLOAT)
 // the libc printf for double rounds to the closer one. but the code is too difficult to write, so this keeps truncate, round by the caller.
 #define conv_fu(_start,_name,_how,_before_how) \
-static ssize_t converteru_##_name(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag,uint32_t base,int64_t shouldleft,struct doubleconverter_workspace *bufst,uint32_t nsize){\
+static ssize_t converteru_##_name(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag,uint32_t base,int64_t shouldleft,struct doubleconverter_workspace *bufst,uint32_t nsize){\
 	double val=arg->dbl;\
 	char *endp;\
 	char *p,*np;\
@@ -634,7 +634,7 @@ onzero:\
 	debug("set sz=%zd",sz);\
 })
 #define conv_f(_name,_base,_shift,_nsize) \
-static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){\
+static ssize_t converter_##_name(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){\
 	struct doubleconverter_workspace *bufst;\
 	ssize_t r;\
 	bufst=xmalloc(offsetof(struct doubleconverter_workspace,n)+(_nsize));\
@@ -645,7 +645,7 @@ static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr
 	return r;\
 }
 #define conv_fe(_name,_base,_shift,_nsize) \
-static ssize_t converter_##_name(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){\
+static ssize_t converter_##_name(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){\
 	struct doubleconverter_workspace *bufst;\
 	ssize_t r;\
 	bufst=xmalloc(offsetof(struct doubleconverter_workspace,n)+(_nsize));\
@@ -727,13 +727,13 @@ static ssize_t log10_floor_inaccurate(double x){
 	check_div(100,2);
 	return ix>=10?r+1:r;
 }
-static ssize_t faction_g(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+static ssize_t faction_g(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	double val=fabs(arg->dbl);
 	ssize_t vl;
 	return ((val==0.0||((vl=log10_floor_inaccurate(val))>=-4&&vl<(ssize_t)flag_digit(flag,6)))?
 	converter_xaa:converter_fe)(writer,fd,arg,((void)(flag->eq=1),flag));
 }
-static ssize_t faction_G(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+static ssize_t faction_G(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	double val=fabs(arg->dbl);
 	ssize_t vl;
 	return ((val==0.0||((vl=log10_floor_inaccurate(val))>=-4&&vl<(ssize_t)flag_digit(flag,6)))?
@@ -741,7 +741,7 @@ static ssize_t faction_G(expr_writer writer,intptr_t fd,const union expr_argf *a
 }
 
 #endif
-static ssize_t faction_s(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+static ssize_t faction_s(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	size_t len;
 	ssize_t r,sum,ext,sz;
 	if(unlikely(!arg->str)){
@@ -750,12 +750,12 @@ static ssize_t faction_s(expr_writer writer,intptr_t fd,const union expr_argf *a
 	len=flag->digit_set?strnlen(arg->str,(size_t)flag->digit):strlen(arg->str);
 	cwrite_common(arg->str,(ssize_t)len);
 }
-static ssize_t faction_S(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+static ssize_t faction_S(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	size_t len=(size_t)flag->digit;
 	ssize_t r,sum,ext,sz;
 	cwrite_common(arg->str,(ssize_t)len);
 }
-static ssize_t faction_hb(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag,uint8_t buf[960]){
+static ssize_t faction_hb(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag,uint8_t buf[960]){
 	size_t len=(size_t)flag->digit;
 	ssize_t r,sum,ext;
 	uint8_t *p,*endp,*datap;
@@ -800,7 +800,7 @@ static ssize_t faction_hb(expr_writer writer,intptr_t fd,const union expr_argf *
 	}
 	return sum;
 }
-static ssize_t faction_h(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+static ssize_t faction_h(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	uint8_t *buf;
 	ssize_t r;
 	buf=xmalloc(960);
@@ -810,25 +810,25 @@ static ssize_t faction_h(expr_writer writer,intptr_t fd,const union expr_argf *a
 	xfree(buf);
 	return r;
 }
-static ssize_t faction_c(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+static ssize_t faction_c(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	ssize_t r,sum,ext,sz;
 	cwrite_common(&arg->ch,(ssize_t)1);
 }
-static ssize_t faction_p(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+static ssize_t faction_p(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	if(!arg->addr){
 		ssize_t r,sum,ext,sz;
 		cwrite_common("null",(ssize_t)4);
 	}
 	return converter_x81(writer,fd,arg,((void)(flag->sharp=1),flag));
 }
-static ssize_t faction_P(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+static ssize_t faction_P(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	if(!arg->addr){
 		ssize_t r,sum,ext,sz;
 		cwrite_common("NULL",(ssize_t)4);
 	}
 	return converter_x81(writer,fd,arg,((void)(flag->sharp=1),flag));
 }
-static ssize_t faction_percent(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+static ssize_t faction_percent(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	return writer(fd,"%",1);
 }
 #define fmtc_register(_act,_argc,_type,_op,...) {\
@@ -1195,7 +1195,7 @@ struct expr_vwritef_workspace {
 };
 #undef xmtl
 #define xmtl mtl
-ssize_t expr_vwriteft_r(expr_writer writer,intptr_t fd,const char *restrict fmt,size_t fmtlen,expr_argfetch arg,intptr_t addr,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl){
+ssize_t expr_vwriteft_r(expr_writer_t writer,intptr_t fd,const char *restrict fmt,size_t fmtlen,expr_argfetch arg,intptr_t addr,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl){
 	struct expr_vwritef_workspace *restrict wsp;
 	if(unlikely(!fmtlen))
 		return 0;
@@ -1770,7 +1770,7 @@ err:
 	debug("getting arg[%zd] (base=%p,len=%zu)=NULL",index,(void *)(uintptr_t)wa->base,wa->arglen);
 	return NULL;
 }
-ssize_t expr_writeft_r(expr_writer writer,intptr_t fd,const char *restrict fmt,size_t fmtlen,const union expr_argf *restrict args,size_t arglen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl){
+ssize_t expr_writeft_r(expr_writer_t writer,intptr_t fd,const char *restrict fmt,size_t fmtlen,const union expr_argf *restrict args,size_t arglen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl){
 	struct writef_args wa[1];
 	wa->base=args;
 	wa->arglen=arglen;
@@ -1841,11 +1841,11 @@ end:
 	_start;\
 	r=expr_vwriteft_r(writer,fd,fmt,fmtlen,ap_getarg,(intptr_t)a,_table,mtl);\
 	_end
-ssize_t expr_vapwriteft_r(expr_writer writer,intptr_t fd,const char *restrict fmt,size_t fmtlen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl,va_list ap){
+ssize_t expr_vapwriteft_r(expr_writer_t writer,intptr_t fd,const char *restrict fmt,size_t fmtlen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl,va_list ap){
 	ap_common(va_copy(a->ap,ap),va_end(a->ap),table);
 	return r;
 }
-ssize_t expr_apwriteft_r(expr_writer writer,intptr_t fd,const char *restrict fmt,size_t fmtlen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl,...){
+ssize_t expr_apwriteft_r(expr_writer_t writer,intptr_t fd,const char *restrict fmt,size_t fmtlen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl,...){
 	ap_common(va_start(a->ap,mtl),va_end(a->ap),table);
 	return r;
 }

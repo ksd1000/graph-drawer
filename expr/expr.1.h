@@ -138,8 +138,8 @@ expr_static_assert((size_t)SSIZE_MIN==(size_t)SSIZE_MAX+1);
 expr_static_assert(sizeof(expr_it)==sizeof(expr_t));
 expr_static_assert(sizeof(expr_ut)==sizeof(expr_t));
 
-typedef ssize_t (*expr_writer)(intptr_t fd,const void *buf,size_t size);
-typedef ssize_t (*expr_reader)(intptr_t fd,void *buf,size_t size);
+typedef ssize_t (*expr_writer_t)(intptr_t fd,const void *buf,size_t size);
+typedef ssize_t (*expr_reader_t)(intptr_t fd,void *buf,size_t size);
 typedef void *(*expr_allocate_t)(size_t,intptr_t);
 typedef void *(*expr_reallocate_t)(void *,size_t,intptr_t);
 typedef void (*expr_deallocate_t)(void *,intptr_t);
@@ -1058,7 +1058,7 @@ union expr_argf {
 expr_static_assert(sizeof(union expr_argf)==sizeof(expr_t));
 typedef const union expr_argf *(*expr_argfetch)(ptrdiff_t index,const struct expr_writeflag *flag,intptr_t addr);
 struct expr_writefmt {
-	ssize_t (*converter)(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+	ssize_t (*converter)(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
 	uint8_t op[7];
 	uint8_t type:2,no_arg:1,digit_check:1,setcap:1,unused:3;
 };
@@ -1112,8 +1112,8 @@ struct expr_memfd {
 #define EXPR_BUFSIZE_INITIAL 512
 struct expr_buffered_file {
 	union {
-		expr_reader reader;
-		expr_writer writer;
+		expr_reader_t reader;
+		expr_writer_t writer;
 		const void *uaddr;
 	};
 	intptr_t fd;

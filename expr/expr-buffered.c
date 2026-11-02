@@ -362,11 +362,11 @@ ssize_t expr_buffered_write_sflushatt(struct expr_buffered_file *restrict fp,con
 ssize_t expr_buffered_write_sflushat(struct expr_buffered_file *restrict fp,const void *buf,size_t size,const void *c,size_t c_size){
 	sflushat_common(memmem(buf,size,c,c_size),rc+=c_size);
 }
-ssize_t expr_buffered_write_sync(struct expr_buffered_file *restrict fp,const void *buf,size_t size){
-	ssize_t r1,r=expr_buffered_write(fp,buf,size);
+ssize_t expr_buffered_write_sync_warped(intptr_t fd,const void *buf,size_t size){
+	ssize_t r1,r=expr_buffered_write((struct expr_buffered_file *)fd,buf,size);
 	if(unlikely(r<0))
 		return r;
-	r1=expr_buffered_flush(fp);
+	r1=expr_buffered_flush((struct expr_buffered_file *)fd);
 	if(unlikely(r1<0))
 		return r1;
 	return r;

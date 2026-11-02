@@ -5,7 +5,7 @@
  *******************************************************************************/
 #define _GNU_SOURCE
 
-#define EXPR_VERSION "1.0.18-3"
+#define EXPR_VERSION "1.0.18-4"
 
 #if (defined(EXPR_LIBC_STRING_IMPL)&&(EXPR_LIBC_STRING_IMPL))
 #include <string.h>
@@ -124,7 +124,7 @@ static ssize_t zero_reader(intptr_t fd,void *buf,size_t size){
 		return r;\
 	}\
 })
-ssize_t expr_file_readfd_r(expr_reader reader,intptr_t fd,size_t tail,void *savep,const struct expr_memtool *restrict mtl){
+ssize_t expr_file_readfd_r(expr_reader_t reader,intptr_t fd,size_t tail,void *savep,const struct expr_memtool *restrict mtl){
 	struct expr_buffered_file vf[1];
 	ssize_t r;
 	ssize_t ret;

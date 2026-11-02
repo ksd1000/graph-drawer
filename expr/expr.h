@@ -138,8 +138,8 @@ expr_static_assert((size_t)SSIZE_MIN==(size_t)SSIZE_MAX+1);
 expr_static_assert(sizeof(expr_it)==sizeof(expr_t));
 expr_static_assert(sizeof(expr_ut)==sizeof(expr_t));
 
-typedef ssize_t (*expr_writer)(intptr_t fd,const void *buf,size_t size);
-typedef ssize_t (*expr_reader)(intptr_t fd,void *buf,size_t size);
+typedef ssize_t (*expr_writer_t)(intptr_t fd,const void *buf,size_t size);
+typedef ssize_t (*expr_reader_t)(intptr_t fd,void *buf,size_t size);
 typedef void *(*expr_allocate_t)(size_t,intptr_t);
 typedef void *(*expr_reallocate_t)(void *,size_t,intptr_t);
 typedef void (*expr_deallocate_t)(void *,intptr_t);
@@ -1058,7 +1058,7 @@ union expr_argf {
 expr_static_assert(sizeof(union expr_argf)==sizeof(expr_t));
 typedef const union expr_argf *(*expr_argfetch)(ptrdiff_t index,const struct expr_writeflag *flag,intptr_t addr);
 struct expr_writefmt {
-	ssize_t (*converter)(expr_writer writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+	ssize_t (*converter)(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
 	uint8_t op[7];
 	uint8_t type:2,no_arg:1,digit_check:1,setcap:1,unused:3;
 };
@@ -1112,8 +1112,8 @@ struct expr_memfd {
 #define EXPR_BUFSIZE_INITIAL 512
 struct expr_buffered_file {
 	union {
-		expr_reader reader;
-		expr_writer writer;
+		expr_reader_t reader;
+		expr_writer_t writer;
 		const void *uaddr;
 	};
 	intptr_t fd;
@@ -1935,7 +1935,7 @@ ssize_t expr_buffered_write_flushat(struct expr_buffered_file *restrict fp,const
 ssize_t expr_buffered_write_sflushatc(struct expr_buffered_file *restrict fp,const void *buf,size_t size,int c);
 ssize_t expr_buffered_write_sflushatt(struct expr_buffered_file *restrict fp,const void *buf,size_t size,expr_test_t test,intptr_t arg);
 ssize_t expr_buffered_write_sflushat(struct expr_buffered_file *restrict fp,const void *buf,size_t size,const void *c,size_t c_size);
-ssize_t expr_buffered_write_sync(struct expr_buffered_file *restrict fp,const void *buf,size_t size);
+ssize_t expr_buffered_write_sync_warped(intptr_t fd,const void *buf,size_t size);
 ssize_t expr_buffered_flush(struct expr_buffered_file *restrict fp);
 ssize_t expr_buffered_rdropall(struct expr_buffered_file *restrict fp);
 ssize_t expr_buffered_close(struct expr_buffered_file *restrict fp);
@@ -1971,12 +1971,12 @@ extern const struct expr_builtin_keyword expr_keywords[];
 extern const size_t expr_keywords_size;
 extern const struct expr_extarg expr_extarg_default[1];
 //global functions of expr-format.c :
-ssize_t expr_writec_r(expr_writer writer,intptr_t fd,size_t count,int c,const struct expr_memtool *restrict mtl);
-ssize_t expr_converter_common(expr_writer writer,intptr_t fd,const void *buf,size_t size,const struct expr_writeflag *flag);
-ssize_t expr_vwriteft_r(expr_writer writer,intptr_t fd,const char *restrict fmt,size_t fmtlen,expr_argfetch arg,intptr_t addr,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl);
-ssize_t expr_writeft_r(expr_writer writer,intptr_t fd,const char *restrict fmt,size_t fmtlen,const union expr_argf *restrict args,size_t arglen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl);
-ssize_t expr_vapwriteft_r(expr_writer writer,intptr_t fd,const char *restrict fmt,size_t fmtlen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl,va_list ap);
-ssize_t expr_apwriteft_r(expr_writer writer,intptr_t fd,const char *restrict fmt,size_t fmtlen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl,...);
+ssize_t expr_writec_r(expr_writer_t writer,intptr_t fd,size_t count,int c,const struct expr_memtool *restrict mtl);
+ssize_t expr_converter_common(expr_writer_t writer,intptr_t fd,const void *buf,size_t size,const struct expr_writeflag *flag);
+ssize_t expr_vwriteft_r(expr_writer_t writer,intptr_t fd,const char *restrict fmt,size_t fmtlen,expr_argfetch arg,intptr_t addr,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl);
+ssize_t expr_writeft_r(expr_writer_t writer,intptr_t fd,const char *restrict fmt,size_t fmtlen,const union expr_argf *restrict args,size_t arglen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl);
+ssize_t expr_vapwriteft_r(expr_writer_t writer,intptr_t fd,const char *restrict fmt,size_t fmtlen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl,va_list ap);
+ssize_t expr_apwriteft_r(expr_writer_t writer,intptr_t fd,const char *restrict fmt,size_t fmtlen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl,...);
 ssize_t expr_snwriteft_r(char *buf,size_t buflen,const char *restrict fmt,size_t fmtlen,const union expr_argf *restrict args,size_t arglen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl);
 ssize_t expr_vsnprintft_r(char *buf,size_t buflen,const char *restrict fmt,size_t fmtlen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl,va_list ap);
 ssize_t expr_snprintft_r(char *buf,size_t buflen,const char *restrict fmt,size_t fmtlen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl,...);
@@ -2108,10 +2108,10 @@ void expr_symset_save(struct expr_symset *restrict esp,void *buf);
 void expr_symset_save_s(struct expr_symset *restrict esp,void *buf,void *stack);
 void expr_symset_move(struct expr_symset *restrict esp,ptrdiff_t off);
 void expr_symset_move_s(struct expr_symset *restrict esp,ptrdiff_t off,void *stack);
-ssize_t expr_symset_write(const struct expr_symset *restrict esp,expr_writer writer,intptr_t fd);
-ssize_t expr_symset_write_s(const struct expr_symset *restrict esp,expr_writer writer,intptr_t fd,void *stack);
+ssize_t expr_symset_write(const struct expr_symset *restrict esp,expr_writer_t writer,intptr_t fd);
+ssize_t expr_symset_write_s(const struct expr_symset *restrict esp,expr_writer_t writer,intptr_t fd,void *stack);
 ssize_t expr_symset_read(struct expr_symset *restrict esp,const void *buf,size_t size);
-ssize_t expr_symset_readfd(struct expr_symset *restrict esp,expr_reader reader,intptr_t fd);
+ssize_t expr_symset_readfd(struct expr_symset *restrict esp,expr_reader_t reader,intptr_t fd);
 //global externs of expr-symext.c :
 //global functions of expr-builtin.c :
 uint64_t expr_gcd64(uint64_t x,uint64_t y);
@@ -2143,7 +2143,7 @@ double expr_internal_strtod(const char *restrict nptr,size_t nsize,size_t *restr
 __attribute__((noreturn)) void expr_explode(void);
 __attribute__((noreturn)) void expr_trap(void);
 __attribute__((noreturn)) void expr_ubehavior(void);
-ssize_t expr_file_readfd_r(expr_reader reader,intptr_t fd,size_t tail,void *savep,const struct expr_memtool *restrict mtl);
+ssize_t expr_file_readfd_r(expr_reader_t reader,intptr_t fd,size_t tail,void *savep,const struct expr_memtool *restrict mtl);
 void expr_mutex_lock(uint32_t *lock);
 int expr_mutex_trylock(uint32_t *lock);
 void expr_mutex_unlock(uint32_t *lock);

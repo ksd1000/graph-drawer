@@ -8,10 +8,10 @@ Graph Drawer Expression Evaluator Library
 .nf
 .BR #include\~"expr.h"
 .P
-.BI "ssize_t expr_vwritef[t][_r](expr_writer " writer ",intptr_t " fd ",const char *restrict " fmt ",size_t " fmtlen ",expr_argfetch " arg ",intptr_t " addr ",[const struct expr_ftable *restrict " table "],[const struct expr_memtool *restrict " mtl "]);"
-.BI "ssize_t expr_writef[t][_r](expr_writer " writer ",intptr_t " fd ",const char *restrict " fmt ",size_t " fmtlen ",const union expr_argf *restrict " args ",size_t " arglen ",[const struct expr_ftable *restrict " table "],[const struct expr_memtool *restrict " mtl "]);"
-.BI "ssize_t expr_vapwritef[t][_r](expr_writer " writer ",intptr_t " fd ",const char *restrict " fmt ",size_t " fmtlen ",[const struct expr_ftable *restrict " table "],[const struct expr_memtool *restrict " mtl "],va_list " ap ");"
-.BI "ssize_t expr_apwritef[t][_r](expr_writer " writer ",intptr_t " fd ",const char *restrict " fmt ",size_t " fmtlen ",[const struct expr_ftable *restrict " table "],[const struct expr_memtool *restrict " mtl "]," ... ");"
+.BI "ssize_t expr_vwritef[t][_r](expr_writer_t " writer ",intptr_t " fd ",const char *restrict " fmt ",size_t " fmtlen ",expr_argfetch " arg ",intptr_t " addr ",[const struct expr_ftable *restrict " table "],[const struct expr_memtool *restrict " mtl "]);"
+.BI "ssize_t expr_writef[t][_r](expr_writer_t " writer ",intptr_t " fd ",const char *restrict " fmt ",size_t " fmtlen ",const union expr_argf *restrict " args ",size_t " arglen ",[const struct expr_ftable *restrict " table "],[const struct expr_memtool *restrict " mtl "]);"
+.BI "ssize_t expr_vapwritef[t][_r](expr_writer_t " writer ",intptr_t " fd ",const char *restrict " fmt ",size_t " fmtlen ",[const struct expr_ftable *restrict " table "],[const struct expr_memtool *restrict " mtl "],va_list " ap ");"
+.BI "ssize_t expr_apwritef[t][_r](expr_writer_t " writer ",intptr_t " fd ",const char *restrict " fmt ",size_t " fmtlen ",[const struct expr_ftable *restrict " table "],[const struct expr_memtool *restrict " mtl "]," ... ");"
 .BI "ssize_t expr_vsnprintf[t][_r](char *" buf ",size_t " buflen ",const char *restrict " fmt ",size_t " fmtlen ",[const struct expr_ftable *restrict " table "],[const struct expr_memtool *restrict " mtl "],va_list " ap ");"
 .BI "ssize_t expr_snprintf[t][_r](char *" buf ",size_t " buflen ",const char *restrict " fmt ",size_t " fmtlen ",[const struct expr_ftable *restrict " table "],[const struct expr_memtool *restrict " mtl "]," ... ");"
 .BI "ssize_t expr_vasprintf[t][_r](char **" strp ",const char *restrict " fmt ",size_t " fmtlen ",[const struct expr_ftable *restrict " table "],[const struct expr_memtool *restrict " mtl "],va_list " ap ");"

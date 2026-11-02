@@ -239,7 +239,7 @@ void expr_symset_move_s(struct expr_symset *restrict esp,ptrdiff_t off,void *sta
 }
 #define off_sin offsetof(struct expr_symbol_infile,str)
 #define off_str offsetof(struct expr_symbol,str)
-ssize_t expr_symset_write(const struct expr_symset *restrict esp,expr_writer writer,intptr_t fd){
+ssize_t expr_symset_write(const struct expr_symset *restrict esp,expr_writer_t writer,intptr_t fd){
 	STACK_DEFAULT(stack,esp);
 	return expr_symset_write_s(esp,writer,fd,stack);
 }
@@ -250,7 +250,7 @@ ssize_t expr_symset_write(const struct expr_symset *restrict esp,expr_writer wri
 	else if((size_t)r<(size_t)(size))\
 		goto err3;\
 	((void)0)
-ssize_t expr_symset_write_s(const struct expr_symset *restrict esp,expr_writer writer,intptr_t fd,void *stack){
+ssize_t expr_symset_write_s(const struct expr_symset *restrict esp,expr_writer_t writer,intptr_t fd,void *stack){
 	size_t maxlen=0,count;
 	ssize_t r;
 	size_t off;
@@ -339,7 +339,7 @@ ssize_t expr_symset_read(struct expr_symset *restrict esp,const void *buf,size_t
 	}
 	return unlikely((size_t)added<esi->size)?SSIZE_MIN+3:added;
 }
-ssize_t expr_symset_readfd(struct expr_symset *restrict esp,expr_reader reader,intptr_t fd){
+ssize_t expr_symset_readfd(struct expr_symset *restrict esp,expr_reader_t reader,intptr_t fd){
 	struct expr_symset_infile esi[1];
 	struct expr_symbol_infile *ebi;
 	struct expr_symbol *sp;

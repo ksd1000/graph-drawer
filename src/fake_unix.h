@@ -17,17 +17,21 @@
 #define ERRFD (-1)
 #define O_WRONLY_CREAT O_WRONLY|O_CREAT|O_TRUNC,S_IRUSR|S_IWUSR
 static __attribute__((unused)) ssize_t real_read(intptr_t fd,void *buf,size_t size){
-	return (ssize_t)expr_internal_syscall(SYS_read,fd,buf,size);
+	return read((int)fd,buf,size);
 }
 static __attribute__((unused)) ssize_t real_write(intptr_t fd,const void *buf,size_t size){
-	return (ssize_t)expr_internal_syscall(SYS_write,fd,buf,size);
+	return write((int)fd,buf,size);
 }
 static __attribute__((unused)) int real_close(intptr_t fd){
-	return (int)expr_internal_syscall(SYS_close,fd);
+	return close((int)fd);
+}
+static __attribute__((unused)) int real_isatty(intptr_t fd){
+	return isatty((int)fd);
 }
 #define read real_read
 #define write real_write
 #define close real_close
+#define isatty real_isatty
 
 #else
 
@@ -102,6 +106,26 @@ static __attribute__((unused)) ssize_t fake_write(intptr_t fd,const void *buf,si
 	return r;
 }
 #define write fake_write
+static __attribute__((unused)) int fake_isatty(intptr_t fd){
+	int r;
+	switch(fd){
+		case STDIN_FILENO:
+			r=1;
+			break;
+		case STDOUT_FILENO:
+			r=1;
+			break;
+		case STDERR_FILENO:
+			r=1;
+			break;
+		default:
+			r=(fd==(intptr_t)stdin||fd==(intptr_t)stdout||fd==(intptr_t)stderr);
+			break;
+	}
+	return r;
+}
+// ISO C does not provide a way to detect if a FILE refers to a tty.
+#define isatty fake_isatty
 
 #define err(v,fmt,...) ({fprintf(stderr,fmt ":%s\n",##__VA_ARGS__,strerror(errno));exit(v);})
 #define errx(v,fmt,...) ({fprintf(stderr,fmt "\n",##__VA_ARGS__);exit(v);})

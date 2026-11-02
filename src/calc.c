@@ -28,9 +28,6 @@ const char *sysname(unsigned int id);
 #define unlikely(cond) expr_unlikely(cond)
 
 void add_common_symbols(struct expr_symset *);
-static ssize_t linebuf(intptr_t fd,const void *buf,size_t size){
-	return expr_buffered_write_sflushat((struct expr_buffered_file *)fd,buf,size,"\n",1);
-}
 char printfbuf[BUFSIZ];
 char eprintfbuf[BUFSIZ];
 struct expr_buffered_file printff=EXPR_BUFFERED_INITIALIZER(write,STDOUT_FILENO,printfbuf,BUFSIZ);
@@ -39,15 +36,16 @@ static void __attribute__((constructor)) ffstart(void){
 	//expr_setup_mtl(3);
 }
 static void __attribute__((destructor)) ffend(void){
-	expr_buffered_close(&printff);
 	expr_buffered_close(&eprintff);
+	expr_buffered_close(&printff);
 	//expr_setup_mtl(0);
 }
+expr_writer_t io_mode_stdout=expr_buffered_write_iolbf_warped;
 double d_printf(double *args,size_t n){
 	const char *fmt=expr_cast(*args,const char *);
 	size_t flen=strlen(fmt);
 	ssize_t r;
-	r=expr_writef(linebuf,(intptr_t)&printff,fmt,flen,(const union expr_argf *)args+1,n-1);
+	r=expr_writef(io_mode_stdout,(intptr_t)&printff,fmt,flen,(const union expr_argf *)args+1,n-1);
 	return (double)r;
 }
 double d_printl(double *args,size_t n){
@@ -58,7 +56,7 @@ double d_printl(double *args,size_t n){
 }
 double d_printc(double *args,size_t n){
 	ssize_t r;
-	r=expr_writec(linebuf,(intptr_t)&printff,(size_t)args[1],(int)args[0]);
+	r=expr_writec(io_mode_stdout,(intptr_t)&printff,(size_t)args[1],(int)args[0]);
 	return (double)r;
 }
 double d_sscanf(double *args,size_t n){
@@ -553,8 +551,9 @@ double atod2(const char *str){
 }
 const struct option ops[]={
 	{"safe",0,NULL,'p'},
-	{"no-optimize",0,NULL,'n'},
 	{"no-builtin",0,NULL,'N'},
+	{"no-optimize",0,NULL,'n'},
+	{"no-tty",0,NULL,'b'},
 	{"dump",0,NULL,'D'},
 	{"quiet",0,NULL,'q'},
 	{"count",1,NULL,0xff01},
@@ -573,8 +572,9 @@ const struct option ops[]={
 void show_help(const char *a0){
 	fprintf(stdout,"usage: %s [options] expression\n"
 			"\t--safe, -p\twork on protected mode\n"
-			"\t--no-optimize, -n\tdo not optimize\n"
 			"\t--no-builtin, -N\tdo not use builtin symbols\n"
+			"\t--no-optimize, -n\tdo not optimize\n"
+			"\t--no-tty, -b\tassume the stdout does not refer to a tty\n"
 			"\t--dump, -D\tdump mode(do not evaluate)\n"
 			"\t--quiet, -q\tdo not print the result\n"
 			"\t--count count\tevaluate how many times,default 1\n"
@@ -606,6 +606,7 @@ int main(int argc,char **argv){
 	int adbt=0;
 	int nobt=0;
 	int summary=0;
+	int notty=0;
 	int r0;
 	intptr_t fd;
 	enum {NORMAL,STEP,CALLBACK} mode=NORMAL;
@@ -624,7 +625,7 @@ int main(int argc,char **argv){
 	opterr=1;
 	memcpy(extarg,expr_extarg_default,sizeof(extarg));
 	for(;;){
-		switch(getopt_long(argc,argv,"pnDR::Nisckdgf:hqS",ops,NULL)){
+		switch(getopt_long(argc,argv,"pnbDR::Nisckdgf:hqS",ops,NULL)){
 			case 'p':
 				flag|=EXPR_IPROTECT;
 				break;
@@ -633,6 +634,9 @@ int main(int argc,char **argv){
 				break;
 			case 'N':
 				nobt=1;
+				break;
+			case 'b':
+				notty=1;
 				break;
 			case 'i':
 				flag|=EXPR_IPURE;
@@ -716,6 +720,10 @@ break2:
 		e=rbuf;
 	}
 break3:
+	if(!notty)
+		notty=!isatty(STDOUT_FILENO);
+	if(notty)
+		io_mode_stdout=expr_buffered_write_warped;
 	es=expr_symset_new();
 	if(!es)
 		err(EXIT_FAILURE,"cannot allocate memory");
@@ -804,7 +812,4 @@ break3:
 		pall();
 	}
 	return EXIT_SUCCESS;
-}
-ssize_t vasprintft_r(char **strp,const char *restrict fmt,size_t fmtlen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl,va_list ap){
-	return expr_vasprintft_r(strp,fmt,fmtlen,table,mtl,ap);
 }

@@ -2,8 +2,8 @@
 echo typedef expr_t = double\;
 echo typedef expr_it = long\;
 echo typedef expr_ut = ulong\;
-echo typedef expr_reader = void *\;
-echo typedef expr_writer = void *\;
+echo typedef expr_reader_t = void *\;
+echo typedef expr_writer_t = void *\;
 echo typedef expr_argfetch = void *\;
 echo typedef expr_allocator_type = void *\;
 echo typedef expr_reallocator_type = void *\;

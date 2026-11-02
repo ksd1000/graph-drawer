@@ -78,6 +78,9 @@ void psymbol(int type,int flag,size_t dim,const char *str,const union expr_symva
 		printf("%s\n",t2s[type]);
 }
 void list(void){
+	psize(size_t);
+	psize(ssize_t);
+	psize(expr_t);
 	psize(struct expr);
 	psize(struct expr_inst);
 	psize(struct expr_suminfo);

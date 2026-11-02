@@ -30,7 +30,24 @@ expr_static_assert((!0)==1);
 
 #if !defined(ssize_t)&&!defined(_SSIZE_T_DEFINED_)&&!defined(_SSIZE_T_DEFINED)&&!defined(SSIZE_T_DEFINED)&&!defined(HAVE_SSIZE_T)&&!defined(__ssize_t_defined)&&!defined(_SYS_TYPES_H_)&&!defined(_SYS_TYPES_H)&&!defined(SYS_TYPES_H)
 
-typedef ptrdiff_t ssize_t;
+typedef
+#ifdef __SIZEOF_SIZE_T__
+#if __SIZEOF_SIZE_T__==8
+int64_t
+#elif __SIZEOF_SIZE_T__==4
+int32_t
+#elif __SIZEOF_SIZE_T__==2
+int16_t
+#elif __SIZEOF_SIZE_T__==1
+int8_t
+#else
+ptrdiff_t
+#endif
+#else
+ptrdiff_t
+#endif
+ssize_t;
+
 #define _SSIZE_T_DEFINED_ 1
 #define _SSIZE_T_DEFINED 1
 #define __ssize_t_defined 1
@@ -47,10 +64,6 @@ expr_static_assert(sizeof(ssize_t)==sizeof(size_t));
 #ifndef SSIZE_MIN
 #define SSIZE_MIN ((ssize_t)((SIZE_MAX>>1)+1))
 #endif
-
-expr_static_assert(sizeof(ssize_t)==sizeof(ptrdiff_t));
-expr_static_assert(sizeof(size_t)==sizeof(ptrdiff_t));
-expr_static_assert(sizeof(void *)==sizeof(ptrdiff_t));
 
 #ifndef expr_noinline
 #define expr_noinline __attribute__((noinline))

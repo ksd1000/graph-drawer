@@ -73,6 +73,9 @@ ssize_t;
 
 expr_static_assert(sizeof(ssize_t)==sizeof(size_t));
 expr_static_assert(expr_issigned(ssize_t));
+expr_static_assert(SSIZE_MIN<0);
+expr_static_assert(SSIZE_MAX>0);
+expr_static_assert((size_t)SSIZE_MIN==(size_t)SSIZE_MAX+1);
 
 #ifndef expr_t
 #define expr_t double

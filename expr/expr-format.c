@@ -1245,6 +1245,7 @@ ssize_t expr_vwriteft_r(expr_writer_t writer,intptr_t fd,const char *restrict fm
 	index=0;
 	forward=0;
 	arrwid=0;
+	next_saved=0;
 #define wf_return(retval) {fmtlen=(size_t)(retval);xfree(wsp);return (ssize_t)fmtlen;}
 #define wf_returnc(retval) {xfree(wsp);return (ssize_t)(retval);}
 #define wf_trywrite(buf,sz) {\
@@ -1831,19 +1832,23 @@ static const union expr_argf *ap_getarg(ptrdiff_t index,const struct expr_writef
 	if(useaddr){
 		type=EXPR_FLAGTYPE_ADDR;
 	}
-	a->save->uint=0;
+	//a->save->uint=0;
 	switch(type){
 		case EXPR_FLAGTYPE_DOUBLE:
 			a->save->dbl=va_arg(a->ap,double);
+			debug("value:%lf",a->save->dbl);
 			break;
 		case EXPR_FLAGTYPE_ADDR:
 			a->save->addr=va_arg(a->ap,void *);
+			debug("value:%p",a->save->addr);
 			break;
 		case EXPR_FLAGTYPE_SSIZE:
 			a->save->tint=va_arg(a->ap,ssize_t);
+			debug("value:%zd",a->save->tint);
 			break;
 		case EXPR_FLAGTYPE_SIZE:
 			a->save->zint=va_arg(a->ap,size_t);
+			debug("value:%zu",a->save->zint);
 			break;
 		case EXPR_FLAGTYPE_SIGNED:
 			switch(flag->argsize){
@@ -1854,6 +1859,7 @@ static const union expr_argf *ap_getarg(ptrdiff_t index,const struct expr_writef
 					a->save->sint=va_arg(a->ap,expr_it);
 					break;
 			}
+			debug("value:%ld",a->save->sint);
 			break;
 		case EXPR_FLAGTYPE_UNSIGNED:
 			switch(flag->argsize){
@@ -1864,6 +1870,7 @@ static const union expr_argf *ap_getarg(ptrdiff_t index,const struct expr_writef
 					a->save->uint=va_arg(a->ap,expr_ut);
 					break;
 			}
+			debug("value:%lu",a->save->uint);
 			break;
 		default:
 			__builtin_unreachable();

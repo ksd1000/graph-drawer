@@ -610,16 +610,16 @@ static double expr_destruct(double *args,size_t n){
 static ssize_t readstream(intptr_t fd,void *buf,size_t size){
 	ssize_t r;
 	errno=0;
-	r=fread(buf,1,size,(FILE *)fd);
+	r=(ssize_t)fread(buf,1,size,(FILE *)fd);
 	if(unlikely(errno))
-		return (double)-errno;
+		return (ssize_t)-errno;
 	return r;
 }
 static double expr_falloc(double *args,size_t n){
 	intptr_t fd;
 	ssize_t r;
 	void *p;
-	fd=fopen(cast(args[0],const char *),"rb");
+	fd=(intptr_t)fopen(cast(args[0],const char *),"rb");
 	if(!fd)
 		return 0.0;
 	r=expr_file_readfd_r(readstream,fd,1,&p,expr_defmtl);

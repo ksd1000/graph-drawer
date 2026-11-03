@@ -1181,16 +1181,17 @@ struct expr_vwritef_workspace {
 	const char *_delim,*_tail,*_d1;
 	size_t _delimsz,_tailsz,_arrlen;
 	size_t _loop;
-	struct expr_writeflag _flag[1];
 	const char *_fmt_save[8];
 	const char **_fmt_save_current;
+	ptrdiff_t _index;
+	struct expr_writeflag _flag[1];
 	union {
 		const union expr_argf *_arg_cur;
 		union expr_argf _old;
 		uintptr_t _aps;
 	};
 	union expr_argf _save;
-	ptrdiff_t _index;
+	expr_ut _val,_mask;
 	uint8_t _forward,_arrwid,_current,_r1;
 };
 #undef xmtl
@@ -1224,6 +1225,8 @@ ssize_t expr_vwriteft_r(expr_writer_t writer,intptr_t fd,const char *restrict fm
 #define arg_cur wsp->_arg_cur
 #define aps wsp->_aps
 #define old wsp->_old
+#define val wsp->_val
+#define mask wsp->_mask
 	wsp=xmalloc(sizeof(struct expr_vwritef_workspace));
 	if(unlikely(!wsp)){
 		return SSIZE_MIN+1;
@@ -1635,7 +1638,6 @@ wfp_get:
 				fmt_dorepeat((const union expr_argf *)&save);
 				forward=0;
 			}else if(arrlen){
-				expr_ut val,mask;
 				if(!arrwid){
 					arrwid=(uint8_t)flag->argsize;
 					if(unlikely(arrwid>sizeof(union expr_argf)))
@@ -1663,18 +1665,21 @@ switch(wfp->type){
 				}
 				flag->argsize=sizeof(void *);
 				aps=arg1->upint;
-				mask=(UINT64_MAX>>(64-(int)arrwid*8));
+				mask=(EXPR_UMAX>>((int)sizeof(expr_ut)*8-(int)arrwid*8));
 				argnext1;
 				for(;;){
-					if(arrwid<8){
-						bit_copy(&val,(const void *)aps,arrwid);
+#if (!defined(__BIG_ENDIAN__)||!(__BIG_ENDIAN__))
+					bit_copy(&val,(const void *)aps,arrwid);
+#else
+					bit_copy((void *)&val+((uint8_t)sizeof(expr_ut)-arrwid),(const void *)aps,arrwid);
+#endif
+					if(arrwid<(uint8_t)sizeof(expr_ut)){
 						if(wfp->type==EXPR_FLAGTYPE_SIGNED&&
-						(val&(UINT64_C(0x80)<<((arrwid-1)*8))))
-							val=(~UINT64_C(0)&~mask)|(val&mask);
+						(val&((expr_ut)0x80u<<((arrwid-1)*8))))
+							val=(((expr_ut)-1)&~mask)|(val&mask);
 						else
 							val&=mask;
-					}else
-						val=*(uint64_t *)aps;
+					}
 					fmt_once((const union expr_argf *)&val);
 					if(tailsz){
 						wf_trywrite(tail,tailsz);
@@ -1734,6 +1739,8 @@ end:
 #undef arg_cur
 #undef aps
 #undef old
+#undef val
+#undef mask
 }
 #undef arg1
 #undef argt

@@ -25,6 +25,9 @@ __BEGIN_DECLS
 #define expr_static_assert(cond) _Static_assert((cond),"static assertion " #cond " failed")
 
 expr_static_assert((!0)==1);
+// avoid the compiler implements !0 as other nonzero number.
+
+expr_static_assert((uint32_t)-1==(uint32_t)0xffffffff);
 
 #define expr_issigned(T) ((__typeof__(T))-1<(__typeof__(T))0)
 

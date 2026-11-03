@@ -83,7 +83,8 @@ ssize_t expr_buffered_write(struct expr_buffered_file *restrict fp,const void *b
 		fp->written+=(size_t)r;
 		return 0;
 	}
-	if(unlikely(size>SSIZE_MAX)){
+	if(unlikely(size>(size_t)SSIZE_MAX)){
+		debug("drop %zu bytes",fp->index);
 		expr_buffered_drop(fp);
 		return 0;
 	}
@@ -165,7 +166,7 @@ ssize_t expr_buffered_write_warped(intptr_t fd,const void *buf,size_t size){
 ssize_t expr_buffered_read(struct expr_buffered_file *restrict fp,void *buf,size_t size,const struct expr_test *restrict test){
 	size_t i;
 	ssize_t r;
-	if(unlikely(size>SSIZE_MAX)){
+	if(unlikely(size>(size_t)SSIZE_MAX)){
 		if(size==SIZE_MAX){
 			i=fp->index-fp->written;
 			expr_buffered_rdrop(fp);
@@ -301,7 +302,13 @@ ssize_t expr_buffered_read_warped(intptr_t fd,void *buf,size_t size){
 #define flushat_common(rcfetch,rcinc) \
 	ssize_t r,ret;\
 	size_t n;\
-	uintptr_t rc=(uintptr_t)(rcfetch);\
+	uintptr_t rc;\
+	if(unlikely(size>(size_t)SSIZE_MAX)){\
+		debug("drop %zu bytes",fp->index);\
+		expr_buffered_drop(fp);\
+		return 0;\
+	}\
+	rc=(uintptr_t)(rcfetch);\
 	if(!rc){\
 		debug("no flush point found");\
 		return expr_buffered_write(fp,buf,size);\
@@ -334,6 +341,11 @@ ssize_t expr_buffered_write_flushat(struct expr_buffered_file *restrict fp,const
 	ssize_t r,ret=0;\
 	size_t n;\
 	uintptr_t rc;\
+	if(unlikely(size>(size_t)SSIZE_MAX)){\
+		debug("drop %zu bytes",fp->index);\
+		expr_buffered_drop(fp);\
+		return 0;\
+	}\
 	do {\
 		rc=(uintptr_t)(rcfetch);\
 		if(!rc){\

@@ -25,7 +25,13 @@ __BEGIN_DECLS
 #define expr_static_assert(cond) _Static_assert((cond),"static assertion " #cond " failed")
 
 expr_static_assert((!0)==1);
-// avoid the compiler implements !0 as other nonzero number.
+expr_static_assert((1||1)==1);
+expr_static_assert((1||0)==1);
+expr_static_assert((0||1)==1);
+expr_static_assert((1&&1)==1);
+expr_static_assert((1==1)==1);
+expr_static_assert((1!=0)==1);
+// avoid the compiler implements TRUE as other nonzero number.
 
 expr_static_assert((uint32_t)-1==(uint32_t)0xffffffff);
 expr_static_assert(sizeof(char)==sizeof(uint8_t));
@@ -158,6 +164,55 @@ struct expr_test {
 	expr_test_t test;
 	intptr_t arg;
 };
+
+struct expr_list {
+	struct expr_list *next;
+	struct expr_list *prev;
+};
+// place next before prev, for faster when travel through.
+
+#define expr_list_zero(node) ({\
+	struct expr_list *restrict _np=(node);\
+	_np->next=NULL;\
+	_np->prev=NULL;\
+})
+#define expr_list_detach(node) ({\
+	struct expr_list *restrict _np=(node);\
+	if(_np->next)\
+		_np->next->prev=_np->prev;\
+	if(_np->prev)\
+		_np->prev->next=_np->next;\
+})
+// node->prev/next will not be set to NULL, for it will usually be freed.
+#define expr_list_insert(list,node,mode,mirror_mode) ({\
+	struct expr_list *_lp=(list);\
+	struct expr_list *_np=(node);\
+	struct expr_list *_lp1;\
+	_lp1=_lp->mode;\
+	if(_lp1){\
+		_lp1->mirror_mode=_np;\
+	}\
+	_lp->mode=_np;\
+	_np->mirror_mode=_lp;\
+	_np->mode=_lp1;\
+})
+#define expr_list_isempty(node) ({\
+	struct expr_list *restrict _np=(node);\
+	!_np->next&&!_np->prev;\
+})
+
+#define expr_list_insert_prev(list,node) expr_list_insert(list,node,prev,next)
+#define expr_list_insert_next(list,node) expr_list_insert(list,node,next,prev)
+
+#define expr_list_foreach_ro(var,list) for(__typeof__(list) var=(list);var;var=var->next)
+#define expr_list_foreach_rw(var,list) for(__typeof__(list) var=(list),__inloop_next=(expr_likely(var)?var->next:NULL);var;var=__inloop_next,({if(__inloop_next)__inloop_next=__inloop_next->next;}))
+
+#define expr_host(addr,T,field) ((__typeof__(T) *)((uintptr_t)(addr)-offsetof(__typeof__(T),field)))
+#define expr_autohost(addr,T,field) ({\
+	uintptr_t _addr=(uintptr_t)(addr);\
+	expr_likely(_addr)?expr_host(_addr,T,field):(__typeof__(T) *)NULL;\
+})
+
 #ifndef EXPR_EXPAND_SIZE
 #define EXPR_EXPAND_SIZE 16
 #endif
@@ -165,6 +220,7 @@ void *expr_allocator_default(size_t size,intptr_t arg);
 void *expr_reallocator_default(void *old,size_t size,intptr_t arg);
 void expr_deallocator_default(void *old,intptr_t arg);
 extern struct expr_memtool expr_defmtl[1];
+extern struct expr_memtool expr_globalmtl[1];
 extern size_t expr_allocate_max;
 
 #define expr_internal_strlen(s) ({const char *_s=(s);(size_t)((const char *)expr_internal_memchr2(_s,0)-_s);})
@@ -184,6 +240,12 @@ void expr_deallocator_default(void *old,intptr_t arg){\
 	free(old);\
 }\
 struct expr_memtool expr_defmtl[1]={{\
+	.allocate=expr_allocator_default,\
+	.reallocate=expr_reallocator_default,\
+	.deallocate=expr_deallocator_default,\
+	.arg=0,\
+}};\
+struct expr_memtool expr_globalmtl[1]={{\
 	.allocate=expr_allocator_default,\
 	.reallocate=expr_reallocator_default,\
 	.deallocate=expr_deallocator_default,\

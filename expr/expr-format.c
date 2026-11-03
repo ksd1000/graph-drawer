@@ -165,6 +165,17 @@ ssize_t expr_converter_common(expr_writer_t writer,intptr_t fd,const void *buf,s
 	cwrite_common0(buf);
 #undef sz
 }
+
+#ifndef EXPR_FORMAT_IGNORE_ZERO_WITH_MINUS
+#define EXPR_FORMAT_IGNORE_ZERO_WITH_MINUS 1
+#endif
+
+#if (EXPR_FORMAT_IGNORE_ZERO_WITH_MINUS)
+#define disable_zero_with_minus() ({if(unlikely(flag->minus))flag->zero=0;})
+#else
+#define disable_zero_with_minus() ((void)0)
+#endif
+
 #define write_val10_to_p(val) \
 	do {\
 		*(--p)=(char)('0'+val%10);\
@@ -206,6 +217,8 @@ static ssize_t converter_d(expr_writer_t writer,intptr_t fd,const union expr_arg
 		default:
 			__builtin_unreachable();
 	}
+	disable_zero_with_minus();
+	// the C standard forces the formatter to ignore '0' when '-' is set in number conversion.
 	cwrite_common(p,(endp-p));
 }
 static ssize_t converter_size(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
@@ -259,6 +272,7 @@ no_digit:
 		*(--p)='+';
 	else if(flag_space(flag))
 		*(--p)=' ';
+	disable_zero_with_minus();
 	cwrite_common(p,(endp-p));
 }
 static const char conv_btox[]={"0123456789abcdefx"};
@@ -309,6 +323,7 @@ static ssize_t converter_xu(expr_writer_t writer,intptr_t fd,const union expr_ar
 		default:
 			__builtin_unreachable();
 	}
+	disable_zero_with_minus();
 	cwrite_common(p,(endp-p));
 }
 #define conv_x(name,base) \
@@ -373,6 +388,7 @@ static ssize_t converteru_##_name(expr_writer_t writer,intptr_t fd,const union e
 	const char *_conv_str=flag->cap?conv_btoX:conv_btox;\
 	uint32_t baseodd;\
 	_start;\
+	disable_zero_with_minus();\
 	if(unlikely(!expr_isfinite(val))){\
 		p=nbuf;\
 		write_sign_to_p(EXPR_EDSIGN(&val));\
@@ -747,13 +763,6 @@ static ssize_t faction_g(expr_writer_t writer,intptr_t fd,const union expr_argf 
 	return ((val==0.0||((vl=log10_floor_inaccurate(val))>=-4&&vl<(ssize_t)flag_digit(flag,6)))?
 	converter_xaa:converter_fe)(writer,fd,arg,((void)(flag->eq=1),flag));
 }
-static ssize_t faction_G(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
-	double val=fabs(arg->dbl);
-	ssize_t vl;
-	return ((val==0.0||((vl=log10_floor_inaccurate(val))>=-4&&vl<(ssize_t)flag_digit(flag,6)))?
-	converter_xaa:converter_fe)(writer,fd,arg,((void)(flag->eq=1),flag));
-}
-
 #endif
 static ssize_t faction_s(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	size_t len;
@@ -832,10 +841,11 @@ static ssize_t faction_escape(expr_writer_t writer,intptr_t fd,const union expr_
 	size=(size_t)flag->digit;
 	sum=0;
 	ext=(ssize_t)flag_width(flag,0);
-	if(ext&&!flag->minus){
+	if((ext||flag->plus)&&!flag->minus){
 		if(unlikely(size>(size_t)SSIZE_MAX/4))
 			return SSIZE_MIN+1;
 		index=size*4;
+		// the C standard forces the formatter to pad with spaces or zeros before the conversion in output content, which the number of cannot be predicted here. assuming the worst case.
 		buf=xmalloc(index);
 		// '\1' ->'\\001'
 		if(unlikely(!buf))
@@ -862,12 +872,16 @@ static ssize_t faction_escape(expr_writer_t writer,intptr_t fd,const union expr_
 		c_trywrite("\"",1);
 	}
 	if(likely(size)){
-		buf=xmalloc(EXPR_WCBUFSIZE);
+		if(size<(EXPR_WCBUFSIZE+3)/4)
+			buf=xmalloc(size*4);
+		else
+			buf=xmalloc(EXPR_WCBUFSIZE);
 		if(unlikely(!buf))
 			return SSIZE_MIN+1;
 		datap=arg->addr;
 		for(;;){
 			r=(ssize_t)expr_strwrite(datap,size,buf,EXPR_WCBUFSIZE,&index);
+			// if buf has the size of initial_size*4, the redzone will never be used by expr_strwrite(). it is safe.
 			c_trywrite3(buf,r,xfree(buf);return r);
 			size-=index;
 			if(unlikely(!size))
@@ -993,7 +1007,7 @@ const struct expr_writefmt expr_writefmts_default[]={
 
 	fmtc_register(converter_fe,1,EXPR_FLAGTYPE_DOUBLE,'e'),
 	fmtc_register(faction_g,1,EXPR_FLAGTYPE_DOUBLE,'g'),
-	fmtc_register(faction_G,1,EXPR_FLAGTYPE_DOUBLE,'G'),
+	fmtc_register(faction_g,1,EXPR_FLAGTYPE_DOUBLE,'G'),
 #define FLTIDX(n) n
 #else
 #define FLTIDX(n) 0

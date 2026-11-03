@@ -54,8 +54,7 @@ size_t expr_strscan(const char *restrict s,size_t sz,char *restrict buf,size_t o
 	const char *p,*endp=s+sz;
 	char *buf0=(char *)buf;
 	uint8_t v,v1;
-	char *oend;
-	oend=buf0+outsz;
+	char *oend=buf0+outsz;
 	while(s<endp&&buf<oend)switch(*s){
 		case '\\':
 			if(unlikely(s+1>=endp))
@@ -155,6 +154,100 @@ dflt:
 			break;
 	}
 no_enough_size:
+	return (size_t)(buf-buf0);
+}
+#define PRINTABLE_CHARS \
+	0x20 ... 0x21:\
+	case 0x23 ... 0x26:\
+	case 0x28 ... 0x5b:\
+	case 0x5d ... 0x7e
+size_t expr_strwrite(const char *restrict s,size_t sz,char *restrict buf,size_t outsz,size_t *restrict end_index){
+	const char *endp=s+sz;
+	char *buf0=(char *)buf;
+	char *oend=buf0+outsz;
+	uint8_t v;
+	uint8_t odig[3];
+#define safe_put(c) ({\
+	if(unlikely(buf>=oend)){\
+		goto end;\
+	}\
+	*(buf++)=(char)(c);\
+})
+	for(;s<endp;){
+		v=(uint8_t)*s;
+		assume(v<=(uint8_t)0xff);
+		switch(v){
+			case PRINTABLE_CHARS:
+				safe_put(v);
+				break;
+	#define special_escape(before,after)\
+			case before:\
+				if(buf+1>=oend)\
+					goto end;\
+				*(buf++)=(char)'\\';\
+				*(buf++)=(char)(after);\
+				break
+			special_escape('\a','a');
+			special_escape('\b','b');
+			special_escape('\t','t');
+			special_escape('\n','n');
+			special_escape('\v','v');
+			special_escape('\f','f');
+			special_escape('\r','r');
+			special_escape('\\','\\');
+			default:
+				if(s+1<endp&&(uint8_t)(s[1]-(char)'0')<(uint8_t)8){
+					if(unlikely(buf+3>=oend))
+						goto end;
+					*(buf++)=(char)'\\';
+					if(v>=(uint8_t)'\100'){
+						*(buf++)=(char)((v>>(uint8_t)6)+(uint8_t)'0');
+						v&=(uint8_t)'\077';
+					}else {
+						*(buf++)=(char)'0';
+					}
+					*(buf++)=(char)((v>>(uint8_t)3)+(uint8_t)'0');
+					*(buf++)=(char)((v&(uint8_t)7)+(uint8_t)'0');
+					break;
+				}
+				// output fewest characters
+				if(v>=(uint8_t)'\100'){
+					odig[0]=(uint8_t)((v>>(uint8_t)6));
+					v&=(uint8_t)'\077';
+				}else {
+					odig[0]=0;
+				}
+				odig[1]=(uint8_t)((v>>(uint8_t)3));
+				odig[2]=(uint8_t)((v&(uint8_t)7));
+				if(odig[0]){
+					if(unlikely(buf+3>=oend))
+						goto end;
+					*(buf++)=(char)'\\';
+					*(buf++)=(char)odig[0]+(char)'0';
+					*(buf++)=(char)odig[1]+(char)'0';
+					*(buf++)=(char)odig[2]+(char)'0';
+					break;
+				}
+				if(odig[1]){
+					if(unlikely(buf+2>=oend))
+						goto end;
+					*(buf++)=(char)'\\';
+					*(buf++)=(char)odig[1]+(char)'0';
+					*(buf++)=(char)odig[2]+(char)'0';
+					break;
+				}
+				if(unlikely(buf+2>=oend))
+					goto end;
+				*(buf++)=(char)'\\';
+				*(buf++)=(char)odig[2]+(char)'0';
+				break;
+		}
+		++s;
+	}
+end:
+	if(buf<oend)
+		*buf=0;
+	*end_index=(size_t)(s-(endp-sz));
 	return (size_t)(buf-buf0);
 }
 

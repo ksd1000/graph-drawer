@@ -251,6 +251,7 @@ static void checkfmts(void){
 	checkfmt("null","%p",NULL);
 	checkfmt("1.5m","%=.-1m",(expr_ut)1024*1536);
 	checkfmt("1.7M","%.1M",(expr_ut)1024*1792);
+	checkfmt("aa\\1b\\0021\\2\\68\\n","%.10E","aa\1b\2\61\2\68\n");
 	printf("fotmat check ok\n");
 }
 static int keyword_diff(const char *str,size_t len,const struct expr_builtin_keyword *restrict s){

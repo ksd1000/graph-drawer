@@ -28,6 +28,7 @@ expr_static_assert((!0)==1);
 // avoid the compiler implements !0 as other nonzero number.
 
 expr_static_assert((uint32_t)-1==(uint32_t)0xffffffff);
+expr_static_assert(sizeof(char)==sizeof(uint8_t));
 
 #define expr_issigned(T) ((__typeof__(T))-1<(__typeof__(T))0)
 
@@ -1994,6 +1995,7 @@ extern const uint8_t expr_writefmts_default_size;
 extern const struct expr_ftable expr_ftable_default[1];
 //global functions of expr-internal.c :
 size_t expr_strscan(const char *restrict s,size_t sz,char *restrict buf,size_t outsz);
+size_t expr_strwrite(const char *restrict s,size_t sz,char *restrict buf,size_t outsz,size_t *restrict end_index);
 void expr_memcontract(void *buf,size_t size);
 void expr_explode_r(void (*contractor)(void *,size_t),size_t max,const struct expr_memtool *restrict mtl);
 size_t expr_extint_left(uint64_t *buf,size_t size,uint64_t bits);

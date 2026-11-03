@@ -304,9 +304,7 @@ ssize_t expr_buffered_read_warped(intptr_t fd,void *buf,size_t size){
 	size_t n;\
 	uintptr_t rc;\
 	if(unlikely(size>(size_t)SSIZE_MAX)){\
-		debug("drop %zu bytes",fp->index);\
-		expr_buffered_drop(fp);\
-		return 0;\
+		return expr_buffered_write(fp,buf,size);\
 	}\
 	rc=(uintptr_t)(rcfetch);\
 	if(!rc){\
@@ -342,9 +340,7 @@ ssize_t expr_buffered_write_flushat(struct expr_buffered_file *restrict fp,const
 	size_t n;\
 	uintptr_t rc;\
 	if(unlikely(size>(size_t)SSIZE_MAX)){\
-		debug("drop %zu bytes",fp->index);\
-		expr_buffered_drop(fp);\
-		return 0;\
+		return expr_buffered_write(fp,buf,size);\
 	}\
 	do {\
 		rc=(uintptr_t)(rcfetch);\

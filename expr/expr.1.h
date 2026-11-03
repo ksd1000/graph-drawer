@@ -28,6 +28,7 @@ expr_static_assert((!0)==1);
 // avoid the compiler implements !0 as other nonzero number.
 
 expr_static_assert((uint32_t)-1==(uint32_t)0xffffffff);
+expr_static_assert(sizeof(char)==sizeof(uint8_t));
 
 #define expr_issigned(T) ((__typeof__(T))-1<(__typeof__(T))0)
 

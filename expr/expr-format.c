@@ -76,10 +76,24 @@ expr_static_assert(TRUNC_CODE<0);
 	r=writeext(writer,fd,(size_t)(sz),(c));\
 	if(unlikely(r<0))\
 		return r;\
+	if(unlikely(r<(ssize_t)(sz))){\
+		return TRUNC_CODE;\
+	}\
+	sum+=r;\
+}
+#define c_trywriteext3(c,sz,onerr) {\
+	r=writeext(writer,fd,(size_t)(sz),(c));\
+	if(unlikely(r<0)){\
+		onerr;\
+	}\
+	if(unlikely(r<(ssize_t)(sz))){\
+		r=TRUNC_CODE;\
+		onerr;\
+	}\
 	sum+=r;\
 }
 #define xmtl mtl
-#define EXPR_WCBUFSIZE 1024
+#define EXPR_WCBUFSIZE 512
 ssize_t expr_writec_r(expr_writer_t writer,intptr_t fd,size_t count,int c,const struct expr_memtool *restrict mtl){
 	char *buf;
 	ssize_t r,sum;
@@ -810,6 +824,69 @@ static ssize_t faction_h(expr_writer_t writer,intptr_t fd,const union expr_argf 
 	xfree(buf);
 	return r;
 }
+expr_static_assert(EXPR_WCBUFSIZE>=4);
+static ssize_t faction_escape(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+	char *buf,*datap;
+	size_t size,index;
+	ssize_t r,sum,ext;
+	size=(size_t)flag->digit;
+	sum=0;
+	ext=(ssize_t)flag_width(flag,0);
+	if(ext&&!flag->minus){
+		if(unlikely(size>(size_t)SSIZE_MAX/4))
+			return SSIZE_MIN+1;
+		index=size*4;
+		buf=xmalloc(index);
+		// '\1' ->'\\001'
+		if(unlikely(!buf))
+			return SSIZE_MIN+1;
+		index=expr_strwrite(arg->addr,size,buf,index,&index);
+		ext-=(ssize_t)index;
+		if(flag->sharp){
+			ext-=2;
+		}
+		if(ext>0){
+			c_trywriteext3((flag->zero)?'0':' ',ext,xfree(buf);return r);
+		}
+		if(flag->sharp){
+			c_trywrite3("\"",1,xfree(buf);return r);
+		}
+		c_trywrite3(buf,index,xfree(buf);return r);
+		if(flag->sharp){
+			c_trywrite3("\"",1,xfree(buf);return r);
+		}
+		xfree(buf);
+		return sum;
+	}
+	if(flag->sharp){
+		c_trywrite("\"",1);
+	}
+	if(likely(size)){
+		buf=xmalloc(EXPR_WCBUFSIZE);
+		if(unlikely(!buf))
+			return SSIZE_MIN+1;
+		datap=arg->addr;
+		for(;;){
+			r=(ssize_t)expr_strwrite(datap,size,buf,EXPR_WCBUFSIZE,&index);
+			c_trywrite3(buf,r,xfree(buf);return r);
+			size-=index;
+			if(unlikely(!size))
+				break;
+			datap+=index;
+		}
+		xfree(buf);
+	}
+	if(flag->sharp){
+		c_trywrite("\"",1);
+	}
+	if(flag->minus){
+		ext-=sum;
+		if(ext>0){
+			c_trywriteext((flag->zero)?'0':' ',ext);
+		}
+	}
+	return sum;
+}
 static ssize_t faction_c(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	ssize_t r,sum,ext,sz;
 	cwrite_common(&arg->ch,(ssize_t)1);
@@ -877,6 +954,7 @@ const struct expr_writefmt expr_writefmts_default[]={
 	fmtc_register(faction_P,1,EXPR_FLAGTYPE_ADDR,'P'),
 	fmtc_register(faction_h,2,EXPR_FLAGTYPE_ADDR,'h'),
 	fmtc_register(faction_h,2,EXPR_FLAGTYPE_ADDR,'H'),
+	fmtc_register(faction_escape,2,EXPR_FLAGTYPE_ADDR,'E'),
 	fmtc_register(converter_size,1,EXPR_FLAGTYPE_UNSIGNED,'m'),
 	fmtc_register(converter_size,1,EXPR_FLAGTYPE_UNSIGNED,'M'),
 
@@ -914,7 +992,6 @@ const struct expr_writefmt expr_writefmts_default[]={
 	fmtc_register(converter_xaf,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xbf'),
 
 	fmtc_register(converter_fe,1,EXPR_FLAGTYPE_DOUBLE,'e'),
-	fmtc_register(converter_fe,1,EXPR_FLAGTYPE_DOUBLE,'E'),
 	fmtc_register(faction_g,1,EXPR_FLAGTYPE_DOUBLE,'g'),
 	fmtc_register(faction_G,1,EXPR_FLAGTYPE_DOUBLE,'G'),
 #define FLTIDX(n) n
@@ -987,40 +1064,40 @@ const struct expr_ftable expr_ftable_default[1]={{
 ['P']=28,
 ['h']=29,
 ['H']=30,
-['m']=31,
-['M']=32,
-[(uint8_t)'\xa1']=FLTIDX(33),['a']=FLTIDX(33),
-[(uint8_t)'\xa2']=FLTIDX(34),
-[(uint8_t)'\xa3']=FLTIDX(35),
-[(uint8_t)'\xa4']=FLTIDX(36),
-[(uint8_t)'\xa5']=FLTIDX(37),
-[(uint8_t)'\xa6']=FLTIDX(38),
-[(uint8_t)'\xa7']=FLTIDX(39),
-[(uint8_t)'\xa8']=FLTIDX(40),
-[(uint8_t)'\xa9']=FLTIDX(41),
-[(uint8_t)'\xaa']=FLTIDX(42),['f']=FLTIDX(42),
-[(uint8_t)'\xab']=FLTIDX(43),
-[(uint8_t)'\xac']=FLTIDX(44),
-[(uint8_t)'\xad']=FLTIDX(45),
-[(uint8_t)'\xae']=FLTIDX(46),
-[(uint8_t)'\xaf']=FLTIDX(47),
-[(uint8_t)'\xb1']=FLTIDX(48),['A']=FLTIDX(48),
-[(uint8_t)'\xb2']=FLTIDX(49),['B']=FLTIDX(49),
-[(uint8_t)'\xb3']=FLTIDX(50),
-[(uint8_t)'\xb4']=FLTIDX(51),
-[(uint8_t)'\xb5']=FLTIDX(52),
-[(uint8_t)'\xb6']=FLTIDX(53),
-[(uint8_t)'\xb7']=FLTIDX(54),
-[(uint8_t)'\xb8']=FLTIDX(55),['O']=FLTIDX(55),
-[(uint8_t)'\xb9']=FLTIDX(56),
-[(uint8_t)'\xba']=FLTIDX(57),['F']=FLTIDX(57),
-[(uint8_t)'\xbb']=FLTIDX(58),
-[(uint8_t)'\xbc']=FLTIDX(59),
-[(uint8_t)'\xbd']=FLTIDX(60),
-[(uint8_t)'\xbe']=FLTIDX(61),
-[(uint8_t)'\xbf']=FLTIDX(62),
-['e']=FLTIDX(63),
-['E']=FLTIDX(64),
+['E']=31,
+['m']=32,
+['M']=33,
+[(uint8_t)'\xa1']=FLTIDX(34),['a']=FLTIDX(34),
+[(uint8_t)'\xa2']=FLTIDX(35),
+[(uint8_t)'\xa3']=FLTIDX(36),
+[(uint8_t)'\xa4']=FLTIDX(37),
+[(uint8_t)'\xa5']=FLTIDX(38),
+[(uint8_t)'\xa6']=FLTIDX(39),
+[(uint8_t)'\xa7']=FLTIDX(40),
+[(uint8_t)'\xa8']=FLTIDX(41),
+[(uint8_t)'\xa9']=FLTIDX(42),
+[(uint8_t)'\xaa']=FLTIDX(43),['f']=FLTIDX(43),
+[(uint8_t)'\xab']=FLTIDX(44),
+[(uint8_t)'\xac']=FLTIDX(45),
+[(uint8_t)'\xad']=FLTIDX(46),
+[(uint8_t)'\xae']=FLTIDX(47),
+[(uint8_t)'\xaf']=FLTIDX(48),
+[(uint8_t)'\xb1']=FLTIDX(49),['A']=FLTIDX(49),
+[(uint8_t)'\xb2']=FLTIDX(50),['B']=FLTIDX(50),
+[(uint8_t)'\xb3']=FLTIDX(51),
+[(uint8_t)'\xb4']=FLTIDX(52),
+[(uint8_t)'\xb5']=FLTIDX(53),
+[(uint8_t)'\xb6']=FLTIDX(54),
+[(uint8_t)'\xb7']=FLTIDX(55),
+[(uint8_t)'\xb8']=FLTIDX(56),['O']=FLTIDX(56),
+[(uint8_t)'\xb9']=FLTIDX(57),
+[(uint8_t)'\xba']=FLTIDX(58),['F']=FLTIDX(58),
+[(uint8_t)'\xbb']=FLTIDX(59),
+[(uint8_t)'\xbc']=FLTIDX(60),
+[(uint8_t)'\xbd']=FLTIDX(61),
+[(uint8_t)'\xbe']=FLTIDX(62),
+[(uint8_t)'\xbf']=FLTIDX(63),
+['e']=FLTIDX(64),
 ['g']=FLTIDX(65),
 ['G']=FLTIDX(66),
 	},
@@ -1617,7 +1694,7 @@ current_get:
 			argnext1;
 			break;
 		case EXPR_FMTC_FLUSH:
-			v=writer(fd,NULL,flag->sharp?SIZE_MAX:0);
+			v=writer(fd,NULL,flag->sharp?SIZE_MAX:(size_t)0);
 			if(unlikely(v<0))
 				wf_return(v);
 			ret+=v;

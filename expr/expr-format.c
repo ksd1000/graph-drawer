@@ -1388,9 +1388,9 @@ current_get:
 			if((size_t)v-1>(size_t)sizeof(expr_ut)-1)
 				v=(ssize_t)sizeof(expr_ut);
 #if (!defined(__BIG_ENDIAN__)||!(__BIG_ENDIAN__))
-			memcpy(arg1->addr,&val,v);
+			memcpy(arg1->addr,&val,(size_t)v);
 #else
-			memcpy(arg1->addr,(const void *)&val+((size_t)sizeof(expr_ut)-(size_t)v),v);
+			memcpy(arg1->addr,(const void *)&val+((size_t)sizeof(expr_ut)-(size_t)v),(size_t)v);
 #endif
 			argnext1;
 			break;

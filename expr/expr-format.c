@@ -298,6 +298,10 @@ static ssize_t converter_xu(expr_writer_t writer,intptr_t fd,const union expr_ar
 	}
 	if(positive&&flag->sharp){
 		switch(base){
+			case 2:
+				*(--p)=flag->cap?'B':'b';
+				*(--p)='0';
+				break;
 			case 8:
 				*(--p)='0';
 				break;

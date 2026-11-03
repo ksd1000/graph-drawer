@@ -607,6 +607,31 @@ static double expr_destruct(double *args,size_t n){
 	}
 	warn_abort("expr-lc/runtime-destructor","function for destruct() returns");
 }
+static ssize_t readstream(intptr_t fd,void *buf,size_t size){
+	ssize_t r;
+	errno=0;
+	r=fread(buf,1,size,(FILE *)fd);
+	if(unlikely(errno))
+		return (double)-errno;
+	return r;
+}
+static double expr_falloc(double *args,size_t n){
+	intptr_t fd;
+	ssize_t r;
+	void *p;
+	fd=fopen(cast(args[0],const char *),"rb");
+	if(!fd)
+		return 0.0;
+	r=expr_file_readfd_r(readstream,fd,1,&p,expr_defmtl);
+	fclose((FILE *)fd);
+	if(unlikely(r<0)){
+		return 0.0;
+	}
+	if(n>1){
+		*cast(args[1],double *)=(double)r;
+	}
+	return cast(p,double);
+}
 static double expr_malloc(double x){
 	union {
 		double *r;
@@ -1314,6 +1339,7 @@ const struct expr_builtin_symbol expr_symbols_common[]={
 	REGMDSYM2_NIU("realloc",expr_realloc,2),
 	REGFSYM2_NI("new",expr_new_b),
 	REGFSYM2_NI("free",expr_bxfree),
+	REGMDSYM2_NIU("falloc",expr_falloc,0),
 	REGFSYM2_NI("system",expr_system),
 	REGFSYM2_U("expr_setup_mtl",expr_setup_mtl_b),
 

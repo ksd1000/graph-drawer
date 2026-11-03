@@ -175,7 +175,6 @@ size_t expr_strwrite(const char *restrict s,size_t sz,char *restrict buf,size_t 
 })
 	for(;s<endp;){
 		v=(uint8_t)*s;
-		assume(v<=(uint8_t)0xff);
 		switch(v){
 			case PRINTABLE_CHARS:
 				safe_put(v);
@@ -194,6 +193,8 @@ size_t expr_strwrite(const char *restrict s,size_t sz,char *restrict buf,size_t 
 			special_escape('\v','v');
 			special_escape('\f','f');
 			special_escape('\r','r');
+			special_escape('\"','\"');
+			special_escape('\'','\'');
 			special_escape('\\','\\');
 			default:
 				if(s+1<endp&&(uint8_t)(s[1]-(char)'0')<(uint8_t)8){

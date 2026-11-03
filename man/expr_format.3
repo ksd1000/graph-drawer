@@ -67,7 +67,7 @@ but fetch the argument from
 Defined by
 .IR expr_ftable_default .
 .P
-"%[flags][width][.digit][:argsize]conversion_character"
+"%[flags][width][.digit][:argsize](conversion|control)"
 .P
 width, digit, argsize can be "*", to read from argument(width,argsize:size_t. digit:ssize_t), or be "**" to read from the pointer provided by argument.
 .SS FLAGS
@@ -134,6 +134,15 @@ long long
 .TQ
 .B s
 Standard string.
+The length will be get by
+.B strlen()
+if
+.I digit
+is not set, or
+.B strnlen()
+if
+.I digit
+is set.
 .TQ
 .B S
 String with length
@@ -169,6 +178,61 @@ Hexdump from the pointer provided by argument the with length
 .TQ
 .B p , P
 Address of a pointer.
+.SS CONTROL
+.TP
+.B n
+Write the number of written bytes to the address of the pointer provided by argument. The object length of the pointer depends on
+.IR argsize .
+.TQ
+.B l
+Repeat the next conversion for
+.I width
+times.
+.TQ
+.B L
+Like
+.B l
+but fetchs the next argument before each times.
+.TQ
+.B T
+Set the delim between two looped conversions or array elements.
+Use
+.RI p[ width ]
+as the content, when p points to the next character of 'T'.
+.TQ
+.B t
+Set the tail of each looped conversion or array elements.
+Use
+.RI p[ width ]
+as the content, when p points to the next character of 't'.
+.TQ
+.B k
+Delcare the next conversion is for an array
+.IR argument [ width ],
+when the
+.I argment
+points to the first element of the array.
+The size of each elements will be get from the
+.I argsize
+of the conversion, or be overrided with
+.IR digit .
+.TQ
+.B @
+Use the character from argument for conversion or control.
+.TQ
+.B z
+Flush the buffer if
+.I fd
+refers to an
+.B struct expr_buffered_file
+object. Or drop the contents in the buffer if
+.B #
+is set.
+The behavior is undefined if
+.I fd
+does not refer to an
+.B struct expr_buffered_file
+object.
 .SH RETURN VALUE
 The
 .BR expr_[v||vap|ap]writef[t][_r]()

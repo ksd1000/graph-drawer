@@ -928,7 +928,7 @@ const struct expr_ftable expr_ftable_default[1]={{
 	.c={
 ['q']=0,
 ['n']=EXPR_FMTC_WRITESIZE,
-['N']=EXPR_FMTC_WRITESIZEDF,
+['N']=EXPR_FMTC_NEXTSAVED,
 ['r']=EXPR_FMTC_JUMP_INDEX,
 ['l']=EXPR_FMTC_LOOP,
 ['L']=EXPR_FMTC_LOOP_FORWARD,
@@ -1192,7 +1192,7 @@ struct expr_vwritef_workspace {
 	};
 	union expr_argf _save;
 	expr_ut _val,_mask;
-	uint8_t _forward,_arrwid,_current,_r1;
+	uint8_t _forward,_arrwid,_current,_next_saved,_r1;
 };
 #undef xmtl
 #define xmtl mtl
@@ -1227,6 +1227,7 @@ ssize_t expr_vwriteft_r(expr_writer_t writer,intptr_t fd,const char *restrict fm
 #define old wsp->_old
 #define val wsp->_val
 #define mask wsp->_mask
+#define next_saved wsp->_next_saved
 	wsp=xmalloc(sizeof(struct expr_vwritef_workspace));
 	if(unlikely(!wsp)){
 		return SSIZE_MIN+1;
@@ -1309,11 +1310,25 @@ reflag:
 //#define t_ocopy(_d,_s,T,_off) *(T *)((uintptr_t)(_d)+(_off))=*(T *)((uintptr_t)(_s)+(_off))
 #define bit_copy(_d,_s,_bit) memcpy(_d,_s,_bit)
 #define argnext1 ++index;debug("arg index to %zd",index)
-//#define argnext(N) index+=(ptrdiff_t)(N);debug("arg index to %zd",index)
+#define argnext(N) index+=(ptrdiff_t)(N);debug("arg index to %zd",index)
 #define argback(N) index-=(ptrdiff_t)(N);debug("arg index back to %zd",index)
 #define goto_argfail {debug("arg failed");wf_return(SSIZE_MIN+3);}
 #define goto_argfail1(e) {debug("arg failed");wf_return(e);}
-#define argt(_type) ({register const union expr_argf *__arg;flag->type=(_type);__arg=arg(index,flag,addr);if(unlikely(!__arg)){debug("cannot get arg[%zd]",index);goto_argfail;}__arg;})
+#define argt(_type) ({\
+	register const union expr_argf *__arg;\
+	if(next_saved){\
+		__arg=&save;\
+		--next_saved;\
+	}else {\
+		flag->type=(_type);\
+		__arg=arg(index,flag,addr);\
+		if(unlikely(!__arg)){\
+			debug("cannot get arg[%zd]",index);\
+			goto_argfail;\
+		}\
+	}\
+	__arg;\
+})
 #define arg1 argt(EXPR_FLAGTYPE_ADDR)
 #define get_next_arg64(dest,dtype,_after,_type,_field,_afield) \
 	if(table->readarg_set&&*fmt==table->readarg){\
@@ -1368,12 +1383,27 @@ current_get:
 			goto end;
 		case EXPR_FMTC_WRITESIZE:
 			debug("n=%zu",ret);
-			bit_copy(arg1->zaddr,&ret,flag->argsize);
+			val=(expr_ut)(size_t)ret;
+			v=(ssize_t)flag->argsize;
+			if((size_t)v-1>(size_t)sizeof(expr_ut)-1)
+				v=(ssize_t)sizeof(expr_ut);
+#if (!defined(__BIG_ENDIAN__)||!(__BIG_ENDIAN__))
+			memcpy(arg1->addr,&val,v);
+#else
+			memcpy(arg1->addr,(const void *)&val+((size_t)sizeof(expr_ut)-(size_t)v),v);
+#endif
 			argnext1;
 			break;
-		case EXPR_FMTC_WRITESIZEDF:
-			*arg1->daddr=(double)ret;
-			argnext1;
+		case EXPR_FMTC_NEXTSAVED:
+			if(flag->width_set)
+				next_saved=(uint8_t)flag->width;
+			else if(flag->zero)
+				next_saved=0;
+			else
+				next_saved=1;
+			if(flag->digit_set){
+				argnext(flag->digit);
+			}
 			break;
 		case EXPR_FMTC_JUMP_INDEX:
 #define fmt_op_cond(onexit) \
@@ -1741,6 +1771,7 @@ end:
 #undef old
 #undef val
 #undef mask
+#undef next_saved
 }
 #undef arg1
 #undef argt

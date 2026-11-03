@@ -5,7 +5,7 @@
  *******************************************************************************/
 #define _GNU_SOURCE
 
-#define EXPR_VERSION "1.0.18-7"
+#define EXPR_VERSION "1.0.18-8"
 
 #if (defined(EXPR_LIBC_STRING_IMPL)&&(EXPR_LIBC_STRING_IMPL))
 #include <string.h>
@@ -104,7 +104,7 @@ double expr_internal_strtod(const char *restrict nptr,size_t nsize,size_t *restr
 expr_globals_define();
 
 __attribute__((noreturn)) void expr_explode(void){
-	expr_explode_r(expr_contract,expr_allocate_max,expr_defmtl);
+	expr_explode_r(expr_memcontract,expr_allocate_max,expr_defmtl);
 	abort();
 }
 __attribute__((noreturn)) void expr_trap(void){
@@ -114,6 +114,7 @@ __attribute__((noreturn)) void expr_ubehavior(void){
 	__builtin_unreachable();
 }
 static ssize_t zero_reader(intptr_t fd,void *buf,size_t size){
+	(void)fd;
 	memset(buf,0,size);
 	debug("write %zu zeros on %p",size,buf);
 	return (ssize_t)size;

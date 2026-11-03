@@ -527,7 +527,7 @@ static double bsort_old(const struct expr *args,size_t n,double input){
 	return 0.0;
 }
 static double bcontract(const struct expr *args,size_t n,double input){
-	expr_contract(cast(eval(args,input),void *),(size_t)fabs(eval(args+1,input)));
+	expr_memcontract(cast(eval(args,input),void *),(size_t)fabs(eval(args+1,input)));
 	return 0.0;
 }
 static double bassert(const struct expr *args,size_t n,double input){
@@ -539,7 +539,7 @@ static double bassert(const struct expr *args,size_t n,double input){
 		if(unlikely(!p))
 			p=e;
 		expr_runtime_throw((struct expr *)(uintptr_t)args,EXPR_ESAF);
-		// may be used if the handler of SIGABRT.
+		// may be used by the handler of SIGABRT.
 		warn_abort("expr-lc/runtime-assertion","assertion %s failed",p);
 	}
 	return x;

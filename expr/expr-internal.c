@@ -161,13 +161,19 @@ no_enough_size:
 #ifndef PAGE_SIZE
 #define PAGE_SIZE 4096
 #endif
-void expr_contract(void *buf,size_t size){
+void expr_memcontract(void *buf,size_t size){
 	volatile char *p=(volatile char *)buf,*endp=(volatile char *)buf+size;
+	char c;
 	while(p<endp){
-		*p=0;
+		c=*p;
+		*p=c;
 		p+=PAGE_SIZE;
 	}
-	*endp=0;
+	if(likely(size)){
+		--endp;
+		c=*endp;
+		*endp=c;
+	}
 	//treat the case like [0,1,...,endp->4094,p->4095]
 }
 void expr_explode_r(void (*contractor)(void *,size_t),size_t max,const struct expr_memtool *restrict mtl){

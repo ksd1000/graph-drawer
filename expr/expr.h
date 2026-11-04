@@ -1172,6 +1172,12 @@ struct expr_memfd {
 	size_t size;
 };
 
+struct expr_memfd_dynamic {
+	void *buf;
+	const struct expr_memtool *restrict mtl;
+	size_t index,length;
+};
+
 enum expr_fop {
 	EXPR_FIMM,
 	EXPR_FCON,
@@ -2085,6 +2091,7 @@ ssize_t expr_vwriteft_r(expr_writer_t writer,intptr_t fd,const char *restrict fm
 ssize_t expr_writeft_r(expr_writer_t writer,intptr_t fd,const char *restrict fmt,size_t fmtlen,const union expr_argf *restrict args,size_t arglen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl);
 ssize_t expr_vapwriteft_r(expr_writer_t writer,intptr_t fd,const char *restrict fmt,size_t fmtlen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl,va_list ap);
 ssize_t expr_apwriteft_r(expr_writer_t writer,intptr_t fd,const char *restrict fmt,size_t fmtlen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl,...);
+ssize_t expr_memfd_write_warped(intptr_t fd,const void *buf,size_t size);
 ssize_t expr_snwriteft_r(char *buf,size_t buflen,const char *restrict fmt,size_t fmtlen,const union expr_argf *restrict args,size_t arglen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl);
 ssize_t expr_vsnprintft_r(char *buf,size_t buflen,const char *restrict fmt,size_t fmtlen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl,va_list ap);
 ssize_t expr_snprintft_r(char *buf,size_t buflen,const char *restrict fmt,size_t fmtlen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl,...);
@@ -2096,9 +2103,9 @@ ssize_t expr_apwritei_r(expr_writer_t writer,intptr_t fd,const struct expr_finst
 ssize_t expr_snwritei_r(char *buf,size_t buflen,const struct expr_finst *restrict fip,const union expr_argf *restrict args,size_t arglen,const struct expr_memtool *restrict mtl);
 ssize_t expr_vsnprinti_r(char *buf,size_t buflen,const struct expr_finst *restrict fip,const struct expr_memtool *restrict mtl,va_list ap);
 ssize_t expr_snprinti_r(char *buf,size_t buflen,const struct expr_finst *restrict fip,const struct expr_memtool *restrict mtl,...);
+ssize_t expr_dmemfd_write_warped(intptr_t fd,const void *buf,size_t size);
 size_t expr_sscanf_r(const char *str,size_t len,const char *fmt,size_t fmtlen,void *const *addr,size_t addrlen,const struct expr_memtool *restrict mtl);
 //global externs of expr-format.c :
-extern const struct expr_writefmt expr_writefmts_default[];
 extern const struct expr_ftable expr_ftable_default[1];
 //global functions of expr-internal.c :
 size_t expr_strscan(const char *restrict s,size_t sz,char *restrict buf,size_t outsz);

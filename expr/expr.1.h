@@ -1172,6 +1172,12 @@ struct expr_memfd {
 	size_t size;
 };
 
+struct expr_memfd_dynamic {
+	void *buf;
+	const struct expr_memtool *restrict mtl;
+	size_t index,length;
+};
+
 enum expr_fop {
 	EXPR_FIMM,
 	EXPR_FCON,

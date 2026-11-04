@@ -957,7 +957,7 @@ static ssize_t faction_P(expr_writer_t writer,intptr_t fd,const union expr_argf 
 			?1:0),\
 	.op={_op,##__VA_ARGS__},\
 }
-const struct expr_writefmt expr_writefmts_default[]={
+static const struct expr_writefmt expr_writefmts_default[]={
 	fmtc_register(converter_x81,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x81','x'),
 	fmtc_register(converter_x82,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x82',(uint8_t)'\x92','b'),
 	fmtc_register(converter_x83,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x83',(uint8_t)'\x93'),
@@ -2019,24 +2019,22 @@ ssize_t expr_apwriteft_r(expr_writer_t writer,intptr_t fd,const char *restrict f
 	return r;
 }
 
-#define memfd_write_common \
-	size_t old_size;\
-	if(unlikely(size>(ssize_t)SSIZE_MAX)){\
-		return SSIZE_MIN+2;\
-	}\
-	old_size=size;\
-	if(unlikely(mfd->size<size)){\
-		size=mfd->size;\
-	}\
-	if(likely(size)){\
-		memcpy(mfd->buf,buf,size);\
-		mfd->buf+=size;\
-		mfd->size-=size;\
-	}\
-	return (ssize_t)old_size
-static ssize_t expr_memfd_write_warped(intptr_t fd,const void *buf,size_t size){
+ssize_t expr_memfd_write_warped(intptr_t fd,const void *buf,size_t size){
 	struct expr_memfd *restrict mfd=(struct expr_memfd *)fd;
-	memfd_write_common;
+	size_t old_size;
+	if(unlikely(size>(ssize_t)SSIZE_MAX)){
+		return SSIZE_MIN+2;
+	}
+	old_size=size;
+	if(unlikely(mfd->size<size)){
+		size=mfd->size;
+	}
+	if(likely(size)){
+		memcpy(mfd->buf,buf,size);
+		mfd->buf+=size;
+		mfd->size-=size;
+	}
+	return (ssize_t)old_size;
 }
 ssize_t expr_snwriteft_r(char *buf,size_t buflen,const char *restrict fmt,size_t fmtlen,const union expr_argf *restrict args,size_t arglen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl){
 	struct writef_args wa[1];
@@ -2214,6 +2212,7 @@ reflag:
 				case EXPR_FMTC_EXIT:
 				case EXPR_FMTC_WRITESIZE:
 				case EXPR_FMTC_LOOP:
+				case EXPR_FMTC_FLUSH:
 					break;
 				case EXPR_FMTC_FPH:
 					tmp->fph=table->fph;
@@ -2391,6 +2390,12 @@ ssize_t expr_vwritei_r(expr_writer_t writer,intptr_t fd,const struct expr_finst 
 					loop=flag_width(flag,0);
 					debug("loop=%zu",loop);
 					break;
+				case EXPR_FMTC_FLUSH:
+					v=writer(fd,NULL,flag->sharp?SIZE_MAX:(size_t)0);
+					if(unlikely(v<0))
+						wf_return(v);
+					ret+=v;
+					break;
 				case EXPR_FMTC_FPH:
 					wf_trywrite(&fip->fph,1);
 					break;
@@ -2471,6 +2476,31 @@ ssize_t expr_snprinti_r(char *buf,size_t buflen,const struct expr_finst *restric
 #undef writer
 #undef fd
 
+#undef xmtl
+#define xmtl dmfd->mtl
+ssize_t expr_dmemfd_write_warped(intptr_t fd,const void *buf,size_t size){
+	struct expr_memfd_dynamic *restrict dmfd=(struct expr_memfd_dynamic *)fd;
+	size_t ava;
+	if(unlikely(size>(ssize_t)SSIZE_MAX)){
+		return SSIZE_MIN+2;
+	}
+	ava=dmfd->length-dmfd->index;
+	if(unlikely(ava<size)){
+		void *p;
+		ava=dmfd->index+size+dmfd->length/4+EXPR_BUFSIZE_INITIAL;
+		p=xrealloc(dmfd->buf,ava);
+		if(unlikely(!p)){
+			return SSIZE_MIN+1;
+		}
+		dmfd->length=ava;
+		memcpy((char *)dmfd->buf+dmfd->index,buf,size);
+		dmfd->index+=size;
+	}else if(likely(size)){
+		memcpy((char *)dmfd->buf+dmfd->index,buf,size);
+		dmfd->index+=size;
+	}
+	return (ssize_t)size;
+}
 static inline const char *internal_strtom_10(const char *restrict nptr,const char *endp,size_t *restrict outval){
 	uint64_t r=0;
 	unsigned int get;

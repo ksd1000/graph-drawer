@@ -2365,6 +2365,7 @@ ssize_t expr_vwritei_r(expr_writer_t writer,intptr_t fd,const struct expr_finst 
 	ptrdiff_t index;
 	struct expr_writeflag flag[1];
 	expr_ut val;
+	uint8_t type;
 	ret=0;
 	loop=0;
 	index=0;
@@ -2374,8 +2375,9 @@ ssize_t expr_vwritei_r(expr_writer_t writer,intptr_t fd,const struct expr_finst 
 			wf_trywrite(fip->imm_str,fip->imm_len);
 			break;
 		case EXPR_FCON:
+			type=(uint8_t)flag->type;
 			wdasync_all();
-			arg_cur=argt(flag->type);
+			arg_cur=argt(type);
 			fmt_dorepeat(arg_cur);
 			argnext1;
 			break;

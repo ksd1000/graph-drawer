@@ -1132,7 +1132,7 @@ typedef ssize_t (*expr_converter_t)(expr_writer_t writer,intptr_t fd,const union
 struct expr_writefmt {
 	expr_converter_t converter;
 	uint8_t op[7];
-	uint8_t type:2,no_arg:1,digit_check:1,setcap:1,unused:3;
+	uint8_t type:3,no_arg:1,digit_check:1,setcap:1,unused:2;
 };
 struct expr_ftable {
 	const struct expr_writefmt *fmts;

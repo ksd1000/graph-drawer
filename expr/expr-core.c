@@ -220,28 +220,6 @@ const char *expr_error(int error){
 	}
 }
 
-#define xmtl mtl
-static void *xautoadd(void **restrict old,size_t *restrict size,size_t *restrict length,size_t n,size_t expand,const struct expr_memtool *restrict mtl){
-	void *r;
-	size_t old_size=*size,new_length;
-	if(old_size<*length){
-		++(*size);
-		return (char *)*old+old_size*n;
-	}
-	new_length=*length+*length/4+expand;
-	r=xrealloc(*old,new_length*n);
-	if(unlikely(!r)){
-		new_length=*length+expand;
-		r=xrealloc(*old,new_length*n);
-		if(unlikely(!r)){
-			return NULL;
-		}
-	}
-	*old=r;
-	*length=new_length;
-	++(*size);
-	return (char *)r+old_size*n;
-}
 #define gcd2 expr_gcd2
 #define lcm2 expr_lcm2
 
@@ -384,6 +362,7 @@ static const char *findpair_dmark(const char *c,const char *endp){
 	}\
 	_buf;\
 })
+#define xmtl mtl
 static void freesuminfo(struct expr_suminfo *p,int flag,const struct expr_memtool *restrict mtl){
 	expr_free2mtl_r(p->ep,flag,mtl);
 	expr_free2mtl_r(p->fromep,flag,mtl);

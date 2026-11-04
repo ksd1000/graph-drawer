@@ -421,6 +421,7 @@ struct expr_internal_jmpbuf {
 #define xmalloc expr_xmalloc
 #define xrealloc expr_xrealloc
 #define xfree expr_xfree
+#define xautoadd expr_xautoadd
 
 #ifndef alloca
 #define alloca(size) __builtin_alloca(size)
@@ -1134,6 +1135,7 @@ struct expr_writefmt {
 };
 struct expr_ftable {
 	const struct expr_writefmt *fmts;
+	size_t fmts_size;
 	uint8_t c[256];
 	char fph,
 	     digit,
@@ -1172,6 +1174,7 @@ struct expr_memfd {
 enum expr_fop {
 	EXPR_FIMM,
 	EXPR_FCON,
+	EXPR_FCOZ,
 	EXPR_FCTL,
 	EXPR_FEND
 };
@@ -1183,7 +1186,10 @@ struct expr_finst {
 		};
 		struct {
 			struct expr_writeflag flag[1];
-			expr_converter_t converter;
+			union {
+				expr_converter_t converter;
+				uint8_t fmtc_code;
+			};
 			unsigned int
 				read_width:2,
 				read_digit:2,

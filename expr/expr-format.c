@@ -1037,9 +1037,9 @@ const struct expr_writefmt expr_writefmts_default[]={
 #define FLTIDX(n) 0
 #endif
 };
-const uint8_t expr_writefmts_default_size=arrsize(expr_writefmts_default);
 const struct expr_ftable expr_ftable_default[1]={{
 	.fmts=expr_writefmts_default,
+	.fmts_size=arrsize(expr_writefmts_default),
 	.c={
 ['q']=0,
 ['n']=EXPR_FMTC_WRITESIZE,
@@ -1348,7 +1348,6 @@ ssize_t expr_vwriteft_r(expr_writer_t writer,intptr_t fd,const char *restrict fm
 		return SSIZE_MIN+1;
 	}
 	endp=fmt+fmtlen;
-	fmt_old=fmt;
 	fmt0=fmt;
 	ret=0;
 	delim=NULL;
@@ -1379,13 +1378,14 @@ ssize_t expr_vwriteft_r(expr_writer_t writer,intptr_t fd,const char *restrict fm
 	fmt_save_current=fmt_save;
 	flag->mtl=mtl;
 next:
+	fmt_old=fmt;
 	fmt=memchr(fmt,table->fph,(size_t)(endp-fmt));
 	if(unlikely(!fmt)){
 		loop=(size_t)(endp-fmt_old);
 		wf_trywrite(fmt_old,loop);
 		goto end;
 	}
-	v=fmt-fmt_old;
+	v=(ssize_t)(fmt-fmt_old);
 	if(v>0){
 		wf_trywrite(fmt_old,v);
 		fmt_old=fmt;
@@ -1771,6 +1771,8 @@ current_get:
 	}
 
 		default:
+			if(unlikely(r1>(uint8_t)table->fmts_size))
+				goto_argfail1(SSIZE_MIN+3);
 			wfp=table->fmts+(r1-1);//r
 wfp_get:
 			if(unlikely(wfp->digit_check&&!flag->digit_set))
@@ -1856,7 +1858,6 @@ switch(wfp->type){
 	}
 	fmt_inc_check;
 continue_keepfmt:
-	fmt_old=fmt;
 	goto next;
 end:
 	wf_return(ret);
@@ -1909,7 +1910,9 @@ end:
 #undef fmt_dorepeat
 #undef fmt_op_cond
 #undef wf_return
+#undef wf_returnc
 #undef wf_trywrite
+#undef type_check
 struct writef_args {
 	const union expr_argf *base;
 	size_t arglen;
@@ -2072,6 +2075,314 @@ ssize_t expr_snprintft_r(char *buf,size_t buflen,const char *restrict fmt,size_t
 }
 #undef writer
 #undef fd
+
+#define newinst(tmp) ({\
+	tmp=expr_xautoadd((void **)&p,&psize,&plength,sizeof(struct expr_finst),EXPR_EXPAND_SIZE,mtl);\
+	if(!tmp)\
+		reterr(SSIZE_MIN+1);\
+})
+#define reterr(V) ({if(likely(p))xfree(p);return (V);})
+#define addimm(immp,immlen) ({\
+	newinst(tmp);\
+	tmp->op=EXPR_FIMM;\
+	tmp->imm_str=(immp);\
+	tmp->imm_len=(immlen);\
+})
+
+ssize_t expr_mkinstft_r(void *fip,const char *restrict fmt,size_t fmtlen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl){
+	struct expr_finst *p=NULL,*tmp;
+	size_t psize=0,plength=0;
+	const char *endp,*fmt_old;
+	const struct expr_writefmt *wfp;
+	uint8_t r1,current;
+	if(unlikely(!fmtlen))
+		goto end;
+	if(unlikely(!table->fph_set)){
+		addimm(fmt,fmtlen);
+		goto end;
+	}
+	endp=fmt+fmtlen;
+next:
+	fmt_old=fmt;
+	fmtlen=(size_t)(endp-fmt);
+	fmt=memchr(fmt,table->fph,fmtlen);
+	if(unlikely(!fmt)){
+		addimm(fmt_old,fmtlen);
+		goto end;
+	}
+	fmtlen=(size_t)(fmt-fmt_old);
+	if(fmtlen>0){
+		addimm(fmt_old,fmtlen);
+	}
+#define fmt_inc_check ++fmt;\
+	if(unlikely(fmt>=endp))\
+		goto end
+	fmt_inc_check;
+	newinst(tmp);
+	tmp->flag->bit=0;
+#define fmt_setflag(_field) \
+	tmp->flag->_field=1;\
+	fmt_inc_check;\
+	goto reflag
+reflag:
+	switch(table->c[(uint8_t)*fmt]){
+		case EXPR_FPLUS:
+			fmt_setflag(plus);
+		case EXPR_FSPACE:
+			fmt_setflag(space);
+		case EXPR_FMINUS:
+			fmt_setflag(minus);
+		case EXPR_FSHARP:
+			fmt_setflag(sharp);
+		case EXPR_FZERO:
+			fmt_setflag(zero);
+		case EXPR_FEQ:
+			fmt_setflag(eq);
+		case EXPR_FSAVED:
+			fmt_setflag(saved);
+		case EXPR_FADDR:
+			fmt_setflag(addr);
+		case EXPR_FCAP:
+			fmt_setflag(cap);
+		default:
+			break;
+	}
+#define get_next_arg64(dest,dtype,_after,_type,_field,_afield,_read) \
+	if(table->readarg_set&&*fmt==table->readarg){\
+		fmt_inc_check;\
+		if(table->readarg2_set&&*fmt==table->readarg2){\
+			tmp->read_##_read=2;\
+			fmt_inc_check;\
+		}else\
+			tmp->read_##_read=1;\
+		_after;\
+	}else {\
+		fmt_old=fmt;\
+		fmt=internal_strtoz_10(fmt,endp,(ssize_t *)&fmtlen);\
+		tmp->read_##_read=0;\
+		if(fmt>fmt_old){\
+			dest=(dtype)fmtlen;\
+			_after;\
+			if(unlikely(fmt>=endp)){\
+				--psize;\
+				goto end;\
+			}\
+		}\
+	}
+	get_next_arg64(tmp->flag->width,size_t,tmp->flag->width_set=1,EXPR_FLAGTYPE_SIZE,zint,zaddr,width);
+	if(table->digit_set&&*fmt==table->digit){
+		fmt_inc_check;
+		get_next_arg64(tmp->flag->digit,ssize_t,tmp->flag->digit_set=1,EXPR_FLAGTYPE_SSIZE,tint,taddr,digit);
+	}else
+		tmp->read_digit=0;
+	if(table->bitwidth_set&&*fmt==table->bitwidth){
+		fmt_inc_check;
+#define type_check(type,T) \
+		if(table->bitwidth_##type##_set&&*fmt==table->bitwidth_##type){\
+			tmp->flag->argsize=(uint64_t)sizeof(T);\
+			tmp->read_argsize=0;\
+			fmt_inc_check;\
+		}
+		type_check(addr,void *)
+		else type_check(size,size_t)
+		else type_check(char,char)
+		else type_check(short,short)
+		else type_check(int,int)
+		else type_check(long,long)
+#if defined(__SIZEOF_LONG_LONG__)||(defined(__STDC_VERSION__)&&(__STDC_VERSION__>=199901L))
+		else type_check(llong,long long)
+#endif
+		else {
+			get_next_arg64(tmp->flag->argsize,uint64_t,,EXPR_FLAGTYPE_SIZE,zint,zaddr,argsize);
+		}
+	}else
+		tmp->read_argsize=0;
+	current=*(const uint8_t *)fmt;
+	tmp->flag->op=current;
+	switch((r1=table->c[current])){
+		case EXPR_FMTC_MIN ... EXPR_FMTC_MAX:
+			tmp->op=EXPR_FCTL;
+			tmp->fmtc_code=current;
+			break;
+		default:
+			if(unlikely(r1>(uint8_t)table->fmts_size))
+				reterr(SSIZE_MIN+3);
+			wfp=table->fmts+(r1-1);//r
+			if(unlikely(wfp->digit_check&&!tmp->flag->digit_set))
+				reterr(SSIZE_MIN+4);
+			if(wfp->setcap)
+				tmp->flag->cap=1;
+			if(wfp->no_arg){
+				tmp->op=EXPR_FCOZ;
+			}else {
+				tmp->op=EXPR_FCON;
+			}
+			tmp->flag->type=(uint64_t)wfp->type;
+			tmp->converter=wfp->converter;
+			break;
+	}
+	fmt_inc_check;
+	goto next;
+end:
+	newinst(tmp);
+	tmp->op=EXPR_FEND;
+	*(void **)fip=p;
+	return (ssize_t)(tmp-p+1);
+}
+#define wf_return(V) return (V)
+#define wf_returnc(V) return (V)
+#define wf_trywrite(buf,sz) {\
+	v=writer(fd,(buf),(size_t)(sz));\
+	if(unlikely(v<0))\
+		wf_return(v);\
+	if(unlikely(v<(ssize_t)(sz))){\
+		wf_returnc(TRUNC_CODE);\
+	}\
+	ret+=v;\
+}
+#define fmt_repeat if(!loop)loop=1;for(;loop;--loop)
+#define fmt_once(_arg) \
+	v=fip->converter(writer,fd,(_arg),flag);\
+	if(unlikely(v<0))\
+		wf_return(v);\
+	ret+=v
+#define fmt_dorepeat(_arg) \
+	fmt_repeat {\
+		fmt_once(_arg);\
+		/*if(tailsz){\
+			wf_trywrite(tail,tailsz);\
+		}\
+		if(delimsz&&loop>1){\
+			wf_trywrite(delim,delimsz);\
+		}*/\
+	}
+/*#define fmt_dorepeat_fwd(_arg) \
+	fmt_repeat {\
+		arg_cur=(_arg);\
+		if(unlikely(!arg_cur))\
+			goto_argfail;\
+		fmt_once(arg_cur);\
+		if(tailsz){\
+			wf_trywrite(tail,tailsz);\
+		}\
+		if(delimsz&&loop>1){\
+			wf_trywrite(delim,delimsz);\
+		}\
+		argnext1;\
+	}*/
+//#define bit_copy(_d,_s,_bit) memcpy(_d,_s,_bit)
+#define argnext1 ++index;debug("arg index to %zd",index)
+//#define argnext(N) index+=(ptrdiff_t)(N);debug("arg index to %zd",index)
+//#define argback(N) index-=(ptrdiff_t)(N);debug("arg index back to %zd",index)
+#define goto_argfail {debug("arg failed");wf_return(SSIZE_MIN+3);}
+//#define goto_argfail1(e) {debug("arg failed");wf_return(e);}
+#define argt(_type) ({\
+	register const union expr_argf *__arg;\
+	/*if(next_saved){\
+		__arg=&save;\
+		--next_saved;\
+	}else*/ {\
+		flag->type=(_type);\
+		__arg=arg(index,flag,addr);\
+		if(unlikely(!__arg)){\
+			debug("cannot get arg[%zd]",index);\
+			goto_argfail;\
+		}\
+	}\
+	__arg;\
+})
+#define arg1 argt(EXPR_FLAGTYPE_ADDR)
+#define wdasync(field,dtype,type,ufield,uafield) switch(fip->read_##field){\
+	case 0:\
+		flag->field=(dtype)fip->flag->field;\
+		break;\
+	case 1:\
+		flag->field=(dtype)argt(type)->ufield;\
+		argnext1;\
+		break;\
+	case 2:\
+		flag->field=(dtype)*arg1->uafield;\
+		argnext1;\
+		break;\
+	default:\
+		__builtin_unreachable();\
+}
+#define wdasync_ig0(field,dtype,type,ufield,uafield) switch(fip->read_##field){\
+	case 0:\
+		break;\
+	case 1:\
+		flag->field=(dtype)argt(type)->ufield;\
+		argnext1;\
+		break;\
+	case 2:\
+		flag->field=(dtype)*arg1->uafield;\
+		argnext1;\
+		break;\
+	default:\
+		__builtin_unreachable();\
+}
+ssize_t expr_vwritei_r(expr_writer_t writer,intptr_t fd,const struct expr_finst *restrict fip,expr_argfetch_t arg,intptr_t addr,const struct expr_memtool *restrict mtl){
+	ssize_t ret,v;
+	size_t loop;
+	const union expr_argf *arg_cur;
+	ptrdiff_t index;
+	struct expr_writeflag flag[1];
+	ret=0;
+	loop=0;
+	index=0;
+	flag->mtl=mtl;
+	for(;;++fip)switch(fip->op){
+		case EXPR_FIMM:
+			wf_trywrite(fip->imm_str,fip->imm_len);
+			break;
+		case EXPR_FCON:
+			flag->bit=fip->flag->bit;
+			wdasync(width,size_t,EXPR_FLAGTYPE_SIZE,zint,zaddr);
+			wdasync(digit,ssize_t,EXPR_FLAGTYPE_SSIZE,tint,taddr);
+			wdasync_ig0(argsize,uint64_t,EXPR_FLAGTYPE_SIZE,zint,zaddr);
+			arg_cur=argt(flag->type);
+			fmt_dorepeat(arg_cur);
+			argnext1;
+			break;
+		case EXPR_FCOZ:
+			flag->bit=fip->flag->bit;
+			wdasync(width,size_t,EXPR_FLAGTYPE_SIZE,zint,zaddr);
+			wdasync(digit,ssize_t,EXPR_FLAGTYPE_SSIZE,tint,taddr);
+			wdasync_ig0(argsize,uint64_t,EXPR_FLAGTYPE_SIZE,zint,zaddr);
+			fmt_dorepeat(NULL);
+			break;
+		case EXPR_FCTL:
+			switch(fip->fmtc_code){
+				case EXPR_FMTC_EXIT:
+					wf_return(ret);
+				case EXPR_FMTC_LOOP:
+					loop=flag_width(flag,0);
+					break;
+				default:
+					// not supported now.
+					goto_argfail;
+			}
+			break;
+		case EXPR_FEND:
+			wf_return(ret);
+	}
+}
+#define iap_common(_start,_end) \
+	ssize_t r;\
+	struct fmtarg a[1];\
+	a->index_old=-1;\
+	_start;\
+	r=expr_vwritei_r(writer,fd,fip,ap_getarg,(intptr_t)a,mtl);\
+	_end
+ssize_t expr_vapwritei_r(expr_writer_t writer,intptr_t fd,const struct expr_finst *restrict fip,const struct expr_memtool *restrict mtl,va_list ap){
+	iap_common(va_copy(a->ap,ap),va_end(a->ap));
+	return r;
+}
+ssize_t expr_apwritei_r(expr_writer_t writer,intptr_t fd,const struct expr_finst *restrict fip,const struct expr_memtool *restrict mtl,...){
+	iap_common(va_start(a->ap,mtl),va_end(a->ap));
+	return r;
+}
+
 // libexpr will never provide sprintf()
 static inline const char *internal_strtom_10(const char *restrict nptr,const char *endp,size_t *restrict outval){
 	uint64_t r=0;

@@ -106,7 +106,7 @@ void show_help(void){
 void table_write(void){
 	const struct expr_writefmt *f;
 	uint8_t c,nextline=0;
-	for(uint8_t i=0;i<expr_writefmts_default_size;){
+	for(uint8_t i=0;i<expr_ftable_default->fmts_size;){
 		f=expr_writefmts_default+i;
 		++i;
 		for(uint8_t j=0;j<6;++j){

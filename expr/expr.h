@@ -421,6 +421,7 @@ struct expr_internal_jmpbuf {
 #define xmalloc expr_xmalloc
 #define xrealloc expr_xrealloc
 #define xfree expr_xfree
+#define xautoadd expr_xautoadd
 
 #ifndef alloca
 #define alloca(size) __builtin_alloca(size)
@@ -1134,6 +1135,7 @@ struct expr_writefmt {
 };
 struct expr_ftable {
 	const struct expr_writefmt *fmts;
+	size_t fmts_size;
 	uint8_t c[256];
 	char fph,
 	     digit,
@@ -1172,6 +1174,7 @@ struct expr_memfd {
 enum expr_fop {
 	EXPR_FIMM,
 	EXPR_FCON,
+	EXPR_FCOZ,
 	EXPR_FCTL,
 	EXPR_FEND
 };
@@ -1183,7 +1186,10 @@ struct expr_finst {
 		};
 		struct {
 			struct expr_writeflag flag[1];
-			expr_converter_t converter;
+			union {
+				expr_converter_t converter;
+				uint8_t fmtc_code;
+			};
 			unsigned int
 				read_width:2,
 				read_digit:2,
@@ -2078,10 +2084,13 @@ ssize_t expr_apwriteft_r(expr_writer_t writer,intptr_t fd,const char *restrict f
 ssize_t expr_snwriteft_r(char *buf,size_t buflen,const char *restrict fmt,size_t fmtlen,const union expr_argf *restrict args,size_t arglen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl);
 ssize_t expr_vsnprintft_r(char *buf,size_t buflen,const char *restrict fmt,size_t fmtlen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl,va_list ap);
 ssize_t expr_snprintft_r(char *buf,size_t buflen,const char *restrict fmt,size_t fmtlen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl,...);
+ssize_t expr_mkinstft_r(void *fip,const char *restrict fmt,size_t fmtlen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl);
+ssize_t expr_vwritei_r(expr_writer_t writer,intptr_t fd,const struct expr_finst *restrict fip,expr_argfetch_t arg,intptr_t addr,const struct expr_memtool *restrict mtl);
+ssize_t expr_vapwritei_r(expr_writer_t writer,intptr_t fd,const struct expr_finst *restrict fip,const struct expr_memtool *restrict mtl,va_list ap);
+ssize_t expr_apwritei_r(expr_writer_t writer,intptr_t fd,const struct expr_finst *restrict fip,const struct expr_memtool *restrict mtl,...);
 size_t expr_sscanf_r(const char *str,size_t len,const char *fmt,size_t fmtlen,void *const *addr,size_t addrlen,const struct expr_memtool *restrict mtl);
 //global externs of expr-format.c :
 extern const struct expr_writefmt expr_writefmts_default[];
-extern const uint8_t expr_writefmts_default_size;
 extern const struct expr_ftable expr_ftable_default[1];
 //global functions of expr-internal.c :
 size_t expr_strscan(const char *restrict s,size_t sz,char *restrict buf,size_t outsz);
@@ -2173,6 +2182,7 @@ struct expr_symbol *expr_symbol_create_r(const char *sym,int type,int flag,const
 struct expr_symbol *expr_symbol_createl_r(const char *sym,size_t symlen,int type,int flag,const struct expr_memtool *restrict mtl,...);
 struct expr_symbol *expr_symbol_vcreate_r(const char *sym,int type,int flag,const struct expr_memtool *restrict mtl,va_list ap);
 struct expr_symbol *expr_symbol_vcreatel_r(const char *sym,size_t symlen,int type,int flag,const struct expr_memtool *restrict mtl,va_list ap);
+void *expr_xautoadd(void **restrict old,size_t *restrict size,size_t *restrict length,size_t n,size_t expand,const struct expr_memtool *restrict mtl);
 //global externs of expr-internal.c :
 extern const uint8_t expr_number_table[256];
 //global functions of expr-pool.c :
@@ -2277,6 +2287,10 @@ extern const struct expr_libinfo expr_libinfo_current[1];
 #define expr_snwriteft(buf,buflen,fmt,fmtlen,args,arglen,table) expr_snwriteft_r(buf,buflen,fmt,fmtlen,args,arglen,table,expr_defmtl)
 #define expr_vsnprintft(buf,buflen,fmt,fmtlen,table,ap) expr_vsnprintft_r(buf,buflen,fmt,fmtlen,table,expr_defmtl,ap)
 #define expr_snprintft(buf,buflen,fmt,fmtlen,table,...) expr_snprintft_r(buf,buflen,fmt,fmtlen,table,expr_defmtl,##__VA_ARGS__)
+#define expr_mkinstft(fip,fmt,fmtlen,table) expr_mkinstft_r(fip,fmt,fmtlen,table,expr_defmtl)
+#define expr_vwritei(writer,fd,fip,arg,addr) expr_vwritei_r(writer,fd,fip,arg,addr,expr_defmtl)
+#define expr_vapwritei(writer,fd,fip,ap) expr_vapwritei_r(writer,fd,fip,expr_defmtl,ap)
+#define expr_apwritei(writer,fd,fip,...) expr_apwritei_r(writer,fd,fip,expr_defmtl,##__VA_ARGS__)
 #define expr_sscanf(str,len,fmt,fmtlen,addr,addrlen) expr_sscanf_r(str,len,fmt,fmtlen,addr,addrlen,expr_defmtl)
 #define expr_symset_init(esp) expr_symset_init_r(esp,expr_defmtl)
 #define expr_symset_new() expr_symset_new_r(expr_defmtl)

@@ -3015,3 +3015,24 @@ struct expr_symbol *expr_symbol_vcreatel_r(const char *sym,size_t symlen,int typ
 }
 #pragma GCC diagnostic pop
 
+void *expr_xautoadd(void **restrict old,size_t *restrict size,size_t *restrict length,size_t n,size_t expand,const struct expr_memtool *restrict mtl){
+	void *r;
+	size_t old_size=*size,new_length;
+	if(old_size<*length){
+		++(*size);
+		return (void *)((char *)*old+old_size*n);
+	}
+	new_length=*length+*length/4+expand;
+	r=xrealloc(*old,new_length*n);
+	if(unlikely(!r)){
+		new_length=*length+expand;
+		r=xrealloc(*old,new_length*n);
+		if(unlikely(!r)){
+			return NULL;
+		}
+	}
+	*old=r;
+	*length=new_length;
+	++(*size);
+	return (void *)((char *)r+old_size*n);
+}

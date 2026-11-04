@@ -494,93 +494,93 @@ struct expr_internal_jmpbuf {
 #endif
 
 enum expr_op {
-EXPR_COPY=0,
-EXPR_INPUT,
-EXPR_CONST,
-EXPR_BL,
-EXPR_ADD,
-EXPR_SUB,
-EXPR_MUL,
-EXPR_DIV,
-EXPR_MOD,
-EXPR_POW,
-EXPR_AND,
-EXPR_XOR,
-EXPR_OR,
-EXPR_SHL,
-EXPR_SHR,
-EXPR_GT,
-EXPR_GE,
-EXPR_LT,
-EXPR_LE,
-EXPR_SLE,
-EXPR_SGE,
-EXPR_SEQ,
-EXPR_SNE,
-EXPR_IEQ,
-EXPR_INE,
-EXPR_EQ,
-EXPR_NE,
-EXPR_ANDL,
-EXPR_ORL,
-EXPR_XORL,
-EXPR_NEXT,
-EXPR_DIFF,
-EXPR_OFF,
-EXPR_GCD,
-EXPR_LCM,
-EXPR_NEG,
-EXPR_NOT,
-EXPR_NOTL,
-EXPR_TSTL,
-EXPR_NEX0,
-EXPR_DIF0,
-EXPR_IF,
-EXPR_WHILE,
-EXPR_DO,
-EXPR_DOW,
-EXPR_WIF,
-EXPR_DON,
-EXPR_SUM,
-EXPR_INT,
-EXPR_PROD,
-EXPR_SUP,
-EXPR_INF,
-EXPR_ANDN,
-EXPR_ORN,
-EXPR_XORN,
-EXPR_GCDN,
-EXPR_LCMN,
-EXPR_FOR,
-EXPR_ZA,
-EXPR_MD,
-EXPR_ME,
-EXPR_MEP,
-EXPR_VMD,
-EXPR_DO1,
-EXPR_EP,
-EXPR_EVAL,
-EXPR_HOT,
-EXPR_PBL,
-EXPR_PZA,
-EXPR_PMD,
-EXPR_PME,
-EXPR_PMEP,
-EXPR_READ,
-EXPR_WRITE,
-EXPR_ALO,
-EXPR_SJ,
-EXPR_LJ,
-EXPR_IP,
-EXPR_TO,
-EXPR_TO1,
-EXPR_HMD,
-EXPR_RET,
-EXPR_SVC,
-EXPR_SVC0,
-EXPR_SVCP,
-EXPR_SVCP0,
-EXPR_END
+	EXPR_COPY=0,
+	EXPR_INPUT,
+	EXPR_CONST,
+	EXPR_BL,
+	EXPR_ADD,
+	EXPR_SUB,
+	EXPR_MUL,
+	EXPR_DIV,
+	EXPR_MOD,
+	EXPR_POW,
+	EXPR_AND,
+	EXPR_XOR,
+	EXPR_OR,
+	EXPR_SHL,
+	EXPR_SHR,
+	EXPR_GT,
+	EXPR_GE,
+	EXPR_LT,
+	EXPR_LE,
+	EXPR_SLE,
+	EXPR_SGE,
+	EXPR_SEQ,
+	EXPR_SNE,
+	EXPR_IEQ,
+	EXPR_INE,
+	EXPR_EQ,
+	EXPR_NE,
+	EXPR_ANDL,
+	EXPR_ORL,
+	EXPR_XORL,
+	EXPR_NEXT,
+	EXPR_DIFF,
+	EXPR_OFF,
+	EXPR_GCD,
+	EXPR_LCM,
+	EXPR_NEG,
+	EXPR_NOT,
+	EXPR_NOTL,
+	EXPR_TSTL,
+	EXPR_NEX0,
+	EXPR_DIF0,
+	EXPR_IF,
+	EXPR_WHILE,
+	EXPR_DO,
+	EXPR_DOW,
+	EXPR_WIF,
+	EXPR_DON,
+	EXPR_SUM,
+	EXPR_INT,
+	EXPR_PROD,
+	EXPR_SUP,
+	EXPR_INF,
+	EXPR_ANDN,
+	EXPR_ORN,
+	EXPR_XORN,
+	EXPR_GCDN,
+	EXPR_LCMN,
+	EXPR_FOR,
+	EXPR_ZA,
+	EXPR_MD,
+	EXPR_ME,
+	EXPR_MEP,
+	EXPR_VMD,
+	EXPR_DO1,
+	EXPR_EP,
+	EXPR_EVAL,
+	EXPR_HOT,
+	EXPR_PBL,
+	EXPR_PZA,
+	EXPR_PMD,
+	EXPR_PME,
+	EXPR_PMEP,
+	EXPR_READ,
+	EXPR_WRITE,
+	EXPR_ALO,
+	EXPR_SJ,
+	EXPR_LJ,
+	EXPR_IP,
+	EXPR_TO,
+	EXPR_TO1,
+	EXPR_HMD,
+	EXPR_RET,
+	EXPR_SVC,
+	EXPR_SVC0,
+	EXPR_SVCP,
+	EXPR_SVCP0,
+	EXPR_END
 };
 
 #define EXPR_VOID ((void *)-1)
@@ -1125,9 +1125,10 @@ union expr_argf {
 	char ch;
 };
 expr_static_assert(sizeof(union expr_argf)==sizeof(expr_t));
-typedef const union expr_argf *(*expr_argfetch)(ptrdiff_t index,const struct expr_writeflag *flag,intptr_t addr);
+typedef const union expr_argf *(*expr_argfetch_t)(ptrdiff_t index,const struct expr_writeflag *flag,intptr_t addr);
+typedef ssize_t (*expr_converter_t)(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
 struct expr_writefmt {
-	ssize_t (*converter)(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+	expr_converter_t converter;
 	uint8_t op[7];
 	uint8_t type:2,no_arg:1,digit_check:1,setcap:1,unused:3;
 };
@@ -1166,6 +1167,31 @@ struct expr_ftable {
 struct expr_memfd {
 	void *buf;
 	size_t size;
+};
+
+enum expr_fop {
+	EXPR_FIMM,
+	EXPR_FCON,
+	EXPR_FCTL,
+	EXPR_FEND
+};
+struct expr_finst {
+	union {
+		struct {
+			const char *imm_str;
+			size_t imm_len;
+		};
+		struct {
+			struct expr_writeflag flag[1];
+			expr_converter_t converter;
+			unsigned int
+				read_width:2,
+				read_digit:2,
+				read_argsize:2,
+				unused:sizeof(unsigned int)*8-6;
+		};
+	};
+	enum expr_fop op;
 };
 
 #define expr_ilprintf(fd,fmt,...) expr_idwprintf(expr_buffered_write_iolbf_warped,fd,fmt,##__VA_ARGS__)

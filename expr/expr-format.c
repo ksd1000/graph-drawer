@@ -386,11 +386,11 @@ static ssize_t converteru_##_name(expr_writer_t writer,intptr_t fd,const union e
 	double val=arg->dbl;\
 	char *endp;\
 	char *p,*np;\
-	int positive,f61,f58;\
 	ssize_t ext,sum,r,sz,fsz;\
 	size_t digit,width,ds;\
 	const char *_conv_str=flag->cap?conv_btoX:conv_btox;\
 	uint32_t baseodd;\
+	uint8_t positive,nonzero,f61,f58;\
 	_start;\
 	disable_zero_with_minus();\
 	if(unlikely(!expr_isfinite(val))){\
@@ -402,8 +402,8 @@ static ssize_t converteru_##_name(expr_writer_t writer,intptr_t fd,const union e
 			memcpy(p,(expr_isinf(val)?"inf":"nan"),4);\
 		cwrite_common(nbuf,(ssize_t)(p==nbuf?3:4));\
 	}\
-	f61=!!(flag->minus);\
-	f58=!!(flag->eq);\
+	f61=(uint8_t)!!(flag->minus);\
+	f58=(uint8_t)!!(flag->eq);\
 	digit=(size_t)flag_digit(flag,6);\
 	if(digit>(size_t)SSIZE_MAX-1){\
 		digit=(size_t)SSIZE_MAX-1;\
@@ -415,6 +415,11 @@ static ssize_t converteru_##_name(expr_writer_t writer,intptr_t fd,const union e
 		positive=0;\
 	}else {\
 		positive=1;\
+	}\
+	if(EXPR_EDUVAL(&val)){\
+		nonzero=1;\
+	}else {\
+		nonzero=0;\
 	}\
 	np=endp;\
 	sum=0;\
@@ -438,13 +443,28 @@ static ssize_t converteru_##_name(expr_writer_t writer,intptr_t fd,const union e
 	}else {\
 		*(--np)='0';\
 	}\
-	if(base==16){\
+	if(nonzero){\
 		if(flag->sharp){\
-			*(--np)=_conv_str[base];\
-			*(--np)='0';\
+			switch(base){\
+				case 2:\
+					*(--np)=flag->cap?'B':'b';\
+					*(--np)='0';\
+					break;\
+				case 8:\
+					*(--np)='0';\
+					break;\
+				case 16:\
+					*(--np)=flag->cap?'X':'x';\
+					*(--np)='0';\
+					break;\
+				default:\
+					break;\
+			}\
 		}\
 	}\
-	write_sign_to_np(!positive);\
+	if(nonzero||!positive){\
+		write_sign_to_np(!positive);\
+	}\
 	ds=(size_t)(endp-np);\
 	p=vbuf+1096;\
 	if(digit){\
@@ -1291,7 +1311,7 @@ struct expr_vwritef_workspace {
 };
 #undef xmtl
 #define xmtl mtl
-ssize_t expr_vwriteft_r(expr_writer_t writer,intptr_t fd,const char *restrict fmt,size_t fmtlen,expr_argfetch arg,intptr_t addr,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl){
+ssize_t expr_vwriteft_r(expr_writer_t writer,intptr_t fd,const char *restrict fmt,size_t fmtlen,expr_argfetch_t arg,intptr_t addr,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl){
 	struct expr_vwritef_workspace *restrict wsp;
 	if(unlikely(!fmtlen))
 		return 0;

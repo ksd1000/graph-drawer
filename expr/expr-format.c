@@ -2248,9 +2248,14 @@ reflag:
 end:
 	newinst(tmp);
 	tmp->op=EXPR_FEND;
+	if(psize<plength){
+		tmp=xrealloc(p,psize*sizeof(struct expr_finst));
+		if(likely(tmp))
+			p=tmp;
+	}
 	*(struct expr_finst **)fip=p;
-	debug("end len:%zd",(ssize_t)(tmp-p+1));
-	return (ssize_t)(tmp-p+1);
+	debug("end len:%zd psize=%zu",(ssize_t)(tmp-p+1),psize);
+	return (ssize_t)psize;
 }
 #define wf_return(V) return (V)
 #define wf_returnc(V) return (V)

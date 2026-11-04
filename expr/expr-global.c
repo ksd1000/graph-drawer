@@ -5,7 +5,7 @@
  *******************************************************************************/
 #define _GNU_SOURCE
 
-#define EXPR_VERSION "1.0.18-17"
+#define EXPR_VERSION "1.0.18-18"
 
 #if (defined(EXPR_LIBC_STRING_IMPL)&&(EXPR_LIBC_STRING_IMPL))
 #include <string.h>
@@ -14,9 +14,8 @@
 #ifndef EXPR_SETUP_ENABLED
 #define EXPR_SETUP_ENABLED 1
 #endif
-#if EXPR_SETUP_ENABLED
 #include <stdio.h>
-#endif
+#include <errno.h>
 
 #ifdef EXPR_SYSIN
 #define SYSCALL_DEFINED 1
@@ -94,6 +93,50 @@ const struct expr_libinfo expr_libinfo_current[1]={{
 	.time=__TIME__,
 	.license="GPL v3+",
 }};
+struct expr_global_file expr_stdout[1];
+struct expr_global_file expr_stderr[1];
+#define expr_stdout expr_stdout
+#define expr_stderr expr_stderr
+// the C standard forces them to be macros, with the prefix of namespace.
+
+static ssize_t global_write(intptr_t fd,const void *buf,size_t size){
+	FILE *fp=(FILE *)fd;
+	ssize_t r;
+	r=(ssize_t)fwrite(buf,1,size,fp);
+	fflush(fp);
+	if(unlikely((size_t)r<size&&ferror(stdout))){
+		return (ssize_t)-errno;
+	}
+	return r;
+}
+void expr_global_setup(void){
+	expr_buffered_init_r(expr_stdout->buf,global_write,(intptr_t)stdout,NULL,0,expr_globalmtl);
+	expr_buffered_init_r(expr_stderr->buf,global_write,(intptr_t)stderr,NULL,0,expr_globalmtl);
+	if(unlikely(expr_global_setvbuf(expr_stdout,_IOLBF,BUFSIZ)<0||expr_global_setvbuf(expr_stderr,_IOLBF,BUFSIZ)<0))
+		warn_abort("expr-lc/setup","setup failed: cannot allocate memory of size=%zu",(size_t)BUFSIZ);
+}
+int expr_global_setvbuf(struct expr_global_file *fp,int mode,size_t size){
+	switch(mode){
+		case _IONBF:
+			if(expr_buffered_truncate(fp->buf,0)<0)
+				return -1;
+			fp->mode=expr_buffered_write_sync_warped;
+			break;
+		case _IOLBF:
+			if(expr_buffered_truncate(fp->buf,size)<0)
+				return -1;
+			fp->mode=expr_buffered_write_iolbf_warped;
+			break;
+		case _IOFBF:
+			if(expr_buffered_truncate(fp->buf,size)<0)
+				return -1;
+			fp->mode=expr_buffered_write_warped;
+			break;
+		default:
+			return -1;
+	}
+	return 0;
+}
 
 #if !(defined(EXPR_NOSTACKWORKSPACE)&&(EXPR_NOSTACKWORKSPACE))
 double expr_internal_strtod(const char *restrict nptr,size_t nsize,size_t *restrict end_index){

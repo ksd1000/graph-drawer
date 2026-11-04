@@ -221,8 +221,6 @@ end:
 	free(buf);
 }
 #define xmtl expr_defmtl
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 static void checkfmt(const char *expect,const char *fmt,...){
 	char *p;
 	va_list ap;
@@ -238,20 +236,35 @@ static void checkfmt(const char *expect,const char *fmt,...){
 	}
 	expr_xfree(p);
 }
-#pragma GCC diagnostic pop
+static void checkfmti(const char *expect,const char *fmt,...){
+	static char buf[9999];
+	va_list ap;
+	struct expr_finst *fip;
+	assert(expr_mkinstf(&fip,fmt,strlen(fmt))>0);
+	va_start(ap,fmt);
+	assert(expr_vsnprinti(buf,9999,fip,ap)<9999);
+	va_end(ap);
+	expr_xfree(fip);
+	if(strcmp(buf,expect)){
+		printf("error result(i): \"%s\"\n",buf);
+		check_abort();
+	}
+}
+#define checkfmt2(...) checkfmt(__VA_ARGS__);checkfmti(__VA_ARGS__)
 static void checkfmts(void){
-	checkfmt("   1234","%7d",(expr_it)1234);
-	checkfmt("1234  ","%-6d",(expr_it)1234);
-	checkfmt("1231 ","%-5.*S",(size_t)4,"123123");
-	checkfmt("76b3e4","%.3h","\x76\xb3\xe4");
-	checkfmt("k","%c",expr_mkval64('k'));
+	checkfmt2("   1234","%7d",(expr_it)1234);
+	checkfmt2("1234  ","%-6d",(expr_it)1234);
+	checkfmt2("1231 ","%-5.*S",(size_t)4,"123123");
+	checkfmt2("76b3e4","%.3h","\x76\xb3\xe4");
+	checkfmt2("k","%c",expr_mkval64('k'));
 	checkfmt("372u,372u,372u","%3l%1T,%1tu%u",(expr_ut)372);
 	checkfmt("{5459,-833,-9999,67}","{%4k%1T,%:id}",(int []){5459,-833,-9999,67});
 	checkfmt("{\"asd\",\"fhl\",\"HELLO\"}","{%3k%3T\",\"\"%.5s\"}",(const char *[]){"asd\0aa","fhl\0aaa","HELLO","NOPRINT"});
-	checkfmt("null","%p",NULL);
-	checkfmt("1.5m","%=.-1m",(expr_ut)1024*1536);
-	checkfmt("1.7M","%.1M",(expr_ut)1024*1792);
-	checkfmt("aa\\1b\\0021\\2\\68\\n","%.10E","aa\1b\2\61\2\68\n");
+	checkfmt2("null","%p",NULL);
+	checkfmt2("NULL","%P",NULL);
+	checkfmt2("1.5m","%=.-1m",(expr_ut)1024*1536);
+	checkfmt2("1.7M","%.1M",(expr_ut)1024*1792);
+	checkfmt2("aa\\1b\\0021\\2\\68\\n","%.10E","aa\1b\2\61\2\68\n");
 	printf("fotmat check ok\n");
 }
 static int keyword_diff(const char *str,size_t len,const struct expr_builtin_keyword *restrict s){

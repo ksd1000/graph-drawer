@@ -1286,6 +1286,10 @@ struct expr_buffered_file {
 	}\
 	___fp->buf?0:-1;\
 })
+struct expr_global_file {
+	struct expr_buffered_file buf[1];
+	expr_writer_t mode;
+};
 struct expr;
 struct expr_symset;
 struct expr_suminfo {
@@ -2053,6 +2057,8 @@ ssize_t expr_buffered_flush(struct expr_buffered_file *restrict fp);
 ssize_t expr_buffered_rdropall(struct expr_buffered_file *restrict fp);
 ssize_t expr_buffered_close(struct expr_buffered_file *restrict fp);
 void expr_buffered_rclose(struct expr_buffered_file *restrict fp);
+ssize_t expr_buffered_truncate(struct expr_buffered_file *restrict fp,size_t size);
+ssize_t expr_buffered_rtruncate(struct expr_buffered_file *restrict fp,size_t size);
 ssize_t expr_buffered_readline(struct expr_buffered_file *restrict fp,expr_test_t test,intptr_t c,void *savep);
 ssize_t expr_buffered_write_iolbf_warped(intptr_t fd,const void *buf,size_t size);
 //global externs of expr-buffered.c :
@@ -2263,6 +2269,8 @@ extern const struct expr_builtin_symbol expr_symbols_symset[];
 extern const struct expr_builtin_symbol expr_symbols_string[];
 extern const struct expr_builtin_symbol expr_symbols_errno[];
 //global functions of expr-global.c :
+void expr_global_setup(void);
+int expr_global_setvbuf(struct expr_global_file *fp,int mode,size_t size);
 double expr_internal_strtod(const char *restrict nptr,size_t nsize,size_t *restrict end_index);
 __attribute__((noreturn)) void expr_explode(void);
 __attribute__((noreturn)) void expr_trap(void);

@@ -1286,6 +1286,10 @@ struct expr_buffered_file {
 	}\
 	___fp->buf?0:-1;\
 })
+struct expr_global_file {
+	struct expr_buffered_file buf[1];
+	expr_writer_t mode;
+};
 struct expr;
 struct expr_symset;
 struct expr_suminfo {

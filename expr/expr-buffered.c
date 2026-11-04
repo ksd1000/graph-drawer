@@ -436,6 +436,45 @@ void expr_buffered_rclose(struct expr_buffered_file *restrict fp){
 	if(fp->dynamic&&fp->buf)
 		xfree(fp->buf);
 }
+// WARNING: can only be used for dynamic buffer.
+ssize_t expr_buffered_truncate(struct expr_buffered_file *restrict fp,size_t size){
+	void *p;
+	ssize_t r;
+	if(unlikely(size==fp->length))
+		return 0;
+	if(size>fp->length){
+		p=xrealloc(fp->buf,size);
+		if(unlikely(!p))
+			return SSIZE_MIN;
+		fp->buf=p;
+		fp->length=size;
+		return 0;
+	}
+	if(unlikely(size<fp->index))
+		r=(ssize_t)(fp->index-size);
+	else
+		r=0;
+	if(size){
+		p=xrealloc(fp->buf,size);
+		if(unlikely(!p))
+			return SSIZE_MIN;
+		fp->buf=p;
+	}else {
+		xfree(fp->buf);
+		fp->buf=NULL;
+	}
+	fp->length=size;
+	if(r)
+		fp->index=size;
+	return r;
+}
+ssize_t expr_buffered_rtruncate(struct expr_buffered_file *restrict fp,size_t size){
+	ssize_t r;
+	r=expr_buffered_truncate(fp,size);
+	if(unlikely(fp->written>fp->index))
+		fp->written=fp->index;
+	return r;
+}
 
 ssize_t expr_buffered_readline(struct expr_buffered_file *restrict fp,expr_test_t test,intptr_t c,void *savep){
 	ssize_t r;

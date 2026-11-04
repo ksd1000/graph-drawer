@@ -47,6 +47,7 @@
 	SSIZE_MIN+2: no enough bufsize
 	SSIZE_MIN+3: arg fail
 	SSIZE_MIN+4: digit not set
+	SSIZE_MIN+5: operation is unsupported
 	SSIZE_MIN+128: truncate
 */
 #define TRUNC_CODE EXPR_TRUNC_CODE
@@ -189,6 +190,7 @@ static ssize_t converter_d(expr_writer_t writer,intptr_t fd,const union expr_arg
 	char *p=endp;
 	ssize_t ext,sum,r,sz;
 	int minus;
+	debug("width=%zu(%d) digit=%zd(%d)\n",flag->width,(int)flag->width_set,flag->digit,(int)flag->digit_set);
 	if(!val)
 		minus=2;
 	else if((expr_it)val<0){
@@ -1304,10 +1306,11 @@ struct expr_vwritef_workspace {
 		const union expr_argf *_arg_cur;
 		union expr_argf _old;
 		uintptr_t _aps;
+		ssize_t *_ar;
 	};
 	union expr_argf _save;
 	expr_ut _val,_mask;
-	uint8_t _forward,_arrwid,_current,_next_saved,_r1;
+	uint8_t _forward,_arrwid,_current,_next_saved,_r1,_r2;
 };
 #undef xmtl
 #define xmtl mtl
@@ -1334,6 +1337,7 @@ ssize_t expr_vwriteft_r(expr_writer_t writer,intptr_t fd,const char *restrict fm
 #define arrwid wsp->_arrwid
 #define current wsp->_current
 #define r1 wsp->_r1
+#define r2 wsp->_r2
 #define fmt_save wsp->_fmt_save
 #define fmt_save_current wsp->_fmt_save_current
 #define save wsp->_save
@@ -1343,6 +1347,7 @@ ssize_t expr_vwriteft_r(expr_writer_t writer,intptr_t fd,const char *restrict fm
 #define val wsp->_val
 #define mask wsp->_mask
 #define next_saved wsp->_next_saved
+#define ar wsp->_ar
 	wsp=xmalloc(sizeof(struct expr_vwritef_workspace));
 	if(unlikely(!wsp)){
 		return SSIZE_MIN+1;
@@ -1498,17 +1503,20 @@ current_get:
 		case EXPR_FMTC_EXIT:
 			goto end;
 		case EXPR_FMTC_WRITESIZE:
-			debug("n=%zu",ret);
-			val=(expr_ut)(size_t)ret;
-			v=(ssize_t)flag->argsize;
-			if((size_t)v-1>(size_t)sizeof(expr_ut)-1)
-				v=(ssize_t)sizeof(expr_ut);
 #if (!defined(__BIG_ENDIAN__)||!(__BIG_ENDIAN__))
-			memcpy(arg1->addr,&val,(size_t)v);
+#define writesize0_k() memcpy(arg1->addr,&val,(size_t)v)
 #else
-			memcpy(arg1->addr,(const void *)&val+((size_t)sizeof(expr_ut)-(size_t)v),(size_t)v);
+#define writesize0_k() memcpy(arg1->addr,(const void *)&val+((size_t)sizeof(expr_ut)-(size_t)v),(size_t)v)
 #endif
-			argnext1;
+#define writesize_k() \
+			debug("n=%zu",ret);\
+			val=(expr_ut)(size_t)ret;\
+			v=(ssize_t)flag->argsize;\
+			if((size_t)v-1>(size_t)sizeof(expr_ut)-1)\
+				v=(ssize_t)sizeof(expr_ut);\
+			writesize0_k();\
+			argnext1
+			writesize_k();
 			break;
 		case EXPR_FMTC_NEXTSAVED:
 			if(flag->width_set)
@@ -1524,16 +1532,14 @@ current_get:
 		case EXPR_FMTC_JUMP_INDEX:
 #define fmt_op_cond(onexit) \
 			if(flag->eq){\
-				ssize_t *restrict ar;\
-				int c;\
 				if(flag->digit_set){\
 					ar=arg1->addr;\
 					argnext1;\
 					*ar+=flag->digit;\
-					c=flag->zero?*ar<0:(flag->space?*ar>0:!*ar);\
+					r2=(uint8_t)(flag->zero?*ar<0:(flag->space?*ar>0:!*ar));\
 					if(flag->sharp)\
-						c=!c;\
-					if(c){\
+						r2=(uint8_t)!r2;\
+					if(r2){\
 						onexit;\
 						break;\
 					}\
@@ -1880,6 +1886,7 @@ end:
 #undef arrwid
 #undef current
 #undef r1
+#undef r2
 #undef fmt_save
 #undef fmt_save_current
 #undef save
@@ -1889,6 +1896,7 @@ end:
 #undef val
 #undef mask
 #undef next_saved
+#undef ar
 }
 #undef arg1
 #undef argt
@@ -2075,6 +2083,7 @@ ssize_t expr_snprintft_r(char *buf,size_t buflen,const char *restrict fmt,size_t
 }
 #undef writer
 #undef fd
+// libexpr will never provide sprintf()
 
 #define newinst(tmp) ({\
 	tmp=expr_xautoadd((void **)&p,&psize,&plength,sizeof(struct expr_finst),EXPR_EXPAND_SIZE,mtl);\
@@ -2087,6 +2096,7 @@ ssize_t expr_snprintft_r(char *buf,size_t buflen,const char *restrict fmt,size_t
 	tmp->op=EXPR_FIMM;\
 	tmp->imm_str=(immp);\
 	tmp->imm_len=(immlen);\
+	debug("imm len:%zu",tmp->imm_len);\
 })
 
 ssize_t expr_mkinstft_r(void *fip,const char *restrict fmt,size_t fmtlen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl){
@@ -2159,22 +2169,23 @@ reflag:
 	}else {\
 		fmt_old=fmt;\
 		fmt=internal_strtoz_10(fmt,endp,(ssize_t *)&fmtlen);\
-		tmp->read_##_read=0;\
 		if(fmt>fmt_old){\
 			dest=(dtype)fmtlen;\
 			_after;\
+			tmp->read_##_read=0;\
 			if(unlikely(fmt>=endp)){\
 				--psize;\
 				goto end;\
 			}\
-		}\
+		}else\
+			tmp->read_##_read=3;\
 	}
 	get_next_arg64(tmp->flag->width,size_t,tmp->flag->width_set=1,EXPR_FLAGTYPE_SIZE,zint,zaddr,width);
 	if(table->digit_set&&*fmt==table->digit){
 		fmt_inc_check;
 		get_next_arg64(tmp->flag->digit,ssize_t,tmp->flag->digit_set=1,EXPR_FLAGTYPE_SSIZE,tint,taddr,digit);
 	}else
-		tmp->read_digit=0;
+		tmp->read_digit=3;
 	if(table->bitwidth_set&&*fmt==table->bitwidth){
 		fmt_inc_check;
 #define type_check(type,T) \
@@ -2201,8 +2212,18 @@ reflag:
 	tmp->flag->op=current;
 	switch((r1=table->c[current])){
 		case EXPR_FMTC_MIN ... EXPR_FMTC_MAX:
+			switch(r1){
+				case EXPR_FMTC_EXIT:
+				case EXPR_FMTC_WRITESIZE:
+				case EXPR_FMTC_LOOP:
+					break;
+				default:
+					debug("opcode %d is not supported now",(int)r1);
+					// not supported now.
+					reterr(SSIZE_MIN+5);
+			}
 			tmp->op=EXPR_FCTL;
-			tmp->fmtc_code=current;
+			tmp->fmtc_code=r1;
 			break;
 		default:
 			if(unlikely(r1>(uint8_t)table->fmts_size))
@@ -2226,7 +2247,8 @@ reflag:
 end:
 	newinst(tmp);
 	tmp->op=EXPR_FEND;
-	*(void **)fip=p;
+	*(struct expr_finst **)fip=p;
+	debug("end len:%zd",(ssize_t)(tmp-p+1));
 	return (ssize_t)(tmp-p+1);
 }
 #define wf_return(V) return (V)
@@ -2275,7 +2297,7 @@ end:
 //#define argnext(N) index+=(ptrdiff_t)(N);debug("arg index to %zd",index)
 //#define argback(N) index-=(ptrdiff_t)(N);debug("arg index back to %zd",index)
 #define goto_argfail {debug("arg failed");wf_return(SSIZE_MIN+3);}
-//#define goto_argfail1(e) {debug("arg failed");wf_return(e);}
+#define goto_argfail1(e) {debug("arg failed");wf_return(e);}
 #define argt(_type) ({\
 	register const union expr_argf *__arg;\
 	/*if(next_saved){\
@@ -2304,6 +2326,8 @@ end:
 		flag->field=(dtype)*arg1->uafield;\
 		argnext1;\
 		break;\
+	case 3:\
+		break;\
 	default:\
 		__builtin_unreachable();\
 }
@@ -2318,15 +2342,23 @@ end:
 		flag->field=(dtype)*arg1->uafield;\
 		argnext1;\
 		break;\
+	case 3:\
+		break;\
 	default:\
 		__builtin_unreachable();\
 }
+#define wdasync_all() \
+	flag->bit=fip->flag->bit;\
+	wdasync(width,size_t,EXPR_FLAGTYPE_SIZE,zint,zaddr);\
+	wdasync(digit,ssize_t,EXPR_FLAGTYPE_SSIZE,tint,taddr);\
+	wdasync_ig0(argsize,uint64_t,EXPR_FLAGTYPE_SIZE,zint,zaddr)
 ssize_t expr_vwritei_r(expr_writer_t writer,intptr_t fd,const struct expr_finst *restrict fip,expr_argfetch_t arg,intptr_t addr,const struct expr_memtool *restrict mtl){
 	ssize_t ret,v;
 	size_t loop;
 	const union expr_argf *arg_cur;
 	ptrdiff_t index;
 	struct expr_writeflag flag[1];
+	expr_ut val;
 	ret=0;
 	loop=0;
 	index=0;
@@ -2336,36 +2368,44 @@ ssize_t expr_vwritei_r(expr_writer_t writer,intptr_t fd,const struct expr_finst 
 			wf_trywrite(fip->imm_str,fip->imm_len);
 			break;
 		case EXPR_FCON:
-			flag->bit=fip->flag->bit;
-			wdasync(width,size_t,EXPR_FLAGTYPE_SIZE,zint,zaddr);
-			wdasync(digit,ssize_t,EXPR_FLAGTYPE_SSIZE,tint,taddr);
-			wdasync_ig0(argsize,uint64_t,EXPR_FLAGTYPE_SIZE,zint,zaddr);
+			wdasync_all();
 			arg_cur=argt(flag->type);
 			fmt_dorepeat(arg_cur);
 			argnext1;
 			break;
 		case EXPR_FCOZ:
-			flag->bit=fip->flag->bit;
-			wdasync(width,size_t,EXPR_FLAGTYPE_SIZE,zint,zaddr);
-			wdasync(digit,ssize_t,EXPR_FLAGTYPE_SSIZE,tint,taddr);
-			wdasync_ig0(argsize,uint64_t,EXPR_FLAGTYPE_SIZE,zint,zaddr);
+			wdasync_all();
 			fmt_dorepeat(NULL);
 			break;
 		case EXPR_FCTL:
+			wdasync_all();
 			switch(fip->fmtc_code){
 				case EXPR_FMTC_EXIT:
 					wf_return(ret);
+				case EXPR_FMTC_WRITESIZE:
+					writesize_k();
+					break;
 				case EXPR_FMTC_LOOP:
 					loop=flag_width(flag,0);
+					debug("loop=%zu",loop);
 					break;
 				default:
+					debug("opcode %d is not supported now",(int)fip->fmtc_code);
 					// not supported now.
-					goto_argfail;
+					goto_argfail1(SSIZE_MIN+5);
 			}
 			break;
 		case EXPR_FEND:
 			wf_return(ret);
+		default:
+			__builtin_unreachable();
 	}
+}
+ssize_t expr_writei_r(expr_writer_t writer,intptr_t fd,const struct expr_finst *restrict fip,const union expr_argf *restrict args,size_t arglen,const struct expr_memtool *restrict mtl){
+	struct writef_args wa[1];
+	wa->base=args;
+	wa->arglen=arglen;
+	return expr_vwritei_r(writer,fd,fip,arr_arg,(intptr_t)wa,mtl);
 }
 #define iap_common(_start,_end) \
 	ssize_t r;\
@@ -2382,8 +2422,50 @@ ssize_t expr_apwritei_r(expr_writer_t writer,intptr_t fd,const struct expr_finst
 	iap_common(va_start(a->ap,mtl),va_end(a->ap));
 	return r;
 }
+ssize_t expr_snwritei_r(char *buf,size_t buflen,const struct expr_finst *restrict fip,const union expr_argf *restrict args,size_t arglen,const struct expr_memtool *restrict mtl){
+	struct writef_args wa[1];
+	struct expr_memfd mfd[1];
+	ssize_t r;
+	mfd->buf=buf;
+	mfd->size=buflen;
+	wa->base=args;
+	wa->arglen=arglen;
+	r=expr_vwritei_r(expr_memfd_write_warped,((intptr_t)mfd),fip,arr_arg,(intptr_t)wa,mtl);
+	if(unlikely(r<0))
+		return r;
+	if(unlikely((size_t)r>=buflen)){
+		if(buflen)
+			buf[buflen-1]=0;
+	}else
+		buf[r]=0;
+	return r;
+}
+#define isp_common(_start,_end,_table) \
+	struct expr_memfd mfd[1];\
+	mfd->buf=buf;\
+	mfd->size=buflen;\
+	{\
+		iap_common(_start,_end);\
+		if(unlikely(r<0))\
+			return r;\
+		if(unlikely((size_t)r>=buflen)){\
+			if(buflen)\
+				buf[buflen-1]=0;\
+		}else\
+			buf[r]=0;\
+		return r;\
+	}
+#define writer expr_memfd_write_warped
+#define fd ((intptr_t)mfd)
+ssize_t expr_vsnprinti_r(char *buf,size_t buflen,const struct expr_finst *restrict fip,const struct expr_memtool *restrict mtl,va_list ap){
+	isp_common(va_copy(a->ap,ap),va_end(a->ap),table);
+}
+ssize_t expr_snprinti_r(char *buf,size_t buflen,const struct expr_finst *restrict fip,const struct expr_memtool *restrict mtl,...){
+	isp_common(va_start(a->ap,mtl),va_end(a->ap),table);
+}
+#undef writer
+#undef fd
 
-// libexpr will never provide sprintf()
 static inline const char *internal_strtom_10(const char *restrict nptr,const char *endp,size_t *restrict outval){
 	uint64_t r=0;
 	unsigned int get;

@@ -13,13 +13,14 @@ char buf[12341234];
 struct expr_buffered_file buffer[1]={EXPR_BUFFERED_INITIALIZER(write_warped,STDOUT_FILENO,buf,sizeof(buf))};
 #define handy_printf(fmt,...) ({\
 	struct expr_finst *fip;\
-	assert(expr_mkinstft(&fip,fmt,sizeof(fmt)-1,expr_ftable_default)>0);\
+	assert(expr_mkinstf(&fip,fmt,sizeof(fmt)-1)>0);\
 	expr_apwritei(expr_buffered_write_iolbf_warped,(intptr_t)buffer,fip,##__VA_ARGS__);\
 	expr_defmtl->deallocate(fip,expr_defmtl->arg);\
 })
 int main(void){
 	handy_printf("hello\n");
 	handy_printf("six=%7:id\n",6);
+	handy_printf("six=%8l%:id\n",6);
 	handy_printf("e=%f\n",M_E);
 	handy_printf("City1:%s City2:%s\n","Kawasaki","Osaka");
 	handy_printf("buf has %.2:zM size\n",sizeof(buf));

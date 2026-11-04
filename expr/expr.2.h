@@ -136,6 +136,9 @@
 #define expr_vasprintf(strp,fmt,fmtlen,ap) expr_vasprintft_r(strp,fmt,fmtlen,expr_ftable_default,expr_defmtl,ap)
 #define expr_asprintf(strp,fmt,fmtlen,...) expr_asprintft_r(strp,fmt,fmtlen,expr_ftable_default,expr_defmtl,##__VA_ARGS__)
 
+#define expr_mkinstf_r(fip,fmt,fmtlen,mtl) expr_mkinstft_r(fip,fmt,fmtlen,expr_ftable_default,mtl)
+#define expr_mkinstf(fip,fmt,fmtlen) expr_mkinstft_r(fip,fmt,fmtlen,expr_ftable_default,expr_defmtl)
+
 #define expr_builtin_symbol_xaddall(esp,symsp,syms) expr_builtin_symbol_xaddalls(esp,symsp,syms,NULL)
 #define expr_builtin_symbol_addall(esp,syms) expr_builtin_symbol_addalls(esp,syms,NULL)
 

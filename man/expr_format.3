@@ -16,6 +16,17 @@ Graph Drawer Expression Evaluator Library
 .BI "ssize_t expr_snprintf[t][_r](char *" buf ",size_t " buflen ",const char *restrict " fmt ",size_t " fmtlen ",[const struct expr_ftable *restrict " table "],[const struct expr_memtool *restrict " mtl "]," ... ");"
 .BI "ssize_t expr_vasprintf[t][_r](char **" strp ",const char *restrict " fmt ",size_t " fmtlen ",[const struct expr_ftable *restrict " table "],[const struct expr_memtool *restrict " mtl "],va_list " ap ");"
 .BI "ssize_t expr_asprintf[t][_r](char **" strp ",const char *restrict " fmt ",size_t " fmtlen ",[const struct expr_ftable *restrict " table "],[const struct expr_memtool *restrict " mtl "]," ... ");"
+.P
+.BI "ssize_t expr_mkinstf[t][_r](struct expr_finst **" fip ",const char *restrict " fmt ",size_t " fmtlen ",[const struct expr_ftable *restrict " table "],[const struct expr_memtool *restrict " mtl "]);"
+.P
+.BI "ssize_t expr_vwritei[_r](expr_writer_t " writer ",intptr_t " fd ",const struct expr_finst *restrict " fip ",expr_argfetch_t " arg ",intptr_t " addr ",[const struct expr_memtool *restrict " mtl "]);"
+.BI "ssize_t expr_writei[_r](expr_writer_t " writer ",intptr_t " fd ",const struct expr_finst *restrict " fip ",const union expr_argf *restrict " args ",size_t " arglen ",[const struct expr_memtool *restrict " mtl "]);
+.BI "ssize_t expr_vapwritei[_r](expr_writer_t " writer ",intptr_t " fd ",const struct expr_finst *restrict " fip ",[const struct expr_memtool *restrict " mtl "],va_list " ap ");"
+.BI "ssize_t expr_apwritei[_r](expr_writer_t " writer ",intptr_t " fd ",const struct expr_finst *restrict " fip ",[const struct expr_memtool *restrict " mtl "]," ... ");"
+.BI "ssize_t expr_snwritei[_r](char *" buf ",size_t " buflen ",const struct expr_finst *restrict " fip ",const union expr_argf *restrict " arg "s,size_t " arglen ",[const struct expr_memtool *restrict " mtl "]);"
+.BI "ssize_t expr_vsnprinti[_r](char *" buf ",size_t " buflen ",const struct expr_finst *restrict " fip ",[const struct expr_memtool *restrict " mtl "],va_list " ap ");"
+.BI "ssize_t expr_snprinti[_r](char *" buf ",size_t " buflen ",const struct expr_finst *restrict " fip ",[const struct expr_memtool *restrict " mtl "]," ... ");"
+.P
 .BI "extern const struct expr_ftable " expr_ftable_default "[1];"
 .fi
 .SH DESCRIPTION
@@ -63,6 +74,25 @@ behaves like
 .BR expr_snprintf[t][_r]() , expr_asprintf[t][_r]()
 but fetch the argument from
 .IR args [ arglen ].
+.P
+The
+.BR expr_mkinstf[t][_r]()
+function generate an array of type
+.B struct expr_inst
+and write the address of it to
+.IR *fip .
+The space of the array must be deallocated by
+.I mtl
+->
+.B deallocate()
+when it is no longer needed.
+.P
+The
+.BR expr_*i[_r]()
+function use
+.I fip
+to format the string instead of
+.IR fmt [ fmtlen ].
 .SH DEFAULT FORMAT
 Defined by
 .IR expr_ftable_default .
@@ -239,7 +269,7 @@ does not refer to an
 object.
 .SH RETURN VALUE
 The
-.BR expr_[v||vap|ap]writef[t][_r]()
+.BR expr_[v||vap|ap]write[f[t]|i][_r]()
 return the number of bytes written. On error the negative code or
 will return. On truncate
 .B SSIZE_MIN+128
@@ -258,6 +288,12 @@ The
 return the number of bytes written to
 .IR *strp " (excluding the terminating zero)."
 .RI "On fail, negative value will rerurn(and " *strp " will be undefined)."
+.P
+The
+.BR expr_mkinstf[t][_r]()
+return the number of elements in
+.IR *fip .
+.RI "On fail, negative value will rerurn(and " *fip " will be undefined)."
 .SH ATTRIBUTES
 .TS
 allbox;
@@ -267,7 +303,7 @@ Interface	Attribute	Value
 T{
 .na
 .nh
-.BR expr_vwritef[t][_r]() , expr_writef[t][_r]() , expr_[v]apwritef[t][_r]() , expr_[v]snprintf[t][_r]() , expr_[v]asprintf[t][_r]() , expr_[sn|as]writef[t][_r]
+.BR expr_vwritef[t][_r]() , expr_writef[t][_r]() , expr_[v]apwritef[t][_r]() , expr_[v]snprintf[t][_r]() , expr_[v]asprintf[t][_r]() , expr_[sn|as]writef[t][_r] , expr_mkinstf[t][_r]() , expr_*i[_r]()
 T}	Thread safety	MT-Safe
 .TE
 .SH EXAMPLE
@@ -312,9 +348,13 @@ buf has 11.76M size
 .BR expr_vwritef()
 2026-02-01
 .TP
+.BR expr_vapwritef()
+.TQ
 .BR expr_apwritef()
 2026-02-27
 .TP
+.BR expr_vsnprintf()
+.TQ
 .BR expr_snprintf()
 2026-10-21
 .TP
@@ -324,5 +364,20 @@ buf has 11.76M size
 .TQ
 .BR expr_asprintf()
 2026-10-27
+.TP
+.BR expr_mkinstf()
+.TQ
+.BR expr_vwritei()
+.TQ
+.BR expr_writei()
+.TQ
+.BR expr_vapwritei()
+.TQ
+.BR expr_apwritei()
+.TQ
+.BR expr_vsnwritei()
+.TQ
+.BR expr_snwritei()
+2026-11-4
 .SH SEE ALSO
 \-

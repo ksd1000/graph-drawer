@@ -19,6 +19,7 @@ struct expr_buffered_file buffer[1]={EXPR_BUFFERED_INITIALIZER(write_warped,STDO
 })
 int main(void){
 	handy_printf("hello\n");
+	handy_printf("100%%+100%%=200%%\n");
 	handy_printf("six=%7:id\n",6);
 	handy_printf("six=%8l%:id\n",6);
 	handy_printf("e=%f\n",M_E);

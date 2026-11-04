@@ -945,9 +945,6 @@ static ssize_t faction_P(expr_writer_t writer,intptr_t fd,const union expr_argf 
 	}
 	return converter_x81(writer,fd,arg,((void)(flag->sharp=1),flag));
 }
-static ssize_t faction_percent(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
-	return writer(fd,"%",1);
-}
 #define fmtc_register(_act,_argc,_type,_op,...) {\
 	.converter=(_act),\
 	.type=(_type),\
@@ -961,8 +958,6 @@ static ssize_t faction_percent(expr_writer_t writer,intptr_t fd,const union expr
 	.op={_op,##__VA_ARGS__},\
 }
 const struct expr_writefmt expr_writefmts_default[]={
-	fmtc_register(faction_percent,0,0,'%'),
-
 	fmtc_register(converter_x81,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x81','x'),
 	fmtc_register(converter_x82,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x82',(uint8_t)'\x92','b'),
 	fmtc_register(converter_x83,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x83',(uint8_t)'\x93'),
@@ -1063,6 +1058,7 @@ const struct expr_ftable expr_ftable_default[1]={{
 ['V']=EXPR_FMTC_SAVE,
 ['v']=EXPR_FMTC_EVAL,
 ['z']=EXPR_FMTC_FLUSH,
+['%']=EXPR_FMTC_FPH,
 
 ['+']=EXPR_FPLUS,
 [' ']=EXPR_FSPACE,
@@ -1074,72 +1070,71 @@ const struct expr_ftable expr_ftable_default[1]={{
 ['&']=EXPR_FADDR,
 ['!']=EXPR_FCAP,
 
-['%']=1,
-[(uint8_t)'\x81']=2,['x']=2,
-[(uint8_t)'\x82']=3,[(uint8_t)'\x92']=3,['b']=3,
-[(uint8_t)'\x83']=4,[(uint8_t)'\x93']=4,
-[(uint8_t)'\x84']=5,[(uint8_t)'\x94']=5,
-[(uint8_t)'\x85']=6,[(uint8_t)'\x95']=6,
-[(uint8_t)'\x86']=7,[(uint8_t)'\x96']=7,
-[(uint8_t)'\x87']=8,[(uint8_t)'\x97']=8,
-[(uint8_t)'\x88']=9,[(uint8_t)'\x98']=9,['o']=9,
-[(uint8_t)'\x89']=10,[(uint8_t)'\x99']=10,
-[(uint8_t)'\x8a']=11,[(uint8_t)'\x9a']=11,['u']=11,
-[(uint8_t)'\x8b']=12,
-[(uint8_t)'\x8c']=13,
-[(uint8_t)'\x8d']=14,
-[(uint8_t)'\x8e']=15,
-[(uint8_t)'\x8f']=16,
-[(uint8_t)'\x91']=17,['X']=17,
-[(uint8_t)'\x9b']=18,
-[(uint8_t)'\x9c']=19,
-[(uint8_t)'\x9d']=20,
-[(uint8_t)'\x9e']=21,
-[(uint8_t)'\x9f']=22,
-['s']=23,
-['S']=24,
-['c']=25,
-['d']=26,
-['p']=27,
-['P']=28,
-['h']=29,
-['H']=30,
-['E']=31,
-['m']=32,
-['M']=33,
-[(uint8_t)'\xa1']=FLTIDX(34),['a']=FLTIDX(34),
-[(uint8_t)'\xa2']=FLTIDX(35),
-[(uint8_t)'\xa3']=FLTIDX(36),
-[(uint8_t)'\xa4']=FLTIDX(37),
-[(uint8_t)'\xa5']=FLTIDX(38),
-[(uint8_t)'\xa6']=FLTIDX(39),
-[(uint8_t)'\xa7']=FLTIDX(40),
-[(uint8_t)'\xa8']=FLTIDX(41),
-[(uint8_t)'\xa9']=FLTIDX(42),
-[(uint8_t)'\xaa']=FLTIDX(43),['f']=FLTIDX(43),
-[(uint8_t)'\xab']=FLTIDX(44),
-[(uint8_t)'\xac']=FLTIDX(45),
-[(uint8_t)'\xad']=FLTIDX(46),
-[(uint8_t)'\xae']=FLTIDX(47),
-[(uint8_t)'\xaf']=FLTIDX(48),
-[(uint8_t)'\xb1']=FLTIDX(49),['A']=FLTIDX(49),
-[(uint8_t)'\xb2']=FLTIDX(50),['B']=FLTIDX(50),
-[(uint8_t)'\xb3']=FLTIDX(51),
-[(uint8_t)'\xb4']=FLTIDX(52),
-[(uint8_t)'\xb5']=FLTIDX(53),
-[(uint8_t)'\xb6']=FLTIDX(54),
-[(uint8_t)'\xb7']=FLTIDX(55),
-[(uint8_t)'\xb8']=FLTIDX(56),['O']=FLTIDX(56),
-[(uint8_t)'\xb9']=FLTIDX(57),
-[(uint8_t)'\xba']=FLTIDX(58),['F']=FLTIDX(58),
-[(uint8_t)'\xbb']=FLTIDX(59),
-[(uint8_t)'\xbc']=FLTIDX(60),
-[(uint8_t)'\xbd']=FLTIDX(61),
-[(uint8_t)'\xbe']=FLTIDX(62),
-[(uint8_t)'\xbf']=FLTIDX(63),
-['e']=FLTIDX(64),
-['g']=FLTIDX(65),
-['G']=FLTIDX(66),
+[(uint8_t)'\x81']=1,['x']=1,
+[(uint8_t)'\x82']=2,[(uint8_t)'\x92']=2,['b']=2,
+[(uint8_t)'\x83']=3,[(uint8_t)'\x93']=3,
+[(uint8_t)'\x84']=4,[(uint8_t)'\x94']=4,
+[(uint8_t)'\x85']=5,[(uint8_t)'\x95']=5,
+[(uint8_t)'\x86']=6,[(uint8_t)'\x96']=6,
+[(uint8_t)'\x87']=7,[(uint8_t)'\x97']=7,
+[(uint8_t)'\x88']=8,[(uint8_t)'\x98']=8,['o']=8,
+[(uint8_t)'\x89']=9,[(uint8_t)'\x99']=9,
+[(uint8_t)'\x8a']=10,[(uint8_t)'\x9a']=10,['u']=10,
+[(uint8_t)'\x8b']=11,
+[(uint8_t)'\x8c']=12,
+[(uint8_t)'\x8d']=13,
+[(uint8_t)'\x8e']=14,
+[(uint8_t)'\x8f']=15,
+[(uint8_t)'\x91']=16,['X']=16,
+[(uint8_t)'\x9b']=17,
+[(uint8_t)'\x9c']=18,
+[(uint8_t)'\x9d']=19,
+[(uint8_t)'\x9e']=20,
+[(uint8_t)'\x9f']=21,
+['s']=22,
+['S']=23,
+['c']=24,
+['d']=25,
+['p']=26,
+['P']=27,
+['h']=28,
+['H']=29,
+['E']=30,
+['m']=31,
+['M']=32,
+[(uint8_t)'\xa1']=FLTIDX(33),['a']=FLTIDX(33),
+[(uint8_t)'\xa2']=FLTIDX(34),
+[(uint8_t)'\xa3']=FLTIDX(35),
+[(uint8_t)'\xa4']=FLTIDX(36),
+[(uint8_t)'\xa5']=FLTIDX(37),
+[(uint8_t)'\xa6']=FLTIDX(38),
+[(uint8_t)'\xa7']=FLTIDX(39),
+[(uint8_t)'\xa8']=FLTIDX(40),
+[(uint8_t)'\xa9']=FLTIDX(41),
+[(uint8_t)'\xaa']=FLTIDX(42),['f']=FLTIDX(42),
+[(uint8_t)'\xab']=FLTIDX(43),
+[(uint8_t)'\xac']=FLTIDX(44),
+[(uint8_t)'\xad']=FLTIDX(45),
+[(uint8_t)'\xae']=FLTIDX(46),
+[(uint8_t)'\xaf']=FLTIDX(47),
+[(uint8_t)'\xb1']=FLTIDX(48),['A']=FLTIDX(48),
+[(uint8_t)'\xb2']=FLTIDX(49),['B']=FLTIDX(49),
+[(uint8_t)'\xb3']=FLTIDX(50),
+[(uint8_t)'\xb4']=FLTIDX(51),
+[(uint8_t)'\xb5']=FLTIDX(52),
+[(uint8_t)'\xb6']=FLTIDX(53),
+[(uint8_t)'\xb7']=FLTIDX(54),
+[(uint8_t)'\xb8']=FLTIDX(55),['O']=FLTIDX(55),
+[(uint8_t)'\xb9']=FLTIDX(56),
+[(uint8_t)'\xba']=FLTIDX(57),['F']=FLTIDX(57),
+[(uint8_t)'\xbb']=FLTIDX(58),
+[(uint8_t)'\xbc']=FLTIDX(59),
+[(uint8_t)'\xbd']=FLTIDX(60),
+[(uint8_t)'\xbe']=FLTIDX(61),
+[(uint8_t)'\xbf']=FLTIDX(62),
+['e']=FLTIDX(63),
+['g']=FLTIDX(64),
+['G']=FLTIDX(65),
 	},
 	.fph='%',
 	.digit='.',
@@ -1743,6 +1738,9 @@ current_get:
 				wf_return(v);
 			ret+=v;
 			break;
+		case EXPR_FMTC_FPH:
+			wf_trywrite(&table->fph,1);
+			break;
 #pragma GCC diagnostic pop
 
 #define fmt_repeat if(!loop)loop=1;for(;loop;--loop)
@@ -2217,6 +2215,10 @@ reflag:
 				case EXPR_FMTC_WRITESIZE:
 				case EXPR_FMTC_LOOP:
 					break;
+				case EXPR_FMTC_FPH:
+					tmp->fph=table->fph;
+					debug("fph:%d\n",(int)tmp->fph);
+					break;
 				default:
 					debug("opcode %d is not supported now",(int)r1);
 					// not supported now.
@@ -2388,6 +2390,9 @@ ssize_t expr_vwritei_r(expr_writer_t writer,intptr_t fd,const struct expr_finst 
 				case EXPR_FMTC_LOOP:
 					loop=flag_width(flag,0);
 					debug("loop=%zu",loop);
+					break;
+				case EXPR_FMTC_FPH:
+					wf_trywrite(&fip->fph,1);
 					break;
 				default:
 					debug("opcode %d is not supported now",(int)fip->fmtc_code);

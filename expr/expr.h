@@ -1084,9 +1084,10 @@ struct expr_writeflag {
 #define EXPR_FMTC_SAVE 239
 #define EXPR_FMTC_EVAL 238
 #define EXPR_FMTC_FLUSH 237
+#define EXPR_FMTC_FPH 236
 
 #define EXPR_FMTC_MAX 255
-#define EXPR_FMTC_MIN 237
+#define EXPR_FMTC_MIN 236
 
 #define EXPR_FPLUS 230
 #define EXPR_FSPACE 229
@@ -1188,7 +1189,10 @@ struct expr_finst {
 			struct expr_writeflag flag[1];
 			union {
 				expr_converter_t converter;
-				uint8_t fmtc_code;
+				struct {
+					uint8_t fmtc_code;
+					char fph;
+				};
 			};
 			unsigned int
 				read_width:2,

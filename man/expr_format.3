@@ -17,15 +17,15 @@ Graph Drawer Expression Evaluator Library
 .BI "ssize_t expr_vasprintf[t][_r](char **" strp ",const char *restrict " fmt ",size_t " fmtlen ",[const struct expr_ftable *restrict " table "],[const struct expr_memtool *restrict " mtl "],va_list " ap ");"
 .BI "ssize_t expr_asprintf[t][_r](char **" strp ",const char *restrict " fmt ",size_t " fmtlen ",[const struct expr_ftable *restrict " table "],[const struct expr_memtool *restrict " mtl "]," ... ");"
 .P
-.BI "ssize_t expr_mkinstf[t][_r](struct expr_finst **" fip ",const char *restrict " fmt ",size_t " fmtlen ",[const struct expr_ftable *restrict " table "],[const struct expr_memtool *restrict " mtl "]);"
+.BI "[[experimental]] ssize_t expr_mkinstf[t][_r](struct expr_finst **" fip ",const char *restrict " fmt ",size_t " fmtlen ",[const struct expr_ftable *restrict " table "],[const struct expr_memtool *restrict " mtl "]);"
 .P
-.BI "ssize_t expr_vwritei[_r](expr_writer_t " writer ",intptr_t " fd ",const struct expr_finst *restrict " fip ",expr_argfetch_t " arg ",intptr_t " addr ",[const struct expr_memtool *restrict " mtl "]);"
-.BI "ssize_t expr_writei[_r](expr_writer_t " writer ",intptr_t " fd ",const struct expr_finst *restrict " fip ",const union expr_argf *restrict " args ",size_t " arglen ",[const struct expr_memtool *restrict " mtl "]);
-.BI "ssize_t expr_vapwritei[_r](expr_writer_t " writer ",intptr_t " fd ",const struct expr_finst *restrict " fip ",[const struct expr_memtool *restrict " mtl "],va_list " ap ");"
-.BI "ssize_t expr_apwritei[_r](expr_writer_t " writer ",intptr_t " fd ",const struct expr_finst *restrict " fip ",[const struct expr_memtool *restrict " mtl "]," ... ");"
-.BI "ssize_t expr_snwritei[_r](char *" buf ",size_t " buflen ",const struct expr_finst *restrict " fip ",const union expr_argf *restrict " arg "s,size_t " arglen ",[const struct expr_memtool *restrict " mtl "]);"
-.BI "ssize_t expr_vsnprinti[_r](char *" buf ",size_t " buflen ",const struct expr_finst *restrict " fip ",[const struct expr_memtool *restrict " mtl "],va_list " ap ");"
-.BI "ssize_t expr_snprinti[_r](char *" buf ",size_t " buflen ",const struct expr_finst *restrict " fip ",[const struct expr_memtool *restrict " mtl "]," ... ");"
+.BI "[[experimental]] ssize_t expr_vwritei[_r](expr_writer_t " writer ",intptr_t " fd ",const struct expr_finst *restrict " fip ",expr_argfetch_t " arg ",intptr_t " addr ",[const struct expr_memtool *restrict " mtl "]);"
+.BI "[[experimental]] ssize_t expr_writei[_r](expr_writer_t " writer ",intptr_t " fd ",const struct expr_finst *restrict " fip ",const union expr_argf *restrict " args ",size_t " arglen ",[const struct expr_memtool *restrict " mtl "]);
+.BI "[[experimental]] ssize_t expr_vapwritei[_r](expr_writer_t " writer ",intptr_t " fd ",const struct expr_finst *restrict " fip ",[const struct expr_memtool *restrict " mtl "],va_list " ap ");"
+.BI "[[experimental]] ssize_t expr_apwritei[_r](expr_writer_t " writer ",intptr_t " fd ",const struct expr_finst *restrict " fip ",[const struct expr_memtool *restrict " mtl "]," ... ");"
+.BI "[[experimental]] ssize_t expr_snwritei[_r](char *" buf ",size_t " buflen ",const struct expr_finst *restrict " fip ",const union expr_argf *restrict " arg "s,size_t " arglen ",[const struct expr_memtool *restrict " mtl "]);"
+.BI "[[experimental]] ssize_t expr_vsnprinti[_r](char *" buf ",size_t " buflen ",const struct expr_finst *restrict " fip ",[const struct expr_memtool *restrict " mtl "],va_list " ap ");"
+.BI "[[experimental]] ssize_t expr_snprinti[_r](char *" buf ",size_t " buflen ",const struct expr_finst *restrict " fip ",[const struct expr_memtool *restrict " mtl "]," ... ");"
 .P
 .BI "extern const struct expr_ftable " expr_ftable_default "[1];"
 .fi
@@ -294,6 +294,14 @@ The
 return the number of elements in
 .IR *fip .
 .RI "On fail, negative value will rerurn(and " *fip " will be undefined)."
+.SH WARNING
+The
+.IR fmt [ fmtlen ]
+for
+.BR expr_mkinstf[t][_r]()
+should not be changed or freed before
+.I *fip
+be freed, or the behavior will be undefined.
 .SH ATTRIBUTES
 .TS
 allbox;

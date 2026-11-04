@@ -2353,8 +2353,9 @@ end:
 	default:\
 		__builtin_unreachable();\
 }
-#define wdasync_all() \
+#define wdasync_all(backup) \
 	flag->bit=fip->flag->bit;\
+	backup;\
 	wdasync(width,size_t,EXPR_FLAGTYPE_SIZE,zint,zaddr);\
 	wdasync(digit,ssize_t,EXPR_FLAGTYPE_SSIZE,tint,taddr);\
 	wdasync_ig0(argsize,uint64_t,EXPR_FLAGTYPE_SIZE,zint,zaddr)
@@ -2375,8 +2376,7 @@ ssize_t expr_vwritei_r(expr_writer_t writer,intptr_t fd,const struct expr_finst 
 			wf_trywrite(fip->imm_str,fip->imm_len);
 			break;
 		case EXPR_FCON:
-			type=(uint8_t)flag->type;
-			wdasync_all();
+			wdasync_all(type=(uint8_t)flag->type);
 			arg_cur=argt(type);
 			fmt_dorepeat(arg_cur);
 			argnext1;

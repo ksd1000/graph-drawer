@@ -5,7 +5,7 @@
  *******************************************************************************/
 #define _GNU_SOURCE
 
-#define EXPR_VERSION "1.0.18-19"
+#define EXPR_VERSION "1.0.18-20"
 
 #if (defined(EXPR_LIBC_STRING_IMPL)&&(EXPR_LIBC_STRING_IMPL))
 #include <string.h>
@@ -95,10 +95,10 @@ const struct expr_libinfo expr_libinfo_current[1]={{
 }};
 struct expr_global_file expr_stdout[1];
 struct expr_global_file expr_stderr[1];
-#define expr_stdout expr_stdout
-#define expr_stderr expr_stderr
-// the C standard forces them to be macros, with the prefix of namespace.
-
+//#define expr_stdout expr_stdout
+//#define expr_stderr expr_stderr
+// a warning may occur if keep the 2 macros for following the C standard.
+static int expr_setuped=0;
 static ssize_t global_write(intptr_t fd,const void *buf,size_t size){
 	FILE *fp=(FILE *)fd;
 	ssize_t r;
@@ -109,25 +109,84 @@ static ssize_t global_write(intptr_t fd,const void *buf,size_t size){
 	}
 	return r;
 }
-void expr_global_setup(void){
+#define xmtl fp->buf->mtl
+void expr_global_close(struct expr_global_file *fp){
+	if(unlikely(fp->closed))
+		return;
+	expr_buffered_flush(fp->buf);
+	if(!fp->external&&fp->buf->buf)
+		xfree(fp->buf->buf);
+	fp->closed=1;
+}
+static void expr_global_atexit(void){
+	expr_global_close(expr_stdout);
+	expr_global_close(expr_stderr);
+}
+static void expr_global_setup(void){
+	if(unlikely(expr_setuped))
+		return;
 	expr_buffered_init_r(expr_stdout->buf,global_write,(intptr_t)stdout,NULL,0,expr_globalmtl);
 	expr_buffered_init_r(expr_stderr->buf,global_write,(intptr_t)stderr,NULL,0,expr_globalmtl);
-	if(unlikely(expr_global_setvbuf(expr_stdout,_IOLBF,BUFSIZ)<0||expr_global_setvbuf(expr_stderr,_IOLBF,BUFSIZ)<0))
+	expr_setuped=1;
+	if(unlikely(expr_setvbuf(expr_stdout,NULL,_IOLBF,BUFSIZ)<0||expr_setvbuf(expr_stderr,NULL,_IOLBF,BUFSIZ)<0))
 		warn_abort("expr-lc/setup","setup failed: cannot allocate memory of size=%zu",(size_t)BUFSIZ);
+	if(unlikely(atexit(expr_global_atexit)))
+		warn_abort("expr-lc/setup","atexit() failed");
 }
-int expr_global_setvbuf(struct expr_global_file *fp,int mode,size_t size){
+#define EXPR_GLOBAL_SETUP_CHECK() ({\
+	if(unlikely(!expr_setuped))\
+		expr_global_setup();\
+})
+
+int expr_setvbuf(struct expr_global_file *fp,void *buf,int mode,size_t size){
+	EXPR_GLOBAL_SETUP_CHECK();
+	expr_buffered_flush(fp->buf);
+	if(buf){
+		switch(mode){
+			case _IONBF:
+				fp->mode=expr_buffered_write_sync_warped;
+				break;
+			case _IOLBF:
+				fp->mode=expr_buffered_write_iolbf_warped;
+				break;
+			case _IOFBF:
+				fp->mode=expr_buffered_write_warped;
+				break;
+			default:
+				return -1;
+		}
+		if(!fp->external&&fp->buf->buf)
+			xfree(fp->buf->buf);
+		fp->buf->dynamic=0;
+		fp->buf->index=0;
+		fp->buf->length=size;
+		fp->external=1;
+		fp->closed=0;
+		return 0;
+	}
+#define FP_START \
+	if(fp->external){\
+		fp->buf->buf=NULL;\
+		fp->buf->index=0;\
+		fp->buf->length=0;\
+		fp->buf->dynamic=0;\
+		fp->external=0;\
+	}
 	switch(mode){
 		case _IONBF:
+			FP_START;
 			if(expr_buffered_truncate(fp->buf,0)<0)
 				return -1;
 			fp->mode=expr_buffered_write_sync_warped;
 			break;
 		case _IOLBF:
+			FP_START;
 			if(expr_buffered_truncate(fp->buf,size)<0)
 				return -1;
 			fp->mode=expr_buffered_write_iolbf_warped;
 			break;
 		case _IOFBF:
+			FP_START;
 			if(expr_buffered_truncate(fp->buf,size)<0)
 				return -1;
 			fp->mode=expr_buffered_write_warped;
@@ -135,7 +194,37 @@ int expr_global_setvbuf(struct expr_global_file *fp,int mode,size_t size){
 		default:
 			return -1;
 	}
+	fp->closed=0;
 	return 0;
+}
+ssize_t expr_vfprintf(struct expr_global_file *fp,const char *format,va_list ap){
+	EXPR_GLOBAL_SETUP_CHECK();
+	return expr_vapwriteft_r(fp->mode,(intptr_t)fp->buf,format,strlen(format),expr_ftable_default,xmtl,ap);
+}
+ssize_t expr_fprintf(struct expr_global_file *fp,const char *format,...){
+	va_list ap;
+	ssize_t r;
+	EXPR_GLOBAL_SETUP_CHECK();
+	va_start(ap,format);
+	r=expr_vapwriteft_r(fp->mode,(intptr_t)fp->buf,format,strlen(format),expr_ftable_default,xmtl,ap);
+	va_end(ap);
+	return r;
+}
+ssize_t expr_farrprintf(struct expr_global_file *fp,const char *format,const union expr_argf *restrict args,size_t arglen){
+	EXPR_GLOBAL_SETUP_CHECK();
+	return expr_writeft_r(fp->mode,(intptr_t)fp->buf,format,strlen(format),args,arglen,expr_ftable_default,xmtl);
+}
+ssize_t expr_printf(const char *format,...){
+	va_list ap;
+	ssize_t r;
+	va_start(ap,format);
+	r=expr_vfprintf(expr_stdout,format,ap);
+	va_end(ap);
+	return r;
+}
+ssize_t expr_arrprintf(const char *format,const union expr_argf *restrict args,size_t arglen){
+	EXPR_GLOBAL_SETUP_CHECK();
+	return expr_writeft_r(expr_stdout->mode,(intptr_t)expr_stdout->buf,format,strlen(format),args,arglen,expr_ftable_default,expr_stdout->buf->mtl);
 }
 
 #if !(defined(EXPR_NOSTACKWORKSPACE)&&(EXPR_NOSTACKWORKSPACE))
@@ -148,7 +237,7 @@ expr_globals_define();
 
 __attribute__((noreturn)) void expr_explode(void){
 	expr_explode_r(expr_memcontract,expr_allocate_max,expr_defmtl);
-	abort();
+	warn_abort("expr-lc/memory-bomb","malloc(1) fails, cannot allocate more memory.");
 }
 __attribute__((noreturn)) void expr_trap(void){
 	__builtin_trap();

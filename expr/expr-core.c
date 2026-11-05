@@ -1458,10 +1458,10 @@ static void *readsymbol(struct expr *restrict ep,const char *symbol,size_t symle
 		const struct expr_symbol *es;
 		void *uaddr;
 	} sym;
+	debug("reading:%.*s|",(int)symlen,symbol);
 	if(!ep->sset||!(sym.es=expr_symset_search(ep->sset,symbol,symlen))){
 		goto esymbol;
 	}
-	//debug("reading:%s -- %zu","symbol",symlen);
 alias_found:
 	type=sym.es->type;
 	flag=sym.es->flag;

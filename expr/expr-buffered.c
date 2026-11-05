@@ -423,7 +423,11 @@ ssize_t expr_buffered_close(struct expr_buffered_file *restrict fp){
 	ssize_t r;
 	if(fp->index&&fp->writer){
 		r=fp->writer(fp->fd,fp->buf,fp->index);
-		CKPDM(r);
+		if(r>0)
+			fp->written+=(size_t)r;
+		else {
+			CKPDM(r);
+		}
 	}else
 		r=0;
 	debug("%zd bytes written",r);

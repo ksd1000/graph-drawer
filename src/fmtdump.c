@@ -7,7 +7,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <getopt.h>
-#include <err.h>
 #define EXPR_BLOCKWARNING 1
 #include "expr.h"
 void wdaprint(const struct expr_finst *restrict fip){
@@ -39,7 +38,7 @@ void wdaprint(const struct expr_finst *restrict fip){
 	flshow(saved,'?');
 	flshow(addr,'&');
 	printf("|");
-	// make the space visible esaily
+	// make the space visible easily
 	wdashow(width,"%zu",size_t);
 	printf(".");
 	wdashow(digit,"%zd",size_t);
@@ -52,7 +51,13 @@ void dump(const struct expr_finst *restrict fip){
 			case EXPR_FIMM:
 				printf("immstr%s: \"",fip->shouldfree?"*":"");
 				fwrite(fip->imm_str,1,fip->imm_len,stdout);
-				// "%.*s" does not work in libc printf
+				// "%.*s" does not work properly in libc printf on
+				// this mobile device(but properly on computer),
+				// for the imm_str may be not terminated by 0
+				// see bugs/libc-printf.c
+				// ---
+				// CLOSED
+				// it is not a bug. in fact,it was caused by the author attempted to pass the length of the string with "%*s". but the behavior of passing a string with no terminating zero to "%.*s" is still undefined in C standard, so here will keep using fwrite.
 				printf("\"\n");
 				break;
 			case EXPR_FCON:
@@ -129,12 +134,14 @@ int main(int argc,char **argv){
 	}
 break2:
 	if(optind>=argc){
-		errx(EXIT_FAILURE,"format not found");
+		fprintf(stderr,"format not found");
+		return EXIT_FAILURE;
 	}
 	e=argv[optind];
 	r=expr_mkinstf(&fip,e,strlen(e),flag);
 	if(r<0){
-		errx(EXIT_FAILURE,"mkinst(): %zd",r);
+		fprintf(stderr,"mkinst(): %zd",r);
+		return EXIT_FAILURE;
 	}
 	dump(fip);
 	expr_ifree(fip);

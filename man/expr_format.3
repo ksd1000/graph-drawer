@@ -29,11 +29,15 @@ Graph Drawer Expression Evaluator Library
 .BI "[[experimental]] ssize_t expr_snprinti[_r](char *" buf ",size_t " buflen ",const struct expr_finst *restrict " fip ",[const struct expr_memtool *restrict " mtl "]," ... ");"
 .P
 .BI "extern const struct expr_ftable " expr_ftable_default "[1];"
+.P
+.BI "link " -lexpr-lc
+.P
+.BI "ssize_t expr_printf(const char *" format "," ... ");"
 .fi
 .SH DESCRIPTION
 The
 .BR expr_vwritef[t][_r]()
-function write the string formatted under
+functions write the string formatted under
 .IR fmt [ fmtlen ]
 to
 .I fd
@@ -46,17 +50,17 @@ by
 .P
 The
 .BR expr_writef[t][_r]()
-function fetch the argument from
+functions fetch the argument from
 .IR args [ arglen ].
 .P
 The
 .BR expr_[v]apwritef[t][_r]()
-function fetch the argument from
+functions fetch the argument from
 .IR "... " or " ap" .
 .P
 The
 .BR expr_[v]snprintf[t][_r]()
-function write the formatted string to
+functions write the formatted string to
 .IR buf [ buflen ].
 .P
 The
@@ -78,7 +82,7 @@ but fetch the argument from
 .P
 The
 .BR expr_mkinstf[t][_r]()
-function generate an array of type
+functions generate an array of type
 .B struct expr_finst
 and write the address of it to
 .IR *fip .
@@ -88,10 +92,16 @@ when it is no longer needed.
 .P
 The
 .BR expr_*i[_r]()
-function use
+functions use
 .I fip
 to format the string instead of
 .IR fmt [ fmtlen ].
+.P
+The
+.BR expr_printf()
+function behaves like the
+.B printf()
+of libc, excluding the style and return type.
 .SH DEFAULT FORMAT
 Defined by
 .IR expr_ftable_default .
@@ -247,8 +257,7 @@ when the
 points to the first element of the array.
 The size of each elements will be get from the
 .I argsize
-of the conversion, or be overrided with
-.IR digit .
+of the conversion.
 .TQ
 .B @
 Use the character from argument for conversion or control.
@@ -312,6 +321,11 @@ T{
 .nh
 .BR expr_vwritef[t][_r]() , expr_writef[t][_r]() , expr_[v]apwritef[t][_r]() , expr_[v]snprintf[t][_r]() , expr_[v]asprintf[t][_r]() , expr_[sn|as]writef[t][_r] , expr_mkinstf[t][_r]() , expr_*i[_r]()
 T}	Thread safety	MT-Safe
+T{
+.na
+.nh
+.BR expr_printf()
+T}	Thread safety	MT-UnSafe
 .TE
 .SH EXAMPLE
 .SS Source
@@ -388,5 +402,8 @@ buf has 11.76M size
 .TQ
 .BR expr_ifree()
 2026-11-5
+.TP
+.BR expr_printf()
+2026-11-6
 .SH SEE ALSO
-\-
+.BR printf (3)

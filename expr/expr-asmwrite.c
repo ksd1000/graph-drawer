@@ -11,7 +11,7 @@
 #define EXPR_INLIB 1
 #include "expr.h"
 
-// WARNING: this file is not completed, and may not be completed for quite some time, because of the huge difficulty of it to me.
+// WARNING: this file is not completed, and may not be completed for quite some time, because of the huge difficulty of it to the author.
 // the expr_asmwrite will most likely support only some simple opcodes of enum expr_op, such as copy,add,sub,mul,div,call to 0/1 argument functions.
 
 #if defined(__aarch64__)

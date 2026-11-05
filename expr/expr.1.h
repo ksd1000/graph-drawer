@@ -1302,6 +1302,15 @@ struct expr_buffered_file {
 struct expr_global_file {
 	struct expr_buffered_file buf[1];
 	expr_writer_t mode;
+	union {
+		unsigned int bit;
+		struct {
+			unsigned int external:1,
+				read:1,
+				closed:1,
+				unused:sizeof(unsigned int)*8-3;
+		};
+	};
 };
 struct expr;
 struct expr_symset;

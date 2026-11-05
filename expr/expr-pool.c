@@ -161,3 +161,22 @@ void expr_setup_poolmtl(struct expr_memtool *restrict mtl,struct expr_pool *pool
 	mtl->arg=(intptr_t)pool;
 }
 
+void expr_explode_r(void (*contractor)(void *,size_t),size_t max,const struct expr_memtool *restrict mtl){
+	void *r;
+	do {
+		//debug("allocate %zu bytes",max);
+		while((r=mtl->allocate(max,mtl->arg))){
+			if(contractor)
+				contractor(r,max);
+			//if do not contract,
+			//the virtual memory
+			//has not physical
+			//memory and the OOM
+			//will not be called.
+		}
+		max>>=1;
+	}while(max);
+//the abort() is usually unreachable,should
+//be killed by kernel before sz reaches 0
+}
+

@@ -2140,7 +2140,6 @@ extern const struct expr_ftable expr_ftable_default[1];
 size_t expr_strscan(const char *restrict s,size_t sz,char *restrict buf,size_t outsz);
 size_t expr_strwrite(const char *restrict s,size_t sz,char *restrict buf,size_t outsz,size_t *restrict end_index);
 void expr_memcontract(void *buf,size_t size);
-void expr_explode_r(void (*contractor)(void *,size_t),size_t max,const struct expr_memtool *restrict mtl);
 size_t expr_extint_left(uint64_t *buf,size_t size,uint64_t bits);
 size_t expr_extint_right(uint64_t *buf,size_t size,uint64_t bits);
 size_t expr_extint_add(uint64_t *buf,uint64_t addend);
@@ -2228,7 +2227,6 @@ struct expr_symbol *expr_symbol_vcreate_r(const char *sym,int type,int flag,cons
 struct expr_symbol *expr_symbol_vcreatel_r(const char *sym,size_t symlen,int type,int flag,const struct expr_memtool *restrict mtl,va_list ap);
 void *expr_xautoadd(void **restrict old,size_t *restrict size,size_t *restrict length,size_t n,size_t expand,const struct expr_memtool *restrict mtl);
 //global externs of expr-internal.c :
-extern const uint8_t expr_number_table[256];
 //global functions of expr-pool.c :
 void *expr_pool_malloc(struct expr_pool *restrict pool,size_t size);
 void expr_pool_dealloc(struct expr_pool *restrict pool,void *old);
@@ -2238,6 +2236,7 @@ void *expr_poolmtl_malloc(size_t size,intptr_t arg);
 void *expr_poolmtl_realloc(void *old,size_t size,intptr_t arg);
 void expr_poolmtl_dealloc(void *old,intptr_t arg);
 void expr_setup_poolmtl(struct expr_memtool *restrict mtl,struct expr_pool *pool);
+void expr_explode_r(void (*contractor)(void *,size_t),size_t max,const struct expr_memtool *restrict mtl);
 //global externs of expr-pool.c :
 //global functions of expr-symext.c :
 const struct expr_builtin_symbol *expr_builtin_symbol_search(const struct expr_builtin_symbol *syms,const char *sym,size_t sz);
@@ -2323,6 +2322,8 @@ void *expr_heapmtl_realloc_nonnull(void *old,size_t size,intptr_t arg);
 int expr_setup_heapmtl4_nonnull(struct expr_memtool *restrict mtl,void *heap,size_t size,int flag);
 //global externs of expr-global.c :
 extern const struct expr_libinfo expr_libinfo_current[1];
+extern struct expr_global_file expr_stdout[1];
+extern struct expr_global_file expr_stderr[1];
 #if !(defined(EXPR_INLIB)&&(EXPR_INLIB))
 #define expr_free2mtl(ep,flag) expr_free2mtl_r(ep,flag,expr_defmtl)
 #define expr_init_const(ep,val) expr_init_const_r(ep,val,expr_defmtl)

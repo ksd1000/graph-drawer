@@ -1290,7 +1290,7 @@ struct expr_vwritef_workspace {
 	ssize_t _ret;
 	ssize_t _v;
 	const struct expr_writefmt *_wfp;
-	const char *_delim,*_tail,*_d1;
+	const char *_delim,*_tail;
 	size_t _delimsz,_tailsz;
 	size_t _loop;
 	const char *_fmt_save[8];
@@ -1302,6 +1302,7 @@ struct expr_vwritef_workspace {
 		union expr_argf _old;
 		uintptr_t _aps;
 		ssize_t *_ar;
+		const char *_d1;
 	};
 	union expr_argf _save;
 	expr_ut _val,_mask;
@@ -2460,6 +2461,9 @@ void expr_ifree_r(struct expr_finst *restrict fip,const struct expr_memtool *res
 	wdasync(width,size_t,EXPR_FLAGTYPE_SIZE,zint,zaddr);\
 	wdasync(digit,ssize_t,EXPR_FLAGTYPE_SSIZE,tint,taddr);\
 	wdasync_ig0(argsize,uint64_t,EXPR_FLAGTYPE_SIZE,zint,zaddr)
+#define setdlm(dlm,dsz) \
+					dsz=flag_width(flag,0);\
+					dlm=fip->imm_str
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #pragma GCC diagnostic ignored "-Wconditional-uninitialized"
@@ -2534,9 +2538,6 @@ ssize_t expr_vwritei_r(expr_writer_t writer,intptr_t fd,const struct expr_finst 
 					forward=1;
 					break;
 				case EXPR_FMTC_DELIM:
-#define setdlm(dlm,dsz) \
-					dsz=flag_width(flag,0);\
-					dlm=fip->imm_str
 					setdlm(delim,delimsz);
 					break;
 				case EXPR_FMTC_TAIL:

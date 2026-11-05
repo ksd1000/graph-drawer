@@ -116,8 +116,10 @@ static ssize_t global_write(intptr_t fd,const void *buf,size_t size){
 #define xmtl fp->buf->mtl
 void expr_global_close(struct expr_global_file *fp){
 	GLOBAL_MUTEX_START;
-	if(unlikely(fp->closed))
+	if(unlikely(fp->closed)){
+		GLOBAL_MUTEX_END;
 		return;
+	}
 	expr_buffered_flush(fp->buf);
 	if(!fp->external&&fp->buf->buf)
 		xfree(fp->buf->buf);

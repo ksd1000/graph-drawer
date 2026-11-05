@@ -17,7 +17,8 @@ Graph Drawer Expression Evaluator Library
 .BI "ssize_t expr_vasprintf[t][_r](char **" strp ",const char *restrict " fmt ",size_t " fmtlen ",[const struct expr_ftable *restrict " table "],[const struct expr_memtool *restrict " mtl "],va_list " ap ");"
 .BI "ssize_t expr_asprintf[t][_r](char **" strp ",const char *restrict " fmt ",size_t " fmtlen ",[const struct expr_ftable *restrict " table "],[const struct expr_memtool *restrict " mtl "]," ... ");"
 .P
-.BI "[[experimental]] ssize_t expr_mkinstf[t][_r](struct expr_finst **" fip ",const char *restrict " fmt ",size_t " fmtlen ",[const struct expr_ftable *restrict " table "],[const struct expr_memtool *restrict " mtl "]);"
+.BI "[[experimental]] ssize_t expr_mkinstf[t][_r](struct expr_finst **" fip ",const char *restrict " fmt ",size_t " fmtlen ",[const struct expr_ftable *restrict " table "],int " flag ",[const struct expr_memtool *restrict " mtl "]);"
+.BI "[[experimental]] void expr_ifree[_r](struct expr_finst *restrict " fip ",[const struct expr_memtool *restrict " mtl "]);"
 .P
 .BI "[[experimental]] ssize_t expr_vwritei[_r](expr_writer_t " writer ",intptr_t " fd ",const struct expr_finst *restrict " fip ",expr_argfetch_t " arg ",intptr_t " addr ",[const struct expr_memtool *restrict " mtl "]);"
 .BI "[[experimental]] ssize_t expr_writei[_r](expr_writer_t " writer ",intptr_t " fd ",const struct expr_finst *restrict " fip ",const union expr_argf *restrict " args ",size_t " arglen ",[const struct expr_memtool *restrict " mtl "]);
@@ -82,9 +83,7 @@ function generate an array of type
 and write the address of it to
 .IR *fip .
 The space of the array must be deallocated by
-.I mtl
-->
-.B deallocate()
+.B expr_ifree[_r]()
 when it is no longer needed.
 .P
 The
@@ -386,6 +385,9 @@ buf has 11.76M size
 .BR expr_vsnwritei()
 .TQ
 .BR expr_snwritei()
-2026-11-4
+2026-11-5
+.TP
+.BR expr_ifree()
+2026-11-6
 .SH SEE ALSO
 \-

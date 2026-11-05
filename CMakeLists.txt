@@ -62,6 +62,8 @@ target_link_libraries(list common_symbols)
 add_executable(calc src/calc.c)
 target_link_libraries(calc common_symbols)
 
+add_executable(fmtdump src/fmtdump.c)
+
 file(COPY script/echo.calc script/ping.calc script/uniq.calc DESTINATION ${PROJECT_BINARY_DIR})
 
 #enable_testing()

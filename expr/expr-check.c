@@ -240,11 +240,11 @@ static void checkfmti(const char *expect,const char *fmt,...){
 	static char buf[9999];
 	va_list ap;
 	struct expr_finst *fip;
-	assert(expr_mkinstf(&fip,fmt,strlen(fmt))>0);
+	assert(expr_mkinstf(&fip,fmt,strlen(fmt),0)>0);
 	va_start(ap,fmt);
 	assert(expr_vsnprinti(buf,9999,fip,ap)<9999);
 	va_end(ap);
-	expr_xfree(fip);
+	expr_ifree(fip);
 	if(strcmp(buf,expect)){
 		printf("error result(i): \"%s\"\n",buf);
 		check_abort();
@@ -257,9 +257,10 @@ static void checkfmts(void){
 	checkfmt2("1231 ","%-5.*S",(size_t)4,"123123");
 	checkfmt2("76b3e4","%.3h","\x76\xb3\xe4");
 	checkfmt2("k","%c",expr_mkval64('k'));
-	checkfmt("372u,372u,372u","%3l%1T,%1tu%u",(expr_ut)372);
-	checkfmt("{5459,-833,-9999,67}","{%4k%1T,%:id}",(int []){5459,-833,-9999,67});
-	checkfmt("{\"asd\",\"fhl\",\"HELLO\"}","{%3k%3T\",\"\"%.5s\"}",(const char *[]){"asd\0aa","fhl\0aaa","HELLO","NOPRINT"});
+	checkfmt2("100%+200%=k=300%","100%%+200%%=%c=300%%",expr_mkval64('k'));
+	checkfmt2("372u,372u,372u","%3l%1T,%1tu%u",(expr_ut)372);
+	checkfmt2("{5459,-833,-9999,67}","{%4k%1T,%:id}",(int []){5459,-833,-9999,67});
+	checkfmt2("{\"asd\",\"fhl\",\"HELLO\"}","{%3k%3T\",\"\"%.5s\"}",(const char *[]){"asd\0aa","fhl\0aaa","HELLO","NOPRINT"});
 	checkfmt2("null","%p",NULL);
 	checkfmt2("NULL","%P",NULL);
 	checkfmt2("1.5m","%=.-1m",(expr_ut)1024*1536);

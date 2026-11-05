@@ -782,7 +782,7 @@ enum expr_op {
 			__typeof__(type) _o;\
 		} _cast_un;\
 		if(sizeof(__typeof__(type))>sizeof(__typeof__(x)))\
-	 		_cast_un._o=(__typeof__(type))0;\
+			_cast_un._o=(__typeof__(type))0;\
 		_cast_un._x=(x);\
 		_cast_un._o;\
 	})
@@ -814,8 +814,8 @@ enum expr_op {
 #define expr_xrealloc(old,size) ({\
 	void *__old=(old);\
 	__old?\
-		 expr_reallocator(__old,(size)):\
-		 expr_allocator(size);\
+		expr_reallocator(__old,(size)):\
+		expr_allocator(size);\
 })
 #define expr_xfree(old) ({\
 	expr_deallocator(old);\
@@ -1020,49 +1020,62 @@ struct expr_libinfo {
 	const char *time;
 	const char *license;
 };
+#if (!defined(__BIG_ENDIAN__)||!(__BIG_ENDIAN__))
+#define EXPR_WRITEFLAG_BITFIELDS \
+	uint64_t unused:34,\
+		op:8,\
+		argsize:8,\
+		type:3,\
+		addr:1,\
+		width_set:1,\
+		digit_set:1,\
+		saved:1,\
+		cap:1,\
+		eq:1,\
+		sharp:1,\
+		minus:1,\
+		zero:1,\
+		space:1,\
+		plus:1
+#else
+#define EXPR_WRITEFLAG_BITFIELDS \
+	uint64_t plus:1,\
+		space:1,\
+		zero:1,\
+		minus:1,\
+		sharp:1,\
+		eq:1,\
+		cap:1,\
+		saved:1,\
+		digit_set:1,\
+		width_set:1,\
+		addr:1,\
+		type:3,\
+		argsize:8,\
+		op:8,\
+		unused:34
+#endif
 
 struct expr_writeflag {
-	size_t width;
-	ssize_t digit;
-	const struct expr_memtool *restrict mtl;
 	union {
 		uint64_t bit;
 		struct {
-#if (!defined(__BIG_ENDIAN__)||!(__BIG_ENDIAN__))
-			uint64_t unused:34,
-				 op:8,
-				 argsize:8,
-				 type:3,
-				 addr:1,
-				 width_set:1,
-				 digit_set:1,
-				 saved:1,
-				 cap:1,
-				 eq:1,
-				 sharp:1,
-				 minus:1,
-				 zero:1,
-				 space:1,
-				 plus:1;
-#else
-			uint64_t plus:1,
-				 space:1,
-				 zero:1,
-				 minus:1,
-				 sharp:1,
-				 eq:1,
-				 cap:1,
-				 saved:1,
-				 digit_set:1,
-				 width_set:1,
-				 addr:1,
-				 type:3,
-				 argsize:8,
-				 op:8,
-				 unused:34;
-#endif
+			EXPR_WRITEFLAG_BITFIELDS;
 		};
 	};
+	size_t width;
+	ssize_t digit;
+	const struct expr_memtool *restrict mtl;
+};
+struct expr_writeflag_nomtl {
+	union {
+		uint64_t bit;
+		struct {
+			EXPR_WRITEFLAG_BITFIELDS;
+		};
+	};
+	size_t width;
+	ssize_t digit;
 };
 #define EXPR_FMTC_EXIT 0
 #define EXPR_FMTC_WRITESIZE 255
@@ -1098,8 +1111,6 @@ struct expr_writeflag {
 #define EXPR_FSAVED 224
 #define EXPR_FADDR 223
 #define EXPR_FCAP 222
-
-expr_static_assert(offsetof(struct expr_writeflag,bit)+sizeof(uint64_t)==sizeof(struct expr_writeflag));
 
 #define EXPR_FLAGTYPE_ADDR 0
 #define EXPR_FLAGTYPE_SIGNED 1
@@ -1139,31 +1150,31 @@ struct expr_ftable {
 	size_t fmts_size;
 	uint8_t c[256];
 	char fph,
-	     digit,
-	     bitwidth,
-	     readarg,
-	     readarg2,
-	     bitwidth_addr,
-	     bitwidth_size,
-	     bitwidth_char,
-	     bitwidth_short,
-	     bitwidth_int,
-	     bitwidth_long,
-	     bitwidth_llong;
+		digit,
+		bitwidth,
+		readarg,
+		readarg2,
+		bitwidth_addr,
+		bitwidth_size,
+		bitwidth_char,
+		bitwidth_short,
+		bitwidth_int,
+		bitwidth_long,
+		bitwidth_llong;
 	char unused[2];
 	uint16_t fph_set:1,
-	      digit_set:1,
-	      bitwidth_set:1,
-	      readarg_set:1,
-	      readarg2_set:1,
-	      bitwidth_addr_set:1,
-	      bitwidth_size_set:1,
-	      bitwidth_char_set:1,
-	      bitwidth_short_set:1,
-	      bitwidth_int_set:1,
-	      bitwidth_long_set:1,
-	      bitwidth_llong_set:1,
-	      unused_bf:4;
+		digit_set:1,
+		bitwidth_set:1,
+		readarg_set:1,
+		readarg2_set:1,
+		bitwidth_addr_set:1,
+		bitwidth_size_set:1,
+		bitwidth_char_set:1,
+		bitwidth_short_set:1,
+		bitwidth_int_set:1,
+		bitwidth_long_set:1,
+		bitwidth_llong_set:1,
+		unused_bf:4;
 };
 #define EXPR_TRUNC_CODE (SSIZE_MIN+128)
 
@@ -1179,35 +1190,37 @@ struct expr_memfd_dynamic {
 };
 
 enum expr_fop {
-	EXPR_FIMM,
+	EXPR_FIMM=0,
 	EXPR_FCON,
+	EXPR_FCOL,
+	EXPR_FCOA,
 	EXPR_FCOZ,
 	EXPR_FCTL,
 	EXPR_FEND
 };
 struct expr_finst {
 	union {
+		struct expr_writeflag_nomtl flag[1];
+		size_t imm_len;
+	};
+	union {
+		expr_converter_t converter;
+		const char *imm_str;
+	};
+	enum expr_fop op;
+	char fph;
+	uint8_t fmtc_code;
+	union {
+		uint8_t bit8;
 		struct {
-			const char *imm_str;
-			size_t imm_len;
-		};
-		struct {
-			struct expr_writeflag flag[1];
-			union {
-				expr_converter_t converter;
-				struct {
-					uint8_t fmtc_code;
-					char fph;
-				};
-			};
-			unsigned int
+			uint8_t
 				read_width:2,
 				read_digit:2,
 				read_argsize:2,
-				unused:sizeof(unsigned int)*8-6;
+				shouldfree:1,
+				unused:1;
 		};
 	};
-	enum expr_fop op;
 };
 
 #define expr_ilprintf(fd,fmt,...) expr_idwprintf(expr_buffered_write_iolbf_warped,fd,fmt,##__VA_ARGS__)
@@ -1438,10 +1451,10 @@ struct expr_symset {
 	size_t size;
 	size_t size_m;//amount of all symbols with removed
 	size_t removed;//amount of removed symbols starting from the
-		       //latest expr_symset_vaddl(),expr_symset_addcopy(),
-		       //expr_symset_[re]insert() or expr_symset_remove()
-		       //that increases this->depth.
-		       //expr_symset_wipe(this) will set it to 0.
+		//latest expr_symset_vaddl(),expr_symset_addcopy(),
+		//expr_symset_[re]insert() or expr_symset_remove()
+		//that increases this->depth.
+		//expr_symset_wipe(this) will set it to 0.
 	size_t removed_m;//amount of all removed symbols
 	size_t length;
 	size_t length_m;//m:monotonic
@@ -1449,11 +1462,11 @@ struct expr_symset {
 	size_t alength_m;
 	size_t depth;
 	size_t depth_n;//amount of symbol at the deepest depth,
-		       //expr_symset_remove() may reduce this
-		       //value after removing a such symbol.
-		       //this value reaches 0 means that the
-		       //real depth of this symbol set is lower
-		       //than this->depth.
+		//expr_symset_remove() may reduce this
+		//value after removing a such symbol.
+		//this value reaches 0 means that the
+		//real depth of this symbol set is lower
+		//than this->depth.
 	size_t depth_nm;//like depth_n but monotonic
 	//the this->depth is the maximal depth this reaches,it equals to the
 	//real depth if no symbol was removed by expr_symset_remove(this,.),
@@ -1574,16 +1587,16 @@ struct expr_area {
 	struct expr_zoneunit *tail;
 #if !(EXPR_AREA_NOMONOTONIC)
 	unsigned int monotonic_allocate,
-		     monotonic_allocate_fail,
-		     monotonic_deallocate,
-		     monotonic_expand_nail,
-		     monotonic_expand_move,
-		     monotonic_expand_fail,
-		     monotonic_shrink,
-		     monotonic_create,
-		     monotonic_combine,
-		     monotonic_retail_up,
-		     monotonic_retail_down;
+		monotonic_allocate_fail,
+		monotonic_deallocate,
+		monotonic_expand_nail,
+		monotonic_expand_move,
+		monotonic_expand_fail,
+		monotonic_shrink,
+		monotonic_create,
+		monotonic_combine,
+		monotonic_retail_up,
+		monotonic_retail_down;
 #else
 	int unused[3];
 #endif
@@ -2101,7 +2114,8 @@ ssize_t expr_memfd_write_warped(intptr_t fd,const void *buf,size_t size);
 ssize_t expr_snwriteft_r(char *buf,size_t buflen,const char *restrict fmt,size_t fmtlen,const union expr_argf *restrict args,size_t arglen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl);
 ssize_t expr_vsnprintft_r(char *buf,size_t buflen,const char *restrict fmt,size_t fmtlen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl,va_list ap);
 ssize_t expr_snprintft_r(char *buf,size_t buflen,const char *restrict fmt,size_t fmtlen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl,...);
-ssize_t expr_mkinstft_r(void *fip,const char *restrict fmt,size_t fmtlen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl);
+ssize_t expr_mkinstft_r(void *fip,const char *restrict fmt,size_t fmtlen,const struct expr_ftable *restrict table,int flag,const struct expr_memtool *restrict mtl);
+void expr_ifree_r(struct expr_finst *restrict fip,const struct expr_memtool *restrict mtl);
 ssize_t expr_vwritei_r(expr_writer_t writer,intptr_t fd,const struct expr_finst *restrict fip,expr_argfetch_t arg,intptr_t addr,const struct expr_memtool *restrict mtl);
 ssize_t expr_writei_r(expr_writer_t writer,intptr_t fd,const struct expr_finst *restrict fip,const union expr_argf *restrict args,size_t arglen,const struct expr_memtool *restrict mtl);
 ssize_t expr_vapwritei_r(expr_writer_t writer,intptr_t fd,const struct expr_finst *restrict fip,const struct expr_memtool *restrict mtl,va_list ap);
@@ -2310,7 +2324,8 @@ extern const struct expr_libinfo expr_libinfo_current[1];
 #define expr_snwriteft(buf,buflen,fmt,fmtlen,args,arglen,table) expr_snwriteft_r(buf,buflen,fmt,fmtlen,args,arglen,table,expr_defmtl)
 #define expr_vsnprintft(buf,buflen,fmt,fmtlen,table,ap) expr_vsnprintft_r(buf,buflen,fmt,fmtlen,table,expr_defmtl,ap)
 #define expr_snprintft(buf,buflen,fmt,fmtlen,table,...) expr_snprintft_r(buf,buflen,fmt,fmtlen,table,expr_defmtl,##__VA_ARGS__)
-#define expr_mkinstft(fip,fmt,fmtlen,table) expr_mkinstft_r(fip,fmt,fmtlen,table,expr_defmtl)
+#define expr_mkinstft(fip,fmt,fmtlen,table,flag) expr_mkinstft_r(fip,fmt,fmtlen,table,flag,expr_defmtl)
+#define expr_ifree(fip) expr_ifree_r(fip,expr_defmtl)
 #define expr_vwritei(writer,fd,fip,arg,addr) expr_vwritei_r(writer,fd,fip,arg,addr,expr_defmtl)
 #define expr_writei(writer,fd,fip,args,arglen) expr_writei_r(writer,fd,fip,args,arglen,expr_defmtl)
 #define expr_vapwritei(writer,fd,fip,ap) expr_vapwritei_r(writer,fd,fip,expr_defmtl,ap)
@@ -2467,8 +2482,8 @@ extern const struct expr_libinfo expr_libinfo_current[1];
 #define expr_vasprintf(strp,fmt,fmtlen,ap) expr_vasprintft_r(strp,fmt,fmtlen,expr_ftable_default,expr_defmtl,ap)
 #define expr_asprintf(strp,fmt,fmtlen,...) expr_asprintft_r(strp,fmt,fmtlen,expr_ftable_default,expr_defmtl,##__VA_ARGS__)
 
-#define expr_mkinstf_r(fip,fmt,fmtlen,mtl) expr_mkinstft_r(fip,fmt,fmtlen,expr_ftable_default,mtl)
-#define expr_mkinstf(fip,fmt,fmtlen) expr_mkinstft_r(fip,fmt,fmtlen,expr_ftable_default,expr_defmtl)
+#define expr_mkinstf_r(fip,fmt,fmtlen,flag,mtl) expr_mkinstft_r(fip,fmt,fmtlen,expr_ftable_default,flag,mtl)
+#define expr_mkinstf(fip,fmt,fmtlen,flag) expr_mkinstft_r(fip,fmt,fmtlen,expr_ftable_default,flag,expr_defmtl)
 
 #define expr_builtin_symbol_xaddall(esp,symsp,syms) expr_builtin_symbol_xaddalls(esp,symsp,syms,NULL)
 #define expr_builtin_symbol_addall(esp,syms) expr_builtin_symbol_addalls(esp,syms,NULL)

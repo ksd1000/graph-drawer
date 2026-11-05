@@ -20,7 +20,6 @@ ssize_t dropper(intptr_t fd,const void *buf,size_t size){
 //#define writer write_warped
 #define writer dropper
 char buf[12341234];
-/*
 #define FMT \
 	"hello\n"\
 	"100%%+100%%=200%%\n"\
@@ -30,19 +29,20 @@ char buf[12341234];
 	"City1:%s City2:%s\n"\
 	"buf has %.2:zM size\n"
 #define ARG 6,6,M_E,"Kawasaki","Osaka",sizeof(buf)
-*/
+/*
 #define FMT \
 	"hello\n"\
 	"six=%7:id\n"\
 	"City1:%s City2:%s\n"
 #define ARG 6,"Kawasaki","Osaka"
+*/
 void fmode(size_t count){
 	while(count--)
 		expr_apwritef(writer,0,FMT,sizeof(FMT)-1,ARG);
 }
 void imode(size_t count){
 	struct expr_finst *fip;
-	assert(expr_mkinstf(&fip,FMT,sizeof(FMT)-1)>0);
+	assert(expr_mkinstf(&fip,FMT,sizeof(FMT)-1,0)>0);
 	while(count--)
 		expr_apwritei(writer,0,fip,ARG);
 	expr_defmtl->deallocate(fip,expr_defmtl->arg);

@@ -92,6 +92,7 @@ void list(void){
 	psize(struct expr_builtin_symbol);
 	psize(struct expr_builtin_keyword);
 	psize(struct expr_resource);
+	psize(struct expr_finst);
 	for(const struct expr_builtin_keyword *p=expr_keywords;;++p){
 		if(!p->str){
 			printf("%zu keywords\n",p-expr_keywords);

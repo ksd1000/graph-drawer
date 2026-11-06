@@ -1301,12 +1301,15 @@ struct expr_buffered_file {
 })
 struct expr_global_file {
 	struct expr_buffered_file buf[1];
+	struct expr_buffered_file rbuf[1];
 	expr_writer_t mode;
+	int (*close)(intptr_t fd);
 	union {
 		unsigned int bit;
 		struct {
 			unsigned int external:1,
 				read:1,
+				write:1,
 				closed:1,
 				unused:sizeof(unsigned int)*8-3;
 		};
@@ -2291,13 +2294,15 @@ extern const struct expr_builtin_symbol expr_symbols_symset[];
 extern const struct expr_builtin_symbol expr_symbols_string[];
 extern const struct expr_builtin_symbol expr_symbols_errno[];
 //global functions of expr-global.c :
-void expr_global_close(struct expr_global_file *fp);
+void expr_close(struct expr_global_file *fp);
 int expr_setvbuf(struct expr_global_file *fp,void *buf,int mode,size_t size);
 ssize_t expr_vfprintf(struct expr_global_file *fp,const char *format,va_list ap);
 ssize_t expr_fprintf(struct expr_global_file *fp,const char *format,...);
 ssize_t expr_farrprintf(struct expr_global_file *fp,const char *format,const union expr_argf *restrict args,size_t arglen);
 ssize_t expr_printf(const char *format,...);
 ssize_t expr_arrprintf(const char *format,const union expr_argf *restrict args,size_t arglen);
+struct expr_global_file *expr_bind(void *stream,const char *mode);
+struct expr_global_file *expr_open(const char *path,const char *mode);
 double expr_internal_strtod(const char *restrict nptr,size_t nsize,size_t *restrict end_index);
 __attribute__((noreturn)) void expr_explode(void);
 __attribute__((noreturn)) void expr_trap(void);
@@ -2322,8 +2327,8 @@ void *expr_heapmtl_realloc_nonnull(void *old,size_t size,intptr_t arg);
 int expr_setup_heapmtl4_nonnull(struct expr_memtool *restrict mtl,void *heap,size_t size,int flag);
 //global externs of expr-global.c :
 extern const struct expr_libinfo expr_libinfo_current[1];
-extern struct expr_global_file expr_stdout[1];
-extern struct expr_global_file expr_stderr[1];
+extern struct expr_global_file *expr_stdout;
+extern struct expr_global_file *expr_stderr;
 #if !(defined(EXPR_INLIB)&&(EXPR_INLIB))
 #define expr_free2mtl(ep,flag) expr_free2mtl_r(ep,flag,expr_defmtl)
 #define expr_init_const(ep,val) expr_init_const_r(ep,val,expr_defmtl)

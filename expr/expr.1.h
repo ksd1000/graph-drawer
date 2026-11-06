@@ -1301,12 +1301,15 @@ struct expr_buffered_file {
 })
 struct expr_global_file {
 	struct expr_buffered_file buf[1];
+	struct expr_buffered_file rbuf[1];
 	expr_writer_t mode;
+	int (*close)(intptr_t fd);
 	union {
 		unsigned int bit;
 		struct {
 			unsigned int external:1,
 				read:1,
+				write:1,
 				closed:1,
 				unused:sizeof(unsigned int)*8-3;
 		};

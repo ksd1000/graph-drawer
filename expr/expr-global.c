@@ -5,7 +5,7 @@
  *******************************************************************************/
 #define _GNU_SOURCE
 
-#define EXPR_VERSION "1.0.18-21"
+#define EXPR_VERSION "1.0.18-22"
 
 #if (defined(EXPR_LIBC_STRING_IMPL)&&(EXPR_LIBC_STRING_IMPL))
 #include <string.h>
@@ -93,8 +93,8 @@ const struct expr_libinfo expr_libinfo_current[1]={{
 	.time=__TIME__,
 	.license="GPL v3+",
 }};
-struct expr_global_file expr_stdout[1]={{.mode=NULL}};
-struct expr_global_file expr_stderr[1]={{.mode=NULL}};
+struct expr_global_file *expr_stdout=NULL;
+struct expr_global_file *expr_stderr=NULL;
 //#define expr_stdout expr_stdout
 //#define expr_stderr expr_stderr
 // a warning may occur if keep the 2 macros for following the C standard.
@@ -113,31 +113,49 @@ static ssize_t global_write(intptr_t fd,const void *buf,size_t size){
 	}
 	return r;
 }
-#define xmtl fp->buf->mtl
-void expr_global_close(struct expr_global_file *fp){
+static ssize_t global_read(intptr_t fd,void *buf,size_t size){
+	ssize_t r;
+	errno=0;
+	r=(ssize_t)fread(buf,1,size,(FILE *)fd);
+	if(unlikely(errno))
+		return (ssize_t)-errno;
+	return r;
+}
+static int global_close(intptr_t fd){
+	errno=0;
+	fclose((FILE *)fd);
+	return -errno;
+}
+#define xmtl expr_globalmtl
+void expr_close(struct expr_global_file *fp){
 	GLOBAL_MUTEX_START;
 	if(unlikely(fp->closed)){
 		GLOBAL_MUTEX_END;
 		return;
 	}
-	expr_buffered_flush(fp->buf);
-	if(!fp->external&&fp->buf->buf)
-		xfree(fp->buf->buf);
+	if(fp->write){
+		expr_buffered_flush(fp->buf);
+		if(!fp->external&&fp->buf->buf)
+			xfree(fp->buf->buf);
+	}
+	if(fp->close)
+		fp->close(fp->buf->fd);
 	fp->closed=1;
 	GLOBAL_MUTEX_END;
 }
 static void expr_global_atexit(void){
-	expr_global_close(expr_stdout);
-	expr_global_close(expr_stderr);
+	expr_close(expr_stdout);
+	expr_close(expr_stderr);
 }
+__attribute__((constructor))
 static void expr_global_setup(void){
 	GLOBAL_MUTEX_START;
-	if(unlikely(expr_setuped))
+	if(unlikely(expr_setuped)){
+		GLOBAL_MUTEX_END;
 		return;
-	expr_buffered_init_r(expr_stdout->buf,global_write,(intptr_t)stdout,NULL,0,expr_globalmtl);
-	expr_buffered_init_r(expr_stderr->buf,global_write,(intptr_t)stderr,NULL,0,expr_globalmtl);
+	}
 	expr_setuped=1;
-	if(unlikely(expr_setvbuf(expr_stdout,NULL,_IOLBF,BUFSIZ)<0||expr_setvbuf(expr_stderr,NULL,_IOLBF,BUFSIZ)<0))
+	if(unlikely(!(expr_stdout=expr_bind(stdout,"w"))||!(expr_stderr=expr_bind(stderr,"w"))))
 		warn_abort("expr-lc/setup","setup failed: cannot allocate memory of size=%zu",(size_t)BUFSIZ);
 	if(unlikely(atexit(expr_global_atexit)))
 		warn_abort("expr-lc/setup","atexit() failed");
@@ -154,7 +172,7 @@ int expr_setvbuf(struct expr_global_file *fp,void *buf,int mode,size_t size){
 	if(buf){
 		switch(mode){
 			case _IONBF:
-				fp->mode=expr_buffered_write_sync_warped;
+				fp->mode=expr_buffered_write_warped;
 				break;
 			case _IOLBF:
 				fp->mode=expr_buffered_write_iolbf_warped;
@@ -188,7 +206,7 @@ int expr_setvbuf(struct expr_global_file *fp,void *buf,int mode,size_t size){
 			if(expr_buffered_truncate(fp->buf,0)<0){
 				return -1;
 			}
-			fp->mode=expr_buffered_write_sync_warped;
+			fp->mode=expr_buffered_write_warped;
 			break;
 		case _IOLBF:
 			FP_START;
@@ -249,9 +267,144 @@ ssize_t expr_arrprintf(const char *format,const union expr_argf *restrict args,s
 	ssize_t r;
 	EXPR_GLOBAL_SETUP_CHECK();
 	GLOBAL_MUTEX_START;
-	r=expr_writeft_r(expr_stdout->mode,(intptr_t)expr_stdout->buf,format,strlen(format),args,arglen,expr_ftable_default,expr_stdout->buf->mtl);
+	r=expr_writeft_r(expr_stdout->mode,(intptr_t)expr_stdout->buf,format,strlen(format),args,arglen,expr_ftable_default,xmtl);
 	GLOBAL_MUTEX_END;
 	return r;
+}
+struct expr_global_file *expr_bind(void *stream,const char *mode){
+	struct expr_global_file *fp;
+	unsigned int r=0,w=0,b=0;
+	switch(*mode){
+		case 'r':
+			r=1;
+			break;
+		case 'w':
+			w=1;
+			break;
+		case 'a':
+			w=1;
+			break;
+		default:
+			return NULL;
+	}
+	switch(mode[1]){
+		case 'b':
+			b=1;
+			switch(mode[2]){
+				case '+':
+					r=1;
+					w=1;
+					break;
+				default:
+					break;
+			}
+			break;
+		case '+':
+			r=1;
+			w=1;
+			break;
+		case 0:
+			break;
+		default:
+			return NULL;
+	}
+	fp=xmalloc(sizeof(struct expr_global_file));
+	if(unlikely(!fp))
+		goto err;
+	memset(fp,0,sizeof(struct expr_global_file));
+	if(r){
+		expr_buffered_init_r(fp->rbuf,global_read,(intptr_t)stream,NULL,0,expr_globalmtl);
+		fp->read=1;
+	}
+	if(w){
+		expr_buffered_init_r(fp->buf,global_write,(intptr_t)stream,NULL,0,expr_globalmtl);
+		if(unlikely(expr_setvbuf(fp,NULL,b?_IOFBF:_IOLBF,BUFSIZ)<0))
+			goto err1;
+		fp->write=1;
+		fp->mode=(b?expr_buffered_write_warped:expr_buffered_write_iolbf_warped);
+	}
+	setvbuf((FILE *)stream,NULL,_IONBF,0);
+	return fp;
+err1:
+	expr_close(fp);
+err:
+	return NULL;
+}
+
+struct expr_global_file *expr_open(const char *path,const char *mode){
+	FILE *stream;
+	struct expr_global_file *fp;
+	unsigned int r=0,w=0,b=0;
+	char a[4];
+	switch(*mode){
+		case 'r':
+			r=1;
+			a[0]='r';
+			break;
+		case 'w':
+			w=1;
+			a[0]='w';
+			break;
+		case 'a':
+			w=1;
+			a[0]='a';
+			break;
+		default:
+			return NULL;
+	}
+	a[1]='b';
+	switch(mode[1]){
+		case 'b':
+			b=1;
+			switch(mode[2]){
+				case '+':
+					r=1;
+					w=1;
+					break;
+				default:
+					break;
+			}
+			break;
+		case '+':
+			r=1;
+			w=1;
+			break;
+		case 0:
+			break;
+		default:
+			return NULL;
+	}
+	if(r&&w){
+		a[2]='+';
+		a[3]=0;
+	}else
+		a[2]=0;
+	stream=fopen(path,a);
+	if(unlikely(!stream))
+		return NULL;
+	fp=xmalloc(sizeof(struct expr_global_file));
+	if(unlikely(!fp))
+		goto err;
+	memset(fp,0,sizeof(struct expr_global_file));
+	setvbuf((FILE *)stream,NULL,_IONBF,0);
+	if(r){
+		expr_buffered_init_r(fp->rbuf,global_read,(intptr_t)stream,NULL,0,expr_globalmtl);
+		fp->read=1;
+	}
+	if(w){
+		expr_buffered_init_r(fp->buf,global_write,(intptr_t)stream,NULL,0,expr_globalmtl);
+		if(unlikely(expr_setvbuf(fp,NULL,b?_IOFBF:_IOLBF,BUFSIZ)<0))
+			goto err1;
+		fp->write=1;
+		fp->mode=(b?expr_buffered_write_warped:expr_buffered_write_iolbf_warped);
+	}
+	fp->close=global_close;
+	return fp;
+err1:
+	expr_close(fp);
+err:
+	fclose(stream);
+	return NULL;
 }
 
 #if !(defined(EXPR_NOSTACKWORKSPACE)&&(EXPR_NOSTACKWORKSPACE))

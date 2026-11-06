@@ -6,9 +6,9 @@
 #include <math.h>
 #include <stdio.h>
 #include <float.h>
-//#if (defined(EXPR_LIBC_STRING_IMPL)&&(EXPR_LIBC_STRING_IMPL))
+
+//#define EXPR_LIBC_STRING_IMPL 0
 #include <string.h>
-//#endif
 
 #include <stdlib.h>
 #include <errno.h>

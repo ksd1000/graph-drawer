@@ -2302,6 +2302,72 @@ void *expr_internal_memrchr(const void *buf,int c,size_t size){
 	}
 	return NULL;
 }
+void *expr_internal_memnchr(const void *buf,int c,size_t size){
+	const uint8_t *p=buf;
+	uint64_t val=expr_mkval64(c);
+	struct {
+		uint64_t _w0,_w1,_w2,_w3;
+	} w;
+	while(size>=32){
+		BYTE_COPY_ALIGN32K(&w,p);
+		w0=SWAR(w0^val)^UINT64_C(0x8080808080808080);
+		w1=SWAR(w1^val)^UINT64_C(0x8080808080808080);
+		w2=SWAR(w2^val)^UINT64_C(0x8080808080808080);
+		w3=SWAR(w3^val)^UINT64_C(0x8080808080808080);
+		if(w0|w1|w2|w3){
+			if(w0)
+				return (void *)(uintptr_t)(p+cz64(w0)/8);
+			if(w1)
+				return (void *)(uintptr_t)(p+8+cz64(w1)/8);
+			if(w2)
+				return (void *)(uintptr_t)(p+16+cz64(w2)/8);
+			return (void *)(uintptr_t)(p+24+cz64(w3)/8);
+		}
+		p+=32;
+		size-=32;
+	}
+	while(size>=8){
+		BYTE_COPY_ALIGN8K(&w0,p);
+		w0=SWAR(w0^val)^UINT64_C(0x8080808080808080);
+		if(w0)
+			return (void *)(uintptr_t)(p+cz64(w0)/8);
+		p+=8;
+		size-=8;
+	}
+	while(size--){
+		if(*p!=(uint8_t)c)
+			return (void *)(uintptr_t)p;
+		++p;
+	}
+	return NULL;
+}
+int expr_internal_memtst(const void *buf,size_t size){
+	const uint8_t *p=buf;
+	struct {
+		uint64_t _w0,_w1,_w2,_w3;
+	} w;
+	while(size>=32){
+		BYTE_COPY_ALIGN32K(&w,p);
+		if(w0|w1|w2|w3){
+			return 1;
+		}
+		p+=32;
+		size-=32;
+	}
+	while(size>=8){
+		BYTE_COPY_ALIGN8K(&w0,p);
+		if(w0)
+			return 1;
+		p+=8;
+		size-=8;
+	}
+	while(size--){
+		if(*p)
+			return 1;
+		++p;
+	}
+	return 0;
+}
 #define w01 w_1._w0
 #define w11 w_1._w1
 #define w21 w_1._w2

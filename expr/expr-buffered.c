@@ -254,15 +254,16 @@ size_ok:
 		buf+=i;
 		size-=i;
 	}
-	if(unlikely(fp->flag&EXPR_BZERO)){
+	/*if(unlikely(fp->flag&EXPR_BZERO)){
 		debug("end index=%zu",fp->index);
 		return 0;
-	}
+	}*/
 	if(unlikely(fp->length<=size)){
 		debug("end index=%zu",fp->index);
 		r=fp->reader(fp->fd,buf,size);
 		if(unlikely(r<0))
 			goto err;
+		return r;
 	}
 	r=fp->reader(fp->fd,fp->buf,fp->length);
 	if(unlikely(r<0))

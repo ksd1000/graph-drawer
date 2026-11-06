@@ -207,6 +207,32 @@ struct expr_list {
 #define expr_list_foreach_ro(var,list) for(__typeof__(list) var=(list);var;var=var->next)
 #define expr_list_foreach_rw(var,list) for(__typeof__(list) var=(list),__inloop_next=(expr_likely(var)?var->next:NULL);var;var=__inloop_next,({if(__inloop_next)__inloop_next=__inloop_next->next;}))
 
+#define expr_struct_mlist(struct_name,N) \
+struct_name {\
+	struct_name **tail;\
+	struct_name *next[N];\
+}
+#define expr_mlist_next(T) ((sizeof(__typeof__(T))-offsetof(__typeof__(T),next))/sizeof(__typeof__(T) *))
+#define expr_mlist_zero(list) memset((list),0,sizeof(*(list)))
+#define expr_mlist_detach(list) (*(list)->tail=NULL)
+#define expr_mlist_isempty(list) memtst((list)->next,sizeof((list)->next))
+// multi-list
+expr_struct_mlist(struct expr_vmlist,);
+// variable multi-list (do not use expr_mlist_*() for this type)
+struct expr_mnlist {
+	struct expr_nmlist **tail;
+	size_t n;
+	struct expr_nmlist *next[];
+};
+// multi-list with n
+
+#define expr_struct_tmlist(struct_name,N,M) \
+struct_name {\
+	struct_name **tail[M];\
+	struct_name *next[N];\
+}
+// tail-multi-list
+
 #define expr_host(addr,T,field) ((__typeof__(T) *)((uintptr_t)(addr)-offsetof(__typeof__(T),field)))
 #define expr_autohost(addr,T,field) ({\
 	uintptr_t _addr=(uintptr_t)(addr);\
@@ -332,6 +358,20 @@ struct expr_internal_jmpbuf {
 #endif
 
 #if (defined(EXPR_INLIB)&&(EXPR_INLIB))
+
+#ifndef _EXPR_DEFS_H_
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wgnu-folding-constant"
+expr_static_assert(!(NULL));
+#pragma GCC diagnostic pop
+#endif
+// avoid the compiler or stddef.h implements NULL as nonzero number.
+
+
+#if !defined(__BIG_ENDIAN__)&&defined(__BYTE_ORDER__)&&defined(__ORDER_BIG_ENDIAN__)&&(__BYTE_ORDER__==__ORDER_BIG_ENDIAN__)
+#define __BIG_ENDIAN__ 1
+#endif
+
 #ifndef EXPR_DEBUG
 #define EXPR_DEBUG 0
 #endif
@@ -599,6 +639,7 @@ enum expr_op {
 #define EXPR_SYMNEXT 14
 #endif
 
+expr_struct_mlist(struct expr_symlist,EXPR_SYMNEXT);
 
 #define EXPR_ESYMBOL 1
 #define EXPR_EPT 2
@@ -1304,13 +1345,15 @@ struct expr_global_file {
 	struct expr_buffered_file rbuf[1];
 	expr_writer_t mode;
 	int (*close)(intptr_t fd);
+	struct expr_list node[1];
+	struct expr_global_file **iface;
+	uint32_t mutex[1];
 	union {
 		unsigned int bit;
 		struct {
 			unsigned int external:1,
 				read:1,
 				write:1,
-				closed:1,
 				unused:sizeof(unsigned int)*8-3;
 		};
 	};
@@ -1427,8 +1470,8 @@ union expr_symvalue {
 };
 #define EXPR_SYMBOL_DEPTHM1_WIDTH 54
 struct expr_symbol {
-	struct expr_symbol *next[EXPR_SYMNEXT];
 	struct expr_symbol **tail;
+	struct expr_symbol *next[EXPR_SYMNEXT];
 	size_t length,strlen;
 	uint64_t type:3,flag:6,saved:1,depthm1:EXPR_SYMBOL_DEPTHM1_WIDTH;
 	char str[];
@@ -2183,6 +2226,8 @@ void expr_internal_memswap(void *dst,void *src,size_t size);
 void expr_internal_memmove(void *dst,const void *src,size_t size);
 void *expr_internal_memchr(const void *buf,int c,size_t size);
 void *expr_internal_memrchr(const void *buf,int c,size_t size);
+void *expr_internal_memnchr(const void *buf,int c,size_t size);
+int expr_internal_memtst(const void *buf,size_t size);
 int expr_internal_memcmp(const void *s0,const void *s1,size_t size);
 void *expr_internal_memchr2(const void *buf,int c);
 struct expr_symbol *expr_builtin_symbol_add(struct expr_symset *restrict esp,const struct expr_builtin_symbol *p);
@@ -2301,6 +2346,7 @@ ssize_t expr_fprintf(struct expr_global_file *fp,const char *format,...);
 ssize_t expr_farrprintf(struct expr_global_file *fp,const char *format,const union expr_argf *restrict args,size_t arglen);
 ssize_t expr_printf(const char *format,...);
 ssize_t expr_arrprintf(const char *format,const union expr_argf *restrict args,size_t arglen);
+ssize_t expr_fread(struct expr_global_file *fp,void *buf,size_t size);
 struct expr_global_file *expr_bind(void *stream,const char *mode);
 struct expr_global_file *expr_open(const char *path,const char *mode);
 double expr_internal_strtod(const char *restrict nptr,size_t nsize,size_t *restrict end_index);

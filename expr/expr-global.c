@@ -5,11 +5,10 @@
  *******************************************************************************/
 #define _GNU_SOURCE
 
-#define EXPR_VERSION "1.0.18-22"
+#define EXPR_VERSION "1.0.18-23"
 
-#if (defined(EXPR_LIBC_STRING_IMPL)&&(EXPR_LIBC_STRING_IMPL))
+#define EXPR_LIBC_STRING_IMPL 1
 #include <string.h>
-#endif
 
 #ifndef EXPR_SETUP_ENABLED
 #define EXPR_SETUP_ENABLED 1
@@ -17,13 +16,11 @@
 #include <stdio.h>
 #include <errno.h>
 
-#ifdef EXPR_SYSIN
-#define SYSCALL_DEFINED 1
-#else
-#define SYSCALL_DEFINED 0
-#endif
+#include <stdlib.h>
+#define EXPR_INLIB 1
+#include "expr.h"
 
-#if (SYSCALL_DEFINED)&&(__linux__)
+#if (EXPR_INTERNAL_SYSCALL_IMPLEMENTED)&&(__linux__)
 
 #ifndef _MUTEX_H_
 #define _MUTEX_H_
@@ -71,10 +68,6 @@ typedef _Atomic(uint32_t) mutex_t;
 
 #endif
 
-#include <stdlib.h>
-#define EXPR_INLIB 1
-#include "expr.h"
-
 const struct expr_libinfo expr_libinfo_current[1]={{
 	.version=EXPR_VERSION,
 	.compiler_version=
@@ -101,14 +94,14 @@ struct expr_global_file *expr_stderr=NULL;
 static int expr_setuped=0;
 static uint32_t global_mutex[1]={EXPR_MUTEX_INITIALIZER};
 // mutex lock/unlock will be void operation on non-unix platform, the man page keeps MT-UnSafe.
-#define GLOBAL_MUTEX_START expr_mutex_lock(global_mutex)
-#define GLOBAL_MUTEX_END expr_mutex_unlock(global_mutex)
+#define GLOBAL_MUTEX_START ({debug("GLOBAL_MUTEX_START");expr_mutex_lock(global_mutex);})
+#define GLOBAL_MUTEX_END ({debug("GLOBAL_MUTEX_END");expr_mutex_unlock(global_mutex);})
 static ssize_t global_write(intptr_t fd,const void *buf,size_t size){
 	FILE *fp=(FILE *)fd;
 	ssize_t r;
 	r=(ssize_t)fwrite(buf,1,size,fp);
 	fflush(fp);
-	if(unlikely((size_t)r<size&&ferror(stdout))){
+	if(unlikely((size_t)r<size&&ferror(fp))){
 		return (ssize_t)-errno;
 	}
 	return r;
@@ -126,26 +119,40 @@ static int global_close(intptr_t fd){
 	fclose((FILE *)fd);
 	return -errno;
 }
+static struct expr_list global_head[1]={{.next=NULL}};
 #define xmtl expr_globalmtl
 void expr_close(struct expr_global_file *fp){
-	GLOBAL_MUTEX_START;
-	if(unlikely(fp->closed)){
-		GLOBAL_MUTEX_END;
+	if(unlikely(!fp))
 		return;
-	}
+	expr_mutex_lock(fp->mutex);
 	if(fp->write){
 		expr_buffered_flush(fp->buf);
 		if(!fp->external&&fp->buf->buf)
 			xfree(fp->buf->buf);
 	}
-	if(fp->close)
-		fp->close(fp->buf->fd);
-	fp->closed=1;
-	GLOBAL_MUTEX_END;
+	if(fp->close){
+		if(fp->read)
+			fp->close(fp->rbuf->fd);
+		else if(fp->write)
+			fp->close(fp->buf->fd);
+	}
+	if(!expr_list_isempty(fp->node)){
+		GLOBAL_MUTEX_START;
+		expr_list_detach(fp->node);
+		GLOBAL_MUTEX_END;
+	}
+	if(fp->iface)
+		*fp->iface=NULL;
+	expr_mutex_unlock(fp->mutex);
+	xfree(fp);
 }
 static void expr_global_atexit(void){
-	expr_close(expr_stdout);
-	expr_close(expr_stderr);
+	//GLOBAL_MUTEX_START;
+	expr_list_foreach_rw(v,global_head->next){
+		expr_close(expr_host(v,struct expr_global_file,node));
+	}
+	//GLOBAL_MUTEX_END;
+	// dead lock
 }
 __attribute__((constructor))
 static void expr_global_setup(void){
@@ -154,11 +161,13 @@ static void expr_global_setup(void){
 		GLOBAL_MUTEX_END;
 		return;
 	}
-	expr_setuped=1;
 	if(unlikely(!(expr_stdout=expr_bind(stdout,"w"))||!(expr_stderr=expr_bind(stderr,"w"))))
 		warn_abort("expr-lc/setup","setup failed: cannot allocate memory of size=%zu",(size_t)BUFSIZ);
+	expr_stdout->iface=&expr_stdout;
+	expr_stderr->iface=&expr_stderr;
 	if(unlikely(atexit(expr_global_atexit)))
 		warn_abort("expr-lc/setup","atexit() failed");
+	expr_setuped=1;
 	GLOBAL_MUTEX_END;
 }
 #define EXPR_GLOBAL_SETUP_CHECK() ({\
@@ -167,30 +176,34 @@ static void expr_global_setup(void){
 })
 
 int expr_setvbuf(struct expr_global_file *fp,void *buf,int mode,size_t size){
-	EXPR_GLOBAL_SETUP_CHECK();
+	if(unlikely(!fp))
+		return -1;
+	expr_mutex_lock(fp->mutex);
 	expr_buffered_flush(fp->buf);
 	if(buf){
 		switch(mode){
 			case _IONBF:
 				fp->mode=expr_buffered_write_warped;
+				fp->buf->length=0;
 				break;
 			case _IOLBF:
 				fp->mode=expr_buffered_write_iolbf_warped;
+				fp->buf->length=size;
 				break;
 			case _IOFBF:
 				fp->mode=expr_buffered_write_warped;
+				fp->buf->length=size;
 				break;
 			default:
-				return -1;
+				goto err;
 		}
 		if(!fp->external&&fp->buf->buf)
 			xfree(fp->buf->buf);
+		fp->buf->buf=buf;
 		fp->buf->dynamic=0;
 		fp->buf->index=0;
-		fp->buf->length=size;
 		fp->external=1;
-		fp->closed=0;
-		return 0;
+		goto end;
 	}
 #define FP_START \
 	if(fp->external){\
@@ -204,60 +217,71 @@ int expr_setvbuf(struct expr_global_file *fp,void *buf,int mode,size_t size){
 		case _IONBF:
 			FP_START;
 			if(expr_buffered_truncate(fp->buf,0)<0){
-				return -1;
+				goto err;
 			}
 			fp->mode=expr_buffered_write_warped;
 			break;
 		case _IOLBF:
 			FP_START;
 			if(expr_buffered_truncate(fp->buf,size)<0){
-				return -1;
+				goto err;
 			}
 			fp->mode=expr_buffered_write_iolbf_warped;
 			break;
 		case _IOFBF:
 			FP_START;
 			if(expr_buffered_truncate(fp->buf,size)<0){
-				return -1;
+				goto err;
 			}
 			fp->mode=expr_buffered_write_warped;
 			break;
 		default:
-			return -1;
+			goto err;
 	}
-	fp->closed=0;
+end:
+	expr_mutex_unlock(fp->mutex);
 	return 0;
+err:
+	expr_mutex_unlock(fp->mutex);
+	return -1;
 }
+#ifndef EBADF
+#define EBADF 9
+#endif
 ssize_t expr_vfprintf(struct expr_global_file *fp,const char *format,va_list ap){
 	ssize_t r;
-	EXPR_GLOBAL_SETUP_CHECK();
-	GLOBAL_MUTEX_START;
+	if(unlikely(!fp||!fp->write))
+		return (ssize_t)-EBADF;
+	expr_mutex_lock(fp->mutex);
 	r=expr_vapwriteft_r(fp->mode,(intptr_t)fp->buf,format,strlen(format),expr_ftable_default,xmtl,ap);
-	GLOBAL_MUTEX_END;
+	expr_mutex_unlock(fp->mutex);
 	return r;
 }
 ssize_t expr_fprintf(struct expr_global_file *fp,const char *format,...){
 	va_list ap;
 	ssize_t r;
-	EXPR_GLOBAL_SETUP_CHECK();
+	if(unlikely(!fp||!fp->write))
+		return (ssize_t)-EBADF;
 	va_start(ap,format);
-	GLOBAL_MUTEX_START;
+	expr_mutex_lock(fp->mutex);
 	r=expr_vapwriteft_r(fp->mode,(intptr_t)fp->buf,format,strlen(format),expr_ftable_default,xmtl,ap);
-	GLOBAL_MUTEX_END;
+	expr_mutex_unlock(fp->mutex);
 	va_end(ap);
 	return r;
 }
 ssize_t expr_farrprintf(struct expr_global_file *fp,const char *format,const union expr_argf *restrict args,size_t arglen){
 	ssize_t r;
-	EXPR_GLOBAL_SETUP_CHECK();
-	GLOBAL_MUTEX_START;
+	if(unlikely(!fp||!fp->write))
+		return (ssize_t)-EBADF;
+	expr_mutex_lock(fp->mutex);
 	r=expr_writeft_r(fp->mode,(intptr_t)fp->buf,format,strlen(format),args,arglen,expr_ftable_default,xmtl);
-	GLOBAL_MUTEX_END;
+	expr_mutex_unlock(fp->mutex);
 	return r;
 }
 ssize_t expr_printf(const char *format,...){
 	va_list ap;
 	ssize_t r;
+	EXPR_GLOBAL_SETUP_CHECK();
 	va_start(ap,format);
 	r=expr_vfprintf(expr_stdout,format,ap);
 	va_end(ap);
@@ -266,9 +290,16 @@ ssize_t expr_printf(const char *format,...){
 ssize_t expr_arrprintf(const char *format,const union expr_argf *restrict args,size_t arglen){
 	ssize_t r;
 	EXPR_GLOBAL_SETUP_CHECK();
-	GLOBAL_MUTEX_START;
-	r=expr_writeft_r(expr_stdout->mode,(intptr_t)expr_stdout->buf,format,strlen(format),args,arglen,expr_ftable_default,xmtl);
-	GLOBAL_MUTEX_END;
+	r=expr_farrprintf(expr_stdout,format,args,arglen);
+	return r;
+}
+ssize_t expr_fread(struct expr_global_file *fp,void *buf,size_t size){
+	ssize_t r;
+	if(unlikely(!fp||!fp->read))
+		return (ssize_t)-EBADF;
+	expr_mutex_lock(fp->mutex);
+	r=expr_buffered_read(fp->rbuf,buf,size,NULL);
+	expr_mutex_unlock(fp->mutex);
 	return r;
 }
 struct expr_global_file *expr_bind(void *stream,const char *mode){
@@ -324,6 +355,12 @@ struct expr_global_file *expr_bind(void *stream,const char *mode){
 		fp->mode=(b?expr_buffered_write_warped:expr_buffered_write_iolbf_warped);
 	}
 	setvbuf((FILE *)stream,NULL,_IONBF,0);
+	if(likely(expr_setuped)){
+		GLOBAL_MUTEX_START;
+		expr_list_insert_next(global_head,fp->node);
+		GLOBAL_MUTEX_END;
+	}else
+		expr_list_insert_next(global_head,fp->node);
 	return fp;
 err1:
 	expr_close(fp);
@@ -399,6 +436,12 @@ struct expr_global_file *expr_open(const char *path,const char *mode){
 		fp->mode=(b?expr_buffered_write_warped:expr_buffered_write_iolbf_warped);
 	}
 	fp->close=global_close;
+	if(likely(expr_setuped)){
+		GLOBAL_MUTEX_START;
+		expr_list_insert_next(global_head,fp->node);
+		GLOBAL_MUTEX_END;
+	}else
+		expr_list_insert_next(global_head,fp->node);
 	return fp;
 err1:
 	expr_close(fp);
@@ -444,6 +487,7 @@ ssize_t expr_file_readfd_r(expr_reader_t reader,intptr_t fd,size_t tail,void *sa
 	expr_buffered_init_r(vf,reader,fd,NULL,SIZE_MAX,mtl);
 	r=expr_buffered_read(vf,NULL,0,NULL);
 	checkr(vf);
+	ret=(ssize_t)vf->index;
 	if(tail){
 		size_t total;
 		total=vf->index+tail;
@@ -458,19 +502,20 @@ ssize_t expr_file_readfd_r(expr_reader_t reader,intptr_t fd,size_t tail,void *sa
 			memset(vf->buf+vf->index,0,tail);
 		}
 	}
-	ret=(ssize_t)vf->index;
 	debug("savep=%p,r=%zu",vf->buf,vf->index);
 	*(void **)savep=vf->buf;
 	return ret;
 }
 
 void expr_mutex_lock(uint32_t *lock){
+	debug("locking");
 #ifdef _MUTEX_H_
 	mutex_lock((mutex_t *)lock);
 #endif
 	return;
 }
 int expr_mutex_trylock(uint32_t *lock){
+	debug("trylocking");
 #ifdef _MUTEX_H_
 	return mutex_trylock((mutex_t *)lock);
 #else
@@ -478,6 +523,7 @@ int expr_mutex_trylock(uint32_t *lock){
 #endif
 }
 void expr_mutex_unlock(uint32_t *lock){
+	debug("unlocking");
 #ifdef _MUTEX_H_
 	mutex_unlock((mutex_t *)lock);
 #endif

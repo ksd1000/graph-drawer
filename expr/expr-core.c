@@ -3227,7 +3227,7 @@ struct vnode {
 	enum expr_op op;
 };
 expr_headcheck(struct vnode,node);
-#define vnhost(p) ((struct vnode *)(uintptr_t)(p))
+#define vnhost(p) expr_host0((p),struct vnode)
 #define vnnext(p) vnhost((p)->node->next)
 static struct vnode *vnadd(struct expr *restrict ep,struct vnode *vp,expr_t *v,enum expr_op op,uint64_t unary){
 	struct vnode *p;
@@ -3275,16 +3275,16 @@ redo:
 	goto redo;
 }
 static int do_unary_forvar(struct expr *restrict ep,struct vnode *ev,expr_t *v){
-	for(struct vnode *p=ev;p;p=vnnext(p)){
-		if(p->v==v)
-			return do_unary_forone(ep,p);
+	expr_list_rforeach0_ro(p,ev->node,next){
+		if(vnhost(p)->v==v)
+			return do_unary_forone(ep,vnhost(p));
 	}
 	return -1;
 }
 static int do_unary(struct expr *restrict ep,struct vnode *ev){
 	int r=0;
-	for(struct vnode *p=ev;p;p=vnnext(p)){
-		if(unlikely(do_unary_forone(ep,p)<0))
+	expr_list_foreach0_ro(p,ev->node,next){
+		if(unlikely(do_unary_forone(ep,vnhost(p))<0))
 			return -1;
 		r=1;
 	}
@@ -3299,11 +3299,8 @@ static int vnunion(struct expr *restrict ep,struct vnode *ev){
 	return 0;
 }
 static void vnfree(struct expr *restrict ep,struct vnode *vp){
-	struct vnode *p;
-	while(vp){
-		p=vnnext(vp);
-		xfree(vp);
-		vp=p;
+	expr_list_foreach0_rw(p,vp->node,next){
+		xfree(vnhost(p));
 	}
 }
 //scan mark

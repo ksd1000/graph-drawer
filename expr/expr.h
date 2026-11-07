@@ -307,8 +307,14 @@ typedef struct expr_list expr_list_t[1];
 #define expr_list_rinsert_prev(list,node) expr_list_rinsert(list,node,prev,next)
 #define expr_list_rinsert_next(list,node) expr_list_rinsert(list,node,next,prev)
 
+#define expr_list_foreach0_ro(var,list,mode) for(__typeof__(*(list)) *var=(list);var;var=var->mode)
+#define expr_list_foreach0_rw(var,list,mode) for(__typeof__(*(list)) *var=(list),*__inloop_cache=(expr_likely(var)?var->mode:NULL);var;var=__inloop_cache,({if(__inloop_cache)__inloop_cache=__inloop_cache->mode;}))
+
 #define expr_list_foreach_ro(var,list,mode) for(__typeof__(*(list)) *var=(list)->mode;var;var=var->mode)
 #define expr_list_foreach_rw(var,list,mode) for(__typeof__(*(list)) *var=(list)->mode,*__inloop_cache=(expr_likely(var)?var->mode:NULL);var;var=__inloop_cache,({if(__inloop_cache)__inloop_cache=__inloop_cache->mode;}))
+
+#define expr_list_rforeach0_ro(var,list,mode) for(__typeof__(*(list)) *__inloop_start=(list),*var=__inloop_start;var;var=var->mode,({if(var==__inloop_start)var=NULL;}))
+#define expr_list_rforeach0_rw(var,list,mode) for(__typeof__(*(list)) *__inloop_start=(list),*var=__inloop_start,*__inloop_cache=(expr_likely(var)?var->mode:NULL);var;var=__inloop_cache,({if(var==__inloop_start)var=NULL;else if(__inloop_cache)__inloop_cache=__inloop_cache->mode;}))
 
 #define expr_list_rforeach_ro(var,list,mode) for(__typeof__(*(list)) *__inloop_start=(list),*var=__inloop_start->mode;var!=__inloop_start;var=var->mode)
 #define expr_list_rforeach_rw(var,list,mode) for(__typeof__(*(list)) *__inloop_start=(list),*var=__inloop_start->mode,*__inloop_cache=(expr_likely(var)?var->mode:NULL);var!=__inloop_start;var=__inloop_cache,({if(__inloop_cache)__inloop_cache=__inloop_cache->mode;}))
@@ -346,11 +352,13 @@ struct_name {\
 }
 // tail-multi-list
 
+#define expr_host0(addr,T) ((__typeof__(T) *)(uintptr_t)(addr))
+// avoid the compiler does not remove the minus(-) by 0 when offsetof()==0, use expr_headcheck before it.
 #define expr_host(addr,T,field) ((__typeof__(T) *)((uintptr_t)(addr)-offsetof(__typeof__(T),field)))
 #define expr_autohost(addr,T,field) (offsetof(__typeof__(T),field)?({\
 	uintptr_t _addr=(uintptr_t)(addr);\
 	expr_likely(_addr)?expr_host(_addr,T,field):(__typeof__(T) *)NULL;\
-}):expr_host(addr,T,field))
+}):expr_host0(addr,T))
 
 #ifndef EXPR_EXPAND_SIZE
 #define EXPR_EXPAND_SIZE 16

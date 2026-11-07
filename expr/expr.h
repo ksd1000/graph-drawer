@@ -233,11 +233,11 @@ typedef struct expr_list expr_list_t[1];
 	_np->next=_np;\
 	_np->prev=_np;\
 })
-#define expr_list_link(head,tail) ({\
-	struct expr_list *_hp=(head);\
+#define expr_list_link(tail,head) ({\
 	struct expr_list *_tp=(tail);\
-	_hp->prev=_tp;\
+	struct expr_list *_hp=(head);\
 	_tp->next=_hp;\
+	_hp->prev=_tp;\
 })
 #define expr_list_unlink(prev_node,next_node) ({\
 	(prev_node)->next=NULL;\

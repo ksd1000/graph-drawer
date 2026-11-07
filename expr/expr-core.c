@@ -3221,31 +3221,33 @@ vend:
 	return v0;
 }
 struct vnode {
-	struct vnode *next;
+	struct expr_list node[1];
 	expr_t *v;
 	uint64_t unary;
 	enum expr_op op;
 };
+expr_headcheck(struct vnode,node);
+#define vnhost(p) ((struct vnode *)(uintptr_t)(p))
+#define vnnext(p) vnhost((p)->node->next)
 static struct vnode *vnadd(struct expr *restrict ep,struct vnode *vp,expr_t *v,enum expr_op op,uint64_t unary){
 	struct vnode *p;
 	if(unlikely(!vp)){
 		p=xmalloc(sizeof(struct vnode));
 		if(unlikely(!p))
 			return NULL;
-		p->next=NULL;
+		expr_list_ring(p->node);
 		p->v=v;
 		p->op=op;
 		p->unary=unary;
 		return p;
 	}
-	for(p=vp;p->next;p=p->next);
-	p->next=xmalloc(sizeof(struct vnode));
-	if(unlikely(!p->next))
+	p=xmalloc(sizeof(struct vnode));
+	if(unlikely(!p))
 		return NULL;
-	p->next->v=v;
-	p->next->op=op;
-	p->next->unary=unary;
-	p->next->next=NULL;
+	p->v=v;
+	p->op=op;
+	p->unary=unary;
+	expr_list_rinsert_prev(vp->node,p->node);
 	return vp;
 }
 static int do_unary_forone(struct expr *restrict ep,struct vnode *p){
@@ -3273,7 +3275,7 @@ redo:
 	goto redo;
 }
 static int do_unary_forvar(struct expr *restrict ep,struct vnode *ev,expr_t *v){
-	for(struct vnode *p=ev;p;p=p->next){
+	for(struct vnode *p=ev;p;p=vnnext(p)){
 		if(p->v==v)
 			return do_unary_forone(ep,p);
 	}
@@ -3281,7 +3283,7 @@ static int do_unary_forvar(struct expr *restrict ep,struct vnode *ev,expr_t *v){
 }
 static int do_unary(struct expr *restrict ep,struct vnode *ev){
 	int r=0;
-	for(struct vnode *p=ev;p;p=p->next){
+	for(struct vnode *p=ev;p;p=vnnext(p)){
 		if(unlikely(do_unary_forone(ep,p)<0))
 			return -1;
 		r=1;
@@ -3290,17 +3292,16 @@ static int do_unary(struct expr *restrict ep,struct vnode *ev){
 }
 static int vnunion(struct expr *restrict ep,struct vnode *ev){
 	struct vnode *p;
-
-	cknp(ep,expr_addop(ep,ev->v,ev->next->v,ev->next->op,0),return -1);
-	p=ev->next;
-	ev->next=ev->next->next;
+	p=vnnext(ev);
+	cknp(ep,expr_addop(ep,ev->v,p->v,p->op,0),return -1);
+	expr_list_detach(p->node);
 	xfree(p);
 	return 0;
 }
 static void vnfree(struct expr *restrict ep,struct vnode *vp){
 	struct vnode *p;
 	while(vp){
-		p=vp->next;
+		p=vnnext(vp);
 		xfree(vp);
 		vp=p;
 	}
@@ -3736,57 +3737,60 @@ end1:
 	continue;	
 	}while(op!=EXPR_END);
 end2:
-#define vnunionp cknp(ep,vnunion(ep,p)>=0,goto err)
+	p=vnhost(ev->node->prev);
+	expr_list_unlink(p->node,ev->node);
+	// ev is the head now
+#define vnunionp cknp(ep,vnunion(ep,p)>=0,goto err1)
 #define SETPREC1(a)\
-	for(p=ev;p;p=p->next){\
-		while(p->next&&p->next->op==(a)){\
+	for(p=ev;p;p=vnnext(p)){\
+		while(vnnext(p)&&vnnext(p)->op==(a)){\
 			vnunionp;\
 		}\
 	}
 #define SETPREC2(a,b)\
-	for(p=ev;p;p=p->next){\
-		while(p->next&&(\
-			p->next->op==(a)\
-			||p->next->op==(b)\
+	for(p=ev;p;p=vnnext(p)){\
+		while(vnnext(p)&&(\
+			vnnext(p)->op==(a)\
+			||vnnext(p)->op==(b)\
 			)){\
 			vnunionp;\
 		}\
 	}
 #define SETPREC3(a,b,c)\
-	for(p=ev;p;p=p->next){\
-		while(p->next&&(\
-			p->next->op==(a)\
-			||p->next->op==(b)\
-			||p->next->op==(c)\
+	for(p=ev;p;p=vnnext(p)){\
+		while(vnnext(p)&&(\
+			vnnext(p)->op==(a)\
+			||vnnext(p)->op==(b)\
+			||vnnext(p)->op==(c)\
 			)){\
 			vnunionp;\
 		}\
 	}
 /*#define SETPREC4(a,b,c,d)\
-	for(p=ev;p;p=p->next){\
-		while(p->next&&(\
-			p->next->op==(a)\
-			||p->next->op==(b)\
-			||p->next->op==(c)\
-			||p->next->op==(d)\
+	for(p=ev;p;p=vnnext(p)){\
+		while(vnnext(p)&&(\
+			vnnext(p)->op==(a)\
+			||vnnext(p)->op==(b)\
+			||vnnext(p)->op==(c)\
+			||vnnext(p)->op==(d)\
 			)){\
 			vnunionp;\
 		}\
 	}*/
 #define SETPREC6(a,b,c,d,e,f)\
-	for(p=ev;p;p=p->next){\
-		while(p->next&&(\
-			p->next->op==(a)\
-			||p->next->op==(b)\
-			||p->next->op==(c)\
-			||p->next->op==(d)\
-			||p->next->op==(e)\
-			||p->next->op==(f)\
+	for(p=ev;p;p=vnnext(p)){\
+		while(vnnext(p)&&(\
+			vnnext(p)->op==(a)\
+			||vnnext(p)->op==(b)\
+			||vnnext(p)->op==(c)\
+			||vnnext(p)->op==(d)\
+			||vnnext(p)->op==(e)\
+			||vnnext(p)->op==(f)\
 			)){\
 			vnunionp;\
 		}\
 	}
-	cknp(ep,do_unary(ep,ev)>=0,goto err);
+	cknp(ep,do_unary(ep,ev)>=0,goto err1);
 	SETPREC1(EXPR_POW)
 	SETPREC2(EXPR_GCD,EXPR_LCM)
 	SETPREC3(EXPR_MUL,EXPR_DIV,EXPR_MOD)
@@ -3801,13 +3805,16 @@ end2:
 	SETPREC1(EXPR_ANDL)
 	SETPREC1(EXPR_XORL)
 	SETPREC1(EXPR_ORL)
-	for(p=ev;p->next;p=p->next);
+	for(p=ev;vnnext(p);p=vnnext(p));
 	v1=p->v;
 	vnfree(ep,ev);
 	return v1;
 err:
-	if(likely(ev))
+	if(likely(ev)){
+		expr_list_unlink(ev->node->prev,ev->node);
+err1:
 		vnfree(ep,ev);
+	}
 	return NULL;
 }
 #undef xmtl

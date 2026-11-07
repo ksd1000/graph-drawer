@@ -165,10 +165,14 @@ struct expr_test {
 	intptr_t arg;
 };
 
+#define expr_headcheck(T,field) expr_static_assert(!offsetof(T,field))
+// avoid the compiler pads before the head field.
+
 struct expr_list {
 	struct expr_list *next;
 	struct expr_list *prev;
 };
+typedef struct expr_list expr_list_t[1];
 // place next before prev, for faster when travel through.
 
 #define EXPR_LIST_INITIALIZER {.next=NULL,.prev=NULL}
@@ -190,13 +194,13 @@ struct expr_list {
 	if(_np->prev)\
 		_np->prev->next=_np->next;\
 })
-#define expr_list_detach_fromring(node) ({\
+#define expr_list_rdetach(node) ({\
 	struct expr_list *_np=(node);\
 	_np->next->prev=_np->prev;\
 	_np->prev->next=_np->next;\
 })
 // node->prev/next will not be set to NULL or itself, for it will usually be freed.
-// use expr_list_detach[_fromring]_(zero|ring)() if need this.
+// use expr_list_[r]detach_(zero|ring)() if need this.
 #define expr_list_detach_zero(node) ({\
 	struct expr_list *_np=(node);\
 	if(_np->next)\
@@ -215,20 +219,31 @@ struct expr_list {
 	_np->next=_np;\
 	_np->prev=_np;\
 })
-#define expr_list_detach_fromring_zero(node) ({\
+#define expr_list_rdetach_zero(node) ({\
 	struct expr_list *_np=(node);\
 	_np->next->prev=_np->prev;\
 	_np->prev->next=_np->next;\
 	_np->next=NULL;\
 	_np->prev=NULL;\
 })
-#define expr_list_detach_fromring_ring(node) ({\
+#define expr_list_rdetach_ring(node) ({\
 	struct expr_list *_np=(node);\
 	_np->next->prev=_np->prev;\
 	_np->prev->next=_np->next;\
 	_np->next=_np;\
 	_np->prev=_np;\
 })
+#define expr_list_link(head,tail) ({\
+	struct expr_list *_hp=(head);\
+	struct expr_list *_tp=(tail);\
+	_hp->prev=_tp;\
+	_tp->next=_hp;\
+})
+#define expr_list_unlink(prev_node,next_node) ({\
+	(prev_node)->next=NULL;\
+	(next_node)->prev=NULL;\
+})
+// do not use api for ring to a unlinked ring
 #define expr_list_insert(list,node,mode,mirror_mode) ({\
 	struct expr_list *_lp=(list);\
 	struct expr_list *_np=(node);\
@@ -241,7 +256,7 @@ struct expr_list {
 	_np->mirror_mode=_lp;\
 	_np->mode=_lp1;\
 })
-#define expr_list_insert_ring(list,node,mode,mirror_mode) ({\
+#define expr_list_rinsert(list,node,mode,mirror_mode) ({\
 	struct expr_list *_lp=(list);\
 	struct expr_list *_np=(node);\
 	struct expr_list *_lp1;\
@@ -256,7 +271,7 @@ struct expr_list {
 	const struct expr_list *restrict _np=(node);\
 	!_np->next&&!_np->prev;\
 })
-#define expr_list_isempty_ring(node) ({\
+#define expr_list_risempty(node) ({\
 	const struct expr_list *restrict _np=(node);\
 	_np->next==_np;\
 })
@@ -289,14 +304,14 @@ struct expr_list {
 #define expr_list_insert_prev(list,node) expr_list_insert(list,node,prev,next)
 #define expr_list_insert_next(list,node) expr_list_insert(list,node,next,prev)
 
-#define expr_list_insert_ring_prev(list,node) expr_list_insert_ring(list,node,prev,next)
-#define expr_list_insert_ring_next(list,node) expr_list_insert_ring(list,node,next,prev)
+#define expr_list_rinsert_prev(list,node) expr_list_rinsert(list,node,prev,next)
+#define expr_list_rinsert_next(list,node) expr_list_rinsert(list,node,next,prev)
 
 #define expr_list_foreach_ro(var,list,mode) for(__typeof__(*(list)) *var=(list)->mode;var;var=var->mode)
 #define expr_list_foreach_rw(var,list,mode) for(__typeof__(*(list)) *var=(list)->mode,*__inloop_cache=(expr_likely(var)?var->mode:NULL);var;var=__inloop_cache,({if(__inloop_cache)__inloop_cache=__inloop_cache->mode;}))
 
-#define expr_list_foreach_ring_ro(var,list,mode) for(__typeof__(*(list)) *__inloop_start=(list),*var=__inloop_start->mode;var!=__inloop_start;var=var->mode)
-#define expr_list_foreach_ring_rw(var,list,mode) for(__typeof__(*(list)) *__inloop_start=(list),*var=__inloop_start->mode,*__inloop_cache=(expr_likely(var)?var->mode:NULL);var!=__inloop_start;var=__inloop_cache,({if(__inloop_cache)__inloop_cache=__inloop_cache->mode;}))
+#define expr_list_rforeach_ro(var,list,mode) for(__typeof__(*(list)) *__inloop_start=(list),*var=__inloop_start->mode;var!=__inloop_start;var=var->mode)
+#define expr_list_rforeach_rw(var,list,mode) for(__typeof__(*(list)) *__inloop_start=(list),*var=__inloop_start->mode,*__inloop_cache=(expr_likely(var)?var->mode:NULL);var!=__inloop_start;var=__inloop_cache,({if(__inloop_cache)__inloop_cache=__inloop_cache->mode;}))
 // note that list itself will not be touched and must be nonnull.
 
 #define expr_struct_mlist(struct_name,N) \

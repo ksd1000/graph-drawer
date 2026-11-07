@@ -241,6 +241,16 @@ struct expr_list {
 	_np->mirror_mode=_lp;\
 	_np->mode=_lp1;\
 })
+#define expr_list_insert_ring(list,node,mode,mirror_mode) ({\
+	struct expr_list *_lp=(list);\
+	struct expr_list *_np=(node);\
+	struct expr_list *_lp1;\
+	_lp1=_lp->mode;\
+	_lp1->mirror_mode=_np;\
+	_lp->mode=_np;\
+	_np->mirror_mode=_lp;\
+	_np->mode=_lp1;\
+})
 // assuming node is not in list before call
 #define expr_list_isempty(node) ({\
 	const struct expr_list *restrict _np=(node);\
@@ -278,6 +288,9 @@ struct expr_list {
 
 #define expr_list_insert_prev(list,node) expr_list_insert(list,node,prev,next)
 #define expr_list_insert_next(list,node) expr_list_insert(list,node,next,prev)
+
+#define expr_list_insert_ring_prev(list,node) expr_list_insert_ring(list,node,prev,next)
+#define expr_list_insert_ring_next(list,node) expr_list_insert_ring(list,node,next,prev)
 
 #define expr_list_foreach_ro(var,list,mode) for(__typeof__(*(list)) *var=(list)->mode;var;var=var->mode)
 #define expr_list_foreach_rw(var,list,mode) for(__typeof__(*(list)) *var=(list)->mode,*__inloop_cache=(expr_likely(var)?var->mode:NULL);var;var=__inloop_cache,({if(__inloop_cache)__inloop_cache=__inloop_cache->mode;}))

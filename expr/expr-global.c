@@ -149,7 +149,7 @@ void expr_close(struct expr_global_file *fp){
 }
 static void expr_global_atexit(void){
 	//GLOBAL_MUTEX_START;
-	expr_list_foreach_rw(v,global_head->next){
+	expr_list_foreach_rw(v,global_head,next){
 		expr_close(expr_host(v,struct expr_global_file,node));
 	}
 	//GLOBAL_MUTEX_END;

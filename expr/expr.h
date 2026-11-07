@@ -279,12 +279,12 @@ struct expr_list {
 #define expr_list_insert_prev(list,node) expr_list_insert(list,node,prev,next)
 #define expr_list_insert_next(list,node) expr_list_insert(list,node,next,prev)
 
-#define expr_list_foreach_ro(var,list) for(__typeof__(list) var=(list);var;var=var->next)
-#define expr_list_foreach_rw(var,list) for(__typeof__(list) var=(list),__inloop_next=(expr_likely(var)?var->next:NULL);var;var=__inloop_next,({if(__inloop_next)__inloop_next=__inloop_next->next;}))
+#define expr_list_foreach_ro(var,list,mode) for(__typeof__(*(list)) *var=(list)->mode;var;var=var->mode)
+#define expr_list_foreach_rw(var,list,mode) for(__typeof__(*(list)) *var=(list)->mode,*__inloop_cache=(expr_likely(var)?var->mode:NULL);var;var=__inloop_cache,({if(__inloop_cache)__inloop_cache=__inloop_cache->mode;}))
 
-#define expr_list_foreach_ring_ro(var,list) for(__typeof__(list) __inloop_start=(list),var=__inloop_start->next;var!=__inloop_start;var=var->next)
-#define expr_list_foreach_ring_rw(var,list) for(__typeof__(list) __inloop_start=(list),var=__inloop_start->next,__inloop_next=(expr_likely(var)?var->next:NULL);var!=__inloop_start;var=__inloop_next,({if(__inloop_next)__inloop_next=__inloop_next->next;}))
-// WARNING: list cannot be null for ring
+#define expr_list_foreach_ring_ro(var,list,mode) for(__typeof__(*(list)) *__inloop_start=(list),*var=__inloop_start->mode;var!=__inloop_start;var=var->mode)
+#define expr_list_foreach_ring_rw(var,list,mode) for(__typeof__(*(list)) *__inloop_start=(list),*var=__inloop_start->mode,*__inloop_cache=(expr_likely(var)?var->mode:NULL);var!=__inloop_start;var=__inloop_cache,({if(__inloop_cache)__inloop_cache=__inloop_cache->mode;}))
+// note that list itself will not be touched and must be nonnull.
 
 #define expr_struct_mlist(struct_name,N) \
 struct_name {\
@@ -319,10 +319,10 @@ struct_name {\
 // tail-multi-list
 
 #define expr_host(addr,T,field) ((__typeof__(T) *)((uintptr_t)(addr)-offsetof(__typeof__(T),field)))
-#define expr_autohost(addr,T,field) ({\
+#define expr_autohost(addr,T,field) (offsetof(__typeof__(T),field)?({\
 	uintptr_t _addr=(uintptr_t)(addr);\
 	expr_likely(_addr)?expr_host(_addr,T,field):(__typeof__(T) *)NULL;\
-})
+}):expr_host(addr,T,field))
 
 #ifndef EXPR_EXPAND_SIZE
 #define EXPR_EXPAND_SIZE 16

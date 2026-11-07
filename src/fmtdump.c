@@ -41,7 +41,7 @@ void wdaprint(const struct expr_finst *restrict fip){
 	// make the space visible easily
 	wdashow(width,"%zu",size_t);
 	printf(".");
-	wdashow(digit,"%zd",size_t);
+	wdashow(digit,"%zd",ssize_t);
 	printf(":");
 	wdashow(argsize,"%zu",size_t);
 }

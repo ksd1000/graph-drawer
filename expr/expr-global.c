@@ -5,10 +5,11 @@
  *******************************************************************************/
 #define _GNU_SOURCE
 
-#define EXPR_VERSION "1.0.18-23"
+#define EXPR_VERSION "1.0.18-25"
 
 #define EXPR_LIBC_STRING_IMPL 1
 #include <string.h>
+// asan only replaces the strlen() of libc
 
 #ifndef EXPR_SETUP_ENABLED
 #define EXPR_SETUP_ENABLED 1
@@ -119,7 +120,7 @@ static int global_close(intptr_t fd){
 	fclose((FILE *)fd);
 	return -errno;
 }
-static struct expr_list global_head[1]={{.next=NULL}};
+static struct expr_list global_head[1]={EXPR_LIST_INITIALIZER};
 #define xmtl expr_globalmtl
 void expr_close(struct expr_global_file *fp){
 	if(unlikely(!fp))

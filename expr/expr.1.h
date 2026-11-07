@@ -171,19 +171,64 @@ struct expr_list {
 };
 // place next before prev, for faster when travel through.
 
+#define EXPR_LIST_INITIALIZER {.next=NULL,.prev=NULL}
+
 #define expr_list_zero(node) ({\
 	struct expr_list *restrict _np=(node);\
 	_np->next=NULL;\
 	_np->prev=NULL;\
 })
+#define expr_list_ring(node) ({\
+	struct expr_list *_np=(node);\
+	_np->next=_np;\
+	_np->prev=_np;\
+})
 #define expr_list_detach(node) ({\
-	struct expr_list *restrict _np=(node);\
+	struct expr_list *_np=(node);\
 	if(_np->next)\
 		_np->next->prev=_np->prev;\
 	if(_np->prev)\
 		_np->prev->next=_np->next;\
 })
-// node->prev/next will not be set to NULL, for it will usually be freed.
+#define expr_list_detach_fromring(node) ({\
+	struct expr_list *_np=(node);\
+	_np->next->prev=_np->prev;\
+	_np->prev->next=_np->next;\
+})
+// node->prev/next will not be set to NULL or itself, for it will usually be freed.
+// use expr_list_detach[_fromring]_(zero|ring)() if need this.
+#define expr_list_detach_zero(node) ({\
+	struct expr_list *_np=(node);\
+	if(_np->next)\
+		_np->next->prev=_np->prev;\
+	if(_np->prev)\
+		_np->prev->next=_np->next;\
+	_np->next=NULL;\
+	_np->prev=NULL;\
+})
+#define expr_list_detach_ring(node) ({\
+	struct expr_list *_np=(node);\
+	if(_np->next)\
+		_np->next->prev=_np->prev;\
+	if(_np->prev)\
+		_np->prev->next=_np->next;\
+	_np->next=_np;\
+	_np->prev=_np;\
+})
+#define expr_list_detach_fromring_zero(node) ({\
+	struct expr_list *_np=(node);\
+	_np->next->prev=_np->prev;\
+	_np->prev->next=_np->next;\
+	_np->next=NULL;\
+	_np->prev=NULL;\
+})
+#define expr_list_detach_fromring_ring(node) ({\
+	struct expr_list *_np=(node);\
+	_np->next->prev=_np->prev;\
+	_np->prev->next=_np->next;\
+	_np->next=_np;\
+	_np->prev=_np;\
+})
 #define expr_list_insert(list,node,mode,mirror_mode) ({\
 	struct expr_list *_lp=(list);\
 	struct expr_list *_np=(node);\
@@ -196,9 +241,39 @@ struct expr_list {
 	_np->mirror_mode=_lp;\
 	_np->mode=_lp1;\
 })
+// assuming node is not in list before call
 #define expr_list_isempty(node) ({\
-	struct expr_list *restrict _np=(node);\
+	const struct expr_list *restrict _np=(node);\
 	!_np->next&&!_np->prev;\
+})
+#define expr_list_isempty_ring(node) ({\
+	const struct expr_list *restrict _np=(node);\
+	_np->next==_np;\
+})
+#define expr_list_isring_ht(node) ({\
+	const struct expr_list *restrict _np=(node);\
+	_np->next&&_np->prev;\
+})
+// can only use for head or tail
+#define expr_list_isring(node) ({\
+	const struct expr_list *_np=(node);\
+	const struct expr_list *_np1=_np->next;\
+	int _r;\
+	if(!_np1){\
+		_r=0;\
+	}else {\
+		for(_np1=_np1->next;;_np1=_np1->next){\
+			if(!_np1){\
+				_r=0;\
+				break;\
+			}\
+			if(_np1==_np){\
+				_r=1;\
+				break;\
+			}\
+		}\
+	}\
+	_r;\
 })
 
 #define expr_list_insert_prev(list,node) expr_list_insert(list,node,prev,next)
@@ -207,6 +282,10 @@ struct expr_list {
 #define expr_list_foreach_ro(var,list) for(__typeof__(list) var=(list);var;var=var->next)
 #define expr_list_foreach_rw(var,list) for(__typeof__(list) var=(list),__inloop_next=(expr_likely(var)?var->next:NULL);var;var=__inloop_next,({if(__inloop_next)__inloop_next=__inloop_next->next;}))
 
+#define expr_list_foreach_ring_ro(var,list) for(__typeof__(list) __inloop_start=(list),var=__inloop_start->next;var!=__inloop_start;var=var->next)
+#define expr_list_foreach_ring_rw(var,list) for(__typeof__(list) __inloop_start=(list),var=__inloop_start->next,__inloop_next=(expr_likely(var)?var->next:NULL);var!=__inloop_start;var=__inloop_next,({if(__inloop_next)__inloop_next=__inloop_next->next;}))
+// WARNING: list cannot be null for ring
+
 #define expr_struct_mlist(struct_name,N) \
 struct_name {\
 	struct_name **tail;\
@@ -214,15 +293,21 @@ struct_name {\
 }
 #define expr_mlist_next(T) ((sizeof(__typeof__(T))-offsetof(__typeof__(T),next))/sizeof(__typeof__(T) *))
 #define expr_mlist_zero(list) memset((list),0,sizeof(*(list)))
+#define expr_mlist_link(list,__tail) ({\
+	__typeof__(list) _list=(list);\
+	__typeof__(__tail) _tail=(__tail);\
+	*_tail=_list;\
+	_list->tail=_tail;\
+})
 #define expr_mlist_detach(list) (*(list)->tail=NULL)
-#define expr_mlist_isempty(list) memtst((list)->next,sizeof((list)->next))
+#define expr_mlist_isempty(list) (!expr_internal_memtst((list)->next,sizeof((list)->next)))
 // multi-list
 expr_struct_mlist(struct expr_vmlist,);
 // variable multi-list (do not use expr_mlist_*() for this type)
 struct expr_mnlist {
-	struct expr_nmlist **tail;
+	struct expr_mnlist **tail;
 	size_t n;
-	struct expr_nmlist *next[];
+	struct expr_mnlist *next[];
 };
 // multi-list with n
 

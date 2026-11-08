@@ -1,0 +1,27 @@
+
+struct expr_list {
+	struct expr_list *next;
+	struct expr_list *prev;
+};
+typedef struct expr_list expr_list_t[1];
+void expr_list_zero(struct expr_list *node);
+void expr_list_ring(struct expr_list *node);
+void expr_list_detach(struct expr_list _linear *node);
+void expr_list_rdetach(struct expr_list _ring *node);
+void expr_list_detach_unlink(struct expr_list _linear *node);
+void expr_list_rdetach_unlink(struct expr_list _ring *node);
+void expr_list_replace(struct expr_list _linear *old,struct expr_list *new);
+void expr_list_rreplace(struct expr_list _ring *old,struct expr_list *new);
+void expr_list_detach_zero(struct expr_list _linear *node);
+void expr_list_detach_ring(struct expr_list _linear *node);
+void expr_list_rdetach_zero(struct expr_list _ring *node);
+void expr_list_rdetach_ring(struct expr_list _ring *node);
+void expr_list_link(struct expr_list _linear *tail,struct expr_list _linear *head);
+void expr_list_rlink(struct expr_list _ring *tail,struct expr_list _ring *head);
+void expr_list_unlink(struct expr_list *prev_node,struct expr_list *next_node);
+void expr_list_insert_prev(struct expr_list *list,struct expr_list *node);
+void expr_list_insert_next(struct expr_list *list,struct expr_list *node);
+int expr_list_isempty(const struct expr_list _linear *node);
+int expr_list_risempty(const struct expr_list _ring *node);
+int expr_list_isring(const struct expr_list *node);
+struct expr_list *expr_list_ucmul(struct expr_list _linear *head,struct expr_list _linear *tail,ssize_t arg);

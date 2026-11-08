@@ -199,7 +199,52 @@ typedef struct expr_list expr_list_t[1];
 	_np->next->prev=_np->prev;\
 	_np->prev->next=_np->next;\
 })
-// node->prev/next will not be set to NULL or itself, for it will usually be freed.
+#define expr_list_detach_unlink(node) ({\
+	struct expr_list *_np=(node);\
+	if(_np->next)\
+		_np->next->prev=NULL;\
+	if(_np->prev)\
+		_np->prev->next=NULL;\
+})
+#define expr_list_rdetach_unlink(node) ({\
+	struct expr_list *_np=(node);\
+	if(_np->next!=_np){\
+		_np->next->prev=NULL;\
+		_np->prev->next=NULL;\
+	}else {\
+		_np->next=NULL;\
+		_np->prev=NULL;\
+	}\
+})
+#define expr_list_replace(old,new) ({\
+	struct expr_list *_old=(old);\
+	struct expr_list *_new=(new);\
+	struct expr_list *_old_prev=(_old->prev);\
+	struct expr_list *_old_next=(_old->next);\
+	if(_old_next)\
+		_old_next->prev=_new;\
+	if(_old_prev)\
+		_old_prev->next=_new;\
+	_new->next=_old_next;\
+	_new->prev=_old_prev;\
+})
+#define expr_list_rreplace(old,new) ({\
+	struct expr_list *_old=(old);\
+	struct expr_list *_new=(new);\
+	struct expr_list *_old_next=(_old->next);\
+	struct expr_list *_old_prev;\
+	if(_old_next!=_old){\
+		_old_prev=(_old->prev);\
+		_old_next->prev=_new;\
+		_old_prev->next=_new;\
+		_new->next=_old_next;\
+		_new->prev=_old_prev;\
+	}else {\
+		_new->next=_new;\
+		_new->prev=_new;\
+	}\
+})
+// node->prev/next will not be set to NULL or itself, for it will usually be freed or be inserted to other list(that will be override).
 // use expr_list_[r]detach_(zero|ring)() if need this.
 #define expr_list_detach_zero(node) ({\
 	struct expr_list *_np=(node);\
@@ -238,6 +283,18 @@ typedef struct expr_list expr_list_t[1];
 	struct expr_list *_hp=(head);\
 	_tp->next=_hp;\
 	_hp->prev=_tp;\
+})
+#define expr_list_rlink(tail,head) ({\
+	struct expr_list *_tp=(tail);\
+	struct expr_list *_hp=(head);\
+	_hp->prev->next=_tp->next;\
+	_tp->next->prev=_hp->prev;\
+	_tp->next=_hp;\
+	_hp->prev=_tp;\
+})
+#define expr_list_link_noside(tail,head) ({\
+	(tail)->next=(head);\
+	(head)->prev=(tail);\
 })
 #define expr_list_unlink(prev_node,next_node) ({\
 	(prev_node)->next=NULL;\
@@ -300,9 +357,64 @@ typedef struct expr_list expr_list_t[1];
 	}\
 	_r;\
 })
+#define expr_list_find(list,count,mode) ({\
+	const struct expr_list *_lp=(list);\
+	size_t _count=(count);\
+	while(_count--){\
+		_lp=_lp->mode;\
+		if(expr_unlikely(!_lp))\
+			break;\
+	}\
+	(struct expr_list *)(uintptr_t)_lp;\
+})
+#define expr_list_indexof(node,mode) ({\
+	const struct expr_list *_np=(node);\
+	const struct expr_list *_np1;\
+	size_t _in=0;\
+	while((_np1=_np->mode)){\
+		_np=_np1;\
+		++_in;\
+	}\
+	_in;\
+})
+#define expr_list_findend(list,mode) ({\
+	const struct expr_list *_lp=(list);\
+	const struct expr_list *_lp1;\
+	while((_lp1=_lp->mode)){\
+		_lp=_lp1;\
+	}\
+	(struct expr_list *)(uintptr_t)_lp;\
+})
+// list cannot be null
+#define expr_list_rfind(list,count,mode) ({\
+	const struct expr_list *_lp=(list);\
+	size_t _count=(count);\
+	while(_count--){\
+		_lp=_lp->mode;\
+	}\
+	(struct expr_list *)(uintptr_t)_lp;\
+})
+#define expr_list_ucmul4(head,tail,arg,newtail_out) ({\
+	struct expr_list *_hp=(head);\
+	struct expr_list *_tp=(tail);\
+	ssize_t _n=(arg);\
+	expr_list_link_noside(_tp,_hp);\
+	if(_n<0){\
+		_hp=expr_list_rfind(_hp,(size_t)-_n,prev);\
+	}else {\
+		_hp=expr_list_rfind(_hp,(size_t)_n,next);\
+	}\
+	newtail_out _tp=_hp->prev;\
+	expr_list_unlink(_tp,_hp);\
+	_hp;\
+})
+#define expr_list_ucmul(head,tail,arg) expr_list_ucmul4(head,tail,arg,)
+// example: head=expr_list_ucmul4(head,expr_list_findend(head,next),1,tail=);
+// then [head->0,1,tail->2] -> [head->1,2,tail->0]
 
 #define expr_list_insert_prev(list,node) expr_list_insert(list,node,prev,next)
 #define expr_list_insert_next(list,node) expr_list_insert(list,node,next,prev)
+// note that expr_list_insert_prev() inserts the node to the prev of list, not to the tail for a non-ring list.
 
 #define expr_list_rinsert_prev(list,node) expr_list_rinsert(list,node,prev,next)
 #define expr_list_rinsert_next(list,node) expr_list_rinsert(list,node,next,prev)

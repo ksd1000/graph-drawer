@@ -2501,6 +2501,7 @@ void expr_internal_memmove(void *dst,const void *src,size_t size);
 void *expr_internal_memchr(const void *buf,int c,size_t size);
 void *expr_internal_memrchr(const void *buf,int c,size_t size);
 void *expr_internal_memnchr(const void *buf,int c,size_t size);
+void *expr_internal_memrnchr(const void *buf,int c,size_t size);
 int expr_internal_memtst(const void *buf,size_t size);
 int expr_internal_memcmp(const void *s0,const void *s1,size_t size);
 void *expr_internal_memchr2(const void *buf,int c);

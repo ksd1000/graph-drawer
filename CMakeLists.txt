@@ -63,6 +63,7 @@ add_executable(calc src/calc.c)
 target_link_libraries(calc common_symbols)
 
 add_executable(fmtdump src/fmtdump.c)
+add_executable(calc-line src/calc-line.c)
 
 file(COPY script/echo.calc script/ping.calc script/uniq.calc DESTINATION ${PROJECT_BINARY_DIR})
 

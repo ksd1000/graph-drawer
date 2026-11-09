@@ -3965,7 +3965,7 @@ int expr_init8_r(struct expr *restrict ep,const char *e,size_t len,const char *a
 	}else if(flag&EXPR_IDETACHSYMSET){
 		cknp(ep,expr_detach(ep)>=0,goto init_err);
 	}
-#undef iflag
+//#undef iflag
 	ep->iflag=(unsigned int)(flag&~EXPR_IEXTEND_MASK);
 	if(flag&EXPR_IREMOVEBLANK){
 		char *p0;

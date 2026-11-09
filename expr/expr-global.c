@@ -5,7 +5,7 @@
  *******************************************************************************/
 #define _GNU_SOURCE
 
-#define EXPR_VERSION "1.0.18-32"
+#define EXPR_VERSION "1.0.18-33"
 
 #define EXPR_LIBC_STRING_IMPL 1
 #include <string.h>

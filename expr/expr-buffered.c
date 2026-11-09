@@ -331,7 +331,7 @@ ssize_t expr_buffered_write_flushatc(struct expr_buffered_file *restrict fp,cons
 	flushat_common(memrchr(buf,c,size),++rc);
 }
 ssize_t expr_buffered_write_flushatt(struct expr_buffered_file *restrict fp,const void *buf,size_t size,expr_test_t test,intptr_t arg){
-	flushat_common(test(buf,arg,size),rc+=(uintptr_t)buf);
+	flushat_common(test(buf,arg,size),rc=(uintptr_t)buf);
 }
 ssize_t expr_buffered_write_flushat(struct expr_buffered_file *restrict fp,const void *buf,size_t size,const void *c,size_t c_size){
 	flushat_common(memrmem(buf,size,c,c_size),rc+=c_size);
@@ -366,7 +366,7 @@ ssize_t expr_buffered_write_sflushatc(struct expr_buffered_file *restrict fp,con
 	sflushat_common(memchr(buf,c,size),++rc);
 }
 ssize_t expr_buffered_write_sflushatt(struct expr_buffered_file *restrict fp,const void *buf,size_t size,expr_test_t test,intptr_t arg){
-	sflushat_common(test(buf,arg,size),rc+=(uintptr_t)buf);
+	sflushat_common(test(buf,arg,size),rc=(uintptr_t)buf);
 }
 ssize_t expr_buffered_write_sflushat(struct expr_buffered_file *restrict fp,const void *buf,size_t size,const void *c,size_t c_size){
 	sflushat_common(memmem(buf,size,c,c_size),rc+=c_size);

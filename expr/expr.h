@@ -394,7 +394,7 @@ typedef struct expr_list expr_list_t[1];
 	}\
 	(struct expr_list *)(uintptr_t)_lp;\
 })
-#define expr_list_ucmul(head,tail,arg,...) ({\
+#define expr_list_ucmul4(head,tail,arg,ltail) ({\
 	struct expr_list *_hp=(head);\
 	struct expr_list *_tp=(tail);\
 	ssize_t _n=(arg);\
@@ -410,10 +410,27 @@ typedef struct expr_list expr_list_t[1];
 	}\
 	_tp=_hp->prev;\
 	expr_list_unlink(_tp,_hp);\
-	__VA_OPT__((__VA_ARGS__)=_tp;)\
+	(ltail)=_tp;\
 	_hp;\
 })
-// example: head=expr_list_ucmul(head,expr_list_findend(head,next),1,tail);
+#define expr_list_ucmul(head,tail,arg) ({\
+	struct expr_list *_hp=(head);\
+	struct expr_list *_tp=(tail);\
+	ssize_t _n=(arg);\
+	expr_list_link_noside(_tp,_hp);\
+	if(_n<0){\
+		while(_n++){\
+			_hp=_hp->prev;\
+		}\
+	}else {\
+		while(_n--){\
+			_hp=_hp->next;\
+		}\
+	}\
+	expr_list_unlink(_hp->prev,_hp);\
+	_hp;\
+})
+// example: head=expr_list_ucmul4(head,expr_list_findend(head,next),1,tail);
 // then [head->0,1,2] -> [head->1,2,tail->0]
 #define expr_list_sethead(head,tail,new) ({\
 	struct expr_list *_np=(new);\

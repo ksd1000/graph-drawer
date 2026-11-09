@@ -523,8 +523,10 @@ static ssize_t converteru_##_name(expr_writer_t writer,intptr_t fd,const union e
 	}\
 	if(!f58&&(size_t)fsz<=digit){\
 		if(!fsz){\
-			c_trywrite(".",1);\
-			c_trywriteext('0',digit-(size_t)fsz);\
+			if(digit){\
+				c_trywrite(".",1);\
+				c_trywriteext('0',digit);\
+			}\
 		}else\
 			c_trywriteext('0',digit-(size_t)fsz+(size_t)1);\
 	}\

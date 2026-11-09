@@ -304,7 +304,7 @@ Tested by test/speedtest.c
 |Build system|make|make|cmake|
 |Time complexity of builtin symbol search|No|O(ln(N))|O(N)|
 |For commercial use|Yes|Yes|Yes(ensure the accessibility of code to users)|
-|Language|C|C|C(+GNU extensions)|
+|Language|Standard C|Standard C|C|
 |Document completeness|100%|100%|24.3%|
 |API stability|Yes|Yes|No|
 |Test coverage|No|High|Low|

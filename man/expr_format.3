@@ -101,7 +101,7 @@ The
 .BR expr_printf()
 function behaves like the
 .B printf()
-of libc, excluding the style and return type.
+of libc, excluding the style,return type,speed.
 .SH DEFAULT FORMAT
 Defined by
 .IR expr_ftable_default .
@@ -328,7 +328,7 @@ T{
 T}	Thread safety	MT-UnSafe
 .TE
 .SH EXAMPLE
-.SS Source
+.SS Source 0
 .EX
 #define _GNU_SOURCE
 #include <unistd.h>
@@ -350,6 +350,22 @@ int main(void){
 	handy_printf("City1:%s City2:%s\\n","Kawasaki","Osaka");
 	handy_printf("buf has %.2:zM size\\n",sizeof(buf));
 	// buffer is flushed by iolbf here.
+	return EXIT_SUCCESS;
+}
+.EE
+.SS Source 1
+.EX
+#define _GNU_SOURCE
+#include <stdlib.h>
+#include <math.h>
+#include "expr.h"
+char buf[12341234];
+int main(void){
+	expr_printf("hello\\n");
+	expr_printf("six=%:id\\n",6);
+	expr_printf("e=%f\\n",M_E);
+	expr_printf("City1:%s City2:%s\\n","Kawasaki","Osaka");
+	expr_printf("buf has %.2:zM size\\n",sizeof(buf));
 	return EXIT_SUCCESS;
 }
 .EE

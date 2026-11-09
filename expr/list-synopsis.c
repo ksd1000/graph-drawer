@@ -25,3 +25,5 @@ int expr_list_isempty(const struct expr_list _linear *node);
 int expr_list_risempty(const struct expr_list _ring *node);
 int expr_list_isring(const struct expr_list *node);
 struct expr_list *expr_list_ucmul(struct expr_list _linear *head,struct expr_list _linear *tail,ssize_t arg);
+struct expr_list *expr_list_sethead(struct expr_list _linear *head,struct expr_list _linear *tail,struct expr_list _linear *new);
+struct expr_list *expr_list_rsethead(struct expr_list _ring *new);

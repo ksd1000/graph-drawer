@@ -394,23 +394,42 @@ typedef struct expr_list expr_list_t[1];
 	}\
 	(struct expr_list *)(uintptr_t)_lp;\
 })
-#define expr_list_ucmul4(head,tail,arg,newtail_out) ({\
+#define expr_list_ucmul(head,tail,arg,...) ({\
 	struct expr_list *_hp=(head);\
 	struct expr_list *_tp=(tail);\
 	ssize_t _n=(arg);\
 	expr_list_link_noside(_tp,_hp);\
 	if(_n<0){\
-		_hp=expr_list_rfind(_hp,(size_t)-_n,prev);\
+		while(_n++){\
+			_hp=_hp->prev;\
+		}\
 	}else {\
-		_hp=expr_list_rfind(_hp,(size_t)_n,next);\
+		while(_n--){\
+			_hp=_hp->next;\
+		}\
 	}\
-	newtail_out _tp=_hp->prev;\
+	_tp=_hp->prev;\
 	expr_list_unlink(_tp,_hp);\
+	__VA_OPT__((__VA_ARGS__)=_tp;)\
 	_hp;\
 })
-#define expr_list_ucmul(head,tail,arg) expr_list_ucmul4(head,tail,arg,)
-// example: head=expr_list_ucmul4(head,expr_list_findend(head,next),1,tail=);
-// then [head->0,1,tail->2] -> [head->1,2,tail->0]
+// example: head=expr_list_ucmul(head,expr_list_findend(head,next),1,tail);
+// then [head->0,1,2] -> [head->1,2,tail->0]
+#define expr_list_sethead(head,tail,new) ({\
+	struct expr_list *_np=(new);\
+	struct expr_list *_tp;\
+	expr_list_link_noside((tail),(head));\
+	_tp=_np->prev;\
+	expr_list_unlink(_tp,_np);\
+	_tp;\
+})
+#define expr_list_rsethead(new) ({\
+	struct expr_list *_np=(new);\
+	struct expr_list *_tp;\
+	_tp=_np->prev;\
+	expr_list_unlink(_tp,_np);\
+	_tp;\
+})
 
 #define expr_list_insert_prev(list,node) expr_list_insert(list,node,prev,next)
 #define expr_list_insert_next(list,node) expr_list_insert(list,node,next,prev)
@@ -420,17 +439,22 @@ typedef struct expr_list expr_list_t[1];
 #define expr_list_rinsert_next(list,node) expr_list_rinsert(list,node,next,prev)
 
 #define expr_list_foreach0_ro(var,list,mode) for(__typeof__(*(list)) *var=(list);var;var=var->mode)
-#define expr_list_foreach0_rw(var,list,mode) for(__typeof__(*(list)) *var=(list),*__inloop_cache=(expr_likely(var)?var->mode:NULL);var;var=__inloop_cache,({if(__inloop_cache)__inloop_cache=__inloop_cache->mode;}))
+#define expr_list_foreach0_rw(var,list,mode) for(__typeof__(*(list)) *var=(list),*__inloop_cache=var->mode;var;var=__inloop_cache,({if(__inloop_cache)__inloop_cache=__inloop_cache->mode;}))
 
 #define expr_list_foreach_ro(var,list,mode) for(__typeof__(*(list)) *var=(list)->mode;var;var=var->mode)
 #define expr_list_foreach_rw(var,list,mode) for(__typeof__(*(list)) *var=(list)->mode,*__inloop_cache=(expr_likely(var)?var->mode:NULL);var;var=__inloop_cache,({if(__inloop_cache)__inloop_cache=__inloop_cache->mode;}))
 
 #define expr_list_rforeach0_ro(var,list,mode) for(__typeof__(*(list)) *__inloop_start=(list),*var=__inloop_start;var;var=var->mode,({if(var==__inloop_start)var=NULL;}))
-#define expr_list_rforeach0_rw(var,list,mode) for(__typeof__(*(list)) *__inloop_start=(list),*var=__inloop_start,*__inloop_cache=(expr_likely(var)?var->mode:NULL);var;var=__inloop_cache,({if(var==__inloop_start)var=NULL;else if(__inloop_cache)__inloop_cache=__inloop_cache->mode;}))
+#define expr_list_rforeach0_rw(var,list,mode) for(__typeof__(*(list)) *__inloop_start=(list),*var=__inloop_start,*__inloop_cache=var->mode;var;({if(__inloop_cache==__inloop_start)var=NULL;else {var=__inloop_cache;__inloop_cache=__inloop_cache->mode;}}))
 
 #define expr_list_rforeach_ro(var,list,mode) for(__typeof__(*(list)) *__inloop_start=(list),*var=__inloop_start->mode;var!=__inloop_start;var=var->mode)
 #define expr_list_rforeach_rw(var,list,mode) for(__typeof__(*(list)) *__inloop_start=(list),*var=__inloop_start->mode,*__inloop_cache=(expr_likely(var)?var->mode:NULL);var!=__inloop_start;var=__inloop_cache,({if(__inloop_cache)__inloop_cache=__inloop_cache->mode;}))
 // note that list itself will not be touched and must be nonnull.
+#define expr_list_uforeach0_ro(var,list,mode) for(__typeof__(*(list)) *__inloop_start=(list),*var=__inloop_start;var;var=var->mode,({if(var==__inloop_start)var=NULL;}))
+#define expr_list_uforeach0_rw(var,list,mode) for(__typeof__(*(list)) *__inloop_start=(list),*var=__inloop_start,*__inloop_cache=(expr_likely(var)?var->mode:NULL);var;var=__inloop_cache,({if(var==__inloop_start)var=NULL;else if(__inloop_cache)__inloop_cache=__inloop_cache->mode;}))
+
+#define expr_list_uforeach_ro(var,list,mode) for(__typeof__(*(list)) *__inloop_start=(list),*var=__inloop_start->mode;var&&var!=__inloop_start;var=var->mode)
+#define expr_list_uforeach_rw(var,list,mode) for(__typeof__(*(list)) *__inloop_start=(list),*var=__inloop_start->mode,*__inloop_cache=(expr_likely(var)?var->mode:NULL);var&&var!=__inloop_start;var=__inloop_cache,({if(__inloop_cache)__inloop_cache=__inloop_cache->mode;}))
 
 #define expr_struct_mlist(struct_name,N) \
 struct_name {\

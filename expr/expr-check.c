@@ -274,6 +274,166 @@ static int keyword_diff(const char *str,size_t len,const struct expr_builtin_key
 		return r;
 	return memcmp(str,s->str,len);
 }
+struct clist {
+	expr_list_t node;
+	char c;
+};
+#define xmalloc expr_xmalloc
+#define xfree expr_xfree
+static struct clist *mkclist(const char *str){
+	struct clist *h,*p;
+	assert(*str);
+	h=xmalloc(sizeof(struct clist));
+	assert(h);
+	h->c=*str;
+	expr_list_ring(h->node);
+	while(*(++str)){
+		if(*str==h->c){
+			assert(expr_list_isring(h->node));
+			return h;
+		}
+		p=xmalloc(sizeof(struct clist));
+		assert(p);
+		p->c=*str;
+		expr_list_rinsert_prev(h->node,p->node);
+	}
+	expr_list_rsethead(h->node);
+	assert(!expr_list_isring(h->node));
+	return h;
+};
+static void checkclist(struct clist *p,const char *expect){
+	struct clist *p0=p;
+	const char *e0=expect;
+	printf("checking list --- expect \"%s\"\n",expect);
+	if(expr_list_isring(p->node)){
+		while(*expect){
+			if(expect>e0&&*expect==p0->c){
+				if(p->node!=p0->node){
+					printf("error ring: \"%c\"\n",(int)(unsigned char)p->c);
+					check_abort();
+				}
+				break;
+			}
+			if(p->c!=*expect){
+				printf("error result: \"%c\"\n",(int)(unsigned char)p->c);
+				check_abort();
+			}
+			p=expr_host(p->node->next,struct clist,node);
+			++expect;
+		}
+		if(!*expect){
+			printf("should be ring but not\n");
+			check_abort();
+		}
+	}else {
+		assert(!p->node->prev);
+		while(*expect){
+			assert(p);
+			if(p->c!=*expect){
+				printf("error result: \"%c\"\n",(int)(unsigned char)p->c);
+				check_abort();
+			}
+			p=expr_host(p->node->next,struct clist,node);
+			++expect;
+		}
+		assert(!p);
+	}
+	expr_list_uforeach0_rw(v,p0->node,next){
+		xfree(expr_host(v,struct clist,node));
+	}
+}
+static void killclist(struct expr_list *p){
+	expr_list_detach(p);
+	xfree(expr_host(p,struct clist,node));
+}
+#define hostof(p) expr_host(p,struct clist,node)
+#define CKCLIST(str,after) for(struct clist *p=mkclist(str);p;checkclist(p,after),p=NULL)
+static void checklist(void){
+	struct clist *tmp;
+	CKCLIST("012345","012345");
+	CKCLIST("0123450","0123450");
+	CKCLIST("012345","01245"){
+		killclist(p->node->next->next->next);
+	}
+	CKCLIST("012345","01234"){
+		killclist(p->node->next->next->next->next->next);
+	}
+	CKCLIST("012345","12345"){
+		p=hostof(p->node->next);
+		killclist(p->node->prev);
+	}
+	CKCLIST("0123450","012345"){
+		expr_list_rsethead(p->node);
+	}
+	CKCLIST("012345","0123450"){
+		expr_list_link(p->node->next->next->next->next->next,p->node);
+	}
+	CKCLIST("012345","234501"){
+		tmp=hostof(p->node->next->next);
+		expr_list_sethead(p->node,p->node->next->next->next->next->next,tmp->node);
+		p=tmp;
+	}
+	CKCLIST("012345","234501"){
+		p=hostof(expr_list_ucmul(p->node,p->node->next->next->next->next->next,2));
+	}
+	CKCLIST("012345","0123745"){
+		tmp=mkclist("7");
+		expr_list_insert_prev(p->node->next->next->next->next,tmp->node);
+	}
+	CKCLIST("012345","0123745"){
+		tmp=mkclist("7");
+		expr_list_insert_next(p->node->next->next->next,tmp->node);
+	}
+	CKCLIST("0123450","01237450"){
+		tmp=mkclist("7");
+		expr_list_rinsert_prev(p->node->next->next->next->next,tmp->node);
+	}
+	CKCLIST("0123450","01237450"){
+		tmp=mkclist("7");
+		expr_list_rinsert_next(p->node->next->next->next,tmp->node);
+	}
+	CKCLIST("012345","256789"){
+		expr_list_foreach_ro(v,p->node,next)
+			++hostof(v)->c;
+		expr_list_foreach0_ro(v,p->node,next)
+			++hostof(v)->c;
+		expr_list_uforeach_ro(v,p->node,next)
+			++hostof(v)->c;
+		expr_list_uforeach0_ro(v,p->node,next)
+			++hostof(v)->c;
+	}
+	CKCLIST("0123450","2567892"){
+		expr_list_rforeach_ro(v,p->node,next)
+			++hostof(v)->c;
+		expr_list_rforeach0_ro(v,p->node,next)
+			++hostof(v)->c;
+		expr_list_uforeach_ro(v,p->node,next)
+			++hostof(v)->c;
+		expr_list_uforeach0_ro(v,p->node,next)
+			++hostof(v)->c;
+	}
+	CKCLIST("012345","256789"){
+		expr_list_foreach_rw(v,p->node,next)
+			++hostof(v)->c;
+		expr_list_foreach0_rw(v,p->node,next)
+			++hostof(v)->c;
+		expr_list_uforeach_rw(v,p->node,next)
+			++hostof(v)->c;
+		expr_list_uforeach0_rw(v,p->node,next)
+			++hostof(v)->c;
+	}
+	CKCLIST("0123450","2567892"){
+		expr_list_rforeach_rw(v,p->node,next)
+			++hostof(v)->c;
+		expr_list_rforeach0_rw(v,p->node,next)
+			++hostof(v)->c;
+		expr_list_uforeach_rw(v,p->node,next)
+			++hostof(v)->c;
+		expr_list_uforeach0_rw(v,p->node,next)
+			++hostof(v)->c;
+	}
+	printf("list check ok\n");
+}
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 static char buf[8192*1024];
 int main(int argc,char **argv){
@@ -310,6 +470,7 @@ int main(int argc,char **argv){
 		errcheck(p->e,p->expect,p->ee);
 	expr_symset_free(es);
 	checkfmts();
+	checklist();
 #define areap ((const struct expr_area *)(expr_defmtl->arg))
 	assert(areap->monotonic_create==areap->monotonic_combine);
 	assert(areap->monotonic_deallocate==areap->monotonic_allocate+areap->monotonic_expand_move);

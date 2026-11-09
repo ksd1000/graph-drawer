@@ -53,7 +53,7 @@ int main(int argc,char **argv){
 	double r;
 	const char *p;
 	struct expr_symset *es;
-	int error,flag=0;
+	int error=0,flag=0;
 	char errinfo[EXPR_SYMLEN];
 	opterr=1;
 	for(;;){

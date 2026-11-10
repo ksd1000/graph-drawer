@@ -343,7 +343,8 @@ static void checkclist(struct clist *p,const char *expect){
 	}
 }
 static void killclist(struct expr_list *p){
-	expr_list_detach(p);
+	expr_list_detach_poison(p);
+	assert(expr_list_ispoisoned(p));
 	xfree(expr_host(p,struct clist,node));
 }
 #define hostof(p) expr_host(p,struct clist,node)

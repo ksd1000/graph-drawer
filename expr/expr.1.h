@@ -176,6 +176,7 @@ typedef struct expr_list expr_list_t[1];
 // place next before prev, for faster when travel through.
 
 #define EXPR_LIST_INITIALIZER {.next=NULL,.prev=NULL}
+#define EXPR_LIST_POISONED ((struct expr_list *)((UINTPTR_MAX&(uintptr_t)~(uintptr_t)0xffffu)|(uintptr_t)0xdcbau))
 
 #define expr_list_zero(node) ({\
 	struct expr_list *restrict _np=(node);\
@@ -186,6 +187,11 @@ typedef struct expr_list expr_list_t[1];
 	struct expr_list *_np=(node);\
 	_np->next=_np;\
 	_np->prev=_np;\
+})
+#define expr_list_poison(node) ({\
+	struct expr_list *_np=(node);\
+	_np->next=EXPR_LIST_POISONED;\
+	_np->prev=EXPR_LIST_POISONED;\
 })
 #define expr_list_detach(node) ({\
 	struct expr_list *_np=(node);\
@@ -264,6 +270,15 @@ typedef struct expr_list expr_list_t[1];
 	_np->next=_np;\
 	_np->prev=_np;\
 })
+#define expr_list_detach_poison(node) ({\
+	struct expr_list *_np=(node);\
+	if(_np->next)\
+		_np->next->prev=_np->prev;\
+	if(_np->prev)\
+		_np->prev->next=_np->next;\
+	_np->next=EXPR_LIST_POISONED;\
+	_np->prev=EXPR_LIST_POISONED;\
+})
 #define expr_list_rdetach_zero(node) ({\
 	struct expr_list *_np=(node);\
 	_np->next->prev=_np->prev;\
@@ -277,6 +292,13 @@ typedef struct expr_list expr_list_t[1];
 	_np->prev->next=_np->next;\
 	_np->next=_np;\
 	_np->prev=_np;\
+})
+#define expr_list_rdetach_poison(node) ({\
+	struct expr_list *_np=(node);\
+	_np->next->prev=_np->prev;\
+	_np->prev->next=_np->next;\
+	_np->next=EXPR_LIST_POISONED;\
+	_np->prev=EXPR_LIST_POISONED;\
 })
 #define expr_list_link(tail,head) ({\
 	struct expr_list *_tp=(tail);\
@@ -335,6 +357,10 @@ typedef struct expr_list expr_list_t[1];
 #define expr_list_isring_ht(node) ({\
 	const struct expr_list *restrict _np=(node);\
 	_np->next&&_np->prev;\
+})
+#define expr_list_ispoisoned(node) ({\
+	const struct expr_list *restrict _np=(node);\
+	_np->next==EXPR_LIST_POISONED||_np->prev==EXPR_LIST_POISONED;\
 })
 // can only use for head or tail
 #define expr_list_isring(node) ({\
@@ -481,13 +507,25 @@ struct_name {\
 #define expr_mlist_next(T) ((sizeof(__typeof__(T))-offsetof(__typeof__(T),next))/sizeof(__typeof__(T) *))
 #define expr_mlist_zero(list) memset((list),0,sizeof(*(list)))
 #define expr_mlist_link(list,__tail) ({\
-	__typeof__(list) _list=(list);\
-	__typeof__(__tail) _tail=(__tail);\
+	__typeof__(*(list)) *_list=(list);\
+	__typeof__(*(__tail)) *_tail=(__tail);\
 	*_tail=_list;\
 	_list->tail=_tail;\
 })
 #define expr_mlist_detach(list) (*(list)->tail=NULL)
 #define expr_mlist_isempty(list) (!expr_internal_memtst((list)->next,sizeof((list)->next)))
+#define expr_mlist_search(list,next_index) ({\
+	__typeof__(*(list)) *_list=(list);\
+	size_t _idx;\
+	for(;;){\
+		_idx=(size_t)(next_index(_list));\
+		if(_idx>=expr_mlist_next(*(_list)))\
+			break;\
+		if(!(_list=_list->next[_idx]))\
+			break;\
+	}\
+	_list;\
+})
 // multi-list
 expr_struct_mlist(struct expr_vmlist,);
 // variable multi-list (do not use expr_mlist_*() for this type)

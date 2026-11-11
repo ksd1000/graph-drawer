@@ -129,7 +129,7 @@ void list_common(void){
 	struct expr_symset es[1]={EXPR_SYMSET_INITIALIZER(expr_defmtl)};
 	add_all_common_symbols(es);
 	if(adbt)
-		expr_builtin_symbol_addalls(es,expr_symbols_all);
+		expr_symset_addalls_builtin(es,expr_symbols_all);
 //	expr_symset_callback(es,list_symbol,NULL);
 //	expr_symset_callbacks(es,list_symbol1);
 	expr_symset_foreach4(sp,es,__builtin_alloca(es->depth*EXPR_SYMSET_DEPTHUNIT),EXPR_SYMNEXT){

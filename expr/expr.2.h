@@ -139,8 +139,8 @@
 #define expr_mkinstf_r(fip,fmt,fmtlen,flag,mtl) expr_mkinstft_r(fip,fmt,fmtlen,expr_ftable_default,flag,mtl)
 #define expr_mkinstf(fip,fmt,fmtlen,flag) expr_mkinstft_r(fip,fmt,fmtlen,expr_ftable_default,flag,expr_defmtl)
 
-#define expr_builtin_symbol_xaddall(esp,symsp,syms) expr_builtin_symbol_xaddalls(esp,symsp,syms,NULL)
-#define expr_builtin_symbol_addall(esp,syms) expr_builtin_symbol_addalls(esp,syms,NULL)
+#define expr_symset_xaddall_builtin(esp,symsp,syms) expr_symset_xaddalls_builtin(esp,symsp,syms,NULL)
+#define expr_symset_addall_builtin(esp,syms) expr_symset_addalls_builtin(esp,syms,NULL)
 
 #define expr_area_init(area,zone,size) expr_area_init4(area,zone,size,EXPR_ADEFAULT)
 #define expr_setup_heapmtl(mtl,heap,size) expr_setup_heapmtl4(mtl,heap,size,EXPR_ADEFAULT)

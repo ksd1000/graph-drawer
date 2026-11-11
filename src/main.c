@@ -303,7 +303,7 @@ int main(int argc,char **argv){
 	wbuf=malloc((thread+1)*(barlen+32)+14);
 	bar=malloc(3+barlen);
 
-	expr_builtin_symbol_addalls(es,expr_symbols_all);
+	expr_symset_addalls_builtin(es,expr_symbols_all);
 	expr_symset_add(es,"draw_connect",EXPR_MDFUNCTION,0,draw_connect,4ul);
 	add_common_symbols(es);
 	//draw start

@@ -1544,7 +1544,7 @@ err:
 		const struct expr_builtin_symbol *bs;
 		bs=expr_symbol_un(p)->bsyms;
 		debug("import %s",bs->str);
-		if(unlikely(expr_builtin_symbol_xaddalls(ep->sset,&bs,bs,NULL)<0)){
+		if(unlikely(expr_symset_xaddalls_builtin(ep->sset,&bs,bs,NULL)<0)){
 			if(expr_symset_search(ep->sset,bs->str,bs->strlen))
 				IMPORT_ERROR_BLOCK(bs);
 		}

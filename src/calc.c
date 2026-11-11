@@ -728,7 +728,7 @@ break3:
 	expr_symset_add(es,"qqq",EXPR_FUNCTION,EXPR_SPURE,expr_internal_sqrt);
 	expr_symset_add(es,"ppp",EXPR_CONSTANT,0,3.0);
 	if(adbt||!nobt)
-		expr_builtin_symbol_addalls(es,expr_symbols_ess);
+		expr_symset_addalls_builtin(es,expr_symbols_ess);
 	if(expr_init8(ep,e,strlen(e),"t",1,es,flag|EXPR_ISCANCACHE|EXPR_IREMOVEBLANK,extarg)<0){
 		if(*ep->errinfo)
 			errx(EXIT_FAILURE,"expression error:%s \"%s\"",expr_error(ep->error),ep->errinfo);

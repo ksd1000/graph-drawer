@@ -2471,7 +2471,7 @@ void *expr_internal_memchr2(const void *buf,int c){
 	}
 }
 
-struct expr_symbol *expr_builtin_symbol_add(struct expr_symset *restrict esp,const struct expr_builtin_symbol *p){
+struct expr_symbol *expr_symset_add_builtin(struct expr_symset *restrict esp,const struct expr_builtin_symbol *p){
 	switch(p->type){
 		case EXPR_CONSTANT:
 			if(p->flag&EXPR_SPACKAGE)
@@ -2496,13 +2496,13 @@ struct expr_symbol *expr_builtin_symbol_add(struct expr_symset *restrict esp,con
 			__builtin_unreachable();
 	}
 }
-ssize_t expr_builtin_symbol_xaddalls(struct expr_symset *restrict esp,const struct expr_builtin_symbol **symsp,const struct expr_builtin_symbol *syms,...){
+ssize_t expr_symset_xaddalls_builtin(struct expr_symset *restrict esp,const struct expr_builtin_symbol **symsp,const struct expr_builtin_symbol *syms,...){
 	ssize_t r=0;
 	va_list ap;
 	va_start(ap,syms);
 	do {
 		for(;syms->str;++syms){
-			if(likely(expr_builtin_symbol_add(esp,syms)))
+			if(likely(expr_symset_add_builtin(esp,syms)))
 				++r;
 			else
 				goto err;
@@ -2516,14 +2516,14 @@ err:
 	va_end(ap);
 	return -r-1;
 }
-ssize_t expr_builtin_symbol_addalls(struct expr_symset *restrict esp,const struct expr_builtin_symbol *syms,...){
+ssize_t expr_symset_addalls_builtin(struct expr_symset *restrict esp,const struct expr_builtin_symbol *syms,...){
 	ssize_t r=0;
 	ssize_t fail=0;
 	va_list ap;
 	va_start(ap,syms);
 	do {
 		for(;syms->str;++syms){
-			if(likely(expr_builtin_symbol_add(esp,syms)))
+			if(likely(expr_symset_add_builtin(esp,syms)))
 				++r;
 			else
 				--fail;

@@ -2543,9 +2543,9 @@ void *expr_internal_memrnchr(const void *buf,int c,size_t size);
 int expr_internal_memtst(const void *buf,size_t size);
 int expr_internal_memcmp(const void *s0,const void *s1,size_t size);
 void *expr_internal_memchr2(const void *buf,int c);
-struct expr_symbol *expr_builtin_symbol_add(struct expr_symset *restrict esp,const struct expr_builtin_symbol *p);
-ssize_t expr_builtin_symbol_xaddalls(struct expr_symset *restrict esp,const struct expr_builtin_symbol **symsp,const struct expr_builtin_symbol *syms,...);
-ssize_t expr_builtin_symbol_addalls(struct expr_symset *restrict esp,const struct expr_builtin_symbol *syms,...);
+struct expr_symbol *expr_symset_add_builtin(struct expr_symset *restrict esp,const struct expr_builtin_symbol *p);
+ssize_t expr_symset_xaddalls_builtin(struct expr_symset *restrict esp,const struct expr_builtin_symbol **symsp,const struct expr_builtin_symbol *syms,...);
+ssize_t expr_symset_addalls_builtin(struct expr_symset *restrict esp,const struct expr_builtin_symbol *syms,...);
 void expr_symset_init_r(struct expr_symset *restrict esp,const struct expr_memtool *restrict mtl);
 struct expr_symset *expr_symset_new_r(const struct expr_memtool *restrict mtl);
 void expr_symset_freemtl(struct expr_symset *restrict esp,const struct expr_memtool *restrict mtl);
@@ -2864,8 +2864,8 @@ extern struct expr_global_file *expr_stderr;
 #define expr_mkinstf_r(fip,fmt,fmtlen,flag,mtl) expr_mkinstft_r(fip,fmt,fmtlen,expr_ftable_default,flag,mtl)
 #define expr_mkinstf(fip,fmt,fmtlen,flag) expr_mkinstft_r(fip,fmt,fmtlen,expr_ftable_default,flag,expr_defmtl)
 
-#define expr_builtin_symbol_xaddall(esp,symsp,syms) expr_builtin_symbol_xaddalls(esp,symsp,syms,NULL)
-#define expr_builtin_symbol_addall(esp,syms) expr_builtin_symbol_addalls(esp,syms,NULL)
+#define expr_symset_xaddall_builtin(esp,symsp,syms) expr_symset_xaddalls_builtin(esp,symsp,syms,NULL)
+#define expr_symset_addall_builtin(esp,syms) expr_symset_addalls_builtin(esp,syms,NULL)
 
 #define expr_area_init(area,zone,size) expr_area_init4(area,zone,size,EXPR_ADEFAULT)
 #define expr_setup_heapmtl(mtl,heap,size) expr_setup_heapmtl4(mtl,heap,size,EXPR_ADEFAULT)

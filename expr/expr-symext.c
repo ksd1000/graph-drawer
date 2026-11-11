@@ -46,7 +46,7 @@ struct expr_symset *expr_builtin_symbol_converts_r(const struct expr_memtool *re
 	do {
 		for(;syms->str;++syms){
 			//printf("add %s\n",syms->str);
-			if(unlikely(!expr_builtin_symbol_add(esp,syms)))
+			if(unlikely(!expr_symset_add_builtin(esp,syms)))
 				goto err;
 		}
 		syms=va_arg(ap,const struct expr_builtin_symbol *);

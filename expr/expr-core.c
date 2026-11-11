@@ -278,6 +278,7 @@ const struct expr_builtin_keyword expr_keywords[]={
 	REGKEYC("alias",EXPR_NOT,2,"alias(alias_name,target)"),
 	REGKEYSC("const",EXPR_CONST,2,"const(name,[constant_expression value]) name=(value)"),
 	REGKEY("error",EXPR_TSTL,1,"error(const_string)"),
+	REGKEYC("macro",EXPR_NE,2,"macro(name,body)"),
 	REGKEY("reset",EXPR_NOTL,1,"reset([symbol])[{scope}]"),
 	REGKEY("scope",EXPR_XORL,1,"scope(){scope}"),
 	REGKEYSC("throw",EXPR_EQ,1,"throw(constant_expression error,[const_string errinfo])"),
@@ -1432,7 +1433,6 @@ static const struct expr_symbol *alias_target(struct expr *restrict ep,const str
 		}
 	}
 }
-/*
 static expr_t *alias_scan(struct expr *restrict ep,const struct expr_symbol *alias,const char *asym,size_t asymlen){
 	size_t len;
 	const char *p;
@@ -1451,7 +1451,6 @@ static expr_t *alias_scan(struct expr *restrict ep,const struct expr_symbol *ali
 	expr_symset_free(esp);
 	return v0;
 }
-*/
 static void *readsymbol(struct expr *restrict ep,const char *symbol,size_t symlen,int follow,int symerr){
 	int flag,type;
 	union {
@@ -1518,7 +1517,10 @@ esymbol:
 	goto err;\
 }
 static int expr_import(struct expr *restrict ep,const char *symbol,size_t symlen,int ignore){
-	const struct expr_symbol *p=expr_symset_search(ep->sset,symbol,symlen);
+	struct expr_symbol *p;
+	void *stack;
+	cknp(ep,expr_detach(ep)>=0,goto err);
+	p=expr_symset_search(ep->sset,symbol,symlen);
 	if(unlikely(!p)){
 		seterri(ep,EXPR_ESYMBOL);
 err:
@@ -1529,20 +1531,26 @@ err:
 		seterri(ep,EXPR_ETNP);
 		goto err;
 	}
-	cknp(ep,expr_detach(ep)>=0,goto err);
 	if(p->flag&EXPR_SNONBUILTIN){
 		const struct expr_symset *esp=expr_symbol_un(p)->sset;
-		STACK_DEFAULT(stack,esp);
+		stack=xmalloc(STACK_SIZEOFSSET(esp));
+		cknp(ep,stack,seterri(ep,EXPR_EMEM);goto err);
 		debug("import %p",(void *)(uintptr_t)esp);
 		expr_symset_foreach(sp,esp,stack){
 			if(unlikely(!expr_symset_addcopy(ep->sset,sp))){
+				xfree(stack);
 				if(expr_symset_search(ep->sset,sp->str,sp->strlen))
 					IMPORT_ERROR_BLOCK(sp);
 			}
 		}
+		xfree(stack);
 	}else {
 		const struct expr_builtin_symbol *bs;
+		stack=xmalloc(STACK_SIZEOFSSET(ep->sset));
+		cknp(ep,stack,seterri(ep,EXPR_EMEM);goto err);
 		bs=expr_symbol_un(p)->bsyms;
+		expr_symset_removea_s(ep->sset,&p,1,stack);
+		xfree(stack);
 		debug("import %s",bs->str);
 		if(unlikely(expr_symset_xaddalls_builtin(ep->sset,&bs,bs,NULL)<0)){
 			if(expr_symset_search(ep->sset,bs->str,bs->strlen))
@@ -1835,7 +1843,7 @@ symget:
 		e=p;
 		goto vend;
 	}
-	sym.uaddr=readsymbol(ep,e,(size_t)(p-e),2 /* 2 for alias_scan in old version */,0);
+	sym.uaddr=readsymbol(ep,e,(size_t)(p-e),2,0);
 	if(!sym.uaddr){
 		if(ep->error)
 			return NULL;
@@ -2389,7 +2397,12 @@ flpm:
 				}
 				e=p2+1;
 				goto vend;
+			case EXPR_NE:
+				flag=EXPR_SPURE|EXPR_SWRITEIP;
+				goto asmacro;
 			case EXPR_NOT:
+				flag=EXPR_SPURE;
+asmacro:
 				sym.vv=expr_sep(ep,e,(size_t)(p-e+1));
 				if(unlikely(!sym.vv))
 					return NULL;
@@ -2422,10 +2435,10 @@ flpm:
 				if(sv.i>2&&*sym.vv[1]=='\"'&&(p4=findpair_dmark(sym.vv[1],sym.vv[1]+sv.i))&&p4!=sym.vv[1]+1){
 					p4=expr_astrscan(sym.vv[1]+1,(size_t)(p4-(sym.vv[1]+1)),&sv.i);
 					cknp(ep,p4,goto c_fail);
-					un.ebp=expr_symset_addl(ep->sset,sym.vv[0],dim,EXPR_ALIAS,EXPR_SPURE,p4,sv.i);
+					un.ebp=expr_symset_addl(ep->sset,sym.vv[0],dim,EXPR_ALIAS,flag,p4,sv.i);
 					xfree((void *)(uintptr_t)p4);
 				}else
-					un.ebp=expr_symset_addl(ep->sset,sym.vv[0],dim,EXPR_ALIAS,EXPR_SPURE,sym.vv[1],strlenv(sym.vv[1]));
+					un.ebp=expr_symset_addl(ep->sset,sym.vv[0],dim,EXPR_ALIAS,flag,sym.vv[1],strlenv(sym.vv[1]));
 				vfree2(sym.vv);
 				cknp(ep,un.ebp,return NULL);
 				v0=EXPR_VOID;
@@ -3051,6 +3064,13 @@ fok:
 			e=p+1;
 			goto vend;
 		case EXPR_ALIAS:
+			if(sym.es->flag&EXPR_SWRITEIP){
+				v0=alias_scan(ep,sym.es,asym,asymlen);
+				if(unlikely(!v0))
+					return NULL;
+				e=p;
+				goto vend;
+			}
 			if(p>=endp||*p!='='){
 				seterri(ep,EXPR_EANT);
 				serrinfo(ep->errinfo,sym.es->str,sym.es->strlen);
@@ -3059,13 +3079,6 @@ fok:
 			p2=expr_symbol_hot(sym.es);
 			sv.i=HOTLEN(sym.es);
 			goto p2sget;
-			/*
-			v0=alias_scan(ep,sym.es,asym,asymlen);
-			if(unlikely(!v0))
-				return NULL;
-			e=p;
-			goto vend;
-			*/
 		default:
 			goto_symerr;
 	}

@@ -718,6 +718,11 @@ expr_static_assert(!(NULL));
 	size_t _stack##_size;\
 	_stack##_size=STACK_SIZEOFSSET(esp);\
 	_stack=alloca(_stack##_size)
+#define STACK_XDEFAULT(_stack,esp) \
+	void *_stack;\
+	size_t _stack##_size;\
+	_stack##_size=STACK_SIZEOFSSET(esp);\
+	_stack=xmalloc(_stack##_size)
 #define SYMDIM(sp) (*expr_symbol_dim(sp))
 #define HOTLEN(sp) expr_symbol_hotlen(sp)
 
@@ -2669,7 +2674,7 @@ extern const struct expr_builtin_symbol expr_symbols_string[];
 extern const struct expr_builtin_symbol expr_symbols_errno[];
 extern const struct expr_builtin_symbol expr_symbols_io[];
 //global functions of expr-global.c :
-void expr_close(struct expr_global_file *fp);
+int expr_close(struct expr_global_file *fp);
 struct expr_global_file **expr_stdout_get(void);
 struct expr_global_file **expr_stderr_get(void);
 int expr_setvbuf(struct expr_global_file *fp,void *buf,int mode,size_t size);

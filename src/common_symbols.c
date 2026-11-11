@@ -506,9 +506,9 @@ void add_common_symbols(struct expr_symset *es){
 	//setconst(O_TMPFILE);
 	setconst(O_TRUNC);
 	setconst(O_WRONLY);
-	symset_add(es,"SIG_DFL",EXPR_CONSTANT,expr_cast(SIG_DFL,double));
-	symset_add(es,"SIG_ERR",EXPR_CONSTANT,expr_cast(SIG_ERR,double));
-	symset_add(es,"SIG_IGN",EXPR_CONSTANT,expr_cast(SIG_IGN,double));
+	symset_add(es,"SIG_DFL",EXPR_CONSTANT,0,expr_cast(SIG_DFL,double));
+	symset_add(es,"SIG_ERR",EXPR_CONSTANT,0,expr_cast(SIG_ERR,double));
+	symset_add(es,"SIG_IGN",EXPR_CONSTANT,0,expr_cast(SIG_IGN,double));
 	setconst(SIGHUP);
 	setconst(SIGINT);
 	setconst(SIGQUIT);

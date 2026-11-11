@@ -142,7 +142,7 @@ size_t _indexof(const struct expr *ep){\
 }\
 __attribute__((destructor)) void _ps##atend(void){\
 	if(_ps)\
-		free(_ps);\
+		xfree(_ps);\
 }
 idex(eps,indexof);
 idex(ps,indexofp);
@@ -715,10 +715,6 @@ break3:
 	expr_symset_add(es,"sscanf",EXPR_MDFUNCTION,EXPR_SUNSAFE,d_sscanf,(size_t)0);
 	expr_symset_add(es,"printl",EXPR_MDFUNCTION,EXPR_SUNSAFE,d_printl,(size_t)2);
 	expr_symset_add(es,"printc",EXPR_MDFUNCTION,EXPR_SUNSAFE,d_printc,(size_t)2);
-	expr_symset_add(es,"1+1",EXPR_CONSTANT,0,3.0);
-	expr_symset_add(es,"2+2",EXPR_FUNCTION,EXPR_SPURE,expr_internal_sqrt);
-	expr_symset_add(es,"qqq",EXPR_FUNCTION,EXPR_SPURE,expr_internal_sqrt);
-	expr_symset_add(es,"ppp",EXPR_CONSTANT,0,3.0);
 	if(adbt||!nobt)
 		expr_symset_addalls_builtin(es,expr_symbols_io,expr_symbols_ess);
 	if(expr_init8(ep,e,strlen(e),"t",1,es,flag|EXPR_ISCANCACHE|EXPR_IREMOVEBLANK,extarg)<0){

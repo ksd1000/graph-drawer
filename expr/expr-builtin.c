@@ -1557,10 +1557,12 @@ static double expr_seterrno(double x){
 static double expr_errno2str(double x){
 	return cast(strerror((int)x),double);
 }
+#define REGMACRO(s,target) {.strlen=sizeof(s)-1,.str=s,.un={.hot=target},.type=EXPR_ALIAS,.flag=EXPR_SWRITEIP}
 const struct expr_builtin_symbol expr_symbols_errno[]={
 	REGZASYM2_U("geterrno",expr_geterrno),
 	REGFSYM2_NI("seterrno",expr_seterrno),
 	REGFSYM2_NI("errno2str",expr_errno2str),
+	REGMACRO("errno","geterrno()"),
 	{.str=NULL}
 };
 #define expr_stdout (expr_stdout_get())
@@ -1591,10 +1593,25 @@ double d_stdout(void){
 double d_stderr(void){
 	return expr_cast(*expr_stderr_get(),double);
 }
+static double d_open(double *args,size_t n){
+	const char *path,*mode;
+	path=expr_cast(*args,const char *);
+	mode=expr_cast(args[1],const char *);
+	return expr_cast(expr_open(path,mode),double);
+}
+static double d_close(double *args,size_t n){
+	struct expr_global_file *fp;
+	fp=expr_cast(*args,struct expr_global_file *);
+	return (double)expr_close(fp);
+}
 const struct expr_builtin_symbol expr_symbols_io[]={
+	REGMDSYM2_NIU("open",d_open,2),
+	REGMDSYM2_NIU("close",d_close,1),
 	REGMDSYM2_NIU("printf",d_printf,0),
 	REGMDSYM2_NIU("fprintf",d_fprintf,0),
-	REGZASYM2_U("stdout",d_stdout),
-	REGZASYM2_U("stderr",d_stderr),
+	REGZASYM2_U("getstdout",d_stdout),
+	REGZASYM2_U("getstderr",d_stderr),
+	REGMACRO("stdout","getstdout()"),
+	REGMACRO("stderr","getstderr()"),
 	{.str=NULL}
 };

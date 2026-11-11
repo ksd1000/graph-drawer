@@ -5,7 +5,7 @@
  *******************************************************************************/
 #define _GNU_SOURCE
 
-#define EXPR_VERSION "1.0.18-38"
+#define EXPR_VERSION "1.0.18-39"
 
 #define EXPR_LIBC_STRING_IMPL 1
 #include <string.h>
@@ -118,10 +118,14 @@ static int global_close(intptr_t fd){
 	return -errno;
 }
 static struct expr_list global_head[1]={EXPR_LIST_INITIALIZER};
+#ifndef EBADF
+#define EBADF 9
+#endif
 #define xmtl expr_globalmtl
-void expr_close(struct expr_global_file *fp){
+int expr_close(struct expr_global_file *fp){
+	int r=0;
 	if(unlikely(!fp))
-		return;
+		return -EBADF;
 	expr_mutex_lock(fp->mutex);
 	if(fp->write){
 		expr_buffered_flush(fp->buf);
@@ -130,9 +134,9 @@ void expr_close(struct expr_global_file *fp){
 	}
 	if(fp->close){
 		if(fp->read)
-			fp->close(fp->rbuf->fd);
+			r=fp->close(fp->rbuf->fd);
 		else if(fp->write)
-			fp->close(fp->buf->fd);
+			r=fp->close(fp->buf->fd);
 	}
 	if(!expr_list_isempty(fp->node)){
 		GLOBAL_MUTEX_START;
@@ -143,6 +147,7 @@ void expr_close(struct expr_global_file *fp){
 		*fp->iface=NULL;
 	expr_mutex_unlock(fp->mutex);
 	xfree(fp);
+	return r;
 }
 static void expr_global_atexit(void){
 	//GLOBAL_MUTEX_START;
@@ -252,9 +257,6 @@ err:
 	expr_mutex_unlock(fp->mutex);
 	return -1;
 }
-#ifndef EBADF
-#define EBADF 9
-#endif
 ssize_t expr_vfprintf(struct expr_global_file *fp,const char *format,va_list ap){
 	ssize_t r;
 	if(unlikely(!fp||!fp->write))

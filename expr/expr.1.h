@@ -718,6 +718,11 @@ expr_static_assert(!(NULL));
 	size_t _stack##_size;\
 	_stack##_size=STACK_SIZEOFSSET(esp);\
 	_stack=alloca(_stack##_size)
+#define STACK_XDEFAULT(_stack,esp) \
+	void *_stack;\
+	size_t _stack##_size;\
+	_stack##_size=STACK_SIZEOFSSET(esp);\
+	_stack=xmalloc(_stack##_size)
 #define SYMDIM(sp) (*expr_symbol_dim(sp))
 #define HOTLEN(sp) expr_symbol_hotlen(sp)
 

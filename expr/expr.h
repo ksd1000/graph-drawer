@@ -177,8 +177,8 @@ typedef struct expr_list expr_list_t[1];
 
 #define EXPR_LIST_INITIALIZER {.next=NULL,.prev=NULL}
 #define EXPR_LIST_POISONED_FILL(low) ((struct expr_list *)((UINTPTR_MAX&(uintptr_t)~(uintptr_t)0xffffu)|((uintptr_t)(low)&(uintptr_t)(0xffffu))))
-#define EXPR_LIST_POISONED_PREV EXPR_LIST_POISONED_FILL(0xcafe)
-#define EXPR_LIST_POISONED_NEXT EXPR_LIST_POISONED_FILL(0xfade)
+#define EXPR_LIST_POISONED_NEXT EXPR_LIST_POISONED_FILL(0xfad1)
+#define EXPR_LIST_POISONED_PREV EXPR_LIST_POISONED_FILL(0xcaf1)
 
 #define expr_list_zero(node) ({\
 	struct expr_list *restrict _np=(node);\
@@ -360,15 +360,16 @@ typedef struct expr_list expr_list_t[1];
 	const struct expr_list *restrict _np=(node);\
 	_np->next&&_np->prev;\
 })
+// can only use for head or tail
 #define expr_list_ispoisoned(node) ({\
 	const struct expr_list *restrict _np=(node);\
-	_np->next==EXPR_LIST_POISONED_NEXT||_np->prev==EXPR_LIST_POISONED_PREV;\
+	(_np!=EXPR_LIST_POISONED_NEXT&&_np->next==EXPR_LIST_POISONED_NEXT)||(_np!=EXPR_LIST_POISONED_PREV&&_np->prev==EXPR_LIST_POISONED_PREV);\
 })
 #define expr_list_ispoisoned_both(node) ({\
 	const struct expr_list *restrict _np=(node);\
-	_np->next==EXPR_LIST_POISONED_NEXT&&_np->prev==EXPR_LIST_POISONED_PREV;\
+	(_np!=EXPR_LIST_POISONED_NEXT&&_np->next==EXPR_LIST_POISONED_NEXT)&&(_np!=EXPR_LIST_POISONED_PREV&&_np->prev==EXPR_LIST_POISONED_PREV);\
 })
-// can only use for head or tail
+// node cannot equal to both of EXPR_LIST_POISONED_NEXT and EXPR_LIST_POISONED_PREV
 #define expr_list_isring(node) ({\
 	const struct expr_list *_np=(node);\
 	const struct expr_list *_np1=_np->next;\

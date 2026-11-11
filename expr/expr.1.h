@@ -1779,6 +1779,7 @@ struct expr_inst {
 	enum expr_op op;
 	int flag;
 };
+struct expr_builtin_symbol;
 union expr_symvalue {
 	expr_t value;
 	double dvalue;
@@ -1820,8 +1821,8 @@ struct expr_symbol_infile {
 struct expr_builtin_symbol {
 	union expr_symvalue un;
 	const char *str;
-	unsigned short strlen;
-	short type,flag,dim;
+	unsigned short strlen,dim;
+	short type,flag;
 };
 struct expr_builtin_keyword {
 	const char *str;

@@ -2489,9 +2489,9 @@ struct expr_symbol *expr_symset_add_builtin(struct expr_symset *restrict esp,con
 		case EXPR_ZAFUNCTION:
 			return expr_symset_addl(esp,p->str,p->strlen,EXPR_ZAFUNCTION,p->flag,p->un.zafunc);
 		case EXPR_HOTFUNCTION:
-			return expr_symset_addl(esp,p->str,p->strlen,EXPR_HOTFUNCTION,p->flag,p->un.hot);
+			return expr_symset_addl(esp,p->str,p->strlen,EXPR_HOTFUNCTION,p->flag,p->un.hot,(size_t)p->dim);
 		case EXPR_ALIAS:
-			return expr_symset_addl(esp,p->str,p->strlen,EXPR_ALIAS,p->flag,p->un.hot);
+			return expr_symset_addl(esp,p->str,p->strlen,EXPR_ALIAS,p->flag,p->un.hot,(size_t)p->dim);
 		default:
 			__builtin_unreachable();
 	}

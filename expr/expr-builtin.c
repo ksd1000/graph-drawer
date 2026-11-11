@@ -1557,7 +1557,7 @@ static double expr_seterrno(double x){
 static double expr_errno2str(double x){
 	return cast(strerror((int)x),double);
 }
-#define REGMACRO(s,target) {.strlen=sizeof(s)-1,.str=s,.un={.hot=target},.type=EXPR_ALIAS,.flag=EXPR_SWRITEIP}
+#define REGMACRO(s,target) {.strlen=sizeof(s)-1,.str=s,.un={.hot=target},.type=EXPR_ALIAS,.flag=EXPR_SPURE|EXPR_SWRITEIP,.dim=sizeof(target)-1}
 const struct expr_builtin_symbol expr_symbols_errno[]={
 	REGZASYM2_U("geterrno",expr_geterrno),
 	REGFSYM2_NI("seterrno",expr_seterrno),

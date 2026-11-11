@@ -289,6 +289,8 @@ static struct clist *mkclist(const char *str){
 	assert(h);
 	h->c=*str;
 	expr_list_ring(h->node);
+	assert(expr_list_risempty(h->node));
+	assert(expr_list_uisempty(h->node));
 	while(*(++str)){
 		if(*str==h->c){
 			assert(expr_list_isring(h->node));

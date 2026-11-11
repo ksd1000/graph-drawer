@@ -179,6 +179,7 @@ typedef struct expr_list expr_list_t[1];
 #define EXPR_LIST_POISONED_FILL(low) ((struct expr_list *)((UINTPTR_MAX&(uintptr_t)~(uintptr_t)0xffffu)|((uintptr_t)(low)&(uintptr_t)(0xffffu))))
 #define EXPR_LIST_POISONED_NEXT EXPR_LIST_POISONED_FILL(0xfad1)
 #define EXPR_LIST_POISONED_PREV EXPR_LIST_POISONED_FILL(0xcaf1)
+#define EXPR_LIST_INITIALIZER_POISONED {.next=EXPR_LIST_POISONED_NEXT,.prev=EXPR_LIST_POISONED_PREV}
 
 #define expr_list_zero(node) ({\
 	struct expr_list *restrict _np=(node);\
@@ -356,6 +357,10 @@ typedef struct expr_list expr_list_t[1];
 	const struct expr_list *restrict _np=(node);\
 	_np->next==_np;\
 })
+#define expr_list_uisempty(node) ({\
+	const struct expr_list *restrict _np=(node);\
+	(_np->next==_np&&_np->prev==_np)||(!_np->next&&!_np->prev);\
+})
 #define expr_list_isring_ht(node) ({\
 	const struct expr_list *restrict _np=(node);\
 	_np->next&&_np->prev;\
@@ -363,11 +368,11 @@ typedef struct expr_list expr_list_t[1];
 // can only use for head or tail
 #define expr_list_ispoisoned(node) ({\
 	const struct expr_list *restrict _np=(node);\
-	(_np!=EXPR_LIST_POISONED_NEXT&&_np->next==EXPR_LIST_POISONED_NEXT)||(_np!=EXPR_LIST_POISONED_PREV&&_np->prev==EXPR_LIST_POISONED_PREV);\
+	_np->next==EXPR_LIST_POISONED_NEXT||_np->prev==EXPR_LIST_POISONED_PREV;\
 })
 #define expr_list_ispoisoned_both(node) ({\
 	const struct expr_list *restrict _np=(node);\
-	(_np!=EXPR_LIST_POISONED_NEXT&&_np->next==EXPR_LIST_POISONED_NEXT)&&(_np!=EXPR_LIST_POISONED_PREV&&_np->prev==EXPR_LIST_POISONED_PREV);\
+	_np->next==EXPR_LIST_POISONED_NEXT&&_np->prev==EXPR_LIST_POISONED_PREV;\
 })
 // node cannot equal to both of EXPR_LIST_POISONED_NEXT and EXPR_LIST_POISONED_PREV
 #define expr_list_isring(node) ({\
@@ -2071,6 +2076,8 @@ struct expr_strtod_workspace {
 	expr_symbols_string,\
 	expr_symbols_symset,\
 	expr_symbols_memory,\
+	expr_symbols_errno,\
+	expr_symbols_io,\
 	NULL
 #define expr_symbols_ess \
 	expr_symbols_default,\
@@ -2648,6 +2655,8 @@ double expr_and2(double x,double y);
 double expr_or2(double x,double y);
 double expr_xor2(double x,double y);
 double expr_not(double x);
+double d_stdout(void);
+double d_stderr(void);
 //global externs of expr-builtin.c :
 extern const struct expr_builtin_symbol expr_symbols_default[];
 extern const struct expr_builtin_symbol expr_symbols_packages[];
@@ -2658,8 +2667,11 @@ extern const struct expr_builtin_symbol expr_symbols_memory[];
 extern const struct expr_builtin_symbol expr_symbols_symset[];
 extern const struct expr_builtin_symbol expr_symbols_string[];
 extern const struct expr_builtin_symbol expr_symbols_errno[];
+extern const struct expr_builtin_symbol expr_symbols_io[];
 //global functions of expr-global.c :
 void expr_close(struct expr_global_file *fp);
+struct expr_global_file **expr_stdout_get(void);
+struct expr_global_file **expr_stderr_get(void);
 int expr_setvbuf(struct expr_global_file *fp,void *buf,int mode,size_t size);
 ssize_t expr_vfprintf(struct expr_global_file *fp,const char *format,va_list ap);
 ssize_t expr_fprintf(struct expr_global_file *fp,const char *format,...);
@@ -2693,8 +2705,8 @@ void *expr_heapmtl_realloc_nonnull(void *old,size_t size,intptr_t arg);
 int expr_setup_heapmtl4_nonnull(struct expr_memtool *restrict mtl,void *heap,size_t size,int flag);
 //global externs of expr-global.c :
 extern const struct expr_libinfo expr_libinfo_current[1];
-extern struct expr_global_file *expr_stdout;
-extern struct expr_global_file *expr_stderr;
+extern struct expr_global_file *expr_stdout_var;
+extern struct expr_global_file *expr_stderr_var;
 #if !(defined(EXPR_INLIB)&&(EXPR_INLIB))
 #define expr_free2mtl(ep,flag) expr_free2mtl_r(ep,flag,expr_defmtl)
 #define expr_init_const(ep,val) expr_init_const_r(ep,val,expr_defmtl)

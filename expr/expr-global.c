@@ -5,7 +5,7 @@
  *******************************************************************************/
 #define _GNU_SOURCE
 
-#define EXPR_VERSION "1.0.18-37"
+#define EXPR_VERSION "1.0.18-38"
 
 #define EXPR_LIBC_STRING_IMPL 1
 #include <string.h>
@@ -87,12 +87,9 @@ const struct expr_libinfo expr_libinfo_current[1]={{
 	.time=__TIME__,
 	.license="GPL v3+",
 }};
-struct expr_global_file *expr_stdout=NULL;
-struct expr_global_file *expr_stderr=NULL;
-//#define expr_stdout expr_stdout
-//#define expr_stderr expr_stderr
-// a warning may occur if keep the 2 macros for following the C standard.
 static int expr_setuped=0;
+struct expr_global_file *expr_stdout_var=NULL;
+struct expr_global_file *expr_stderr_var=NULL;
 static uint32_t global_mutex[1]={EXPR_MUTEX_INITIALIZER};
 // mutex lock/unlock will be void operation on non-unix platform, the man page keeps MT-UnSafe.
 #define GLOBAL_MUTEX_START ({debug("GLOBAL_MUTEX_START");expr_mutex_lock(global_mutex);})
@@ -162,10 +159,10 @@ static void expr_global_setup(void){
 		GLOBAL_MUTEX_END;
 		return;
 	}
-	if(unlikely(!(expr_stdout=expr_bind(stdout,"w"))||!(expr_stderr=expr_bind(stderr,"w"))))
+	if(unlikely(!(expr_stdout_var=expr_bind(stdout,"w"))||!(expr_stderr_var=expr_bind(stderr,"w"))))
 		warn_abort("expr-lc/setup","setup failed: cannot allocate memory of size=%zu",(size_t)BUFSIZ);
-	expr_stdout->iface=&expr_stdout;
-	expr_stderr->iface=&expr_stderr;
+	expr_stdout_var->iface=&expr_stdout_var;
+	expr_stderr_var->iface=&expr_stderr_var;
 	if(unlikely(atexit(expr_global_atexit)))
 		warn_abort("expr-lc/setup","atexit() failed");
 	expr_setuped=1;
@@ -175,7 +172,16 @@ static void expr_global_setup(void){
 	if(unlikely(!expr_setuped))\
 		expr_global_setup();\
 })
-
+struct expr_global_file **expr_stdout_get(void){
+	EXPR_GLOBAL_SETUP_CHECK();
+	return &expr_stdout_var;
+}
+struct expr_global_file **expr_stderr_get(void){
+	EXPR_GLOBAL_SETUP_CHECK();
+	return &expr_stderr_var;
+}
+#define expr_stdout (*expr_stdout_get())
+#define expr_stderr (*expr_stderr_get())
 int expr_setvbuf(struct expr_global_file *fp,void *buf,int mode,size_t size){
 	if(unlikely(!fp))
 		return -1;
@@ -282,7 +288,6 @@ ssize_t expr_farrprintf(struct expr_global_file *fp,const char *format,const uni
 ssize_t expr_printf(const char *format,...){
 	va_list ap;
 	ssize_t r;
-	EXPR_GLOBAL_SETUP_CHECK();
 	va_start(ap,format);
 	r=expr_vfprintf(expr_stdout,format,ap);
 	va_end(ap);
@@ -290,7 +295,6 @@ ssize_t expr_printf(const char *format,...){
 }
 ssize_t expr_arrprintf(const char *format,const union expr_argf *restrict args,size_t arglen){
 	ssize_t r;
-	EXPR_GLOBAL_SETUP_CHECK();
 	r=expr_farrprintf(expr_stdout,format,args,arglen);
 	return r;
 }

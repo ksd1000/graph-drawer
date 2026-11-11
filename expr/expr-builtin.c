@@ -1262,6 +1262,7 @@ const struct expr_builtin_symbol expr_symbols_packages[]={
 	REGPACK(symset),
 	REGPACK(memory),
 	REGPACK(errno),
+	REGPACK(io),
 	{.str=NULL}
 };
 const struct expr_builtin_symbol expr_symbols_expr[]={
@@ -1560,5 +1561,40 @@ const struct expr_builtin_symbol expr_symbols_errno[]={
 	REGZASYM2_U("geterrno",expr_geterrno),
 	REGFSYM2_NI("seterrno",expr_seterrno),
 	REGFSYM2_NI("errno2str",expr_errno2str),
+	{.str=NULL}
+};
+#define expr_stdout (expr_stdout_get())
+#define expr_stderr (expr_stderr_get())
+#ifndef EINVAL
+#define EINVAL 22
+#endif
+static double d_printf(double *args,size_t n){
+	const char *fmt=expr_cast(*args,const char *);
+	ssize_t r;
+	r=expr_arrprintf(fmt,(const union expr_argf *)args+1,n-1);
+	return (double)r;
+}
+static double d_fprintf(double *args,size_t n){
+	const char *fmt;
+	struct expr_global_file *fp;
+	ssize_t r;
+	if(unlikely(n<2))
+		return (double)-EINVAL;
+	fp=expr_cast(*args,struct expr_global_file *);
+	fmt=expr_cast(args[1],const char *);
+	r=expr_farrprintf(fp,fmt,(const union expr_argf *)args+2,n-2);
+	return (double)r;
+}
+double d_stdout(void){
+	return expr_cast(*expr_stdout_get(),double);
+}
+double d_stderr(void){
+	return expr_cast(*expr_stderr_get(),double);
+}
+const struct expr_builtin_symbol expr_symbols_io[]={
+	REGMDSYM2_NIU("printf",d_printf,0),
+	REGMDSYM2_NIU("fprintf",d_fprintf,0),
+	REGZASYM2_U("stdout",d_stdout),
+	REGZASYM2_U("stderr",d_stderr),
 	{.str=NULL}
 };

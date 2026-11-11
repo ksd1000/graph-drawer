@@ -49,13 +49,6 @@ static void __attribute__((destructor)) ffend(void){
 	//expr_setup_mtl(0);
 }
 expr_writer_t io_mode_stdout=expr_buffered_write_iolbf_warped;
-double d_printf(double *args,size_t n){
-	const char *fmt=expr_cast(*args,const char *);
-	size_t flen=strlen(fmt);
-	ssize_t r;
-	r=expr_writef(io_mode_stdout,(intptr_t)&printff,fmt,flen,(const union expr_argf *)args+1,n-1);
-	return (double)r;
-}
 double d_printl(double *args,size_t n){
 	size_t len=(size_t)args[1];
 	ssize_t r;
@@ -720,7 +713,6 @@ break3:
 	expr_symset_add(es,"argv",EXPR_CONSTANT,0,expr_cast(argv+optind,double));
 	expr_symset_add(es,"scanf",EXPR_MDFUNCTION,EXPR_SUNSAFE,d_scanf,(size_t)0);
 	expr_symset_add(es,"sscanf",EXPR_MDFUNCTION,EXPR_SUNSAFE,d_sscanf,(size_t)0);
-	expr_symset_add(es,"printf",EXPR_MDFUNCTION,EXPR_SUNSAFE,d_printf,(size_t)0);
 	expr_symset_add(es,"printl",EXPR_MDFUNCTION,EXPR_SUNSAFE,d_printl,(size_t)2);
 	expr_symset_add(es,"printc",EXPR_MDFUNCTION,EXPR_SUNSAFE,d_printc,(size_t)2);
 	expr_symset_add(es,"1+1",EXPR_CONSTANT,0,3.0);
@@ -728,7 +720,7 @@ break3:
 	expr_symset_add(es,"qqq",EXPR_FUNCTION,EXPR_SPURE,expr_internal_sqrt);
 	expr_symset_add(es,"ppp",EXPR_CONSTANT,0,3.0);
 	if(adbt||!nobt)
-		expr_symset_addalls_builtin(es,expr_symbols_ess);
+		expr_symset_addalls_builtin(es,expr_symbols_io,expr_symbols_ess);
 	if(expr_init8(ep,e,strlen(e),"t",1,es,flag|EXPR_ISCANCACHE|EXPR_IREMOVEBLANK,extarg)<0){
 		if(*ep->errinfo)
 			errx(EXIT_FAILURE,"expression error:%s \"%s\"",expr_error(ep->error),ep->errinfo);

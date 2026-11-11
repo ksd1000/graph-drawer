@@ -130,7 +130,7 @@ break2:
 	es=expr_symset_new();
 	if(!es)
 		err(EXIT_FAILURE,"cannot allocate memory");
-	if(expr_symset_addalls_builtin(es,expr_symbols_default,NULL)<0)
+	if(expr_symset_addalls_builtin(es,expr_symbols_io,expr_symbols_default,NULL)<0)
 		err(EXIT_FAILURE,"cannot allocate memory");
 	for(line_start();(p=readline1(NULL))&&*p;line_start()){
 		histadd(p);

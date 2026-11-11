@@ -266,6 +266,8 @@ static void checkfmts(void){
 	checkfmt2("1.5m","%=.-1m",(expr_ut)1024*1536);
 	checkfmt2("1.7M","%.1M",(expr_ut)1024*1792);
 	checkfmt2("aa\\1b\\0021\\2\\68\\n","%.10E","aa\1b\2\61\2\68\n");
+	checkfmt2("1","%.0f",(expr_t)1.0);
+	checkfmt2("1.0","%.1f",(expr_t)1.0);
 	printf("fotmat check ok\n");
 }
 static int keyword_diff(const char *str,size_t len,const struct expr_builtin_keyword *restrict s){
@@ -345,6 +347,7 @@ static void checkclist(struct clist *p,const char *expect){
 static void killclist(struct expr_list *p){
 	expr_list_detach_poison(p);
 	assert(expr_list_ispoisoned(p));
+	assert(expr_list_ispoisoned_both(p));
 	xfree(expr_host(p,struct clist,node));
 }
 #define hostof(p) expr_host(p,struct clist,node)

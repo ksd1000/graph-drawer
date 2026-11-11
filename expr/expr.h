@@ -176,7 +176,9 @@ typedef struct expr_list expr_list_t[1];
 // place next before prev, for faster when travel through.
 
 #define EXPR_LIST_INITIALIZER {.next=NULL,.prev=NULL}
-#define EXPR_LIST_POISONED ((struct expr_list *)((UINTPTR_MAX&(uintptr_t)~(uintptr_t)0xffffu)|(uintptr_t)0xdcbau))
+#define EXPR_LIST_POISONED_FILL(low) ((struct expr_list *)((UINTPTR_MAX&(uintptr_t)~(uintptr_t)0xffffu)|((uintptr_t)(low)&(uintptr_t)(0xffffu))))
+#define EXPR_LIST_POISONED_PREV EXPR_LIST_POISONED_FILL(0xcafe)
+#define EXPR_LIST_POISONED_NEXT EXPR_LIST_POISONED_FILL(0xfade)
 
 #define expr_list_zero(node) ({\
 	struct expr_list *restrict _np=(node);\
@@ -190,8 +192,8 @@ typedef struct expr_list expr_list_t[1];
 })
 #define expr_list_poison(node) ({\
 	struct expr_list *_np=(node);\
-	_np->next=EXPR_LIST_POISONED;\
-	_np->prev=EXPR_LIST_POISONED;\
+	_np->next=EXPR_LIST_POISONED_NEXT;\
+	_np->prev=EXPR_LIST_POISONED_PREV;\
 })
 #define expr_list_detach(node) ({\
 	struct expr_list *_np=(node);\
@@ -276,8 +278,8 @@ typedef struct expr_list expr_list_t[1];
 		_np->next->prev=_np->prev;\
 	if(_np->prev)\
 		_np->prev->next=_np->next;\
-	_np->next=EXPR_LIST_POISONED;\
-	_np->prev=EXPR_LIST_POISONED;\
+	_np->next=EXPR_LIST_POISONED_NEXT;\
+	_np->prev=EXPR_LIST_POISONED_PREV;\
 })
 #define expr_list_rdetach_zero(node) ({\
 	struct expr_list *_np=(node);\
@@ -297,8 +299,8 @@ typedef struct expr_list expr_list_t[1];
 	struct expr_list *_np=(node);\
 	_np->next->prev=_np->prev;\
 	_np->prev->next=_np->next;\
-	_np->next=EXPR_LIST_POISONED;\
-	_np->prev=EXPR_LIST_POISONED;\
+	_np->next=EXPR_LIST_POISONED_NEXT;\
+	_np->prev=EXPR_LIST_POISONED_PREV;\
 })
 #define expr_list_link(tail,head) ({\
 	struct expr_list *_tp=(tail);\
@@ -360,7 +362,11 @@ typedef struct expr_list expr_list_t[1];
 })
 #define expr_list_ispoisoned(node) ({\
 	const struct expr_list *restrict _np=(node);\
-	_np->next==EXPR_LIST_POISONED||_np->prev==EXPR_LIST_POISONED;\
+	_np->next==EXPR_LIST_POISONED_NEXT||_np->prev==EXPR_LIST_POISONED_PREV;\
+})
+#define expr_list_ispoisoned_both(node) ({\
+	const struct expr_list *restrict _np=(node);\
+	_np->next==EXPR_LIST_POISONED_NEXT&&_np->prev==EXPR_LIST_POISONED_PREV;\
 })
 // can only use for head or tail
 #define expr_list_isring(node) ({\

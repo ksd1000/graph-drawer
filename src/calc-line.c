@@ -59,24 +59,36 @@ struct history *histadd(const char *str){
 	memcpy(p->str,str,len);
 	p->str[len]=0;
 	expr_list_insert_next(hlist,p->node);
+	if(histcur<histmax){
+		++histcur;
+	}else {
+		struct history *p1;
+		p1=expr_host(hlist->prev,struct history,node);
+		expr_list_detach(p1->node);
+		xfree(p1);
+	}
 	return p;
 
 }
 void histwipe(void){
-	expr_list_foreach_rw(p,hlist,next){
+	expr_list_rforeach_rw(p,hlist,next){
 		xfree(expr_host(p,struct history,node));
 	}
 }
 const struct option ops[]={
+	{"no-optimize",0,NULL,'n'},
 	{"no-tty",0,NULL,'b'},
 	{"prefix",1,NULL,'P'},
+	{"safe",0,NULL,'p'},
 	{"help",0,NULL,'h'},
 	{NULL,0,NULL,0},
 };
 void show_help(const char *a0){
 	fprintf(stdout,"usage: %s [options]\n"
+			"\t--no-optimize, -n\tdo not optimize\n"
 			"\t--no-tty, -b\tassume the stderr does not refer to a tty\n"
 			"\t--prefix, -P prefix\tset the prefix of each line\n"
+			"\t--safe, -p\twork on protected mode\n"
 			"\t--help, -h\tshow this help\n"
 			"version: %s\n"
 			,a0,expr_libinfo_current->version);
@@ -90,7 +102,7 @@ int main(int argc,char **argv){
 	char errinfo[EXPR_SYMLEN];
 	opterr=1;
 	for(;;){
-		switch(getopt_long(argc,argv,"hbP:",ops,NULL)){
+		switch(getopt_long(argc,argv,"hbP:pn",ops,NULL)){
 			case 'h':
 				show_help(*argv);
 				break;
@@ -100,6 +112,12 @@ int main(int argc,char **argv){
 			case 'P':
 				prefix=optarg;
 				break;
+			case 'p':
+				flag|=EXPR_IPROTECT;
+				break;
+			case 'n':
+				flag|=EXPR_INOOPTIMIZE;
+				break;
 			case -1:
 				goto break2;
 			case '?':
@@ -108,6 +126,7 @@ int main(int argc,char **argv){
 		}
 	}
 break2:
+	expr_list_ring(hlist);
 	es=expr_symset_new();
 	if(!es)
 		err(EXIT_FAILURE,"cannot allocate memory");

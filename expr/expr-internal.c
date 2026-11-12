@@ -3026,7 +3026,7 @@ struct expr_symbol *expr_symbol_vcreatel_r(const char *sym,size_t symlen,int typ
 	char *p1;
 	if(unlikely(!symlen))
 		return NULL;
-	len=sizeof(struct expr_symbol)+symlen+1;
+	len=offsetof(struct expr_symbol,str)+symlen+1;
 	switch(type){
 		case EXPR_CONSTANT:
 		case EXPR_VARIABLE:

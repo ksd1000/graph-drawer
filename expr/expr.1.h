@@ -1264,7 +1264,7 @@ expr_struct_mlist(struct expr_symlist,EXPR_SYMNEXT);
 })
 
 #define expr_symbol_hot(_esp) ({const struct expr_symbol *__esp=(_esp);(char *)(uintptr_t)(__esp->str+__esp->strlen+1);})
-#define expr_symbol_hotlen(_esp) ({const struct expr_symbol *__esp=(_esp);(size_t)__esp->length-(size_t)__esp->strlen-sizeof(struct expr_symbol)-2;})
+#define expr_symbol_hotlen(_esp) ({const struct expr_symbol *__esp=(_esp);(size_t)__esp->length-(size_t)__esp->strlen-offsetof(struct expr_symbol,str)-2;})
 #define expr_symbol_un(_esp) ({const struct expr_symbol *__esp=(_esp);(union expr_symvalue *)(uintptr_t)(__esp->str+expr_align(__esp->strlen+1));})
 #define expr_symbol_dim(_esp) ({const struct expr_symbol *__esp=(_esp);(size_t *)(uintptr_t)(__esp->str+expr_align(expr_align(__esp->strlen+1)+sizeof(union expr_symvalue)));})
 #define expr_assume(cond) if(cond);else __builtin_unreachable()

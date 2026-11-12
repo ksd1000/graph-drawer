@@ -180,8 +180,8 @@
 #define xor2(__a,__b) expr_txor(__a,__b)
 #define not(_x) expr_tnot(_x)
 
-#define nex0(x) (cast((int64_t)(x),expr_t))
-#define dif0(x) ((expr_t)cast((x),int64_t))
+#define nex0(x) (cast((expr_it)(x),expr_t))
+#define dif0(x) ((expr_t)cast((x),expr_it))
 #pragma GCC diagnostic pop
 static const char *eerror[]={
 	[0]="Unknown error",
@@ -4210,7 +4210,7 @@ static int expr_optimize_contsh(struct expr *restrict ep){
 		}
 		rip=expr_findconst(ep,ip);
 		if(rip){
-			EXPR_EDEXP(&rip->un.value)+=(int64_t)sum;
+			EXPR_EDEXP(&rip->un.value)+=(expr_it)sum;
 			ip->dst.dst=NULL;
 			r=1;
 			expr_writeconsts(ep);
@@ -4389,7 +4389,7 @@ static int expr_optimize_contmul(struct expr *restrict ep,enum expr_op op){
 							EXPR_ZERO;
 						break;
 					case EXPR_NEXT:
-						EXPR_EDIVAL(&sum)+=(int64_t)*ip1->un.src;
+						EXPR_EDIVAL(&sum)+=(expr_it)*ip1->un.src;
 						break;
 					case EXPR_DIFF:
 						sum=(expr_t)(EXPR_EDIVAL(&sum)-*ip->un.isrc);

@@ -1692,7 +1692,7 @@ struct expr;
 struct expr_symset;
 struct expr_suminfo {
 	struct expr *fromep,*toep,*stepep,*ep;
-	volatile expr_t index;
+	expr_t index;
 };
 struct expr_branchinfo {
 	struct expr *cond,*body,*value;
@@ -1719,7 +1719,7 @@ struct expr_vmdinfo {
 	size_t max;
 	expr_t (*func)(expr_t *,size_t);
 	expr_t *args;
-	volatile expr_t index;
+	expr_t index;
 };
 typedef uint16_t expr_superseed48[3];
 struct expr_rawdouble {

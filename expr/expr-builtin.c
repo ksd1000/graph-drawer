@@ -1565,8 +1565,9 @@ const struct expr_builtin_symbol expr_symbols_errno[]={
 	REGMACRO("errno","geterrno()"),
 	{.str=NULL}
 };
-#define expr_stdout (expr_stdout_get())
-#define expr_stderr (expr_stderr_get())
+#define expr_stdin (*expr_stdin_get())
+#define expr_stdout (*expr_stdout_get())
+#define expr_stderr (*expr_stderr_get())
 #ifndef EINVAL
 #define EINVAL 22
 #endif
@@ -1597,6 +1598,30 @@ static double d_sscanf(double *args,size_t n){
 	slen=strlen(s);
 	flen=strlen(fmt);
 	return (double)expr_sscanf_r(s,slen,fmt,flen,(const union expr_argf *)args+2,n-2,expr_globalmtl);
+}
+static double d_fscanf(double *args,size_t n){
+	struct expr_global_file *fp;
+	const char *s,*fmt;
+	size_t slen,flen;
+	if(expr_unlikely(n<2))
+		return 0;
+	fp=expr_cast(*args,struct expr_global_file *);
+	s=expr_freadline(fp,&slen);
+	if(expr_unlikely(!s))
+		return 0;
+	fmt=expr_cast(args[1],const char *);
+	flen=strlen(fmt);
+	return (double)expr_sscanf_r(s,slen,fmt,flen,(const union expr_argf *)args+2,n-2,expr_globalmtl);
+}
+static double d_scanf(double *args,size_t n){
+	const char *s,*fmt;
+	size_t slen,flen;
+	s=expr_freadline(expr_stdin,&slen);
+	if(expr_unlikely(!s))
+		return 0;
+	fmt=expr_cast(*args,const char *);
+	flen=strlen(fmt);
+	return (double)expr_sscanf_r(s,slen,fmt,flen,(const union expr_argf *)args+1,n-1,expr_globalmtl);
 }
 static double d_freadline(double *args,size_t n){
 	struct expr_global_file *fp;
@@ -1636,13 +1661,13 @@ static double d_setvbuf(double *args,size_t n){
 	return (double)expr_setvbuf(fp,buf,mode,n);
 }
 static double d_stdin(void){
-	return expr_cast(*expr_stdin_get(),double);
+	return expr_cast(expr_stdin,double);
 }
 static double d_stdout(void){
-	return expr_cast(*expr_stdout_get(),double);
+	return expr_cast(expr_stdout,double);
 }
 static double d_stderr(void){
-	return expr_cast(*expr_stderr_get(),double);
+	return expr_cast(expr_stderr,double);
 }
 static double d_open(double *args,size_t n){
 	const char *path,*mode;
@@ -1660,7 +1685,9 @@ const struct expr_builtin_symbol expr_symbols_io[]={
 	REGMDSYM2_NIU("close",d_close,1),
 	REGMDSYM2_NIU("printf",d_printf,0),
 	REGMDSYM2_NIU("fprintf",d_fprintf,0),
+	REGMDSYM2_NIU("scanf",d_scanf,0),
 	REGMDSYM2_NIU("sscanf",d_sscanf,0),
+	REGMDSYM2_NIU("fscanf",d_fscanf,0),
 	REGMDSYM2_NIU("freadline",d_freadline,0),
 	REGMDSYM2_NIU("fread",d_fread,3),
 	REGMDSYM2_NIU("fwrite",d_fwrite,3),

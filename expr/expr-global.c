@@ -5,7 +5,7 @@
  *******************************************************************************/
 #define _GNU_SOURCE
 
-#define EXPR_VERSION "1.0.18-42"
+#define EXPR_VERSION "1.0.18-43"
 
 #define EXPR_LIBC_STRING_IMPL 1
 #include <string.h>
@@ -219,10 +219,74 @@ struct expr_global_file *const *expr_stderr_get(void){
 
 #define expr_stdout (*expr_stdout_get())
 #define expr_stderr (*expr_stderr_get())
-int expr_setvbuf(struct expr_global_file *fp,void *buf,int mode,size_t size){
-	if(unlikely(!fp))
-		return -1;
-	expr_mutex_lock(fp->mutex);
+#define FP_START(dyn) \
+	if(fp->external){\
+		fp->buf->buf=NULL;\
+		fp->buf->index=0;\
+		fp->buf->length=(dyn);\
+		fp->buf->dynamic=0;\
+		fp->external=0;\
+	}
+static int expr_setrvbuf(struct expr_global_file *fp,void *buf,int mode,size_t size){
+	if(buf){
+		switch(mode){
+			case _IONBF:
+				fp->rbuf->length=0;
+				break;
+			case _IOLBF:
+				fp->rbuf->length=size;
+				break;
+			case _IOFBF:
+				fp->rbuf->length=size;
+				break;
+			default:
+				goto err;
+		}
+		if(!fp->external&&fp->rbuf->buf)
+			xfree(fp->rbuf->buf);
+		fp->rbuf->buf=buf;
+		fp->rbuf->dynamic=0;
+		fp->rbuf->index=0;
+		fp->rbuf->written=0;
+		fp->external=1;
+		goto end;
+	}
+	switch(mode){
+		case _IONBF:
+			FP_START(0);
+			if(expr_buffered_truncate(fp->rbuf,0)<0){
+				goto err;
+			}
+			break;
+		case _IOLBF:
+			if(size>=VBUF_DYNAMIC){
+				FP_START(SIZE_MAX);
+			}else {
+				FP_START(0);
+				if(expr_buffered_truncate(fp->rbuf,size)<0){
+					goto err;
+				}
+			}
+			break;
+		case _IOFBF:
+			if(size>=VBUF_DYNAMIC){
+				FP_START(SIZE_MAX);
+			}else {
+				FP_START(0);
+				if(expr_buffered_truncate(fp->rbuf,size)<0){
+					goto err;
+				}
+			}
+			break;
+		default:
+			goto err;
+	}
+end:
+	return 0;
+err:
+	return -1;
+}
+static int expr_setwvbuf(struct expr_global_file *fp,void *buf,int mode,size_t size){
 	expr_buffered_flush(fp->buf);
 	if(buf){
 		switch(mode){
@@ -248,14 +312,6 @@ int expr_setvbuf(struct expr_global_file *fp,void *buf,int mode,size_t size){
 		fp->buf->index=0;
 		fp->external=1;
 		goto end;
-	}
-#define FP_START(dyn) \
-	if(fp->external){\
-		fp->buf->buf=NULL;\
-		fp->buf->index=0;\
-		fp->buf->length=(dyn);\
-		fp->buf->dynamic=0;\
-		fp->external=0;\
 	}
 	switch(mode){
 		case _IONBF:
@@ -291,11 +347,27 @@ int expr_setvbuf(struct expr_global_file *fp,void *buf,int mode,size_t size){
 			goto err;
 	}
 end:
-	expr_mutex_unlock(fp->mutex);
 	return 0;
 err:
-	expr_mutex_unlock(fp->mutex);
 	return -1;
+}
+int expr_setvbuf(struct expr_global_file *fp,void *buf,int mode,size_t size){
+	int r0,r1;
+	if(unlikely(!fp))
+		return -1;
+	expr_mutex_lock(fp->mutex);
+	if(fp->read)
+		r0=expr_setrvbuf(fp,buf,mode,size);
+	else
+		r0=0;
+	if(fp->write)
+		r1=expr_setwvbuf(fp,buf,mode,size);
+	else
+		r1=0;
+	// same buf should not be used by a read-write file
+	// when the other has not completed.
+	expr_mutex_unlock(fp->mutex);
+	return r0|r1;
 }
 ssize_t expr_vfprintf(struct expr_global_file *fp,const char *format,va_list ap){
 	ssize_t r;

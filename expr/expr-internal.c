@@ -2933,6 +2933,7 @@ void expr_symset_detacha_s(struct expr_symset *restrict esp,struct expr_symbol *
 	size_t depthm1;
 	struct expr_symbol *const *spa_cur=spa;
 	struct expr_symbol *const *spa_end=spa+n;
+	struct expr_symbol *spac;
 	if(likely(esp->depth<=(size_t)(UINT64_C(1)<<EXPR_SYMBOL_DEPTHM1_WIDTH))){
 		depthm1=esp->depth-1;
 		do {
@@ -2951,12 +2952,13 @@ void expr_symset_detacha_s(struct expr_symset *restrict esp,struct expr_symbol *
 	esp->removed+=n;
 	esp->removed_m+=n;
 	do {
-		expr_symbol_foreach4(sp1,*spa,stack,EXPR_SYMNEXT){
-			if(unlikely(sp1==*spa))
+		spac=*spa;
+		expr_symbol_foreach4(sp1,spac,stack,EXPR_SYMNEXT){
+			if(unlikely(sp1==spac))
 				break;
 			expr_symset_reinsert(esp,sp1);
 		}
-		depthm1=(*spa)->length;
+		depthm1=spac->length;
 		esp->length-=depthm1;
 		esp->alength-=align(depthm1);
 		++spa;

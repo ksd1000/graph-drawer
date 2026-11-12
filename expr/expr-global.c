@@ -5,7 +5,7 @@
  *******************************************************************************/
 #define _GNU_SOURCE
 
-#define EXPR_VERSION "1.0.18-41"
+#define EXPR_VERSION "1.0.18-42"
 
 #define EXPR_LIBC_STRING_IMPL 1
 #include <string.h>
@@ -22,12 +22,12 @@
 #include "expr.h"
 
 #if (EXPR_INTERNAL_SYSCALL_IMPLEMENTED)&&(__linux__)
-
-#ifndef _MUTEX_H_
-#define _MUTEX_H_
 #include <stdatomic.h>
 #include <sys/syscall.h>
 #include <linux/futex.h>
+
+#ifndef _MUTEX_H_
+#define _MUTEX_H_
 typedef _Atomic(uint32_t) mutex_t;
 #define mutex_lock(lock) ({\
 	mutex_t *_lock=(lock);\
@@ -88,29 +88,48 @@ const struct expr_libinfo expr_libinfo_current[1]={{
 	.license="GPL v3+",
 }};
 static int expr_setuped=0;
-struct expr_global_file *expr_stdout_var=NULL;
-struct expr_global_file *expr_stderr_var=NULL;
+static struct expr_global_file *expr_stdin_var=NULL;
+static struct expr_global_file *expr_stdout_var=NULL;
+static struct expr_global_file *expr_stderr_var=NULL;
 static uint32_t global_mutex[1]={EXPR_MUTEX_INITIALIZER};
 // mutex lock/unlock will be void operation on non-unix platform, the man page keeps MT-UnSafe.
 #define GLOBAL_MUTEX_START ({debug("GLOBAL_MUTEX_START");expr_mutex_lock(global_mutex);})
 #define GLOBAL_MUTEX_END ({debug("GLOBAL_MUTEX_END");expr_mutex_unlock(global_mutex);})
 static ssize_t global_write(intptr_t fd,const void *buf,size_t size){
-	FILE *fp=(FILE *)fd;
 	ssize_t r;
+#if (EXPR_INTERNAL_SYSCALL_IMPLEMENTED)&&(__linux__)
+	fd=fileno((FILE *)fd);
+	r=(ssize_t)expr_internal_syscall(SYS_write,fd,buf,size);
+	if(unlikely(r<0)){
+		errno=-r;
+	}
+	return r;
+#else
+	FILE *fp=(FILE *)fd;
 	r=(ssize_t)fwrite(buf,1,size,fp);
 	fflush(fp);
 	if(unlikely((size_t)r<size&&ferror(fp))){
 		return (ssize_t)-errno;
 	}
 	return r;
+#endif
 }
 static ssize_t global_read(intptr_t fd,void *buf,size_t size){
 	ssize_t r;
+#if (EXPR_INTERNAL_SYSCALL_IMPLEMENTED)&&(__linux__)
+	fd=fileno((FILE *)fd);
+	r=(ssize_t)expr_internal_syscall(SYS_read,fd,buf,size);
+	if(unlikely(r<0)){
+		errno=-r;
+	}
+	return r;
+#else
 	errno=0;
 	r=(ssize_t)fread(buf,1,size,(FILE *)fd);
 	if(unlikely(errno))
 		return (ssize_t)-errno;
 	return r;
+#endif
 }
 static int global_close(intptr_t fd){
 	errno=0;
@@ -127,6 +146,12 @@ int expr_close(struct expr_global_file *fp){
 	if(unlikely(!fp))
 		return -EBADF;
 	expr_mutex_lock(fp->mutex);
+	expr_list_foreach_ro(v,global_head,next){
+		if(v==fp->node)
+			goto found;
+	}
+	return -EBADF;
+found:
 	if(fp->write){
 		expr_buffered_flush(fp->buf);
 		if(!fp->external&&fp->buf->buf)
@@ -164,8 +189,9 @@ static void expr_global_setup(void){
 		GLOBAL_MUTEX_END;
 		return;
 	}
-	if(unlikely(!(expr_stdout_var=expr_bind(stdout,"w"))||!(expr_stderr_var=expr_bind(stderr,"w"))))
+	if(unlikely(!(expr_stdin_var=expr_bind(stdin,"rD"))||!(expr_stdout_var=expr_bind(stdout,"w"))||!(expr_stderr_var=expr_bind(stderr,"w"))))
 		warn_abort("expr-lc/setup","setup failed: cannot allocate memory of size=%zu",(size_t)BUFSIZ);
+	expr_stdin_var->iface=&expr_stdin_var;
 	expr_stdout_var->iface=&expr_stdout_var;
 	expr_stderr_var->iface=&expr_stderr_var;
 	if(unlikely(atexit(expr_global_atexit)))
@@ -177,14 +203,20 @@ static void expr_global_setup(void){
 	if(unlikely(!expr_setuped))\
 		expr_global_setup();\
 })
-struct expr_global_file **expr_stdout_get(void){
+struct expr_global_file *const *expr_stdin_get(void){
+	EXPR_GLOBAL_SETUP_CHECK();
+	return &expr_stdin_var;
+}
+struct expr_global_file *const *expr_stdout_get(void){
 	EXPR_GLOBAL_SETUP_CHECK();
 	return &expr_stdout_var;
 }
-struct expr_global_file **expr_stderr_get(void){
+struct expr_global_file *const *expr_stderr_get(void){
 	EXPR_GLOBAL_SETUP_CHECK();
 	return &expr_stderr_var;
 }
+#define VBUF_DYNAMIC ((size_t)EXPR_IMAXOU)
+
 #define expr_stdout (*expr_stdout_get())
 #define expr_stderr (*expr_stderr_get())
 int expr_setvbuf(struct expr_global_file *fp,void *buf,int mode,size_t size){
@@ -217,33 +249,41 @@ int expr_setvbuf(struct expr_global_file *fp,void *buf,int mode,size_t size){
 		fp->external=1;
 		goto end;
 	}
-#define FP_START \
+#define FP_START(dyn) \
 	if(fp->external){\
 		fp->buf->buf=NULL;\
 		fp->buf->index=0;\
-		fp->buf->length=0;\
+		fp->buf->length=(dyn);\
 		fp->buf->dynamic=0;\
 		fp->external=0;\
 	}
 	switch(mode){
 		case _IONBF:
-			FP_START;
+			FP_START(0);
 			if(expr_buffered_truncate(fp->buf,0)<0){
 				goto err;
 			}
 			fp->mode=expr_buffered_write_warped;
 			break;
 		case _IOLBF:
-			FP_START;
-			if(expr_buffered_truncate(fp->buf,size)<0){
-				goto err;
+			if(size>=VBUF_DYNAMIC){
+				FP_START(SIZE_MAX);
+			}else {
+				FP_START(0);
+				if(expr_buffered_truncate(fp->buf,size)<0){
+					goto err;
+				}
 			}
 			fp->mode=expr_buffered_write_iolbf_warped;
 			break;
 		case _IOFBF:
-			FP_START;
-			if(expr_buffered_truncate(fp->buf,size)<0){
-				goto err;
+			if(size>=VBUF_DYNAMIC){
+				FP_START(SIZE_MAX);
+			}else {
+				FP_START(0);
+				if(expr_buffered_truncate(fp->buf,size)<0){
+					goto err;
+				}
 			}
 			fp->mode=expr_buffered_write_warped;
 			break;
@@ -300,6 +340,15 @@ ssize_t expr_arrprintf(const char *format,const union expr_argf *restrict args,s
 	r=expr_farrprintf(expr_stdout,format,args,arglen);
 	return r;
 }
+ssize_t expr_fwrite(struct expr_global_file *fp,const void *buf,size_t size){
+	ssize_t r;
+	if(unlikely(!fp||!fp->write))
+		return (ssize_t)-EBADF;
+	expr_mutex_lock(fp->mutex);
+	r=expr_buffered_write(fp->buf,buf,size);
+	expr_mutex_unlock(fp->mutex);
+	return r;
+}
 ssize_t expr_fread(struct expr_global_file *fp,void *buf,size_t size){
 	ssize_t r;
 	if(unlikely(!fp||!fp->read))
@@ -309,10 +358,30 @@ ssize_t expr_fread(struct expr_global_file *fp,void *buf,size_t size){
 	expr_mutex_unlock(fp->mutex);
 	return r;
 }
+static void *memchr_warped(const void *buf,intptr_t c,size_t size){
+	return (void *)(uintptr_t)memchr(buf,(int)c,size);
+}
+const char *expr_freadline(struct expr_global_file *fp,size_t *outsize){
+	ssize_t r;
+	char *p;
+	if(unlikely(!fp||!fp->read||!fp->rbuf->dynamic)){
+		errno=EBADF;
+		return NULL;
+	}
+	expr_mutex_lock(fp->mutex);
+	r=expr_buffered_readline(fp->rbuf,memchr_warped,'\n',&p);
+	expr_mutex_unlock(fp->mutex);
+	if(r<0){
+		return NULL;
+	}
+	if(outsize)
+		*outsize=(size_t)r;
+	return p;
+}
 struct expr_global_file *expr_bind(void *stream,const char *mode){
 	struct expr_global_file *fp;
-	unsigned int r=0,w=0,b=0;
-	switch(*mode){
+	unsigned int r=0,w=0,b=0,d=0,dr=0;
+	for(;*mode;++mode)switch(*mode){
 		case 'r':
 			r=1;
 			break;
@@ -322,26 +391,18 @@ struct expr_global_file *expr_bind(void *stream,const char *mode){
 		case 'a':
 			w=1;
 			break;
-		default:
-			return NULL;
-	}
-	switch(mode[1]){
 		case 'b':
 			b=1;
-			switch(mode[2]){
-				case '+':
-					r=1;
-					w=1;
-					break;
-				default:
-					break;
-			}
+			break;
+		case 'd':
+			d=1;
+			break;
+		case 'D':
+			dr=1;
 			break;
 		case '+':
 			r=1;
 			w=1;
-			break;
-		case 0:
 			break;
 		default:
 			return NULL;
@@ -351,11 +412,11 @@ struct expr_global_file *expr_bind(void *stream,const char *mode){
 		goto err;
 	memset(fp,0,sizeof(struct expr_global_file));
 	if(r){
-		expr_buffered_init_r(fp->rbuf,global_read,(intptr_t)stream,NULL,0,expr_globalmtl);
+		expr_buffered_init_r(fp->rbuf,global_read,(intptr_t)stream,NULL,dr?SIZE_MAX:0,expr_globalmtl);
 		fp->read=1;
 	}
 	if(w){
-		expr_buffered_init_r(fp->buf,global_write,(intptr_t)stream,NULL,0,expr_globalmtl);
+		expr_buffered_init_r(fp->buf,global_write,(intptr_t)stream,NULL,d?SIZE_MAX:0,expr_globalmtl);
 		if(unlikely(expr_setvbuf(fp,NULL,b?_IOFBF:_IOLBF,BUFSIZ)<0))
 			goto err1;
 		fp->write=1;
@@ -378,42 +439,32 @@ err:
 struct expr_global_file *expr_open(const char *path,const char *mode){
 	FILE *stream;
 	struct expr_global_file *fp;
-	unsigned int r=0,w=0,b=0;
+	unsigned int r=0,w=0,b=0,d=0,dr=0;
 	char a[4];
-	switch(*mode){
+	a[0]=*mode;
+	a[1]='b';
+	for(;*mode;++mode)switch(*mode){
 		case 'r':
 			r=1;
-			a[0]='r';
 			break;
 		case 'w':
 			w=1;
-			a[0]='w';
 			break;
 		case 'a':
 			w=1;
-			a[0]='a';
 			break;
-		default:
-			return NULL;
-	}
-	a[1]='b';
-	switch(mode[1]){
 		case 'b':
 			b=1;
-			switch(mode[2]){
-				case '+':
-					r=1;
-					w=1;
-					break;
-				default:
-					break;
-			}
+			break;
+		case 'd':
+			d=1;
+			break;
+		case 'D':
+			dr=1;
 			break;
 		case '+':
 			r=1;
 			w=1;
-			break;
-		case 0:
 			break;
 		default:
 			return NULL;
@@ -432,11 +483,11 @@ struct expr_global_file *expr_open(const char *path,const char *mode){
 	memset(fp,0,sizeof(struct expr_global_file));
 	setvbuf((FILE *)stream,NULL,_IONBF,0);
 	if(r){
-		expr_buffered_init_r(fp->rbuf,global_read,(intptr_t)stream,NULL,0,expr_globalmtl);
+		expr_buffered_init_r(fp->rbuf,global_read,(intptr_t)stream,NULL,dr?SIZE_MAX:0,expr_globalmtl);
 		fp->read=1;
 	}
 	if(w){
-		expr_buffered_init_r(fp->buf,global_write,(intptr_t)stream,NULL,0,expr_globalmtl);
+		expr_buffered_init_r(fp->buf,global_write,(intptr_t)stream,NULL,d?SIZE_MAX:0,expr_globalmtl);
 		if(unlikely(expr_setvbuf(fp,NULL,b?_IOFBF:_IOLBF,BUFSIZ)<0))
 			goto err1;
 		fp->write=1;
@@ -515,14 +566,14 @@ ssize_t expr_file_readfd_r(expr_reader_t reader,intptr_t fd,size_t tail,void *sa
 }
 
 void expr_mutex_lock(uint32_t *lock){
-	debug("locking");
+	//debug("locking");
 #ifdef _MUTEX_H_
 	mutex_lock((mutex_t *)lock);
 #endif
 	return;
 }
 int expr_mutex_trylock(uint32_t *lock){
-	debug("trylocking");
+	//debug("trylocking");
 #ifdef _MUTEX_H_
 	return mutex_trylock((mutex_t *)lock);
 #else
@@ -530,7 +581,7 @@ int expr_mutex_trylock(uint32_t *lock){
 #endif
 }
 void expr_mutex_unlock(uint32_t *lock){
-	debug("unlocking");
+	//debug("unlocking");
 #ifdef _MUTEX_H_
 	mutex_unlock((mutex_t *)lock);
 #endif

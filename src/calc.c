@@ -60,17 +60,6 @@ double d_printc(double *args,size_t n){
 	r=expr_writec(io_mode_stdout,(intptr_t)&printff,(size_t)args[1],(int)args[0]);
 	return (double)r;
 }
-double d_sscanf(double *args,size_t n){
-	const char *s,*fmt;
-	size_t slen,flen;
-	if(expr_unlikely(n<2))
-		return 0;
-	s=expr_cast(*args,const char *);
-	fmt=expr_cast(args[1],const char *);
-	slen=strlen(s);
-	flen=strlen(fmt);
-	return (double)expr_sscanf(s,slen,fmt,flen,(void **)(args+2),n-2);
-}
 static void *memchr_warped(const void *buf,intptr_t c,size_t size){
 	return (void *)(uintptr_t)memchr(buf,(int)c,size);
 }
@@ -82,7 +71,7 @@ double d_scanf(double *args,size_t n){
 		return -1;
 	fmt=expr_cast(args[0],const char *);
 	flen=strlen(fmt);
-	return (double)expr_sscanf(s,slen,fmt,flen,(void **)(args+1),n-1);
+	return (double)expr_sscanf(s,slen,fmt,flen,(void *)(args+1),n-1);
 }
 //char prefix[PREFIX_SIZE]={[0 ... (PREFIX_SIZE-1)]=' '};
 unsigned long level=0;
@@ -712,11 +701,10 @@ break3:
 	expr_symset_add(es,"argc",EXPR_CONSTANT,0,(double)(argc-optind));
 	expr_symset_add(es,"argv",EXPR_CONSTANT,0,expr_cast(argv+optind,double));
 	expr_symset_add(es,"scanf",EXPR_MDFUNCTION,EXPR_SUNSAFE,d_scanf,(size_t)0);
-	expr_symset_add(es,"sscanf",EXPR_MDFUNCTION,EXPR_SUNSAFE,d_sscanf,(size_t)0);
 	expr_symset_add(es,"printl",EXPR_MDFUNCTION,EXPR_SUNSAFE,d_printl,(size_t)2);
 	expr_symset_add(es,"printc",EXPR_MDFUNCTION,EXPR_SUNSAFE,d_printc,(size_t)2);
 	if(adbt||!nobt)
-		expr_symset_addalls_builtin(es,expr_symbols_io,expr_symbols_ess);
+		expr_symset_addalls_builtin(es,expr_symbols_errno,expr_symbols_io,expr_symbols_ess);
 	if(expr_init8(ep,e,strlen(e),"t",1,es,flag|EXPR_ISCANCACHE|EXPR_IREMOVEBLANK,extarg)<0){
 		if(*ep->errinfo)
 			errx(EXIT_FAILURE,"expression error:%s \"%s\"",expr_error(ep->error),ep->errinfo);

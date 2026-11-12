@@ -1196,76 +1196,6 @@ out:
 	*outval=(ssize_t)(neg?-r:r);
 	return nptr;
 }
-static inline const char *internal_strtoz_x(const char *restrict nptr,const char *endp,ssize_t *restrict outval){
-	size_t r=0;
-	unsigned int get;
-	scannum(16);
-out:
-	debug("result:%zd",(ssize_t)r);
-	*outval=(ssize_t)r;
-	return nptr;
-}
-static inline const char *internal_strtoz_o(const char *restrict nptr,const char *endp,ssize_t *restrict outval){
-	size_t r=0;
-	unsigned int get;
-	scannum(8);
-out:
-	debug("result:%zd",(ssize_t)r);
-	*outval=(ssize_t)r;
-	return nptr;
-}
-static inline const char *internal_strtoz_oux(const char *restrict nptr,const char *endp,ssize_t *restrict outval,int allowneg){
-	const char *n0=nptr;
-	size_t r=0;
-	int neg=0,base=0;
-	unsigned int get;
-	if(allowneg&&nptr<endp&&*nptr=='-'){
-		++nptr;
-		neg=1;
-	}
-	if(nptr<endp&&*nptr=='0'){
-		++nptr;
-		if(nptr<endp&&*nptr=='x'){
-			++nptr;
-			base=2;
-		}else
-			base=1;
-	}
-	if(unlikely(nptr>=endp)){
-		debug("result:?");
-		return n0;
-	}
-	switch(base){
-		case 0:
-			if(unlikely((uint8_t)*nptr-(uint8_t)'0'>=(uint8_t)10))
-				return n0;
-			break;
-		case 1:
-			if(unlikely((uint8_t)*nptr-(uint8_t)'0'>=(uint8_t)8))
-				return n0;
-			break;
-		case 2:
-			if(unlikely(expr_ntable(*nptr)>=(uint8_t)16))
-				return n0;
-			break;
-		default:
-			__builtin_unreachable();
-	}
-	switch(base){
-		case 0:
-			scannum(10);
-		case 1:
-			scannum(8);
-		case 2:
-			scannum(16);
-		default:
-			__builtin_unreachable();
-	}
-out:
-	debug("result:%zd,nptr:%p",(ssize_t)(neg?-r:r),(void *)(uintptr_t)nptr);
-	*outval=(ssize_t)(neg?-r:r);
-	return nptr;
-}
 /*
 #define range_check(val,closed_min,open_max,onfalse) ({\
 	uintptr_t register __val=(uintptr_t)(val);\
@@ -2726,7 +2656,7 @@ static inline const char *internal_strtos(const char *nptr,const char *endp,cons
 	}
 	return nptr+outlen;
 }
-static const char *warped_strtof(const char *nptr,const char *endp,double *restrict outval,const struct expr_memtool *restrict mtl){
+static inline const char *warped_strtof(const char *nptr,const char *endp,double *restrict outval,const struct expr_memtool *restrict mtl){
 	size_t len;
 	double r;
 	r=expr_internal_strtod_mtl_force(nptr,(size_t)(endp-nptr),&len,mtl);
@@ -2735,19 +2665,93 @@ static const char *warped_strtof(const char *nptr,const char *endp,double *restr
 	*outval=r;
 	return nptr+len;
 }
-size_t expr_sscanf_r(const char *str,size_t len,const char *fmt,size_t fmtlen,void *const *addr,size_t addrlen,const struct expr_memtool *restrict mtl){
+static inline const char *internal_strtoz_x(const char *restrict nptr,const char *endp,expr_it *restrict outval){
+	expr_ut r=0;
+	unsigned int get;
+	scannum(16);
+out:
+	debug("result:%zd",(expr_it)r);
+	*outval=(expr_it)r;
+	return nptr;
+}
+static inline const char *internal_strtoz_o(const char *restrict nptr,const char *endp,expr_it *restrict outval){
+	expr_ut r=0;
+	unsigned int get;
+	scannum(8);
+out:
+	debug("result:%zd",(expr_it)r);
+	*outval=(expr_it)r;
+	return nptr;
+}
+static inline const char *internal_strtoz_oux(const char *restrict nptr,const char *endp,expr_it *restrict outval,int allowneg){
+	const char *n0=nptr;
+	expr_ut r=0;
+	int neg=0,base=0;
+	unsigned int get;
+	if(allowneg&&nptr<endp&&*nptr=='-'){
+		++nptr;
+		neg=1;
+	}
+	if(nptr<endp&&*nptr=='0'){
+		++nptr;
+		if(nptr<endp&&*nptr=='x'){
+			++nptr;
+			base=2;
+		}else
+			base=1;
+	}
+	if(unlikely(nptr>=endp)){
+		debug("result:?");
+		return n0;
+	}
+	switch(base){
+		case 0:
+			if(unlikely((uint8_t)*nptr-(uint8_t)'0'>=(uint8_t)10))
+				return n0;
+			break;
+		case 1:
+			if(unlikely((uint8_t)*nptr-(uint8_t)'0'>=(uint8_t)8))
+				return n0;
+			break;
+		case 2:
+			if(unlikely(expr_ntable(*nptr)>=(uint8_t)16))
+				return n0;
+			break;
+		default:
+			__builtin_unreachable();
+	}
+	switch(base){
+		case 0:
+			scannum(10);
+		case 1:
+			scannum(8);
+		case 2:
+			scannum(16);
+		default:
+			__builtin_unreachable();
+	}
+out:
+	debug("result:%zd,nptr:%p",(expr_it)(neg?-r:r),(void *)(uintptr_t)nptr);
+	*outval=(expr_it)(neg?-r:r);
+	return nptr;
+}
+size_t expr_sscanf_r(const char *str,size_t len,const char *fmt,size_t fmtlen,const union expr_argf *restrict args,size_t addrlen,const struct expr_memtool *restrict mtl){
 	const char *p,*str0=str,*fend=fmt+fmtlen,*end=str+len;
-	void *const *aend=addr+addrlen;
+	const union expr_argf *aend=args+addrlen;
 	void *a;
 	size_t r,n=0;
 	union {
 		ssize_t _zi;
 		size_t _zu;
+		expr_it _ei;
+		expr_ut _eu;
 		double _dbl;
 		char _ch;
 	} un;
 #define zu un._zu
 #define zi un._zi
+//#define eu un._eu
+#define ei un._ei
 #define dbl un._dbl
 #define ch un._ch
 next:
@@ -2770,7 +2774,7 @@ next:
 	}
 	++p;
 #define do_scan(scanner,write) \
-			if(unlikely(addr>=aend))\
+			if(unlikely(args>=aend))\
 				return n;\
 			fmt=p+1;\
 			fmtlen=(size_t)(fend-fmt);\
@@ -2779,8 +2783,8 @@ next:
 				return n;\
 			str=p;\
 			len=(size_t)(end-str);\
-			a=*addr;\
-			++addr;\
+			a=args->addr;\
+			++args;\
 			if(a){\
 				write;\
 			}\
@@ -2800,47 +2804,44 @@ next:
 			fmtlen=(size_t)(fend-fmt);
 			goto next;
 		case 'n':
-			if(unlikely(addr>=aend))
+			if(unlikely(args>=aend))
 				return n;
 			fmt=p+1;
 			fmtlen=(size_t)(fend-fmt);
-			a=*addr;
-			++addr;
+			a=args->addr;
+			++args;
 			if(a)
 				*(ssize_t *)a=str-str0;
 			++n;
 			goto next;
 		case 's':
-			if(unlikely(addr+1>=aend))
+			if(unlikely(args+1>=aend))
 				return n;
 			fmt=p+1;
 			fmtlen=(size_t)(fend-fmt);
 			p=(fmtlen?fmt:NULL);
-			str=internal_strtos(str,end,p,*addr,addr[1]);
-			addr+=2;
+			str=internal_strtos(str,end,p,args->addr,args[1].addr);
+			args+=2;
 			++n;
 			goto next;
 		case 'C':
-			do_scan(ch=*str;p=str+1,*(char *)a=ch);
-		case 'c':
 			do_scan(zi=(ssize_t)(unsigned char)*str;p=str+1,*(ssize_t *)a=zi);
+		case 'c':
+			do_scan(ch=*str;p=str+1,*(char *)a=ch);
 		case 'f':
 			do_scan(p=warped_strtof(str,end,&dbl,mtl),*(double *)a=dbl);
 		case 'd':
-			do_scan(p=internal_strtoz_oux(str,end,&zi,1),*(ssize_t *)a=zi);
+			do_scan(p=internal_strtoz_oux(str,end,&ei,1),*(expr_it *)a=ei);
 		case 'u':
-			do_scan(p=internal_strtoz_oux(str,end,&zi,0),*(ssize_t *)a=zi);
+			do_scan(p=internal_strtoz_oux(str,end,&ei,0),*(expr_it *)a=ei);
 		case 'x':
-			do_scan(p=internal_strtoz_x(str,end,&zi),*(ssize_t *)a=zi);
+			do_scan(p=internal_strtoz_x(str,end,&ei),*(expr_it *)a=ei);
 		case 'o':
-			do_scan(p=internal_strtoz_o(str,end,&zi),*(ssize_t *)a=zi);
+			do_scan(p=internal_strtoz_o(str,end,&ei),*(expr_it *)a=ei);
 		case 'm':
 			do_scan(p=internal_strtom_10(str,end,&zu),*(size_t *)a=zu);
 		default:
 			return n;
 	}
 }
-#undef zi
-#undef dbl
-#undef ch
 

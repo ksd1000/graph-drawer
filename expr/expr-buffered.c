@@ -164,7 +164,7 @@ ssize_t expr_buffered_write_warped(intptr_t fd,const void *buf,size_t size){
 	return expr_buffered_write((struct expr_buffered_file *)fd,buf,size);
 }
 ssize_t expr_buffered_read(struct expr_buffered_file *restrict fp,void *buf,size_t size,const struct expr_test *restrict test){
-	size_t i;
+	size_t i,s0;
 	ssize_t r;
 	if(unlikely(size>(size_t)SSIZE_MAX)){
 		if(size==SIZE_MAX){
@@ -175,14 +175,50 @@ ssize_t expr_buffered_read(struct expr_buffered_file *restrict fp,void *buf,size
 			return expr_buffered_rdropall(fp);
 		}
 	}
-	fp->flag&=~EXPR_BZERO;
-	/*
+	debug("start index=%zu",fp->index);
+#define try_copy() ({\
+	if(size){\
+		i=fp->index-fp->written;\
+		if(size<=i){\
+			memcpy(buf,fp->buf+fp->written,size);\
+			if(size==i){\
+				fp->written=0;\
+				fp->index=0;\
+			}else {\
+				fp->written+=size;\
+			}\
+			return (ssize_t)size;\
+		}\
+	}\
+})
+#define try_copy_read() ({\
+	if(size){\
+		i=fp->index-fp->written;\
+		if(size<=i){\
+			memcpy(buf,fp->buf+fp->written,size);\
+			if(size==i){\
+				fp->written=0;\
+				fp->index=0;\
+			}else {\
+				fp->written+=size;\
+			}\
+			return (ssize_t)size;\
+		}else {\
+			memcpy(buf,fp->buf+fp->written,i);\
+			fp->written=0;\
+			fp->index=0;\
+			return (ssize_t)i;\
+		}\
+	}\
+})
 	if(unlikely(fp->flag&EXPR_BZERO)){
 		debug("end index=%zu",fp->index);
+		try_copy_read();
 		return 0;
+	}else {
+		try_copy();
 	}
-	*/
-	debug("start index=%zu",fp->index);
+	//fp->flag&=~EXPR_BZERO;
 	while(fp->length<fp->dynamic){
 		void *p;
 		i=align(fp->length+BUFSIZE_INITIAL+EXTEND_FRAC(fp->length));
@@ -200,6 +236,7 @@ try_read_again:
 		debug("index=%zu length=%zu",fp->index,fp->length);
 		if(likely(r)){
 			p=fp->buf+fp->index;
+			debug("try read size=%zu",(size_t)r);
 			r=fp->reader(fp->fd,p,(size_t)r);
 			if(unlikely(r<0))
 				goto err;
@@ -218,6 +255,8 @@ try_read_again:
 			goto size_ok;
 		}else {
 			fp->index+=(size_t)r;
+			debug("try copy size=%zu i=%zu",size,fp->index-fp->written);
+			try_copy_read();
 			if(fp->index<fp->length)
 				goto try_read_again;
 		}
@@ -225,15 +264,20 @@ try_read_again:
 	if(!size){
 		i=fp->length-fp->index;
 		if(i){
+			debug("try read size=%zu",i);
 			r=fp->reader(fp->fd,fp->buf+fp->index,i);
 			if(unlikely(r<0))
 				goto err;
-			fp->index+=(size_t)r;
+			if(!r)
+				fp->flag|=EXPR_BZERO;
+			else
+				fp->index+=(size_t)r;
 		}
 		debug("end index=%zu",fp->index);
 		return 0;
 	}
 size_ok:
+	s0=size;
 	i=fp->index-fp->written;
 	if(i){
 		if(i>size){
@@ -254,36 +298,41 @@ size_ok:
 		buf+=i;
 		size-=i;
 	}
-	/*if(unlikely(fp->flag&EXPR_BZERO)){
+	if(unlikely(fp->flag&EXPR_BZERO)){
 		debug("end index=%zu",fp->index);
-		return 0;
-	}*/
+		return (ssize_t)(s0-size);
+	}
 	if(unlikely(fp->length<=size)){
 		debug("end index=%zu",fp->index);
 		r=fp->reader(fp->fd,buf,size);
 		if(unlikely(r<0))
 			goto err;
-		return r;
+		if(!r&&size){
+			fp->flag|=EXPR_BZERO;
+			return (ssize_t)(s0-size);
+		}
+		return (ssize_t)(s0-size)+r;
 	}
 	r=fp->reader(fp->fd,fp->buf,fp->length);
 	if(unlikely(r<0))
 		goto err;
 	if(!r){
+		fp->flag|=EXPR_BZERO;
 		debug("end index=%zu",fp->index);
-		return 0;
+		return (ssize_t)(s0-size);
 	}
 	if((size_t)r<=size){
 		debug("memcpy");
 		memcpy(buf,fp->buf,(size_t)r);
 		debug("end index=%zu",fp->index);
-		return r;
+		return (ssize_t)(s0-size)+r;
 	}
 	debug("memcpy");
 	memcpy(buf,fp->buf,size);
 	fp->index=(size_t)r;
 	fp->written=size;
 	debug("end index=%zu",fp->index);
-	return (ssize_t)size;
+	return (ssize_t)s0;
 err:
 	debug("error code:%zd",r);
 	CKPDM(r);

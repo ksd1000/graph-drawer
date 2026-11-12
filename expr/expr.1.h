@@ -130,6 +130,7 @@ expr_static_assert((size_t)SSIZE_MIN==(size_t)SSIZE_MAX+1);
 #define EXPR_ONE 1.0
 #define EXPR_TWO 2.0
 #define EXPR_IMAXO 9007199254740991.0
+#define EXPR_IMAXOU UINT64_C(0x433fffffffffffff)
 #define EXPR_EDBASE(d) (((union expr_double *)(d))->rd.base)
 #define EXPR_EDEXP(d) (((union expr_double *)(d))->rd.exp)
 #define EXPR_EDSIGN(d) (((union expr_double *)(d))->rd.sign)
@@ -1148,7 +1149,7 @@ expr_struct_mlist(struct expr_symlist,EXPR_SYMNEXT);
 #define expr_cast(x,type) \
 	({\
 		union {\
-			__typeof__(x) _x;\
+			__typeof__((__typeof__(x))(x)) _x;\
 			__typeof__(type) _o;\
 		} _cast_un;\
 		if(sizeof(__typeof__(type))>sizeof(__typeof__(x)))\

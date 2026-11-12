@@ -1587,10 +1587,61 @@ static double d_fprintf(double *args,size_t n){
 	r=expr_farrprintf(fp,fmt,(const union expr_argf *)args+2,n-2);
 	return (double)r;
 }
-double d_stdout(void){
+static double d_sscanf(double *args,size_t n){
+	const char *s,*fmt;
+	size_t slen,flen;
+	if(expr_unlikely(n<2))
+		return 0;
+	s=expr_cast(*args,const char *);
+	fmt=expr_cast(args[1],const char *);
+	slen=strlen(s);
+	flen=strlen(fmt);
+	return (double)expr_sscanf_r(s,slen,fmt,flen,(const union expr_argf *)args+2,n-2,expr_globalmtl);
+}
+static double d_freadline(double *args,size_t n){
+	struct expr_global_file *fp;
+	size_t *outsize;
+	fp=expr_cast(*args,struct expr_global_file *);
+	outsize=(n>1?expr_cast(args[1],size_t *):NULL);
+	return expr_cast(expr_freadline(fp,outsize),double);
+}
+static double d_fread(double *args,size_t n){
+	struct expr_global_file *fp;
+	void *buf;
+	ssize_t r;
+	fp=expr_cast(*args,struct expr_global_file *);
+	buf=expr_cast(args[1],void *);
+	n=(size_t)args[2];
+	r=expr_fread(fp,buf,n);
+	return (double)r;
+}
+static double d_fwrite(double *args,size_t n){
+	struct expr_global_file *fp;
+	const void *buf;
+	ssize_t r;
+	fp=expr_cast(*args,struct expr_global_file *);
+	buf=expr_cast(args[1],const void *);
+	n=(size_t)args[2];
+	r=expr_fwrite(fp,buf,n);
+	return (double)r;
+}
+static double d_setvbuf(double *args,size_t n){
+	struct expr_global_file *fp;
+	void *buf;
+	int mode;
+	fp=expr_cast(*args,struct expr_global_file *);
+	buf=expr_cast(args[1],void *);
+	mode=(int)args[2];
+	n=(size_t)args[3];
+	return (double)expr_setvbuf(fp,buf,mode,n);
+}
+static double d_stdin(void){
+	return expr_cast(*expr_stdin_get(),double);
+}
+static double d_stdout(void){
 	return expr_cast(*expr_stdout_get(),double);
 }
-double d_stderr(void){
+static double d_stderr(void){
 	return expr_cast(*expr_stderr_get(),double);
 }
 static double d_open(double *args,size_t n){
@@ -1609,9 +1660,19 @@ const struct expr_builtin_symbol expr_symbols_io[]={
 	REGMDSYM2_NIU("close",d_close,1),
 	REGMDSYM2_NIU("printf",d_printf,0),
 	REGMDSYM2_NIU("fprintf",d_fprintf,0),
+	REGMDSYM2_NIU("sscanf",d_sscanf,0),
+	REGMDSYM2_NIU("freadline",d_freadline,0),
+	REGMDSYM2_NIU("fread",d_fread,3),
+	REGMDSYM2_NIU("fwrite",d_fwrite,3),
+	REGMDSYM2_NIU("setvbuf",d_setvbuf,4),
+	REGZASYM2_U("getstdin",d_stdin),
 	REGZASYM2_U("getstdout",d_stdout),
 	REGZASYM2_U("getstderr",d_stderr),
+	REGMACRO("stdin","getstdin()"),
 	REGMACRO("stdout","getstdout()"),
 	REGMACRO("stderr","getstderr()"),
+	REGCSYM(_IONBF),
+	REGCSYM(_IOLBF),
+	REGCSYM(_IOFBF),
 	{.str=NULL}
 };

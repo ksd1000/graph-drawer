@@ -11,6 +11,21 @@
 #ifndef _EXPR_H_
 #define _EXPR_H_
 
+#if (defined(EXPR_INLIB)&&(EXPR_INLIB))
+#undef EXPR_BLOCKWARNING
+#undef EXPR_ENFORCE_GNU_SOURCE
+#define EXPR_BLOCKWARNING 1
+#define EXPR_ENFORCE_GNU_SOURCE 1
+#endif
+
+#ifndef _GNU_SOURCE
+#if defined(EXPR_ENFORCE_GNU_SOURCE)&&(EXPR_ENFORCE_GNU_SOURCE)
+#error "_GNU_SOURCE is not defined, when EXPR_ENFORCE_GNU_SOURCE=1."
+#elif !(defined(EXPR_NOCHECK_GNU_SOURCE)&&(EXPR_NOCHECK_GNU_SOURCE))
+#pragma message("_GNU_SOURCE is not defined. define it or set EXPR_NOCHECK_GNU_SOURCE=1 to silence this warning.")
+#endif
+#endif
+
 #ifdef __BEGIN_DECLS
 __BEGIN_DECLS
 #endif
@@ -576,6 +591,7 @@ extern size_t expr_allocate_max;
 
 #define expr_internal_strlen(s) ({const char *_s=(s);(size_t)((const char *)expr_internal_memchr2(_s,0)-_s);})
 
+#ifdef _GNU_SOURCE
 #define expr_globals_define() \
 size_t expr_allocate_max=(size_t)SSIZE_MAX;\
 void *expr_allocator_default(size_t size,intptr_t arg){\
@@ -602,6 +618,7 @@ struct expr_memtool expr_globalmtl[1]={{\
 	.deallocate=expr_deallocator_default,\
 	.arg=0,\
 }}
+#endif
 
 #if (defined(EXPR_SETJMP_IMPL)&&(EXPR_SETJMP_IMPL))
 #include <setjmp.h>
@@ -628,11 +645,6 @@ struct expr_internal_jmpbuf {
 	} un;
 	intptr_t *jb[1];
 };
-#endif
-
-
-#if (defined(EXPR_INLIB)&&(EXPR_INLIB))
-#define EXPR_BLOCKWARNING 1
 #endif
 
 #if (defined(EXPR_BLOCKWARNING)&&(EXPR_BLOCKWARNING))
@@ -813,6 +825,12 @@ expr_static_assert(!(NULL));
 
 #endif
 
+#ifdef _GNU_SOURCE
+
+#define expr_bswap(x,N) __builtin_bswap##N((uint##N##_t)(x))
+#define expr_bswap16(x) __builtin_bswap16(x)
+#define expr_bswap32(x) __builtin_bswap32(x)
+#define expr_bswap64(x) __builtin_bswap64(x)
 
 #if (defined(__LONG_WIDTH__)&&(__LONG_WIDTH__==64))
 #define expr_ctz64 __builtin_ctzl
@@ -862,6 +880,8 @@ expr_static_assert(!(NULL));
 #define expr_ctzz __builtin_ctzg
 #define expr_clzz __builtin_clzg
 #define expr_ffsz __builtin_ffsg
+#endif
+
 #endif
 
 enum expr_op {
@@ -1044,6 +1064,10 @@ expr_struct_mlist(struct expr_symlist,EXPR_SYMNEXT);
 #define EXPR_PUSH(_sp) (*(--(_sp)))
 #define EXPR_POP(_sp) (*((_sp)++))
 
+#define expr_combine0(A,B) A##B
+#define expr_combine(A,B) expr_combine0(A,B)
+#define expr_mstring(X) #X
+
 #define EXPR_BLANKS \
 		'\t':\
 		case '\r':\
@@ -1119,11 +1143,6 @@ expr_struct_mlist(struct expr_symlist,EXPR_SYMNEXT);
 	}\
 	_r;\
 })
-
-#define expr_bswap(x,N) __builtin_bswap##N((uint##N##_t)(x))
-#define expr_bswap16(x) __builtin_bswap16(x)
-#define expr_bswap32(x) __builtin_bswap32(x)
-#define expr_bswap64(x) __builtin_bswap64(x)
 
 #define expr_gcd2(__x,__y) ({\
 	expr_t _x,_y;\
@@ -1268,11 +1287,14 @@ expr_struct_mlist(struct expr_symlist,EXPR_SYMNEXT);
 #define expr_symbol_hotlen(_esp) ({const struct expr_symbol *__esp=(_esp);(size_t)__esp->length-(size_t)__esp->strlen-offsetof(struct expr_symbol,str)-2;})
 #define expr_symbol_un(_esp) ({const struct expr_symbol *__esp=(_esp);(union expr_symvalue *)(uintptr_t)(__esp->str+expr_align(__esp->strlen+1));})
 #define expr_symbol_dim(_esp) ({const struct expr_symbol *__esp=(_esp);(size_t *)(uintptr_t)(__esp->str+expr_align(expr_align(__esp->strlen+1)+sizeof(union expr_symvalue)));})
-#define expr_assume(cond) if(cond);else __builtin_unreachable()
-#define expr_likely(cond) __builtin_expect(!!(cond),1)
-#define expr_unlikely(cond) __builtin_expect(!!(cond),0)
 #define expr_static_castable(value,_type) ((void)sizeof(((int (*)(_type))NULL)(value)))
 #define EXPR_SYMSET_DEPTHUNIT (2*sizeof(void *))
+
+#ifdef _GNU_SOURCE
+
+#define expr_likely(cond) __builtin_expect(!!(cond),1)
+#define expr_unlikely(cond) __builtin_expect(!!(cond),0)
+#define expr_assume(cond) if(cond);else __builtin_unreachable()
 
 #define expr_symbol_foreach5(_sp,_esp,_stack,_atindex,_label) \
 	for(unsigned int __inloop_index=0;;({goto expr_combine(expr_symset_foreach_label_,_label);}))if(0){\
@@ -1300,13 +1322,11 @@ expr_struct_mlist(struct expr_symlist,EXPR_SYMNEXT);
 		}\
 	}))if(expr_likely(__inloop_index!=(_atindex)))continue;else
 
-#define expr_combine0(A,B) A##B
-#define expr_combine(A,B) expr_combine0(A,B)
-#define expr_mstring(X) #X
 #define expr_symbol_foreach4(_sp,_esp,_stack,_atindex) expr_symbol_foreach5(_sp,_esp,_stack,_atindex,__LINE__)
 #define expr_symset_foreach4(_sp,_esp,_stack,_atindex) expr_symbol_foreach4(_sp,(_esp)->syms,_stack,_atindex)
-
 #define expr_symset_foreach(_sp,_esp,_stack) expr_symset_foreach4(_sp,_esp,_stack,0)
+
+#endif
 
 #if __SIZEOF_POINTER__==8
 #define expr_mkval(c) expr_mkval64(c)
@@ -1321,9 +1341,10 @@ expr_struct_mlist(struct expr_symlist,EXPR_SYMNEXT);
 #define expr_mkval16(c) ((uint16_t)(uint8_t)(c))*UINT16_C(0x0101)
 #define expr_mkval32(c) ((uint32_t)(uint8_t)(c))*UINT32_C(0x01010101)
 #define expr_mkval64(c) ((uint64_t)(uint8_t)(c))*UINT64_C(0x0101010101010101)
+#ifdef _GNU_SOURCE
 expr_static_assert(__builtin_constant_p(expr_mkval(0)));
+#endif
 #define expr_internal_memset(buf,val,size) expr_internal_memset64(buf,expr_mkval(val),size)
-//#define expr_internal_memset(buf,val,size) ({if(__builtin_constant_p(val)&&!(val))expr_internal_memset64(buf,0,size);else expr_internal_memset64(buf,expr_mkval(val),size);})
 
 #define expr_fake_memrmem(buf,size,c,c_size) ({\
 	const char *___buf=(buf);\
@@ -2328,6 +2349,8 @@ struct expr_strtod_workspace {
 #define expr_internal_syscall_ncase_inswitch(dest,cast,num,a0,a1,a2,a3,a4,a5,a6) ((intptr_t)0)
 #pragma message("only 0-7 arguments syscall is supported")
 #endif
+
+#ifdef _GNU_SOURCE
 #define expr_internal_syscall_eval(dest,cast,N,num,a0,a1,a2,a3,a4,a5,a6) ({\
 	switch(N){\
 		expr_internal_syscall_ncase_inswitch(dest,cast,num,a0,a1,a2,a3,a4,a5,a6);\
@@ -2335,6 +2358,7 @@ struct expr_strtod_workspace {
 			__builtin_unreachable();\
 	}\
 })
+#endif
 
 #if (defined(EXPR_EVAL_MINSIZE)&&(EXPR_EVAL_MINSIZE))
 

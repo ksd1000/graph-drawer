@@ -2644,12 +2644,17 @@ static inline const char *internal_strtos(const char *nptr,const char *endp,cons
 	}
 	debug("outlen=%zu",outlen);
 	if(outval){
-		if(outlen>*outval)
-			outlen=*outval;
-		memcpy(out,nptr,outlen);
-		if(outlen<*outval){
-			out[outlen]=0;
-			*outval=outlen;
+		if(*outval){
+			if(outlen>*outval){
+				outlen=*outval;
+			}
+			memcpy(out,nptr,outlen);
+			if(outlen<*outval){
+				out[outlen]=0;
+				*outval=outlen;
+			}else {
+				out[outlen-1]=0;
+			}
 		}
 	}else {
 		memcpy(out,nptr,outlen);

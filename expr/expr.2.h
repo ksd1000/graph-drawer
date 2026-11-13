@@ -1,4 +1,3 @@
-
 #define expr_calc5_r(e,error,errinfo,esp,flag,mtl) ({\
 	const char *_e=(e);\
 	expr_calc6_r(_e,strlen(_e),error,errinfo,esp,flag,mtl);\

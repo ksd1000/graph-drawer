@@ -2748,7 +2748,6 @@ extern const struct expr_libinfo expr_libinfo_current[1];
 #define expr_builtin_symbol_convert(syms) expr_builtin_symbol_convert_r(syms,expr_defmtl)
 #define expr_sort4(v,n) expr_sort4_r(v,n,expr_defmtl)
 #define expr_file_readfd(reader,fd,tail,savep) expr_file_readfd_r(reader,fd,tail,savep,expr_defmtl)
-
 #define expr_calc5_r(e,error,errinfo,esp,flag,mtl) ({\
 	const char *_e=(e);\
 	expr_calc6_r(_e,strlen(_e),error,errinfo,esp,flag,mtl);\

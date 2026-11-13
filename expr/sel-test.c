@@ -1,4 +1,3 @@
-
 #define expr_internal_syscall_sel(_n,_0,_1,_2,_3,_4,_5,_6,_name,...) _name
 #define expr_internal_syscall(...) expr_internal_syscall_sel(__VA_ARGS__,expr_internal_syscall7,expr_internal_syscall6,expr_internal_syscall5,expr_internal_syscall4,expr_internal_syscall3,expr_internal_syscall2,expr_internal_syscall1,expr_internal_syscall0)(__VA_ARGS__)
 expr_internal_syscall();

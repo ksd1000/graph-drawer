@@ -4333,13 +4333,13 @@ static int expr_optimize_contmul(struct expr *restrict ep,enum expr_op op){
 						break;
 					case EXPR_GE:
 						sum=sum>=*ip1->un.src
-						||expr_equal(sum,*ip1->un.src)?
+						||expr_tequal(sum,*ip1->un.src)?
 							EXPR_ONE:
 							EXPR_ZERO;
 						break;
 					case EXPR_LE:
 						sum=sum<=*ip1->un.src
-						||expr_equal(sum,*ip1->un.src)?
+						||expr_tequal(sum,*ip1->un.src)?
 							EXPR_ONE:
 							EXPR_ZERO;
 						break;
@@ -4364,12 +4364,12 @@ static int expr_optimize_contmul(struct expr *restrict ep,enum expr_op op){
 							EXPR_ZERO;
 						break;
 					case EXPR_EQ:
-						sum=expr_equal(sum,*ip1->un.src)?
+						sum=expr_tequal(sum,*ip1->un.src)?
 							EXPR_ONE:
 							EXPR_ZERO;
 						break;
 					case EXPR_NE:
-						sum=!expr_equal(sum,*ip1->un.src)?
+						sum=!expr_tequal(sum,*ip1->un.src)?
 							EXPR_ONE:
 							EXPR_ZERO;
 						break;
@@ -5995,13 +5995,13 @@ int expr_optimize_recursive(struct expr *restrict ep){
 				break;\
 			case EXPR_GE:\
 				*ip->dst.dst=*ip->dst.dst>=*ip->un.src\
-				||expr_equal(*ip->dst.dst,*ip->un.src)?\
+				||expr_tequal(*ip->dst.dst,*ip->un.src)?\
 					EXPR_ONE:\
 					EXPR_ZERO;\
 				break;\
 			case EXPR_LE:\
 				*ip->dst.dst=*ip->dst.dst<=*ip->un.src\
-				||expr_equal(*ip->dst.dst,*ip->un.src)?\
+				||expr_tequal(*ip->dst.dst,*ip->un.src)?\
 					EXPR_ONE:\
 					EXPR_ZERO;\
 				break;\
@@ -6027,12 +6027,12 @@ int expr_optimize_recursive(struct expr *restrict ep){
 					EXPR_ZERO;\
 				break;\
 			case EXPR_EQ:\
-				*ip->dst.dst=expr_equal(*ip->dst.dst,*ip->un.src)?\
+				*ip->dst.dst=expr_tequal(*ip->dst.dst,*ip->un.src)?\
 					EXPR_ONE:\
 					EXPR_ZERO;\
 				break;\
 			case EXPR_NE:\
-				*ip->dst.dst=!expr_equal(*ip->dst.dst,*ip->un.src)?\
+				*ip->dst.dst=!expr_tequal(*ip->dst.dst,*ip->un.src)?\
 					EXPR_ONE:\
 					EXPR_ZERO;\
 				break;\

@@ -587,14 +587,14 @@ double expr_internal_strtod(const char *restrict nptr,size_t nsize,size_t *restr
 #endif
 expr_globals_define();
 
-__attribute__((noreturn)) void expr_explode(void){
+expr_noreturn void expr_explode(void){
 	expr_explode_r(expr_memcontract,expr_allocate_max,expr_defmtl);
 	warn_abort("expr-lc/memory-bomb","malloc(1) fails, cannot allocate more memory.");
 }
-__attribute__((noreturn)) void expr_trap(void){
+expr_noreturn void expr_trap(void){
 	__builtin_trap();
 }
-__attribute__((noreturn)) void expr_ubehavior(void){
+expr_noreturn void expr_ubehavior(void){
 	__builtin_unreachable();
 }
 static ssize_t zero_reader(intptr_t fd,void *buf,size_t size){

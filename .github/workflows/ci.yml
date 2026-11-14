@@ -129,3 +129,16 @@ jobs:
         run: cmake --build build --parallel
       - name: test
         run: ctest --test-dir build --output-on-failure --timeout 180
+
+  non-unix-header:
+    name: non-unix/header
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+      - name: start
+        shell: cmd
+        run: |
+          cl /W3 /Fe:test-header.exe /std:c11 /I expr test\test-header.c
+          test-header.exe
+

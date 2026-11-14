@@ -52,6 +52,9 @@ __BEGIN_DECLS
 #define expr_unlikely(cond) __builtin_expect(!!(cond),0)
 #define expr_assume(cond) if(cond);else __builtin_unreachable()
 #define expr_issigned(T) ((__typeof__(T))-1<(__typeof__(T))0)
+#define expr_estmt ({
+#define expr_estmt_end })
+// can only use for estmt with return type void
 
 #else
 
@@ -68,6 +71,8 @@ __BEGIN_DECLS
 #define expr_unlikely(cond) (!!(cond))
 #define expr_assume(cond) if(cond);else ((void)0)
 #define expr_issigned(T) ((T)-1<(T)0)
+#define expr_estmt do
+#define expr_estmt_end while(0)
 
 #endif /*_GNU_SOURCE*/
 
@@ -248,43 +253,41 @@ typedef struct expr_list expr_list_t[1];
 #define EXPR_LIST_POISONED_PREV EXPR_LIST_POISONED_FILL(0xcaf1)
 #define EXPR_LIST_INITIALIZER_POISONED {.next=EXPR_LIST_POISONED_NEXT,.prev=EXPR_LIST_POISONED_PREV}
 
-#ifdef _GNU_SOURCE
-
-#define expr_list_zero(node) ({\
+#define expr_list_zero(node) expr_estmt{\
 	struct expr_list *restrict _np=(node);\
 	_np->next=NULL;\
 	_np->prev=NULL;\
-})
-#define expr_list_ring(node) ({\
+}expr_estmt_end
+#define expr_list_ring(node) expr_estmt{\
 	struct expr_list *_np=(node);\
 	_np->next=_np;\
 	_np->prev=_np;\
-})
-#define expr_list_poison(node) ({\
+}expr_estmt_end
+#define expr_list_poison(node) expr_estmt{\
 	struct expr_list *_np=(node);\
 	_np->next=EXPR_LIST_POISONED_NEXT;\
 	_np->prev=EXPR_LIST_POISONED_PREV;\
-})
-#define expr_list_detach(node) ({\
+}expr_estmt_end
+#define expr_list_detach(node) expr_estmt{\
 	struct expr_list *_np=(node);\
 	if(_np->next)\
 		_np->next->prev=_np->prev;\
 	if(_np->prev)\
 		_np->prev->next=_np->next;\
-})
-#define expr_list_rdetach(node) ({\
+}expr_estmt_end
+#define expr_list_rdetach(node) expr_estmt{\
 	struct expr_list *_np=(node);\
 	_np->next->prev=_np->prev;\
 	_np->prev->next=_np->next;\
-})
-#define expr_list_detach_unlink(node) ({\
+}expr_estmt_end
+#define expr_list_detach_unlink(node) expr_estmt{\
 	struct expr_list *_np=(node);\
 	if(_np->next)\
 		_np->next->prev=NULL;\
 	if(_np->prev)\
 		_np->prev->next=NULL;\
-})
-#define expr_list_rdetach_unlink(node) ({\
+}expr_estmt_end
+#define expr_list_rdetach_unlink(node) expr_estmt{\
 	struct expr_list *_np=(node);\
 	if(_np->next!=_np){\
 		_np->next->prev=NULL;\
@@ -293,8 +296,8 @@ typedef struct expr_list expr_list_t[1];
 		_np->next=NULL;\
 		_np->prev=NULL;\
 	}\
-})
-#define expr_list_replace(old,new) ({\
+}expr_estmt_end
+#define expr_list_replace(old,new) expr_estmt{\
 	struct expr_list *_old=(old);\
 	struct expr_list *_new=(new);\
 	struct expr_list *_old_prev=(_old->prev);\
@@ -305,8 +308,8 @@ typedef struct expr_list expr_list_t[1];
 		_old_prev->next=_new;\
 	_new->next=_old_next;\
 	_new->prev=_old_prev;\
-})
-#define expr_list_rreplace(old,new) ({\
+}expr_estmt_end
+#define expr_list_rreplace(old,new) expr_estmt{\
 	struct expr_list *_old=(old);\
 	struct expr_list *_new=(new);\
 	struct expr_list *_old_next=(_old->next);\
@@ -321,10 +324,10 @@ typedef struct expr_list expr_list_t[1];
 		_new->next=_new;\
 		_new->prev=_new;\
 	}\
-})
+}expr_estmt_end
 // node->prev/next will not be set to NULL or itself, for it will usually be freed or be inserted to other list(that will be override).
 // use expr_list_[r]detach_(zero|ring)() if need this.
-#define expr_list_detach_zero(node) ({\
+#define expr_list_detach_zero(node) expr_estmt{\
 	struct expr_list *_np=(node);\
 	if(_np->next)\
 		_np->next->prev=_np->prev;\
@@ -332,8 +335,8 @@ typedef struct expr_list expr_list_t[1];
 		_np->prev->next=_np->next;\
 	_np->next=NULL;\
 	_np->prev=NULL;\
-})
-#define expr_list_detach_ring(node) ({\
+}expr_estmt_end
+#define expr_list_detach_ring(node) expr_estmt{\
 	struct expr_list *_np=(node);\
 	if(_np->next)\
 		_np->next->prev=_np->prev;\
@@ -341,8 +344,8 @@ typedef struct expr_list expr_list_t[1];
 		_np->prev->next=_np->next;\
 	_np->next=_np;\
 	_np->prev=_np;\
-})
-#define expr_list_detach_poison(node) ({\
+}expr_estmt_end
+#define expr_list_detach_poison(node) expr_estmt{\
 	struct expr_list *_np=(node);\
 	if(_np->next)\
 		_np->next->prev=_np->prev;\
@@ -350,52 +353,52 @@ typedef struct expr_list expr_list_t[1];
 		_np->prev->next=_np->next;\
 	_np->next=EXPR_LIST_POISONED_NEXT;\
 	_np->prev=EXPR_LIST_POISONED_PREV;\
-})
-#define expr_list_rdetach_zero(node) ({\
+}expr_estmt_end
+#define expr_list_rdetach_zero(node) expr_estmt{\
 	struct expr_list *_np=(node);\
 	_np->next->prev=_np->prev;\
 	_np->prev->next=_np->next;\
 	_np->next=NULL;\
 	_np->prev=NULL;\
-})
-#define expr_list_rdetach_ring(node) ({\
+}expr_estmt_end
+#define expr_list_rdetach_ring(node) expr_estmt{\
 	struct expr_list *_np=(node);\
 	_np->next->prev=_np->prev;\
 	_np->prev->next=_np->next;\
 	_np->next=_np;\
 	_np->prev=_np;\
-})
-#define expr_list_rdetach_poison(node) ({\
+}expr_estmt_end
+#define expr_list_rdetach_poison(node) expr_estmt{\
 	struct expr_list *_np=(node);\
 	_np->next->prev=_np->prev;\
 	_np->prev->next=_np->next;\
 	_np->next=EXPR_LIST_POISONED_NEXT;\
 	_np->prev=EXPR_LIST_POISONED_PREV;\
-})
-#define expr_list_link(tail,head) ({\
+}expr_estmt_end
+#define expr_list_link(tail,head) expr_estmt{\
 	struct expr_list *_tp=(tail);\
 	struct expr_list *_hp=(head);\
 	_tp->next=_hp;\
 	_hp->prev=_tp;\
-})
-#define expr_list_rlink(tail,head) ({\
+}expr_estmt_end
+#define expr_list_rlink(tail,head) expr_estmt{\
 	struct expr_list *_tp=(tail);\
 	struct expr_list *_hp=(head);\
 	_hp->prev->next=_tp->next;\
 	_tp->next->prev=_hp->prev;\
 	_tp->next=_hp;\
 	_hp->prev=_tp;\
-})
-#define expr_list_link_noside(tail,head) ({\
+}expr_estmt_end
+#define expr_list_link_noside(tail,head) expr_estmt{\
 	(tail)->next=(head);\
 	(head)->prev=(tail);\
-})
-#define expr_list_unlink(prev_node,next_node) ({\
+}expr_estmt_end
+#define expr_list_unlink(prev_node,next_node) expr_estmt{\
 	(prev_node)->next=NULL;\
 	(next_node)->prev=NULL;\
-})
+}expr_estmt_end
 // do not use api for ring to a unlinked ring
-#define expr_list_insert(list,node,mode,mirror_mode) ({\
+#define expr_list_insert(list,node,mode,mirror_mode) expr_estmt{\
 	struct expr_list *_lp=(list);\
 	struct expr_list *_np=(node);\
 	struct expr_list *_lp1;\
@@ -406,8 +409,8 @@ typedef struct expr_list expr_list_t[1];
 	_lp->mode=_np;\
 	_np->mirror_mode=_lp;\
 	_np->mode=_lp1;\
-})
-#define expr_list_rinsert(list,node,mode,mirror_mode) ({\
+}expr_estmt_end
+#define expr_list_rinsert(list,node,mode,mirror_mode) expr_estmt{\
 	struct expr_list *_lp=(list);\
 	struct expr_list *_np=(node);\
 	struct expr_list *_lp1;\
@@ -416,7 +419,17 @@ typedef struct expr_list expr_list_t[1];
 	_lp->mode=_np;\
 	_np->mirror_mode=_lp;\
 	_np->mode=_lp1;\
-})
+}expr_estmt_end
+
+#define expr_list_insert_prev(list,node) expr_list_insert(list,node,prev,next)
+#define expr_list_insert_next(list,node) expr_list_insert(list,node,next,prev)
+// note that expr_list_insert_prev() inserts the node to the prev of list, not to the tail for a non-ring list.
+
+#define expr_list_rinsert_prev(list,node) expr_list_rinsert(list,node,prev,next)
+#define expr_list_rinsert_next(list,node) expr_list_rinsert(list,node,next,prev)
+
+#ifdef _GNU_SOURCE
+
 // assuming node is not in list before call
 #define expr_list_isempty(node) ({\
 	const struct expr_list *restrict _np=(node);\
@@ -554,13 +567,6 @@ typedef struct expr_list expr_list_t[1];
 	expr_list_unlink(_tp,_np);\
 	_tp;\
 })
-
-#define expr_list_insert_prev(list,node) expr_list_insert(list,node,prev,next)
-#define expr_list_insert_next(list,node) expr_list_insert(list,node,next,prev)
-// note that expr_list_insert_prev() inserts the node to the prev of list, not to the tail for a non-ring list.
-
-#define expr_list_rinsert_prev(list,node) expr_list_rinsert(list,node,prev,next)
-#define expr_list_rinsert_next(list,node) expr_list_rinsert(list,node,next,prev)
 
 #define expr_list_foreach0_ro(var,list,mode) for(__typeof__(*(list)) *var=(list);var;var=var->mode)
 #define expr_list_foreach0_rw(var,list,mode) for(__typeof__(*(list)) *var=(list),*__inloop_cache=var->mode;var;var=__inloop_cache,({if(__inloop_cache)__inloop_cache=__inloop_cache->mode;}))
@@ -1700,8 +1706,7 @@ struct expr_buffered_file {
 	.unused=0,\
 }
 #define EXPR_BUFFERED_INITIALIZER(_wrer,_fd,_buf,_len) EXPR_BUFFERED_INITIALIZER_R(_wrer,_fd,_buf,_len,expr_defmtl)
-#ifdef _GNU_SOURCE
-#define expr_buffered_init_r(fp,_wrer,_fd,_buf,_len,_mtl) ({\
+#define expr_buffered_init_r(fp,_wrer,_fd,_buf,_len,_mtl) expr_estmt{\
 	struct expr_buffered_file *___fp=(fp);\
 	___fp->uaddr=(const void *)(uintptr_t)(_wrer);\
 	___fp->fd=(_fd);\
@@ -1716,15 +1721,16 @@ struct expr_buffered_file {
 	___fp->index=0;\
 	___fp->written=0;\
 	___fp->flag=0;\
-})
+}expr_estmt_end
 #define expr_buffered_init(fp,_wrer,_fd,_buf,_len) expr_buffered_init_r(fp,_wrer,_fd,_buf,_len,expr_defmtl)
 #define expr_buffered_drop(fp) ((fp)->index=0)
-#define expr_buffered_rdrop(fp) ({\
+#define expr_buffered_rdrop(fp) expr_estmt{\
 	struct expr_buffered_file *___fp=(fp);\
 	___fp->index=0;\
 	___fp->written=0;\
-})
+}expr_estmt_end
 
+#ifdef _GNU_SOURCE
 #define expr_buffered_ainit_r(fp,_len,_mtl) ({\
 	struct expr_buffered_file *___fp=(fp);\
 	___fp->mtl=(_mtl);\
@@ -2120,7 +2126,7 @@ struct expr_pool {
 	int flag,unused;
 };
 #ifdef _GNU_SOURCE
-#define expr_pool_init(pool,allocate,deallocate,arg,area_size,area_flag) ({\
+#define expr_pool_init(pool,allocate,deallocate,arg,area_size,area_flag) expr_estmt{\
 	struct expr_pool *_pool=(pool);\
 	_pool->head=NULL;\
 	_pool->tail=NULL;\
@@ -2129,7 +2135,7 @@ struct expr_pool {
 	_pool->sys_arg=(arg);\
 	_pool->allocate_size=(area_size);\
 	_pool->flag=(area_flag);\
-})
+}expr_estmt_end
 #endif /*_GNU_SOURCE*/
 
 #define EXPR_POOL_INITIALIZER(pool,allocate,deallocate,arg,area_size,area_flag) {\

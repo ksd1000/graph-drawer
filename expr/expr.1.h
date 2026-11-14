@@ -658,11 +658,6 @@ extern struct expr_memtool expr_defmtl[1];
 extern struct expr_memtool expr_globalmtl[1];
 extern size_t expr_allocate_max;
 
-
-#ifdef _GNU_SOURCE
-
-#define expr_internal_strlen(s) ({const char *_s=(s);(size_t)((const char *)expr_internal_memchr2(_s,0)-_s);})
-
 #define expr_globals_define() \
 size_t expr_allocate_max=(size_t)SSIZE_MAX;\
 void *expr_allocator_default(size_t size,intptr_t arg){\
@@ -689,6 +684,10 @@ struct expr_memtool expr_globalmtl[1]={{\
 	.deallocate=expr_deallocator_default,\
 	.arg=0,\
 }}
+
+#ifdef _GNU_SOURCE
+
+#define expr_internal_strlen(s) ({const char *_s=(s);(size_t)((const char *)expr_internal_memchr2(_s,0)-_s);})
 
 #endif /*_GNU_SOURCE*/
 
@@ -1668,9 +1667,6 @@ struct expr_finst {
 		};
 	};
 };
-
-#define expr_ilprintf(fd,fmt,...) expr_idwprintf(expr_buffered_write_iolbf_warped,fd,fmt,##__VA_ARGS__)
-#define expr_idwprintf(writer,fd,fmt,...) expr_apwritef(writer,(intptr_t)(fd),fmt,sizeof(fmt)-1,##__VA_ARGS__)
 
 #define EXPR_BZERO 1
 #define EXPR_BTRUNC 2

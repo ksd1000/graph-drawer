@@ -658,11 +658,6 @@ extern struct expr_memtool expr_defmtl[1];
 extern struct expr_memtool expr_globalmtl[1];
 extern size_t expr_allocate_max;
 
-
-#ifdef _GNU_SOURCE
-
-#define expr_internal_strlen(s) ({const char *_s=(s);(size_t)((const char *)expr_internal_memchr2(_s,0)-_s);})
-
 #define expr_globals_define() \
 size_t expr_allocate_max=(size_t)SSIZE_MAX;\
 void *expr_allocator_default(size_t size,intptr_t arg){\
@@ -689,6 +684,10 @@ struct expr_memtool expr_globalmtl[1]={{\
 	.deallocate=expr_deallocator_default,\
 	.arg=0,\
 }}
+
+#ifdef _GNU_SOURCE
+
+#define expr_internal_strlen(s) ({const char *_s=(s);(size_t)((const char *)expr_internal_memchr2(_s,0)-_s);})
 
 #endif /*_GNU_SOURCE*/
 
@@ -1668,9 +1667,6 @@ struct expr_finst {
 		};
 	};
 };
-
-#define expr_ilprintf(fd,fmt,...) expr_idwprintf(expr_buffered_write_iolbf_warped,fd,fmt,##__VA_ARGS__)
-#define expr_idwprintf(writer,fd,fmt,...) expr_apwritef(writer,(intptr_t)(fd),fmt,sizeof(fmt)-1,##__VA_ARGS__)
 
 #define EXPR_BZERO 1
 #define EXPR_BTRUNC 2
@@ -2816,30 +2812,45 @@ extern const struct expr_libinfo expr_libinfo_current[1];
 #define expr_vwriteft(writer,fd,fmt,fmtlen,arg,addr,table) expr_vwriteft_r(writer,fd,fmt,fmtlen,arg,addr,table,expr_defmtl)
 #define expr_writeft(writer,fd,fmt,fmtlen,args,arglen,table) expr_writeft_r(writer,fd,fmt,fmtlen,args,arglen,table,expr_defmtl)
 #define expr_vapwriteft(writer,fd,fmt,fmtlen,table,ap) expr_vapwriteft_r(writer,fd,fmt,fmtlen,table,expr_defmtl,ap)
+#ifdef _GNU_SOURCE
 #define expr_apwriteft(writer,fd,fmt,fmtlen,table,...) expr_apwriteft_r(writer,fd,fmt,fmtlen,table,expr_defmtl,##__VA_ARGS__)
+#endif
 #define expr_snwriteft(buf,buflen,fmt,fmtlen,args,arglen,table) expr_snwriteft_r(buf,buflen,fmt,fmtlen,args,arglen,table,expr_defmtl)
 #define expr_vsnprintft(buf,buflen,fmt,fmtlen,table,ap) expr_vsnprintft_r(buf,buflen,fmt,fmtlen,table,expr_defmtl,ap)
+#ifdef _GNU_SOURCE
 #define expr_snprintft(buf,buflen,fmt,fmtlen,table,...) expr_snprintft_r(buf,buflen,fmt,fmtlen,table,expr_defmtl,##__VA_ARGS__)
+#endif
 #define expr_mkinstft(fip,fmt,fmtlen,table,flag) expr_mkinstft_r(fip,fmt,fmtlen,table,flag,expr_defmtl)
 #define expr_ifree(fip) expr_ifree_r(fip,expr_defmtl)
 #define expr_vwritei(writer,fd,fip,arg,addr) expr_vwritei_r(writer,fd,fip,arg,addr,expr_defmtl)
 #define expr_writei(writer,fd,fip,args,arglen) expr_writei_r(writer,fd,fip,args,arglen,expr_defmtl)
 #define expr_vapwritei(writer,fd,fip,ap) expr_vapwritei_r(writer,fd,fip,expr_defmtl,ap)
+#ifdef _GNU_SOURCE
 #define expr_apwritei(writer,fd,fip,...) expr_apwritei_r(writer,fd,fip,expr_defmtl,##__VA_ARGS__)
+#endif
 #define expr_snwritei(buf,buflen,fip,args,arglen) expr_snwritei_r(buf,buflen,fip,args,arglen,expr_defmtl)
 #define expr_vsnprinti(buf,buflen,fip,ap) expr_vsnprinti_r(buf,buflen,fip,expr_defmtl,ap)
+#ifdef _GNU_SOURCE
 #define expr_snprinti(buf,buflen,fip,...) expr_snprinti_r(buf,buflen,fip,expr_defmtl,##__VA_ARGS__)
+#endif
 #define expr_sscanf(str,len,fmt,fmtlen,args,addrlen) expr_sscanf_r(str,len,fmt,fmtlen,args,addrlen,expr_defmtl)
 #define expr_symset_init(esp) expr_symset_init_r(esp,expr_defmtl)
 #define expr_symset_new() expr_symset_new_r(expr_defmtl)
+#ifdef _GNU_SOURCE
 #define expr_symbol_create(sym,type,flag,...) expr_symbol_create_r(sym,type,flag,expr_defmtl,##__VA_ARGS__)
+#endif
+#ifdef _GNU_SOURCE
 #define expr_symbol_createl(sym,symlen,type,flag,...) expr_symbol_createl_r(sym,symlen,type,flag,expr_defmtl,##__VA_ARGS__)
+#endif
 #define expr_symbol_vcreate(sym,type,flag,ap) expr_symbol_vcreate_r(sym,type,flag,expr_defmtl,ap)
 #define expr_symbol_vcreatel(sym,symlen,type,flag,ap) expr_symbol_vcreatel_r(sym,symlen,type,flag,expr_defmtl,ap)
+#ifdef _GNU_SOURCE
 #define expr_builtin_symbol_converts(syms,...) expr_builtin_symbol_converts_r(expr_defmtl,syms,##__VA_ARGS__)
+#endif
 #define expr_builtin_symbol_convert(syms) expr_builtin_symbol_convert_r(syms,expr_defmtl)
 #define expr_sort4(v,n) expr_sort4_r(v,n,expr_defmtl)
 #define expr_file_readfd(reader,fd,tail,savep) expr_file_readfd_r(reader,fd,tail,savep,expr_defmtl)
+
 #ifdef _GNU_SOURCE
 
 #define expr_calc5_r(e,error,errinfo,esp,flag,mtl) ({\

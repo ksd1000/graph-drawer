@@ -733,6 +733,9 @@ break3:
 		if(show_result!=0.0)
 			printdouble(r);
 	}
+#define expr_ilprintf(fd,fmt,...) expr_idwprintf(expr_buffered_write_iolbf_warped,fd,fmt,##__VA_ARGS__)
+#define expr_idwprintf(writer,fd,fmt,...) expr_apwritef(writer,(intptr_t)(fd),fmt,sizeof(fmt)-1,##__VA_ARGS__)
+
 #define printi(V) expr_ilprintf(&eprintff,#V "=%d\n",(ssize_t)(V))
 #define printz(V) expr_ilprintf(&eprintff,#V "=%=.2M,",(size_t)(ai.V))
 #define printn(V) expr_ilprintf(&eprintff,#V "=%u,",(size_t)(ai.V))

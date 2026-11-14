@@ -12,6 +12,8 @@
 #include <syscall.h>
 #include "expr.h"
 #define strlen expr_internal_strlen
+#define expr_ilprintf(fd,fmt,...) expr_idwprintf(expr_buffered_write_iolbf_warped,fd,fmt,##__VA_ARGS__)
+#define expr_idwprintf(writer,fd,fmt,...) expr_apwritef(writer,(intptr_t)(fd),fmt,sizeof(fmt)-1,##__VA_ARGS__)
 ssize_t warped_write(intptr_t fd,const void *buf,size_t size){
 	return (ssize_t)expr_internal_syscall(SYS_write,fd,buf,size);
 }

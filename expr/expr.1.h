@@ -77,6 +77,8 @@ __BEGIN_DECLS
 #endif /*_GNU_SOURCE*/
 
 #define expr_static_assert(cond) _Static_assert((cond),"static assertion " #cond " failed")
+#define expr_static_castable(value,_type) ((void)sizeof(((int (*)(_type))0)(value)))
+#define expr_sizeofa(arr) (sizeof(arr)/sizeof(*(arr)))
 
 expr_static_assert((!0)==1);
 expr_static_assert((1||1)==1);
@@ -237,15 +239,14 @@ struct expr_test {
 	intptr_t arg;
 };
 
-#define expr_headcheck(T,field) expr_static_assert(!offsetof(T,field))
-// avoid the compiler pads before the head field.
-
 struct expr_list {
 	struct expr_list *next;
 	struct expr_list *prev;
 };
-typedef struct expr_list expr_list_t[1];
 // place next before prev, for faster when travel through.
+#if !(defined(EXPR_INLIB)&&(EXPR_INLIB))
+typedef struct expr_list expr_list_t[1];
+#endif
 
 #define EXPR_LIST_INITIALIZER {.next=NULL,.prev=NULL}
 #define EXPR_LIST_POISONED_FILL(low) ((struct expr_list *)((UINTPTR_MAX&(uintptr_t)~(uintptr_t)0xffffu)|((uintptr_t)(low)&(uintptr_t)(0xffffu))))
@@ -264,7 +265,7 @@ typedef struct expr_list expr_list_t[1];
 	_np->prev=_np;\
 }expr_estmt_end
 #define expr_list_poison(node) expr_estmt{\
-	struct expr_list *_np=(node);\
+	struct expr_list *restrict _np=(node);\
 	_np->next=EXPR_LIST_POISONED_NEXT;\
 	_np->prev=EXPR_LIST_POISONED_PREV;\
 }expr_estmt_end
@@ -610,7 +611,7 @@ struct_name {\
 
 #ifdef _GNU_SOURCE
 
-#define expr_mlist_next(T) ((sizeof(__typeof__(T))-offsetof(__typeof__(T),next))/sizeof(__typeof__(T) *))
+#define expr_mlist_next(T) expr_sizeofa(((__typeof__(T) *)0)->next)
 #define expr_mlist_zero(list) memset((list),0,sizeof(*(list)))
 #define expr_mlist_link(list,__tail) ({\
 	__typeof__(*(list)) *_list=(list);\
@@ -638,13 +639,23 @@ expr_struct_mlist(struct expr_vmlist,);
 
 #ifdef _GNU_SOURCE
 
-#define expr_host0(addr,T) ((__typeof__(T) *)(uintptr_t)(addr))
+#define expr_headcheck(T,field) expr_static_assert(!offsetof(__typeof__(T),field))
+// avoid the compiler pads before the head field.
+
+#define expr_host0(addr,T) (expr_static_castable(addr,const struct expr_list *),((__typeof__(T) *)(uintptr_t)(addr)))
 // avoid the compiler does not remove the minus(-) by 0 when offsetof()==0, use expr_headcheck before it.
-#define expr_host(addr,T,field) ((__typeof__(T) *)((uintptr_t)(addr)-offsetof(__typeof__(T),field)))
+
+#define expr_host(addr,T,field) (expr_static_castable(addr,const struct expr_list *),((__typeof__(T) *)((uintptr_t)(addr)-offsetof(__typeof__(T),field))))
 #define expr_autohost(addr,T,field) (offsetof(__typeof__(T),field)?({\
-	uintptr_t _addr=(uintptr_t)(addr);\
+	const struct expr_list *_addr=(addr);\
 	expr_likely(_addr)?expr_host(_addr,T,field):(__typeof__(T) *)NULL;\
 }):expr_host0(addr,T))
+
+#else
+
+#define expr_headcheck(T,field) expr_static_assert(!offsetof(T,field))
+#define expr_host0(addr,T) (expr_static_castable(addr,const struct expr_list *),((T *)(uintptr_t)(addr)))
+#define expr_host(addr,T,field) (expr_static_castable(addr,const struct expr_list *),((T *)((uintptr_t)(addr)-offsetof(T,field))))
 
 #endif /*_GNU_SOURCE*/
 
@@ -861,7 +872,7 @@ expr_static_assert(!(NULL));
 
 #define likely(cond) expr_likely(cond)
 #define unlikely(cond) expr_unlikely(cond)
-#define arrsize(arr) (sizeof(arr)/sizeof(*arr))
+#define arrsize(arr) expr_sizeofa(arr)
 #define align(x) expr_align(x)
 #define align_up(x) expr_align_up(x)
 #define assume(cond) expr_assume(cond)
@@ -1268,7 +1279,6 @@ expr_struct_mlist(struct expr_symlist,EXPR_SYMNEXT);
 #define EXPR_ALIGN (sizeof(void *))
 #define EXPR_MAGIC48_A UINT64_C(0x5deece66d)
 #define EXPR_MAGIC48_B UINT64_C(0xb)
-#define expr_static_castable(value,_type) ((void)sizeof(((int (*)(_type))NULL)(value)))
 #define EXPR_SYMSET_DEPTHUNIT (2*sizeof(void *))
 
 #ifdef _GNU_SOURCE

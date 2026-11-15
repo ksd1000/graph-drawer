@@ -6,12 +6,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 expr_globals_define();
+struct test_list {
+	void *data;
+	expr_list_t n;
+};
 int main(void){
-	struct expr_list l[1];
-	struct expr_list l1[1];
-	expr_list_poison(l);
-	expr_list_zero(l);
-	expr_list_ring(l);
-	expr_list_rinsert_next(l,l1);
+	struct test_list l[1];
+	struct test_list l1[1];
+	struct test_list *p;
+	expr_list_poison(l->n);
+	expr_list_zero(l->n);
+	expr_list_ring(l->n);
+	expr_list_rinsert_next(l->n,l1->n);
+	p=expr_host(l1->n,struct test_list,n);
+	expr_list_detach(p->n);
 	printf("header test in non-GNU mode ok.\n");
 }

@@ -31,3 +31,8 @@ kmalloc() and fpu_\*() was added for testing libexpr later, under the guidance o
 
 The syscall number and the register order may agree not with Linux. A correct syscall number of current platform and rearranged arguments accroding to current platform are required. Or build with -DEXPR\_NOSYSCALL=1 (-DCMAKE\_C\_FLAGS="-DEXPR\_NOSYSCALL=1") if the feature is not required.
 
+## Why the version of Graph Drawer does not follow the law of SemVer?
+
+The author had never heard of the law of SemVer (until 2026-11-06).
+It may be followed in version after 2.0.0 in future.
+

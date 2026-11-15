@@ -240,6 +240,7 @@ gcc example.c -I ../graph-drawer/expr expr/libexpr-lc.a expr/libexpr.a -lm -o ex
 ## Speed
 About 2610% slower than native C.
 Tested by test/speedtest.c
+*By the way, the expr\_snprintf()/expr\_snprinti() is 212%/73% slower than libc snprintf()*
 
 ## Compare with other expr libs
 

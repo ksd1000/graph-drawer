@@ -822,8 +822,10 @@ expr_static_assert(!(NULL));
 #define pow expr_internal_pow
 #endif
 
+#if !(defined(EXPR_LIBC_FABS_IMPL)&&(EXPR_LIBC_FABS_IMPL))
 #undef fabs
 #define fabs expr_internal_fabs
+#endif
 
 #if !(defined(EXPR_LIBC_STRING_IMPL)&&(EXPR_LIBC_STRING_IMPL))
 #undef memchr
@@ -896,7 +898,32 @@ expr_static_assert(!(NULL));
 #define le32(x) expr_le(x,32)
 #define le64(x) expr_le(x,64)
 
-#endif
+#define REGZASYM(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.zafunc=s},.type=EXPR_ZAFUNCTION,.flag=0}
+#define REGZASYM_U(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.zafunc=s},.type=EXPR_ZAFUNCTION,.flag=EXPR_SUNSAFE}
+#define REGFSYM(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.func=s},.type=EXPR_FUNCTION,.flag=EXPR_SPURE}
+#define REGFSYM_U(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.func=s},.type=EXPR_FUNCTION,.flag=EXPR_SPURE|EXPR_SUNSAFE}
+#define REGCSYM(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.value=(double)(s)},.type=EXPR_CONSTANT}
+#define REGCSYM_E(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.value=(double)(EXPR_##s)},.type=EXPR_CONSTANT}
+#define REGFSYM2(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SPURE}
+#define REGFSYM2_NI(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SUNSAFE}
+#define REGFSYM2_U(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SPURE|EXPR_SUNSAFE}
+#define REGFSYM2_NIU(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SUNSAFE}
+#define REGFSYM2_UA(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SALLOWADDR|EXPR_SUNSAFE}
+#define REGZASYM2(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.zafunc=sym},.type=EXPR_ZAFUNCTION,.flag=0}
+#define REGZASYM2_U(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.zafunc=sym},.type=EXPR_ZAFUNCTION,.flag=EXPR_SUNSAFE}
+#define REGMDSYM2(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdfunc=sym},.dim=d,.type=EXPR_MDFUNCTION,.flag=EXPR_SPURE}
+#define REGMDSYM2_U(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdfunc=sym},.dim=d,.type=EXPR_MDFUNCTION,.flag=EXPR_SPURE|EXPR_SUNSAFE}
+#define REGMDSYM2_NIU(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdfunc=sym},.dim=d,.type=EXPR_MDFUNCTION,.flag=EXPR_SUNSAFE}
+#define REGMDSYM2_NI(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdfunc=sym},.dim=d,.type=EXPR_MDFUNCTION,.flag=0}
+#define REGMDEPSYM2(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdepfunc=sym},.dim=d,.type=EXPR_MDEPFUNCTION,.flag=EXPR_SPURE}
+#define REGMDEPSYM2_NI(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdepfunc=sym},.dim=d,.type=EXPR_MDEPFUNCTION,.flag=EXPR_SUNSAFE}
+#define REGMDEPSYM2_U(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdepfunc=sym},.dim=d,.type=EXPR_MDEPFUNCTION,.flag=EXPR_SPURE|EXPR_SUNSAFE}
+#define REGMDEPSYM2_NIW(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdepfunc=sym},.dim=d,.type=EXPR_MDEPFUNCTION,.flag=EXPR_SWRITEIP|EXPR_SUNSAFE}
+#define REGCSYM2(s,val) {.strlen=sizeof(s)-1,.str=s,.un={.value=(double)(val)},.type=EXPR_CONSTANT}
+#define REGPACK(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.bsyms=expr_symbols_##s},.type=EXPR_CONSTANT,.flag=EXPR_SPACKAGE}
+#define REGMACRO(s,target) {.strlen=sizeof(s)-1,.str=s,.un={.hot=target},.type=EXPR_ALIAS,.flag=EXPR_SPURE|EXPR_SWRITEIP,.dim=sizeof(target)-1}
+
+#endif /*EXPR_INLIB*/
 
 #ifdef _GNU_SOURCE
 
@@ -2543,16 +2570,16 @@ int expr_setup_heapmtl4(struct expr_memtool *restrict mtl,void *heap,size_t size
 //global externs of expr-alloc.c :
 //global functions of expr-buffered.c :
 ssize_t expr_buffered_write(struct expr_buffered_file *restrict fp,const void *buf,size_t size);
-ssize_t expr_buffered_write_warped(intptr_t fd,const void *buf,size_t size);
+ssize_t expr_buffered_write_wrapped(intptr_t fd,const void *buf,size_t size);
 ssize_t expr_buffered_read(struct expr_buffered_file *restrict fp,void *buf,size_t size,const struct expr_test *restrict test);
-ssize_t expr_buffered_read_warped(intptr_t fd,void *buf,size_t size);
+ssize_t expr_buffered_read_wrapped(intptr_t fd,void *buf,size_t size);
 ssize_t expr_buffered_write_flushatc(struct expr_buffered_file *restrict fp,const void *buf,size_t size,int c);
 ssize_t expr_buffered_write_flushatt(struct expr_buffered_file *restrict fp,const void *buf,size_t size,expr_test_t test,intptr_t arg);
 ssize_t expr_buffered_write_flushat(struct expr_buffered_file *restrict fp,const void *buf,size_t size,const void *c,size_t c_size);
 ssize_t expr_buffered_write_sflushatc(struct expr_buffered_file *restrict fp,const void *buf,size_t size,int c);
 ssize_t expr_buffered_write_sflushatt(struct expr_buffered_file *restrict fp,const void *buf,size_t size,expr_test_t test,intptr_t arg);
 ssize_t expr_buffered_write_sflushat(struct expr_buffered_file *restrict fp,const void *buf,size_t size,const void *c,size_t c_size);
-ssize_t expr_buffered_write_sync_warped(intptr_t fd,const void *buf,size_t size);
+ssize_t expr_buffered_write_sync_wrapped(intptr_t fd,const void *buf,size_t size);
 ssize_t expr_buffered_flush(struct expr_buffered_file *restrict fp);
 ssize_t expr_buffered_rdropall(struct expr_buffered_file *restrict fp);
 ssize_t expr_buffered_close(struct expr_buffered_file *restrict fp);
@@ -2560,7 +2587,7 @@ void expr_buffered_rclose(struct expr_buffered_file *restrict fp);
 ssize_t expr_buffered_truncate(struct expr_buffered_file *restrict fp,size_t size);
 ssize_t expr_buffered_rtruncate(struct expr_buffered_file *restrict fp,size_t size);
 ssize_t expr_buffered_readline(struct expr_buffered_file *restrict fp,expr_test_t test,intptr_t c,void *savep);
-ssize_t expr_buffered_write_iolbf_warped(intptr_t fd,const void *buf,size_t size);
+ssize_t expr_buffered_write_iolbf_wrapped(intptr_t fd,const void *buf,size_t size);
 //global externs of expr-buffered.c :
 //global functions of expr-core.c :
 const char *expr_error(int error);
@@ -2597,7 +2624,7 @@ ssize_t expr_vwriteft_r(expr_writer_t writer,intptr_t fd,const char *restrict fm
 ssize_t expr_writeft_r(expr_writer_t writer,intptr_t fd,const char *restrict fmt,size_t fmtlen,const union expr_argf *restrict args,size_t arglen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl);
 ssize_t expr_vapwriteft_r(expr_writer_t writer,intptr_t fd,const char *restrict fmt,size_t fmtlen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl,va_list ap);
 ssize_t expr_apwriteft_r(expr_writer_t writer,intptr_t fd,const char *restrict fmt,size_t fmtlen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl,...);
-ssize_t expr_memfd_write_warped(intptr_t fd,const void *buf,size_t size);
+ssize_t expr_memfd_write_wrapped(intptr_t fd,const void *buf,size_t size);
 ssize_t expr_snwriteft_r(char *buf,size_t buflen,const char *restrict fmt,size_t fmtlen,const union expr_argf *restrict args,size_t arglen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl);
 ssize_t expr_vsnprintft_r(char *buf,size_t buflen,const char *restrict fmt,size_t fmtlen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl,va_list ap);
 ssize_t expr_snprintft_r(char *buf,size_t buflen,const char *restrict fmt,size_t fmtlen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl,...);
@@ -2610,7 +2637,7 @@ ssize_t expr_apwritei_r(expr_writer_t writer,intptr_t fd,const struct expr_finst
 ssize_t expr_snwritei_r(char *buf,size_t buflen,const struct expr_finst *restrict fip,const union expr_argf *restrict args,size_t arglen,const struct expr_memtool *restrict mtl);
 ssize_t expr_vsnprinti_r(char *buf,size_t buflen,const struct expr_finst *restrict fip,const struct expr_memtool *restrict mtl,va_list ap);
 ssize_t expr_snprinti_r(char *buf,size_t buflen,const struct expr_finst *restrict fip,const struct expr_memtool *restrict mtl,...);
-ssize_t expr_dmemfd_write_warped(intptr_t fd,const void *buf,size_t size);
+ssize_t expr_dmemfd_write_wrapped(intptr_t fd,const void *buf,size_t size);
 size_t expr_sscanf_r(const char *str,size_t len,const char *fmt,size_t fmtlen,const union expr_argf *restrict args,size_t addrlen,const struct expr_memtool *restrict mtl);
 //global externs of expr-format.c :
 extern const struct expr_ftable expr_ftable_default[1];
@@ -2762,7 +2789,6 @@ double expr_or2(double x,double y);
 double expr_xor2(double x,double y);
 double expr_not(double x);
 //global externs of expr-builtin.c :
-extern const struct expr_builtin_symbol expr_symbols_default[];
 extern const struct expr_builtin_symbol expr_symbols_packages[];
 extern const struct expr_builtin_symbol expr_symbols_expr[];
 extern const struct expr_builtin_symbol expr_symbols_common[];
@@ -2771,7 +2797,6 @@ extern const struct expr_builtin_symbol expr_symbols_memory[];
 extern const struct expr_builtin_symbol expr_symbols_symset[];
 extern const struct expr_builtin_symbol expr_symbols_string[];
 extern const struct expr_builtin_symbol expr_symbols_errno[];
-extern const struct expr_builtin_symbol expr_symbols_io[];
 //global functions of expr-global.c :
 int expr_close(struct expr_global_file *fp);
 struct expr_global_file *const *expr_stdin_get(void);
@@ -2798,20 +2823,24 @@ int expr_mutex_trylock(uint32_t *lock);
 void expr_mutex_unlock(uint32_t *lock);
 void expr_mutex_spinlock(uint32_t *lock);
 void expr_mutex_spinunlock(uint32_t *lock);
-intptr_t expr_warped_syscall0(int num);
-intptr_t expr_warped_syscall1(int num,intptr_t a0);
-intptr_t expr_warped_syscall2(int num,intptr_t a0,intptr_t a1);
-intptr_t expr_warped_syscall3(int num,intptr_t a0,intptr_t a1,intptr_t a2);
-intptr_t expr_warped_syscall4(int num,intptr_t a0,intptr_t a1,intptr_t a2,intptr_t a3);
-intptr_t expr_warped_syscall5(int num,intptr_t a0,intptr_t a1,intptr_t a2,intptr_t a3,intptr_t a4);
-intptr_t expr_warped_syscall6(int num,intptr_t a0,intptr_t a1,intptr_t a2,intptr_t a3,intptr_t a4,intptr_t a5);
-intptr_t expr_warped_syscall7(int num,intptr_t a0,intptr_t a1,intptr_t a2,intptr_t a3,intptr_t a4,intptr_t a5,intptr_t a6);
+intptr_t expr_wrapped_syscall0(int num);
+intptr_t expr_wrapped_syscall1(int num,intptr_t a0);
+intptr_t expr_wrapped_syscall2(int num,intptr_t a0,intptr_t a1);
+intptr_t expr_wrapped_syscall3(int num,intptr_t a0,intptr_t a1,intptr_t a2);
+intptr_t expr_wrapped_syscall4(int num,intptr_t a0,intptr_t a1,intptr_t a2,intptr_t a3);
+intptr_t expr_wrapped_syscall5(int num,intptr_t a0,intptr_t a1,intptr_t a2,intptr_t a3,intptr_t a4);
+intptr_t expr_wrapped_syscall6(int num,intptr_t a0,intptr_t a1,intptr_t a2,intptr_t a3,intptr_t a4,intptr_t a5);
+intptr_t expr_wrapped_syscall7(int num,intptr_t a0,intptr_t a1,intptr_t a2,intptr_t a3,intptr_t a4,intptr_t a5,intptr_t a6);
 int expr_setup_mtl(int flag);
 void *expr_heapmtl_malloc_nonnull(size_t size,intptr_t arg);
 void *expr_heapmtl_realloc_nonnull(void *old,size_t size,intptr_t arg);
 int expr_setup_heapmtl4_nonnull(struct expr_memtool *restrict mtl,void *heap,size_t size,int flag);
 //global externs of expr-global.c :
 extern const struct expr_libinfo expr_libinfo_current[1];
+extern const struct expr_builtin_symbol expr_symbols_io[];
+//global functions of expr-lcmin.c :
+//global externs of expr-lcmin.c :
+extern const struct expr_builtin_symbol expr_symbols_default[];
 
 #ifdef __END_DECLS
 __END_DECLS
@@ -2888,7 +2917,7 @@ __END_DECLS
 	const struct expr_memtool *restrict _mtl=(mtl);\
 	ssize_t _r;\
 	if(expr_likely(!expr_buffered_ainit_r(_fp,SIZE_MAX,_mtl))){\
-		_r=expr_writeft_r(expr_buffered_write_warped,(intptr_t)_fp,fmt,fmtlen,args,arglen,table,_mtl);\
+		_r=expr_writeft_r(expr_buffered_write_wrapped,(intptr_t)_fp,fmt,fmtlen,args,arglen,table,_mtl);\
 		if(expr_likely(_r>=0)){\
 			((char *)_fp->buf)[_r]=0;\
 		/* buffer expands if the writer touches its limit*/\
@@ -2909,7 +2938,7 @@ __END_DECLS
 	const struct expr_memtool *restrict _mtl=(mtl);\
 	ssize_t _r;\
 	if(expr_likely(!expr_buffered_ainit_r(_fp,SIZE_MAX,_mtl))){\
-		_r=called(expr_buffered_write_warped,(intptr_t)_fp,fmt,fmtlen,table,_mtl,##__VA_ARGS__);\
+		_r=called(expr_buffered_write_wrapped,(intptr_t)_fp,fmt,fmtlen,table,_mtl,##__VA_ARGS__);\
 		if(expr_likely(_r>=0)){\
 			((char *)_fp->buf)[_r]=0;\
 		/* buffer expands if the writer touches its limit*/\

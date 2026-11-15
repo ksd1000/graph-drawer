@@ -1959,7 +1959,7 @@ ssize_t expr_apwriteft_r(expr_writer_t writer,intptr_t fd,const char *restrict f
 	return r;
 }
 
-ssize_t expr_memfd_write_warped(intptr_t fd,const void *buf,size_t size){
+ssize_t expr_memfd_write_wrapped(intptr_t fd,const void *buf,size_t size){
 	struct expr_memfd *restrict mfd=(struct expr_memfd *)fd;
 	size_t old_size;
 	if(unlikely(size>(ssize_t)SSIZE_MAX)){
@@ -1984,7 +1984,7 @@ ssize_t expr_snwriteft_r(char *buf,size_t buflen,const char *restrict fmt,size_t
 	mfd->size=buflen;
 	wa->base=args;
 	wa->arglen=arglen;
-	r=expr_vwriteft_r(expr_memfd_write_warped,((intptr_t)mfd),fmt,fmtlen,arr_arg,(intptr_t)wa,table,mtl);
+	r=expr_vwriteft_r(expr_memfd_write_wrapped,((intptr_t)mfd),fmt,fmtlen,arr_arg,(intptr_t)wa,table,mtl);
 	if(unlikely(r<0))
 		return r;
 	if(unlikely((size_t)r>=buflen)){
@@ -2009,7 +2009,7 @@ ssize_t expr_snwriteft_r(char *buf,size_t buflen,const char *restrict fmt,size_t
 			buf[r]=0;\
 		return r;\
 	}
-#define writer expr_memfd_write_warped
+#define writer expr_memfd_write_wrapped
 #define fd ((intptr_t)mfd)
 ssize_t expr_vsnprintft_r(char *buf,size_t buflen,const char *restrict fmt,size_t fmtlen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl,va_list ap){
 	sp_common(va_copy(a->ap,ap),va_end(a->ap),table);
@@ -2023,7 +2023,7 @@ ssize_t expr_snprintft_r(char *buf,size_t buflen,const char *restrict fmt,size_t
 
 #define opcheck(p) ((p)->op==EXPR_FIMM||((p)->op==EXPR_FCTL&&(p)->fmtc_code==EXPR_FMTC_FPH))
 #define opti_write(_buf,sz) ({\
-	r=expr_dmemfd_write_warped((intptr_t)dmfd,_buf,sz);\
+	r=expr_dmemfd_write_wrapped((intptr_t)dmfd,_buf,sz);\
 	if(unlikely(r<0)){\
 		if(dmfd->buf)\
 			xfree(dmfd->buf);\
@@ -2541,7 +2541,7 @@ ssize_t expr_snwritei_r(char *buf,size_t buflen,const struct expr_finst *restric
 	mfd->size=buflen;
 	wa->base=args;
 	wa->arglen=arglen;
-	r=expr_vwritei_r(expr_memfd_write_warped,((intptr_t)mfd),fip,arr_arg,(intptr_t)wa,mtl);
+	r=expr_vwritei_r(expr_memfd_write_wrapped,((intptr_t)mfd),fip,arr_arg,(intptr_t)wa,mtl);
 	if(unlikely(r<0))
 		return r;
 	if(unlikely((size_t)r>=buflen)){
@@ -2566,7 +2566,7 @@ ssize_t expr_snwritei_r(char *buf,size_t buflen,const struct expr_finst *restric
 			buf[r]=0;\
 		return r;\
 	}
-#define writer expr_memfd_write_warped
+#define writer expr_memfd_write_wrapped
 #define fd ((intptr_t)mfd)
 ssize_t expr_vsnprinti_r(char *buf,size_t buflen,const struct expr_finst *restrict fip,const struct expr_memtool *restrict mtl,va_list ap){
 	isp_common(va_copy(a->ap,ap),va_end(a->ap),table);
@@ -2579,7 +2579,7 @@ ssize_t expr_snprinti_r(char *buf,size_t buflen,const struct expr_finst *restric
 
 #undef xmtl
 #define xmtl dmfd->mtl
-ssize_t expr_dmemfd_write_warped(intptr_t fd,const void *buf,size_t size){
+ssize_t expr_dmemfd_write_wrapped(intptr_t fd,const void *buf,size_t size){
 	struct expr_memfd_dynamic *restrict dmfd=(struct expr_memfd_dynamic *)fd;
 	size_t ava;
 	if(unlikely(size>(ssize_t)SSIZE_MAX)){
@@ -2672,7 +2672,7 @@ static inline const char *internal_strtos(const char *nptr,const char *endp,cons
 	}
 	return nptr+outlen;
 }
-static inline const char *warped_strtof(const char *nptr,const char *endp,double *restrict outval,const struct expr_memtool *restrict mtl){
+static inline const char *wrapped_strtof(const char *nptr,const char *endp,double *restrict outval,const struct expr_memtool *restrict mtl){
 	size_t len;
 	double r;
 	r=expr_internal_strtod_mtl_force(nptr,(size_t)(endp-nptr),&len,mtl);
@@ -2845,7 +2845,7 @@ next:
 		case 'c':
 			do_scan(ch=*str;p=str+1,*(char *)a=ch);
 		case 'f':
-			do_scan(p=warped_strtof(str,end,&dbl,mtl),*(double *)a=dbl);
+			do_scan(p=wrapped_strtof(str,end,&dbl,mtl),*(double *)a=dbl);
 		case 'd':
 			do_scan(p=internal_strtoz_oux(str,end,&ei,1),*(expr_it *)a=ei);
 		case 'u':

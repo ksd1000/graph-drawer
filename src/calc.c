@@ -48,7 +48,7 @@ static void __attribute__((destructor)) ffend(void){
 	expr_buffered_close(&printff);
 	//expr_setup_mtl(0);
 }
-expr_writer_t io_mode_stdout=expr_buffered_write_iolbf_warped;
+expr_writer_t io_mode_stdout=expr_buffered_write_iolbf_wrapped;
 double d_printl(double *args,size_t n){
 	size_t len=(size_t)args[1];
 	ssize_t r;
@@ -60,13 +60,13 @@ double d_printc(double *args,size_t n){
 	r=expr_writec(io_mode_stdout,(intptr_t)&printff,(size_t)args[1],(int)args[0]);
 	return (double)r;
 }
-static void *memchr_warped(const void *buf,intptr_t c,size_t size){
+static void *memchr_wrapped(const void *buf,intptr_t c,size_t size){
 	return (void *)(uintptr_t)memchr(buf,(int)c,size);
 }
 double d_scanf(double *args,size_t n){
 	const char *s,*fmt;
 	size_t slen,flen;
-	slen=(size_t)expr_buffered_readline(&scanff,memchr_warped,'\n',&s);
+	slen=(size_t)expr_buffered_readline(&scanff,memchr_wrapped,'\n',&s);
 	if(expr_unlikely((ssize_t)slen<0))
 		return -1;
 	fmt=expr_cast(args[0],const char *);
@@ -689,7 +689,7 @@ break3:
 	if(!notty)
 		notty=!isatty(STDOUT_FILENO);
 	if(notty)
-		io_mode_stdout=expr_buffered_write_warped;
+		io_mode_stdout=expr_buffered_write_wrapped;
 	es=expr_symset_new();
 	if(!es)
 		err(EXIT_FAILURE,"cannot allocate memory");
@@ -733,7 +733,7 @@ break3:
 		if(show_result!=0.0)
 			printdouble(r);
 	}
-#define expr_ilprintf(fd,fmt,...) expr_idwprintf(expr_buffered_write_iolbf_warped,fd,fmt,##__VA_ARGS__)
+#define expr_ilprintf(fd,fmt,...) expr_idwprintf(expr_buffered_write_iolbf_wrapped,fd,fmt,##__VA_ARGS__)
 #define expr_idwprintf(writer,fd,fmt,...) expr_apwritef(writer,(intptr_t)(fd),fmt,sizeof(fmt)-1,##__VA_ARGS__)
 
 #define printi(V) expr_ilprintf(&eprintff,#V "=%d\n",(ssize_t)(V))

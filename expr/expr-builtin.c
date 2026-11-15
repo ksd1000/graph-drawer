@@ -1145,114 +1145,7 @@ double expr_xor2(double x,double y){
 double expr_not(double x){
 	return not(x);
 }
-//#define REGSYM(s) {#s,s}
-//#define REGZASYM(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.zafunc=s},.type=EXPR_ZAFUNCTION,.flag=0}
-//#define REGZASYM_U(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.zafunc=s},.type=EXPR_ZAFUNCTION,.flag=EXPR_SUNSAFE}
-#define REGFSYM(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.func=s},.type=EXPR_FUNCTION,.flag=EXPR_SPURE}
-//#define REGFSYM_U(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.func=s},.type=EXPR_FUNCTION,.flag=EXPR_SPURE|EXPR_SUNSAFE}
-#define REGCSYM(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.value=(double)(s)},.type=EXPR_CONSTANT}
-#define REGCSYM_E(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.value=(double)(EXPR_##s)},.type=EXPR_CONSTANT}
-#define REGFSYM2(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SPURE}
-#define REGFSYM2_NI(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SUNSAFE}
-#define REGFSYM2_U(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SPURE|EXPR_SUNSAFE}
-//#define REGFSYM2_NIU(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SUNSAFE}
-#define REGFSYM2_UA(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.func=sym},.type=EXPR_FUNCTION,.flag=EXPR_SALLOWADDR|EXPR_SUNSAFE}
-//#define REGZASYM2(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.zafunc=sym},.type=EXPR_ZAFUNCTION,.flag=0}
-#define REGZASYM2_U(s,sym) {.strlen=sizeof(s)-1,.str=s,.un={.zafunc=sym},.type=EXPR_ZAFUNCTION,.flag=EXPR_SUNSAFE}
-#define REGMDSYM2(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdfunc=sym},.dim=d,.type=EXPR_MDFUNCTION,.flag=EXPR_SPURE}
-#define REGMDSYM2_U(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdfunc=sym},.dim=d,.type=EXPR_MDFUNCTION,.flag=EXPR_SPURE|EXPR_SUNSAFE}
-#define REGMDSYM2_NIU(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdfunc=sym},.dim=d,.type=EXPR_MDFUNCTION,.flag=EXPR_SUNSAFE}
-//#define REGMDSYM2_NI(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdfunc=sym},.dim=d,.type=EXPR_MDFUNCTION,.flag=0}
-#define REGMDEPSYM2(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdepfunc=sym},.dim=d,.type=EXPR_MDEPFUNCTION,.flag=EXPR_SPURE}
-#define REGMDEPSYM2_NI(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdepfunc=sym},.dim=d,.type=EXPR_MDEPFUNCTION,.flag=EXPR_SUNSAFE}
-#define REGMDEPSYM2_U(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdepfunc=sym},.dim=d,.type=EXPR_MDEPFUNCTION,.flag=EXPR_SPURE|EXPR_SUNSAFE}
-#define REGMDEPSYM2_NIW(s,sym,d) {.strlen=sizeof(s)-1,.str=s,.un={.mdepfunc=sym},.dim=d,.type=EXPR_MDEPFUNCTION,.flag=EXPR_SWRITEIP|EXPR_SUNSAFE}
-#define REGCSYM2(s,val) {.strlen=sizeof(s)-1,.str=s,.un={.value=(double)(val)},.type=EXPR_CONSTANT}
-const struct expr_builtin_symbol expr_symbols_default[]={
-	REGCSYM(DBL_MAX),
-	REGCSYM(DBL_MIN),
-#ifdef DBL_TRUE_MIN
-	REGCSYM(DBL_TRUE_MIN),
-#else
-	REGCSYM2("DBL_TRUE_MIN",4.9406564584124654e-324),
-#endif
-	REGCSYM(DBL_EPSILON),
 
-
-	REGCSYM(FLT_MAX),
-	REGCSYM(FLT_MIN),
-	REGCSYM(FLT_EPSILON),
-	REGCSYM(HUGE_VAL),
-	REGCSYM(HUGE_VALF),
-	REGCSYM(INFINITY),
-	REGCSYM(NAN),
-	REGCSYM2("NULL",(double)(uintptr_t)NULL),
-	REGCSYM2("1_pi",M_1_PI),
-	REGCSYM2("2_pi",M_2_PI),
-	REGCSYM2("2_sqrtpi",M_2_SQRTPI),
-	REGCSYM2("C",0.577215664901532860606512090082402431042),
-	REGCSYM2("e",M_E),
-	REGCSYM2("log2e",M_LOG2E),
-	REGCSYM2("log10e",M_LOG10E),
-	REGCSYM2("ln2",M_LN2),
-	REGCSYM2("ln10",M_LN10),
-	REGCSYM2("pi",M_PI),
-	REGCSYM2("pi_2",M_PI_2),
-	REGCSYM2("pi_4",M_PI_4),
-	REGCSYM2("sqrt2",M_SQRT2),
-	REGCSYM2("sqrt1_2",M_SQRT1_2),
-	REGCSYM2("DBL_SHIFT",(double)ctz64(sizeof(double))),
-	REGCSYM2("DBL_SIZE",(double)sizeof(double)),
-	REGFSYM2("abs",fabs),
-	REGFSYM(acos),
-	REGFSYM(acosh),
-	REGFSYM2("arccos",acos),
-	REGFSYM2("arcosh",acosh),
-	REGFSYM2("asdouble",expr_asdouble),
-	REGFSYM2("asint",expr_asint),
-	REGFSYM2("asuint",expr_asuint),
-	REGFSYM(asin),
-	REGFSYM(asinh),
-	REGFSYM2("arcsin",asin),
-	REGFSYM2("arsinh",asinh),
-	REGFSYM(atan),
-	REGFSYM(atanh),
-	REGFSYM2("arctan",atan),
-	REGFSYM2("artanh",atanh),
-	REGFSYM(cbrt),
-	REGFSYM(ceil),
-	REGFSYM(cos),
-	REGFSYM(cosh),
-	REGFSYM(erf),
-	REGFSYM(exp),
-	REGFSYM(exp2),
-	REGFSYM(expm1),
-	REGFSYM(fabs),
-	REGFSYM(floor),
-	REGFSYM(j0),
-	REGFSYM(j1),
-	REGFSYM(lgamma),
-	REGFSYM(log),
-	REGFSYM2("ln",log),
-	REGFSYM(log10),
-	REGFSYM(log1p),
-	REGFSYM(log2),
-	REGFSYM(logb),
-	REGFSYM(nearbyint),
-	REGFSYM(rint),
-	REGFSYM(round),
-	REGFSYM(sin),
-	REGFSYM(sinh),
-	REGFSYM(sqrt),
-	REGFSYM(tan),
-	REGFSYM(tanh),
-	REGFSYM(tgamma),
-	REGFSYM(trunc),
-	REGFSYM(y0),
-	REGFSYM(y1),
-	{.str=NULL}
-};
-#define REGPACK(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.bsyms=expr_symbols_##s},.type=EXPR_CONSTANT,.flag=EXPR_SPACKAGE}
 const struct expr_builtin_symbol expr_symbols_packages[]={
 	REGPACK(default),
 	REGPACK(expr),
@@ -1276,6 +1169,7 @@ const struct expr_builtin_symbol expr_symbols_expr[]={
 	REGCSYM_E(IUNSAFE),
 	REGCSYM_E(INOSHRINK),
 	REGCSYM_E(ISCANCACHE),
+	REGCSYM_E(IABSORBSYMSET),
 	REGCSYM_E(IEXTEND_MASK),
 	REGCSYM_E(ISETABLE),
 
@@ -1303,6 +1197,8 @@ const struct expr_builtin_symbol expr_symbols_expr[]={
 	REGCSYM_E(EVZP),
 	REGCSYM_E(EANT),
 	REGCSYM_E(EUDE),
+	REGCSYM_E(EREC),
+
 	REGCSYM2("INSTLEN",(double)sizeof(struct expr_inst)),
 	REGCSYM2("IPP_OFF",(double)offsetof(struct expr,ipp)),
 	REGCSYM2("SIZE_OFF",(double)offsetof(struct expr,size)),
@@ -1429,6 +1325,10 @@ const struct expr_builtin_symbol expr_symbols_common[]={
 	REGMDEPSYM2("root",expr_root,0),
 	REGMDEPSYM2("root2",expr_root2,0),
 	REGMDEPSYM2("rooti",expr_rooti,0),
+
+	REGFSYM2("asdouble",expr_asdouble),
+	REGFSYM2("asint",expr_asint),
+	REGFSYM2("asuint",expr_asuint),
 	{.str=NULL}
 };
 const struct expr_builtin_symbol expr_symbols_superseed48[]={
@@ -1460,37 +1360,37 @@ const struct expr_builtin_symbol expr_symbols_memory[]={
 	REGFMEM(l),
 	{.str=NULL}
 };
-#define warpi(name,...) \
+#define wrapi(name,...) \
 static double expr_##name##_b(double *args,size_t n){\
 	return (double)name(__VA_ARGS__);\
 }
-#define warpp(name,...) \
+#define wrapp(name,...) \
 static double expr_##name##_b(double *args,size_t n){\
 	return cast(name(__VA_ARGS__),double);\
 }
-#define warpz(name,...) \
+#define wrapz(name,...) \
 static double expr_##name##_b(double *args,size_t n){\
 	name(__VA_ARGS__);\
 	return 0;\
 }
 #define wp(n) cast(args[n],void *)
 #define wi(n,T) ((T)args[n])
-warpi(strlen,wp(0));
-warpp(strchr,wp(0),wi(1,int));
-warpz(strcpy,wp(0),wp(1));
-warpi(strcmp,wp(0),wp(1));
-warpp(memchr,wp(0),wi(1,int),wi(2,size_t));
-warpz(memset,wp(0),wi(1,int),wi(2,size_t));
-warpz(memcpy,wp(0),wp(1),wi(2,size_t));
-warpi(memcmp,wp(0),wp(1),wi(2,size_t));
-warpp(memrchr,wp(0),wi(1,int),wi(2,size_t));
-warpp(memmem,wp(0),wi(1,size_t),wp(2),wi(3,size_t));
-warpp(memrmem,wp(0),wi(1,size_t),wp(2),wi(3,size_t));
-#define rwarpp(name,...) \
+wrapi(strlen,wp(0));
+wrapp(strchr,wp(0),wi(1,int));
+wrapz(strcpy,wp(0),wp(1));
+wrapi(strcmp,wp(0),wp(1));
+wrapp(memchr,wp(0),wi(1,int),wi(2,size_t));
+wrapz(memset,wp(0),wi(1,int),wi(2,size_t));
+wrapz(memcpy,wp(0),wp(1),wi(2,size_t));
+wrapi(memcmp,wp(0),wp(1),wi(2,size_t));
+wrapp(memrchr,wp(0),wi(1,int),wi(2,size_t));
+wrapp(memmem,wp(0),wi(1,size_t),wp(2),wi(3,size_t));
+wrapp(memrmem,wp(0),wi(1,size_t),wp(2),wi(3,size_t));
+#define rwrapp(name,...) \
 static double expr_##name##_b(double *args,size_t n){\
 	return cast(expr_##name(__VA_ARGS__),double);\
 }
-/*#define rwarpz(name,...) \
+/*#define rwrapz(name,...) \
 static double expr_##name##_b(double *args,size_t n){\
 	return cast(expr_##name(__VA_ARGS__),double);\
 }*/
@@ -1505,8 +1405,8 @@ static double expr_symset_free_b(double x){
 	expr_symset_free(cast(x,void *));
 	return 0;
 }
-rwarpp(symset_add,wp(0),wp(1),wi(2,int),wi(3,int),wp(4));
-rwarpp(symset_search,wp(0),wp(1),wi(2,size_t));
+rwrapp(symset_add,wp(0),wp(1),wi(2,int),wi(3,int),wp(4));
+rwrapp(symset_search,wp(0),wp(1),wi(2,size_t));
 const struct expr_builtin_symbol expr_symbols_symset[]={
 	REGWARPZA(symset_new),
 	REGWARPF(symset_free),
@@ -1557,149 +1457,10 @@ static double expr_seterrno(double x){
 static double expr_errno2str(double x){
 	return cast(strerror((int)x),double);
 }
-#define REGMACRO(s,target) {.strlen=sizeof(s)-1,.str=s,.un={.hot=target},.type=EXPR_ALIAS,.flag=EXPR_SPURE|EXPR_SWRITEIP,.dim=sizeof(target)-1}
 const struct expr_builtin_symbol expr_symbols_errno[]={
 	REGZASYM2_U("geterrno",expr_geterrno),
 	REGFSYM2_NI("seterrno",expr_seterrno),
 	REGFSYM2_NI("errno2str",expr_errno2str),
 	REGMACRO("errno","geterrno()"),
-	{.str=NULL}
-};
-#define expr_stdin (*expr_stdin_get())
-#define expr_stdout (*expr_stdout_get())
-#define expr_stderr (*expr_stderr_get())
-#ifndef EINVAL
-#define EINVAL 22
-#endif
-static double d_printf(double *args,size_t n){
-	const char *fmt=expr_cast(*args,const char *);
-	ssize_t r;
-	r=expr_arrprintf(fmt,(const union expr_argf *)args+1,n-1);
-	return (double)r;
-}
-static double d_fprintf(double *args,size_t n){
-	const char *fmt;
-	struct expr_global_file *fp;
-	ssize_t r;
-	if(unlikely(n<2))
-		return (double)-EINVAL;
-	fp=expr_cast(*args,struct expr_global_file *);
-	fmt=expr_cast(args[1],const char *);
-	r=expr_farrprintf(fp,fmt,(const union expr_argf *)args+2,n-2);
-	return (double)r;
-}
-static double d_sscanf(double *args,size_t n){
-	const char *s,*fmt;
-	size_t slen,flen;
-	if(expr_unlikely(n<2))
-		return 0;
-	s=expr_cast(*args,const char *);
-	fmt=expr_cast(args[1],const char *);
-	slen=strlen(s);
-	flen=strlen(fmt);
-	return (double)expr_sscanf_r(s,slen,fmt,flen,(const union expr_argf *)args+2,n-2,expr_globalmtl);
-}
-static double d_fscanf(double *args,size_t n){
-	struct expr_global_file *fp;
-	const char *s,*fmt;
-	size_t slen,flen;
-	if(expr_unlikely(n<2))
-		return 0;
-	fp=expr_cast(*args,struct expr_global_file *);
-	s=expr_freadline(fp,&slen);
-	if(expr_unlikely(!s))
-		return 0;
-	fmt=expr_cast(args[1],const char *);
-	flen=strlen(fmt);
-	return (double)expr_sscanf_r(s,slen,fmt,flen,(const union expr_argf *)args+2,n-2,expr_globalmtl);
-}
-static double d_scanf(double *args,size_t n){
-	const char *s,*fmt;
-	size_t slen,flen;
-	s=expr_freadline(expr_stdin,&slen);
-	if(expr_unlikely(!s))
-		return 0;
-	fmt=expr_cast(*args,const char *);
-	flen=strlen(fmt);
-	return (double)expr_sscanf_r(s,slen,fmt,flen,(const union expr_argf *)args+1,n-1,expr_globalmtl);
-}
-static double d_freadline(double *args,size_t n){
-	struct expr_global_file *fp;
-	size_t *outsize;
-	fp=expr_cast(*args,struct expr_global_file *);
-	outsize=(n>1?expr_cast(args[1],size_t *):NULL);
-	return expr_cast(expr_freadline(fp,outsize),double);
-}
-static double d_fread(double *args,size_t n){
-	struct expr_global_file *fp;
-	void *buf;
-	ssize_t r;
-	fp=expr_cast(*args,struct expr_global_file *);
-	buf=expr_cast(args[1],void *);
-	n=(size_t)args[2];
-	r=expr_fread(fp,buf,n);
-	return (double)r;
-}
-static double d_fwrite(double *args,size_t n){
-	struct expr_global_file *fp;
-	const void *buf;
-	ssize_t r;
-	fp=expr_cast(*args,struct expr_global_file *);
-	buf=expr_cast(args[1],const void *);
-	n=(size_t)args[2];
-	r=expr_fwrite(fp,buf,n);
-	return (double)r;
-}
-static double d_setvbuf(double *args,size_t n){
-	struct expr_global_file *fp;
-	void *buf;
-	int mode;
-	fp=expr_cast(*args,struct expr_global_file *);
-	buf=expr_cast(args[1],void *);
-	mode=(int)args[2];
-	n=(size_t)args[3];
-	return (double)expr_setvbuf(fp,buf,mode,n);
-}
-static double d_stdin(void){
-	return expr_cast(expr_stdin,double);
-}
-static double d_stdout(void){
-	return expr_cast(expr_stdout,double);
-}
-static double d_stderr(void){
-	return expr_cast(expr_stderr,double);
-}
-static double d_open(double *args,size_t n){
-	const char *path,*mode;
-	path=expr_cast(*args,const char *);
-	mode=expr_cast(args[1],const char *);
-	return expr_cast(expr_open(path,mode),double);
-}
-static double d_close(double *args,size_t n){
-	struct expr_global_file *fp;
-	fp=expr_cast(*args,struct expr_global_file *);
-	return (double)expr_close(fp);
-}
-const struct expr_builtin_symbol expr_symbols_io[]={
-	REGMDSYM2_NIU("open",d_open,2),
-	REGMDSYM2_NIU("close",d_close,1),
-	REGMDSYM2_NIU("printf",d_printf,0),
-	REGMDSYM2_NIU("fprintf",d_fprintf,0),
-	REGMDSYM2_NIU("scanf",d_scanf,0),
-	REGMDSYM2_NIU("sscanf",d_sscanf,0),
-	REGMDSYM2_NIU("fscanf",d_fscanf,0),
-	REGMDSYM2_NIU("freadline",d_freadline,0),
-	REGMDSYM2_NIU("fread",d_fread,3),
-	REGMDSYM2_NIU("fwrite",d_fwrite,3),
-	REGMDSYM2_NIU("setvbuf",d_setvbuf,4),
-	REGZASYM2_U("getstdin",d_stdin),
-	REGZASYM2_U("getstdout",d_stdout),
-	REGZASYM2_U("getstderr",d_stderr),
-	REGMACRO("stdin","getstdin()"),
-	REGMACRO("stdout","getstdout()"),
-	REGMACRO("stderr","getstderr()"),
-	REGCSYM(_IONBF),
-	REGCSYM(_IOLBF),
-	REGCSYM(_IOFBF),
 	{.str=NULL}
 };

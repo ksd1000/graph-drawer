@@ -12,13 +12,13 @@
 #include <syscall.h>
 #include "expr.h"
 #define strlen expr_internal_strlen
-#define expr_ilprintf(fd,fmt,...) expr_idwprintf(expr_buffered_write_iolbf_warped,fd,fmt,##__VA_ARGS__)
+#define expr_ilprintf(fd,fmt,...) expr_idwprintf(expr_buffered_write_iolbf_wrapped,fd,fmt,##__VA_ARGS__)
 #define expr_idwprintf(writer,fd,fmt,...) expr_apwritef(writer,(intptr_t)(fd),fmt,sizeof(fmt)-1,##__VA_ARGS__)
-ssize_t warped_write(intptr_t fd,const void *buf,size_t size){
+ssize_t wrapped_write(intptr_t fd,const void *buf,size_t size){
 	return (ssize_t)expr_internal_syscall(SYS_write,fd,buf,size);
 }
 char wbuf[BUFSIZ];
-struct expr_buffered_file printf_buf[1]={EXPR_BUFFERED_INITIALIZER_R(warped_write,STDOUT_FILENO,wbuf,BUFSIZ,NULL)};
+struct expr_buffered_file printf_buf[1]={EXPR_BUFFERED_INITIALIZER_R(wrapped_write,STDOUT_FILENO,wbuf,BUFSIZ,NULL)};
 char buf[1024*1024*16];
 struct expr_memtool mtl[1];
 #define expr_defmtl mtl

@@ -4,7 +4,7 @@
  *******************************************************************************/
 #define _GNU_SOURCE
 
-#define EXPR_VERSION "1.0.18-49"
+#define EXPR_VERSION "1.0.19"
 
 #define EXPR_LIBC_STRING_IMPL 1
 #include <string.h>
@@ -290,15 +290,15 @@ static int expr_setwvbuf(struct expr_global_file *fp,void *buf,int mode,size_t s
 	if(buf){
 		switch(mode){
 			case _IONBF:
-				fp->mode=expr_buffered_write_warped;
+				fp->mode=expr_buffered_write_wrapped;
 				fp->buf->length=0;
 				break;
 			case _IOLBF:
-				fp->mode=expr_buffered_write_iolbf_warped;
+				fp->mode=expr_buffered_write_iolbf_wrapped;
 				fp->buf->length=size;
 				break;
 			case _IOFBF:
-				fp->mode=expr_buffered_write_warped;
+				fp->mode=expr_buffered_write_wrapped;
 				fp->buf->length=size;
 				break;
 			default:
@@ -318,7 +318,7 @@ static int expr_setwvbuf(struct expr_global_file *fp,void *buf,int mode,size_t s
 			if(expr_buffered_truncate(fp->buf,0)<0){
 				goto err;
 			}
-			fp->mode=expr_buffered_write_warped;
+			fp->mode=expr_buffered_write_wrapped;
 			break;
 		case _IOLBF:
 			if(size>=VBUF_DYNAMIC){
@@ -329,7 +329,7 @@ static int expr_setwvbuf(struct expr_global_file *fp,void *buf,int mode,size_t s
 					goto err;
 				}
 			}
-			fp->mode=expr_buffered_write_iolbf_warped;
+			fp->mode=expr_buffered_write_iolbf_wrapped;
 			break;
 		case _IOFBF:
 			if(size>=VBUF_DYNAMIC){
@@ -340,7 +340,7 @@ static int expr_setwvbuf(struct expr_global_file *fp,void *buf,int mode,size_t s
 					goto err;
 				}
 			}
-			fp->mode=expr_buffered_write_warped;
+			fp->mode=expr_buffered_write_wrapped;
 			break;
 		default:
 			goto err;
@@ -429,7 +429,7 @@ ssize_t expr_fread(struct expr_global_file *fp,void *buf,size_t size){
 	expr_mutex_unlock(fp->mutex);
 	return r;
 }
-static void *memchr_warped(const void *buf,intptr_t c,size_t size){
+static void *memchr_wrapped(const void *buf,intptr_t c,size_t size){
 	return (void *)(uintptr_t)memchr(buf,(int)c,size);
 }
 const char *expr_freadline(struct expr_global_file *fp,size_t *outsize){
@@ -440,7 +440,7 @@ const char *expr_freadline(struct expr_global_file *fp,size_t *outsize){
 		return NULL;
 	}
 	expr_mutex_lock(fp->mutex);
-	r=expr_buffered_readline(fp->rbuf,memchr_warped,'\n',&p);
+	r=expr_buffered_readline(fp->rbuf,memchr_wrapped,'\n',&p);
 	expr_mutex_unlock(fp->mutex);
 	if(r<0){
 		return NULL;
@@ -491,7 +491,7 @@ struct expr_global_file *expr_bind(void *stream,const char *mode){
 		if(unlikely(expr_setvbuf(fp,NULL,b?_IOFBF:_IOLBF,BUFSIZ)<0))
 			goto err1;
 		fp->write=1;
-		fp->mode=(b?expr_buffered_write_warped:expr_buffered_write_iolbf_warped);
+		fp->mode=(b?expr_buffered_write_wrapped:expr_buffered_write_iolbf_wrapped);
 	}
 	setvbuf((FILE *)stream,NULL,_IONBF,0);
 	if(likely(expr_setuped)){
@@ -562,7 +562,7 @@ struct expr_global_file *expr_open(const char *path,const char *mode){
 		if(unlikely(expr_setvbuf(fp,NULL,b?_IOFBF:_IOLBF,BUFSIZ)<0))
 			goto err1;
 		fp->write=1;
-		fp->mode=(b?expr_buffered_write_warped:expr_buffered_write_iolbf_warped);
+		fp->mode=(b?expr_buffered_write_wrapped:expr_buffered_write_iolbf_wrapped);
 	}
 	fp->close=global_close;
 	if(likely(expr_setuped)){
@@ -671,37 +671,39 @@ void expr_mutex_spinunlock(uint32_t *lock){
 	return;
 }
 
-intptr_t expr_warped_syscall0(int num){
+#if EXPR_INTERNAL_SYSCALL_IMPLEMENTED
+intptr_t expr_wrapped_syscall0(int num){
 	return expr_internal_syscall0(num);
 }
 #ifdef EXPR_SYSA0
-intptr_t expr_warped_syscall1(int num,intptr_t a0){
+intptr_t expr_wrapped_syscall1(int num,intptr_t a0){
 	return expr_internal_syscall1(num,a0);
 }
 #ifdef EXPR_SYSA1
-intptr_t expr_warped_syscall2(int num,intptr_t a0,intptr_t a1){
+intptr_t expr_wrapped_syscall2(int num,intptr_t a0,intptr_t a1){
 	return expr_internal_syscall2(num,a0,a1);
 }
 #ifdef EXPR_SYSA2
-intptr_t expr_warped_syscall3(int num,intptr_t a0,intptr_t a1,intptr_t a2){
+intptr_t expr_wrapped_syscall3(int num,intptr_t a0,intptr_t a1,intptr_t a2){
 	return expr_internal_syscall3(num,a0,a1,a2);
 }
 #ifdef EXPR_SYSA3
-intptr_t expr_warped_syscall4(int num,intptr_t a0,intptr_t a1,intptr_t a2,intptr_t a3){
+intptr_t expr_wrapped_syscall4(int num,intptr_t a0,intptr_t a1,intptr_t a2,intptr_t a3){
 	return expr_internal_syscall4(num,a0,a1,a2,a3);
 }
 #ifdef EXPR_SYSA4
-intptr_t expr_warped_syscall5(int num,intptr_t a0,intptr_t a1,intptr_t a2,intptr_t a3,intptr_t a4){
+intptr_t expr_wrapped_syscall5(int num,intptr_t a0,intptr_t a1,intptr_t a2,intptr_t a3,intptr_t a4){
 	return expr_internal_syscall5(num,a0,a1,a2,a3,a4);
 }
 #ifdef EXPR_SYSA5
-intptr_t expr_warped_syscall6(int num,intptr_t a0,intptr_t a1,intptr_t a2,intptr_t a3,intptr_t a4,intptr_t a5){
+intptr_t expr_wrapped_syscall6(int num,intptr_t a0,intptr_t a1,intptr_t a2,intptr_t a3,intptr_t a4,intptr_t a5){
 	return expr_internal_syscall6(num,a0,a1,a2,a3,a4,a5);
 }
 #ifdef EXPR_SYSA6
-intptr_t expr_warped_syscall7(int num,intptr_t a0,intptr_t a1,intptr_t a2,intptr_t a3,intptr_t a4,intptr_t a5,intptr_t a6){
+intptr_t expr_wrapped_syscall7(int num,intptr_t a0,intptr_t a1,intptr_t a2,intptr_t a3,intptr_t a4,intptr_t a5,intptr_t a6){
 	return expr_internal_syscall7(num,a0,a1,a2,a3,a4,a5,a6);
 }
+#endif
 #endif
 #endif
 #endif
@@ -813,3 +815,142 @@ int expr_setup_heapmtl4_nonnull(struct expr_memtool *restrict mtl,void *heap,siz
 }
 
 #endif
+
+#define expr_stdin (*expr_stdin_get())
+#define expr_stdout (*expr_stdout_get())
+#define expr_stderr (*expr_stderr_get())
+#ifndef EINVAL
+#define EINVAL 22
+#endif
+static double d_printf(double *args,size_t n){
+	const char *fmt=expr_cast(*args,const char *);
+	ssize_t r;
+	r=expr_arrprintf(fmt,(const union expr_argf *)args+1,n-1);
+	return (double)r;
+}
+static double d_fprintf(double *args,size_t n){
+	const char *fmt;
+	struct expr_global_file *fp;
+	ssize_t r;
+	if(unlikely(n<2))
+		return (double)-EINVAL;
+	fp=expr_cast(*args,struct expr_global_file *);
+	fmt=expr_cast(args[1],const char *);
+	r=expr_farrprintf(fp,fmt,(const union expr_argf *)args+2,n-2);
+	return (double)r;
+}
+static double d_sscanf(double *args,size_t n){
+	const char *s,*fmt;
+	size_t slen,flen;
+	if(expr_unlikely(n<2))
+		return 0;
+	s=expr_cast(*args,const char *);
+	fmt=expr_cast(args[1],const char *);
+	slen=strlen(s);
+	flen=strlen(fmt);
+	return (double)expr_sscanf_r(s,slen,fmt,flen,(const union expr_argf *)args+2,n-2,expr_globalmtl);
+}
+static double d_fscanf(double *args,size_t n){
+	struct expr_global_file *fp;
+	const char *s,*fmt;
+	size_t slen,flen;
+	if(expr_unlikely(n<2))
+		return 0;
+	fp=expr_cast(*args,struct expr_global_file *);
+	s=expr_freadline(fp,&slen);
+	if(expr_unlikely(!s))
+		return 0;
+	fmt=expr_cast(args[1],const char *);
+	flen=strlen(fmt);
+	return (double)expr_sscanf_r(s,slen,fmt,flen,(const union expr_argf *)args+2,n-2,expr_globalmtl);
+}
+static double d_scanf(double *args,size_t n){
+	const char *s,*fmt;
+	size_t slen,flen;
+	s=expr_freadline(expr_stdin,&slen);
+	if(expr_unlikely(!s))
+		return 0;
+	fmt=expr_cast(*args,const char *);
+	flen=strlen(fmt);
+	return (double)expr_sscanf_r(s,slen,fmt,flen,(const union expr_argf *)args+1,n-1,expr_globalmtl);
+}
+static double d_freadline(double *args,size_t n){
+	struct expr_global_file *fp;
+	size_t *outsize;
+	fp=expr_cast(*args,struct expr_global_file *);
+	outsize=(n>1?expr_cast(args[1],size_t *):NULL);
+	return expr_cast(expr_freadline(fp,outsize),double);
+}
+static double d_fread(double *args,size_t n){
+	struct expr_global_file *fp;
+	void *buf;
+	ssize_t r;
+	fp=expr_cast(*args,struct expr_global_file *);
+	buf=expr_cast(args[1],void *);
+	n=(size_t)args[2];
+	r=expr_fread(fp,buf,n);
+	return (double)r;
+}
+static double d_fwrite(double *args,size_t n){
+	struct expr_global_file *fp;
+	const void *buf;
+	ssize_t r;
+	fp=expr_cast(*args,struct expr_global_file *);
+	buf=expr_cast(args[1],const void *);
+	n=(size_t)args[2];
+	r=expr_fwrite(fp,buf,n);
+	return (double)r;
+}
+static double d_setvbuf(double *args,size_t n){
+	struct expr_global_file *fp;
+	void *buf;
+	int mode;
+	fp=expr_cast(*args,struct expr_global_file *);
+	buf=expr_cast(args[1],void *);
+	mode=(int)args[2];
+	n=(size_t)args[3];
+	return (double)expr_setvbuf(fp,buf,mode,n);
+}
+static double d_stdin(void){
+	return expr_cast(expr_stdin,double);
+}
+static double d_stdout(void){
+	return expr_cast(expr_stdout,double);
+}
+static double d_stderr(void){
+	return expr_cast(expr_stderr,double);
+}
+static double d_open(double *args,size_t n){
+	const char *path,*mode;
+	path=expr_cast(*args,const char *);
+	mode=expr_cast(args[1],const char *);
+	return expr_cast(expr_open(path,mode),double);
+}
+static double d_close(double *args,size_t n){
+	struct expr_global_file *fp;
+	fp=expr_cast(*args,struct expr_global_file *);
+	return (double)expr_close(fp);
+}
+const struct expr_builtin_symbol expr_symbols_io[]={
+	REGMDSYM2_NIU("open",d_open,2),
+	REGMDSYM2_NIU("close",d_close,1),
+	REGMDSYM2_NIU("printf",d_printf,0),
+	REGMDSYM2_NIU("fprintf",d_fprintf,0),
+	REGMDSYM2_NIU("scanf",d_scanf,0),
+	REGMDSYM2_NIU("sscanf",d_sscanf,0),
+	REGMDSYM2_NIU("fscanf",d_fscanf,0),
+	REGMDSYM2_NIU("freadline",d_freadline,0),
+	REGMDSYM2_NIU("fread",d_fread,3),
+	REGMDSYM2_NIU("fwrite",d_fwrite,3),
+	REGMDSYM2_NIU("setvbuf",d_setvbuf,4),
+	REGZASYM2_U("getstdin",d_stdin),
+	REGZASYM2_U("getstdout",d_stdout),
+	REGZASYM2_U("getstderr",d_stderr),
+	REGMACRO("stdin","getstdin()"),
+	REGMACRO("stdout","getstdout()"),
+	REGMACRO("stderr","getstderr()"),
+	REGCSYM(_IONBF),
+	REGCSYM(_IOLBF),
+	REGCSYM(_IOFBF),
+	{.str=NULL}
+};

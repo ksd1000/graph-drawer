@@ -160,7 +160,7 @@ size_le_c:
 	debug("%zd bytes written",s0);
 	return (ssize_t)s0;
 }
-ssize_t expr_buffered_write_warped(intptr_t fd,const void *buf,size_t size){
+ssize_t expr_buffered_write_wrapped(intptr_t fd,const void *buf,size_t size){
 	return expr_buffered_write((struct expr_buffered_file *)fd,buf,size);
 }
 ssize_t expr_buffered_read(struct expr_buffered_file *restrict fp,void *buf,size_t size,const struct expr_test *restrict test){
@@ -339,7 +339,7 @@ err:
 	return r;
 }
 #undef reterr
-ssize_t expr_buffered_read_warped(intptr_t fd,void *buf,size_t size){
+ssize_t expr_buffered_read_wrapped(intptr_t fd,void *buf,size_t size){
 	return expr_buffered_read((struct expr_buffered_file *)fd,buf,size,NULL);
 }
 
@@ -420,7 +420,7 @@ ssize_t expr_buffered_write_sflushatt(struct expr_buffered_file *restrict fp,con
 ssize_t expr_buffered_write_sflushat(struct expr_buffered_file *restrict fp,const void *buf,size_t size,const void *c,size_t c_size){
 	sflushat_common(memmem(buf,size,c,c_size),rc+=c_size);
 }
-ssize_t expr_buffered_write_sync_warped(intptr_t fd,const void *buf,size_t size){
+ssize_t expr_buffered_write_sync_wrapped(intptr_t fd,const void *buf,size_t size){
 	ssize_t r1,r=expr_buffered_write((struct expr_buffered_file *)fd,buf,size);
 	if(unlikely(r<0))
 		return r;
@@ -606,7 +606,7 @@ ssize_t expr_buffered_readline(struct expr_buffered_file *restrict fp,expr_test_
 #define expr_buffered_write_iolbf expr_buffered_write_flushatc
 #endif
 //use sflushatc instead of flushatc as default to agree with libc.
-ssize_t expr_buffered_write_iolbf_warped(intptr_t fd,const void *buf,size_t size){
+ssize_t expr_buffered_write_iolbf_wrapped(intptr_t fd,const void *buf,size_t size){
 	debug("iolbf size=%zu",size);
 	return expr_buffered_write_iolbf((struct expr_buffered_file *)fd,buf,size,'\n');
 }

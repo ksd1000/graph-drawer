@@ -9,7 +9,7 @@
 #include <string.h>
 #include <float.h>
 #include "expr.h"
-ssize_t write_warp(intptr_t fd,const void *buf,size_t len){
+ssize_t write_wrap(intptr_t fd,const void *buf,size_t len){
 	FILE *fp;
 	switch(fd){
 		case 0:
@@ -29,7 +29,7 @@ ssize_t write_warp(intptr_t fd,const void *buf,size_t len){
 }
 char wbuf[BUFSIZ];
 expr_globals_define();
-struct expr_buffered_file printf_buf[1]={EXPR_BUFFERED_INITIALIZER(write_warp,1,NULL,100000)};
+struct expr_buffered_file printf_buf[1]={EXPR_BUFFERED_INITIALIZER(write_wrap,1,NULL,100000)};
 // stdout is not a compile-time constant. use 1 map to it.
 __attribute__((destructor)) void pbexit(void){
 	expr_buffered_close(printf_buf);
@@ -95,7 +95,7 @@ int my_vprintf(const char *fmt,va_list ap){
 	char *estyle=malloc(strlen(fmt)*2+1);
 	size_t len=convert_from_libc_printf_style(fmt,estyle);
 	//printf("convert result:%s\n",estyle);
-	r=(int)expr_vapwritef(expr_buffered_write_iolbf_warped,(intptr_t)printf_buf,estyle,len,ap);
+	r=(int)expr_vapwritef(expr_buffered_write_iolbf_wrapped,(intptr_t)printf_buf,estyle,len,ap);
 	free(estyle);
 	return r;
 }

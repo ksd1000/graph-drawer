@@ -7,8 +7,8 @@
 #include "expr.h"
 expr_globals_define();
 // Remove if libexpr-lc is linked.
-ssize_t write_warped(intptr_t fd,const void *buf,size_t size);
-ssize_t write_warped(intptr_t fd,const void *buf,size_t size){
+ssize_t write_wrapped(intptr_t fd,const void *buf,size_t size);
+ssize_t write_wrapped(intptr_t fd,const void *buf,size_t size){
 	return write((int)fd,buf,size);
 }
 ssize_t dropper(intptr_t fd,const void *buf,size_t size);
@@ -17,7 +17,7 @@ ssize_t dropper(intptr_t fd,const void *buf,size_t size){
 	(void)buf;
 	return (ssize_t)size;
 }
-//#define writer write_warped
+//#define writer write_wrapped
 #define writer dropper
 char buf[12341234];
 /*

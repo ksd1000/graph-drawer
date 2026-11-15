@@ -15,6 +15,7 @@ dump expr-pool.c
 dump expr-symext.c
 dump expr-builtin.c
 dump expr-global.c
+dump expr-lcmin.c
 echo "" >>expr.h
 echo "#ifdef __END_DECLS" >>expr.h
 echo "__END_DECLS" >>expr.h

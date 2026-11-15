@@ -38,69 +38,69 @@ static const char *sysnames[]={
 #define cast(x,T) expr_cast(x,T)
 #define castingd(x) ((double)(x))
 
-#define warp1(rtype,sym,atype) static double d_##sym(double x){\
+#define wrap1(rtype,sym,atype) static double d_##sym(double x){\
 	rtype r=(rtype)sym(casting(x,atype));\
 	return castingd(r);\
 }
-#define warpip(rtype,sym,atype) static double d_##sym(double x){\
+#define wrapip(rtype,sym,atype) static double d_##sym(double x){\
 	rtype r=(rtype)sym(cast(x,atype));\
 	return castingd(r);\
 }
-#define warppi(rtype,sym,atype) static double d_##sym(double x){\
+#define wrappi(rtype,sym,atype) static double d_##sym(double x){\
 	rtype r=(rtype)sym(casting(x,atype));\
 	return cast(r,double);\
 }
-#define warp2(rtype,sym,at0,at1) static double d_##sym(double *v,size_t n){\
+#define wrap2(rtype,sym,at0,at1) static double d_##sym(double *v,size_t n){\
 	rtype r=(rtype)sym(casting(v[0],at0),casting(v[1],at1));\
 	return castingd(r);\
 }
-#define warppip(rtype,sym,at0,at1) static double d_##sym(double *v,size_t n){\
+#define wrappip(rtype,sym,at0,at1) static double d_##sym(double *v,size_t n){\
 	rtype r=(rtype)sym(casting(v[0],at0),cast(v[1],at1));\
 	return expr_cast(r,double);\
 }
-#define warpppi(rtype,sym,at0,at1) static double d_##sym(double *v,size_t n){\
+#define wrapppi(rtype,sym,at0,at1) static double d_##sym(double *v,size_t n){\
 	rtype r=(rtype)sym(cast(v[0],at0),casting(v[1],at1));\
 	return expr_cast(r,double);\
 }
-#define warp3(rtype,sym,at0,at1,at2) static double d_##sym(double *v,size_t n){\
+#define wrap3(rtype,sym,at0,at1,at2) static double d_##sym(double *v,size_t n){\
 	rtype r=(rtype)sym(casting(v[0],at0),casting(v[1],at1),casting(v[2],at2));\
 	return castingd(r);\
 }
-#define warpiipi(rtype,sym,at0,at1,at2) static double d_##sym(double *v,size_t n){\
+#define wrapiipi(rtype,sym,at0,at1,at2) static double d_##sym(double *v,size_t n){\
 	rtype r=(rtype)sym(casting(v[0],at0),cast(v[1],at1),casting(v[2],at2));\
 	return castingd(r);\
 }
-#define warpiipp(rtype,sym,at0,at1,at2) static double d_##sym(double *v,size_t n){\
+#define wrapiipp(rtype,sym,at0,at1,at2) static double d_##sym(double *v,size_t n){\
 	rtype r=(rtype)sym(casting(v[0],at0),cast(v[1],at1),cast(v[2],at2));\
 	return castingd(r);\
 }
-#define warpipii(rtype,sym,at0,at1,at2) static double d_##sym(double *v,size_t n){\
+#define wrapipii(rtype,sym,at0,at1,at2) static double d_##sym(double *v,size_t n){\
 	rtype r=(rtype)sym(cast(v[0],at0),n>1?casting(v[1],at1):0,n>2?casting(v[2],at2):0);\
 	return castingd(r);\
 }
-#define warpz(rtype,sym) static double d_##sym(void){\
+#define wrapz(rtype,sym) static double d_##sym(void){\
 	rtype r=(rtype)sym();\
 	return castingd(r);\
 }
 #ifdef REAL_UNIX
-warpz(pid_t,fork)
-warpz(pid_t,vfork)
-warpz(pid_t,getpid)
-warpz(pid_t,getppid)
-warpz(pid_t,gettid)
-warpz(pid_t,getuid)
-warpz(pid_t,getgid)
-warpz(pid_t,geteuid)
-warpz(pid_t,getegid)
-warp1(int,setuid,uid_t)
-warp1(int,setgid,gid_t)
-warp1(int,seteuid,uid_t)
-warp1(int,setegid,gid_t)
-warp1(int,raise,int)
-warpip(in_addr_t,inet_addr,void *)
-warpip(pid_t,wait,void *)
-warp1(uint32_t,htonl,uint32_t)
-warp1(uint16_t,htons,uint16_t)
+wrapz(pid_t,fork)
+wrapz(pid_t,vfork)
+wrapz(pid_t,getpid)
+wrapz(pid_t,getppid)
+wrapz(pid_t,gettid)
+wrapz(pid_t,getuid)
+wrapz(pid_t,getgid)
+wrapz(pid_t,geteuid)
+wrapz(pid_t,getegid)
+wrap1(int,setuid,uid_t)
+wrap1(int,setgid,gid_t)
+wrap1(int,seteuid,uid_t)
+wrap1(int,setegid,gid_t)
+wrap1(int,raise,int)
+wrapip(in_addr_t,inet_addr,void *)
+wrapip(pid_t,wait,void *)
+wrap1(uint32_t,htonl,uint32_t)
+wrap1(uint16_t,htons,uint16_t)
 double last_sig;
 struct expr *volatile sigep[64+1];
 const struct addrinfo ai_req_icmp[1]={{
@@ -182,7 +182,7 @@ ssize_t nonblock_read(int fd,void *buf,size_t len){
 	}
 }
 #endif
-warppi(void *,strerror,int)
+wrappi(void *,strerror,int)
 #define a2s(buf,args,size) buf=alloca(size+1);\
 	for(size_t i=0;i<size;++i)\
 		buf[i]=(char)*(args++)
@@ -382,13 +382,13 @@ double d_readline(double x){
 	return expr_cast(buf,double);
 }
 struct expr_buffered_file r1f=EXPR_BUFFERED_INITIALIZER(read,STDIN_FILENO,NULL,SIZE_MAX);
-static void *memchr_warped(const void *buf,intptr_t c,size_t size){
+static void *memchr_wrapped(const void *buf,intptr_t c,size_t size){
 	return (void *)(uintptr_t)memchr(buf,(int)c,size);
 }
 double d_readline1(double x){
 	ssize_t r;
 	char *p;
-	r=expr_buffered_readline(&r1f,memchr_warped,'\n',&p);
+	r=expr_buffered_readline(&r1f,memchr_wrapped,'\n',&p);
 	*expr_cast(x,void **)=p;
 	return (double)r;
 }

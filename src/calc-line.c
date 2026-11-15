@@ -12,13 +12,13 @@
 #include "expr.h"
 #include "fake_unix.h"
 struct expr_buffered_file rline[1]={EXPR_BUFFERED_INITIALIZER(read,STDIN_FILENO,NULL,SIZE_MAX)};
-static void *memchr_warped(const void *buf,intptr_t c,size_t size){
+static void *memchr_wrapped(const void *buf,intptr_t c,size_t size){
 	return (void *)(uintptr_t)memchr(buf,(int)c,size);
 }
 const char *readline1(size_t *outsize){
 	ssize_t r;
 	char *p;
-	r=expr_buffered_readline(rline,memchr_warped,'\n',&p);
+	r=expr_buffered_readline(rline,memchr_wrapped,'\n',&p);
 	if(r<0){
 		warn("read()");
 		return NULL;

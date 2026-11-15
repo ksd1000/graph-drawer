@@ -30,17 +30,29 @@ add_library(expr
 if(NOT (CMAKE_BUILD_TYPE STREQUAL "Debug"))
 	target_compile_options(expr PRIVATE -ffreestanding -nostdinc -include expr-defs.h -Wframe-larger-than=1024)
 endif()
+
 target_include_directories(expr PRIVATE .)
+
+add_library(expr-lc-minimal-object OBJECT
+	expr-lcmin.c
+)
+target_compile_options(expr-lc-minimal-object PRIVATE -fPIC)
+
+add_library(expr-lc-minimal $<TARGET_OBJECTS:expr-lc-minimal-object>)
+
 add_library(expr-lc
 	expr-global.c
 	expr-builtin.c
+	$<TARGET_OBJECTS:expr-lc-minimal-object>
 )
-target_link_libraries(expr-lc PUBLIC expr)
+
+target_link_libraries(expr-lc PUBLIC expr m)
+target_link_libraries(expr-lc-minimal PUBLIC m)
 link_libraries(expr expr-lc m)
 add_executable(expr-version expr-version.c)
 add_executable(expr-check expr-check.c)
 
-install(TARGETS expr-lc expr expr-version
+install(TARGETS expr-lc expr-lc-minimal expr expr-version
 	EXPORT expr
 	RUNTIME DESTINATION bin
 	LIBRARY DESTINATION lib
@@ -48,7 +60,7 @@ install(TARGETS expr-lc expr expr-version
 	INCLUDES DESTINATION include
 )
 
-install(FILES expr.h expr-defs.h
+install(FILES expr.h expr-defs.h expr-compat-back.h
 	DESTINATION include
 )
 

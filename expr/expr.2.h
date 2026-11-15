@@ -1,4 +1,3 @@
-
 #ifdef _GNU_SOURCE
 
 #define expr_calc5_r(e,error,errinfo,esp,flag,mtl) ({\
@@ -172,9 +171,5 @@
 })
 #endif /*_GNU_SOURCE*/
 
-#ifdef __END_DECLS
-__END_DECLS
-#endif
-
-#endif
+#endif /*_EXPR_H_*/
 

@@ -18,11 +18,16 @@ Earlier, the author has only seen the word of the theory about compiling and bel
 
 It is tested by the author on Fedora, some other platform maybe has no fpu.h or at other path.
 
-## Why does not encourage the use of Windows in the note of Release but makes .exe and CI for it.
+## Why does not encourage the use of Windows in the note of Release but makes .exe and CI for it?
 
 It is a closed-source(and non-libre) software(system). The .exe and CI is for testing the system independence(although some features lost), not for using on the target system. The macos in CI is like so.
 
-## What is the predecessor of kmain.c
+## What is the predecessor of kmain.c?
 
 A simple module can only print messages to /dev/kmsg at init and exit, modeled after a helloworld module on the web.
 kmalloc() and fpu_\*() was added for testing libexpr later, under the guidance of a GPT-like Chat.
+
+## Why the the syscall in expression works not properly on other platform of x86\_64 or aarch64?
+
+The syscall number and the register order may agree not with Linux. A correct syscall number of current platform and rearranged arguments accroding to current platform are required. Or build with -DEXPR\_NOSYSCALL=1 (-DCMAKE\_C\_FLAGS="-DEXPR\_NOSYSCALL=1") if the feature is not required.
+

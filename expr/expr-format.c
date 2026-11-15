@@ -1205,7 +1205,8 @@ out:
 })
 */
 #define range_checkn(val,closed_min,open_n,onfalse) ({\
-	if(unlikely((uintptr_t)((val)-(closed_min))>=(uintptr_t)(open_n))){\
+	expr_static_diffable(val,closed_min);\
+	if(unlikely(((uintptr_t)(val)-(uintptr_t)(closed_min))>=(uintptr_t)(open_n)*sizeof(*(val)))){\
 		onfalse;\
 	}\
 })
@@ -1220,7 +1221,10 @@ out:
 struct expr_vwritef_workspace {
 	const char *_endp,*_fmt_old,*_fmt0;
 	ssize_t _ret;
-	ssize_t _v;
+	union {
+		ssize_t _v;
+		size_t _uv;
+	};
 	const struct expr_writefmt *_wfp;
 	const char *_delim,*_tail;
 	size_t _delimsz,_tailsz;
@@ -1251,6 +1255,7 @@ ssize_t expr_vwriteft_r(expr_writer_t writer,intptr_t fd,const char *restrict fm
 #define fmt0 wsp->_fmt0
 #define ret wsp->_ret
 #define v wsp->_v
+#define uv wsp->_uv
 #define wfp wsp->_wfp
 #define flag wsp->_flag
 #define delim wsp->_delim
@@ -1439,7 +1444,7 @@ current_get:
 			debug("n=%zu",ret);\
 			val=(expr_ut)(size_t)ret;\
 			v=(ssize_t)flag->argsize;\
-			if((size_t)v-1>(size_t)sizeof(expr_ut)-1)\
+			if((size_t)v-(size_t)1>(size_t)sizeof(expr_ut)-(size_t)1)\
 				v=(ssize_t)sizeof(expr_ut);\
 			writesize0_k();\
 			argnext1
@@ -1480,11 +1485,11 @@ current_get:
 				}\
 			}
 			fmt_op_cond();
-			v=(ssize_t)flag_width(flag,1);
+			uv=flag_width(flag,1);
 			if(flag->minus){
-				index-=v;
+				index-=(ptrdiff_t)uv;
 			}else {
-				index+=v;
+				index+=(ptrdiff_t)uv;
 			}
 			debug("jumpto args[%zd]",index);
 			break;
@@ -1532,19 +1537,22 @@ current_get:
 		case EXPR_FMTC_JUMP:
 			fmt_op_cond(
 				if(flag->plus){
-					range_checkn(--fmt_save_current,fmt_save,8,goto_argfail);
+					if(fmt_save_current<=fmt_save)
+						goto_argfail;
+					--fmt_save_current;
 				}
 				loop=0);
-			v=(ssize_t)flag_width(flag,0);
+			uv=flag_width(flag,0);
 			if(flag->plus){
+				if(fmt_save_current<=fmt_save)
+					goto_argfail;
 				range_checkn(fmt_save_current-1,fmt_save,8,goto_argfail);
-				d1=fmt_save_current[-1];
+				d1=(const char *)((uintptr_t)fmt_save_current[-1]+1);
 			}else if(flag->minus)
-				d1=fmt-v;
+				d1=(const char *)((uintptr_t)fmt-(uintptr_t)uv+1);
 			else
-				d1=fmt+v;
-			++d1;
-			debug("jumpto fmt[%zd]",d1-fmt0);
+				d1=(const char *)((uintptr_t)fmt+(uintptr_t)uv+1);
+			debug("jumpto fmt[%td]",d1-fmt0);
 			fmt_jumpto(d1);
 			argback(loop);
 			loop=0;
@@ -1801,6 +1809,7 @@ end:
 #undef fmt0
 #undef ret
 #undef v
+#undef uv
 #undef wfp
 #undef flag
 #undef delim
@@ -1854,9 +1863,11 @@ struct writef_args {
 };
 static const union expr_argf *arr_arg(ptrdiff_t index,const struct expr_writeflag *flag,intptr_t addr){
 	struct writef_args *wa=(struct writef_args *)addr;
-	const union expr_argf *r=wa->base+index;
-	range_checkn(r,wa->base,wa->arglen,goto err);
-	debug("getting arg[%zd] (base=%p,len=%zu)=%p",index,(void *)(uintptr_t)wa->base,wa->arglen,(void *)(uintptr_t)r);
+	const union expr_argf *r;
+	if(unlikely((size_t)index>=wa->arglen))
+		goto err;
+	r=wa->base+index;
+	debug("getting arg[%zd] (base=%p,len=%zu)=%p",(ssize_t)index,(void *)(uintptr_t)wa->base,wa->arglen,(void *)(uintptr_t)r);
 	return flag->addr?r->aaddr:r;
 err:
 	debug("getting arg[%zd] (base=%p,len=%zu)=NULL",index,(void *)(uintptr_t)wa->base,wa->arglen);

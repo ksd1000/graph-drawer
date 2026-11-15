@@ -259,58 +259,40 @@ Tested by test/speedtest.c
 |Number parse speed|Fast-Medium|Fast|Slow|
 |Number parse precision|1\*10^-6|0~1 ULP|0|
 |Number parse cache|No|No|Yes(but still slower than other two)|
-|libc required|Yes|Yes|No for core. But builtin symbols and frontend needs.|
+|libc required|Yes|Yes|[No](fun/kmod/README.md) for core. But builtin symbols and frontend needs.|
 |Core arch independence|Yes|Yes|x86/arm64 for mem* and syscall|
 |Non-unix support|Untested|Yes(tested by CI)|Yes(\*.exe in Release)|
 |User variable defined in code|Yes|Yes|Yes|
-|Memory management|libc|libc|struct expr\_area|
-|Memory allocation entry|calloc()|malloc()|mtl-\>allocate()|
 |User variable defined in expr|Yes(Auto)|No|Yes(value--\>a/a=:value/var(a,[value]))|
 |Allow write variables in expr|Yes(=)|No|Yes(--\>,-\>)|
 |User constant|No|No(only zero args pure function)|Yes|
 |Active|No (Latest 2017-12-3)|Yes|Yes|
 |Amount of bugs|Few-Medium|Few|Many|
 |Size|Lightweight|Lightweight|Bloated|
-|Allow unsafe mode|No|No|Yes|
-|Gnu extension required|No (C99)|No (C99)|Yes|
 |Power operator|\*\*|^|\*\*|
 |Amount of file|Single header file|Single .c file+header|Multi-file|
 |Hot function|Yes|No|Yes|
-|Optimize|No|Yes|Yes|
-|Parse output|AST|AST|struct expr\_inst[]|
+|Parse output|AST structure|AST structure|struct expr\_inst[]|
 |Symbol system|struct expr\_var\_list(one-next list)/struct expr\_func(array)|te\_variable(array)|struct expr\_symset(multi-next list)/struct expr\_builtin\_symbol(array)|
 |Symbol create API|expr\_var()|No|expr\_symset\_add()|
 |Eval API|expr\_eval()|te\_eval()|expr\_eval()|
 |One-shot API|No|te\_interp()|expr\_calc()|
-|Custom memory allocator|Yes(global variable required,patch before header)|Yes(global variable required,patch before header)|Yes(global+non-global)|
-|MT-safe for same object|Yes(except = and context)|Yes|No(an object only for one thread)|
-|Reentrant|No(allocate/free require global variable)|No(similarly)|Yes(\*\_r)|
 |JIT support|Yes|No|No|
-|Recursion limit|No|Yes(hard-coded)|Yes|
-|Branch and loop|No|No|Yes|
-|Syscall support|No|No|Yes|
-|AST support|Yes|Yes|No|
-|Can run in kernel|No|No|[Yes](fun/kmod/README.md)|
-|Can run in raw QEMU|No|No|Untested|
 |Big-endian support|Yes|Yes|No|
 |Compile speed of source code(.c)|Fast|Fast|Slow|
-|Library size(-O3)|18k|20k|365k(201k+164k)|
-|Library size(-Os)|17k|18k|304k(153k+151k)|
+|Library size(-O3)|18k|20k|372k(202k+170k)|
+|Library size(-Os)|17k|18k|335k(167k+168k)|
 |Project type|standalone library|standalone library|backend library of graph-drawer|
 |Allow pass size of expression|Yes|No|Yes|
 |Bugfix speed|Inactive|Fast|Slow|
-|Coding tool|Unknown|Unknown|Vim,Gedit|
 |Code readability|Clear|Clear|Chaos|
 |Build system|make|make|cmake|
 |Time complexity of builtin symbol search|No|O(ln(N))|O(N)|
 |For commercial use|Yes|Yes|Yes(ensure the accessibility of code to users)|
-|Language|Standard C|Standard C|C|
+|Language|Standard C(-std=C99)|Standard C(-std=C11)|C(-std=gnu11)|
 |Document completeness|100%|100%|24.3%|
-|API stability|Yes|Yes|No|
-|Test coverage|No|High|Low|
-|Start date|07-08-2016|01-21-2016|02-19-2024|
+|Start date|2016-07-08|2016-01-21|2024-02-19|
 |Code quality|Medium|High|Low|
-|Amount of API functions|4|4|\>180|
 |Popularity|Medium|High|Low|
 |License|MIT|Zlib|GPL v3+|
 

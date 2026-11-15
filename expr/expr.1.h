@@ -26,10 +26,6 @@
 #endif
 #endif
 
-#ifdef __BEGIN_DECLS
-__BEGIN_DECLS
-#endif
-
 #ifndef _EXPR_DEFS_H_
 #include <stddef.h>
 #include <stdint.h>
@@ -77,7 +73,8 @@ __BEGIN_DECLS
 #endif /*_GNU_SOURCE*/
 
 #define expr_static_assert(cond) _Static_assert((cond),"static assertion " #cond " failed")
-#define expr_static_castable(value,_type) ((void)sizeof(((int (*)(_type))0)(value)))
+#define expr_static_castable(value,T) ((void)sizeof(((int (*)(T))0)(value)))
+#define expr_static_diffable(val1,val0) ((void)sizeof((val1)-(val0)))
 #define expr_sizeofa(arr) (sizeof(arr)/sizeof(*(arr)))
 
 expr_static_assert((!0)==1);
@@ -255,7 +252,7 @@ typedef struct expr_list expr_list_t[1];
 #define EXPR_LIST_INITIALIZER_POISONED {.next=EXPR_LIST_POISONED_NEXT,.prev=EXPR_LIST_POISONED_PREV}
 
 #define expr_list_zero(node) expr_estmt{\
-	struct expr_list *restrict _np=(node);\
+	struct expr_list *_np=(node);\
 	_np->next=NULL;\
 	_np->prev=NULL;\
 }expr_estmt_end
@@ -265,7 +262,7 @@ typedef struct expr_list expr_list_t[1];
 	_np->prev=_np;\
 }expr_estmt_end
 #define expr_list_poison(node) expr_estmt{\
-	struct expr_list *restrict _np=(node);\
+	struct expr_list *_np=(node);\
 	_np->next=EXPR_LIST_POISONED_NEXT;\
 	_np->prev=EXPR_LIST_POISONED_PREV;\
 }expr_estmt_end
@@ -662,12 +659,6 @@ expr_struct_mlist(struct expr_vmlist,);
 #ifndef EXPR_EXPAND_SIZE
 #define EXPR_EXPAND_SIZE 16
 #endif
-void *expr_allocator_default(size_t size,intptr_t arg);
-void *expr_reallocator_default(void *old,size_t size,intptr_t arg);
-void expr_deallocator_default(void *old,intptr_t arg);
-extern struct expr_memtool expr_defmtl[1];
-extern struct expr_memtool expr_globalmtl[1];
-extern size_t expr_allocate_max;
 
 #define expr_globals_define() \
 size_t expr_allocate_max=(size_t)SSIZE_MAX;\
@@ -2525,4 +2516,14 @@ struct expr_extarg {
 
 #define expr_extarg_get(argp,field) (((const struct expr_extarg *)(argp))->field)
 
+#ifdef __BEGIN_DECLS
+__BEGIN_DECLS
+#endif
+
+void *expr_allocator_default(size_t size,intptr_t arg);
+void *expr_reallocator_default(void *old,size_t size,intptr_t arg);
+void expr_deallocator_default(void *old,intptr_t arg);
+extern struct expr_memtool expr_defmtl[1];
+extern struct expr_memtool expr_globalmtl[1];
+extern size_t expr_allocate_max;
 

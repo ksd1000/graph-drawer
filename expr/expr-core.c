@@ -685,6 +685,7 @@ const char *expr_findpair(const char *restrict c,const char *endp,int oth){
 	char ch=*c;
 	size_t lv=1;
 	int instr=0;
+	debug("start at %p :\"%.*s\"\n",c,(int)(endp-c),c);
 	for(++c;c<endp;++c){
 		if(unlikely(*c=='\"'&&c[-1]!='\\')){
 			instr^=1;
@@ -693,8 +694,10 @@ const char *expr_findpair(const char *restrict c,const char *endp,int oth){
 			continue;
 		if(*c==ch)
 			++lv;
-		else if(*c==(char)oth&&!(--lv))
+		else if(*c==(char)oth&&!(--lv)){
+			debug("end at %p :\"%.*s\"\n",c,(int)(endp-c),c);
 			return c;
+		}
 	}
 	return NULL;
 }
@@ -763,6 +766,17 @@ static char *expr_tok(char *restrict str,char *endp,char **restrict saveptr,size
 				*saveptr=(char *)(uintptr_t)findpair(*saveptr,endp);
 				if(unlikely(!*saveptr))
 					return NULL;
+				break;
+			case '[':
+				*saveptr=(char *)(uintptr_t)findpair_bracket(*saveptr,endp);
+				if(unlikely(!*saveptr))
+					return NULL;
+				break;
+			case '{':
+				*saveptr=(char *)(uintptr_t)findpair_brace(*saveptr,endp);
+				if(unlikely(!*saveptr))
+					return NULL;
+				break;
 			default:
 				break;
 		}

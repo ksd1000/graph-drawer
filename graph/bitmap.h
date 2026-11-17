@@ -25,7 +25,7 @@ struct bitmap {
 	char data[];
 } __attribute__((packed));
 _Static_assert(sizeof(struct bitmap)==54,"error on size of bitmap header");
-#if (!defined(__BIG_ENDIAN__)||!(__BIG_ENDIAN__))
+#if !((defined(__BIG_ENDIAN__)&&(__BIG_ENDIAN__))||(defined(__BYTE_ORDER__)&&defined(__ORDER_BIG_ENDIAN__)&&(__BYTE_ORDER__==__ORDER_BIG_ENDIAN__)))
 #define BM_MAGIC ((uint16_t)('B')|((uint16_t)('M'<<8)))
 #define bm_l16(x) ((uint16_t)(x))
 #define bm_l32(x) ((uint32_t)(x))

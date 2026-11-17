@@ -95,6 +95,12 @@
 #define expr_static_diffable(val1,val0) ((void)sizeof((val1)-(val0)))
 #define expr_sizeofa(arr) (sizeof(arr)/sizeof(*(arr)))
 
+#if (defined(__BIG_ENDIAN__)&&(__BIG_ENDIAN__))||(defined(__BYTE_ORDER__)&&defined(__ORDER_BIG_ENDIAN__)&&(__BYTE_ORDER__==__ORDER_BIG_ENDIAN__))
+#define EXPR_BIG_ENDIAN 1
+#else
+#define EXPR_BIG_ENDIAN 0
+#endif
+
 expr_static_assert((!0)==1);
 expr_static_assert((1||1)==1);
 expr_static_assert((1||0)==1);
@@ -794,11 +800,6 @@ expr_static_assert(!(NULL));
 #pragma GCC diagnostic pop
 #endif
 // avoid the compiler or stddef.h implements NULL as nonzero number.
-
-
-#if !defined(__BIG_ENDIAN__)&&defined(__BYTE_ORDER__)&&defined(__ORDER_BIG_ENDIAN__)&&(__BYTE_ORDER__==__ORDER_BIG_ENDIAN__)
-#define __BIG_ENDIAN__ 1
-#endif
 
 #ifndef EXPR_DEBUG
 #define EXPR_DEBUG 0
@@ -1537,6 +1538,7 @@ struct expr_libinfo {
 #define EXPR_FSAVED 224
 #define EXPR_FADDR 223
 #define EXPR_FCAP 222
+#define EXPR_FSUFFIX 221
 
 #define EXPR_FLAGTYPE_ADDR 0
 #define EXPR_FLAGTYPE_EXPR_T 1
@@ -1567,9 +1569,10 @@ union expr_argf {
 	char cha[sizeof(expr_t)];
 };
 expr_static_assert(sizeof(union expr_argf)==sizeof(expr_t));
-#if (!defined(__BIG_ENDIAN__)||!(__BIG_ENDIAN__))
+#if !EXPR_BIG_ENDIAN
 #define EXPR_WRITEFLAG_BITFIELDS \
-	uint64_t unused:34,\
+	uint64_t unused:33,\
+		suffix:1,\
 		op:8,\
 		argsize:8,\
 		type:3,\
@@ -1600,7 +1603,8 @@ expr_static_assert(sizeof(union expr_argf)==sizeof(expr_t));
 		type:3,\
 		argsize:8,\
 		op:8,\
-		unused:34
+		suffix:1,\
+		unused:33
 #endif
 struct expr_writeflag {
 	union {
@@ -1837,7 +1841,7 @@ struct expr_vmdinfo {
 };
 typedef uint16_t expr_superseed48[3];
 struct expr_rawdouble {
-#if (!defined(__BIG_ENDIAN__)||!(__BIG_ENDIAN__))
+#if !EXPR_BIG_ENDIAN
 	uint64_t base:52;
 	uint64_t exp:11;
 	uint64_t sign:1;
@@ -1927,7 +1931,7 @@ struct expr_symbol {
 
 struct expr_symbol_infile {
 	uint32_t length;
-#if (!defined(__BIG_ENDIAN__)||!(__BIG_ENDIAN__))
+#if !EXPR_BIG_ENDIAN
 #define expr_le(x,N) ((uint##N##_t)(x))
 	uint16_t strlen:6,type:3,flag:6,unused:1;
 #else
@@ -2074,7 +2078,7 @@ typedef int (*expr_recursive_callback)(struct expr *restrict ep,void *arg);
 
 #endif
 
-#if (!defined(__BIG_ENDIAN__)||!(__BIG_ENDIAN__))
+#if !EXPR_BIG_ENDIAN
 #define expr_areaunit_bitfield(master,minor) struct {size_t master:sizeof(size_t)*8-1,minor:1;}
 #else
 #define expr_areaunit_bitfield(master,minor) struct {size_t minor:1,master:sizeof(size_t)*8-1;}
@@ -2664,6 +2668,7 @@ ssize_t expr_converter_xac(expr_writer_t writer,intptr_t fd,const union expr_arg
 ssize_t expr_converter_xad(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
 ssize_t expr_converter_xae(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
 ssize_t expr_converter_xaf(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+ssize_t expr_converter_fe(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
 ssize_t expr_converter_g(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
 ssize_t expr_converter_s(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
 ssize_t expr_converter_immbinary(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);

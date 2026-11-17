@@ -160,6 +160,7 @@ const char *strconv(expr_converter_t conv){
 	REGCONV(expr_converter_xad);
 	REGCONV(expr_converter_xae);
 	REGCONV(expr_converter_xaf);
+	REGCONV(expr_converter_fe);
 	REGCONV(expr_converter_g);
 	REGCONV(expr_converter_s);
 	REGCONV(expr_converter_immbinary);
@@ -174,15 +175,15 @@ const char *varname;
 "\t{\n"\
 "\t\t.op=EXPR_FIMM,\n"\
 "\t\t.imm_str=%#.*E,\n"\
-"\t\t.imm_len=(size_t)UINTMAX_C(%:zu)\n"\
+"\t\t.imm_len=%~=:zu\n"\
 "\t},\n"
 #define TEMPLATE_CON \
 "\t{\n"\
 "\t\t.op=%s,\n"\
 "\t\t.flag={{\n"\
-"\t\t\t.bit=UINT64_C(%:8x),\n"\
-"\t\t\t.width=(size_t)UINTMAX_C(%:zu),\n"\
-"\t\t\t.digit=(size_t)UINTMAX_C(%:zu),\n"\
+"\t\t\t.bit=%#~=:8x,\n"\
+"\t\t\t.width=%~=:zu,\n"\
+"\t\t\t.digit=%~=:zu,\n"\
 "\t\t}},\n"\
 "\t\t.converter=%s,\n"\
 "\t\t.read_width=%:iu,\n"\
@@ -202,9 +203,9 @@ const char *varname;
 "\t{\n"\
 "\t\t.op=%s,\n"\
 "\t\t.flag={{\n"\
-"\t\t\t.bit=UINT64_C(%:8x),\n"\
-"\t\t\t.width=(size_t)UINTMAX_C(%:zu),\n"\
-"\t\t\t.digit=(size_t)UINTMAX_C(%:zu),\n"\
+"\t\t\t.bit=%#~=:8x,\n"\
+"\t\t\t.width=%~=:zu,\n"\
+"\t\t\t.digit=%~=:zu,\n"\
 "\t\t}},\n"\
 "\t\t.fmtc_code=%s,\n"\
 __VA_ARGS__\

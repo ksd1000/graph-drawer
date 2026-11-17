@@ -217,7 +217,16 @@
 #define INT_MIN (-INT_MAX-1)
 #endif
 #ifndef UINT_MAX
-#define UINT_MAX (((unsigned int)INT_MAX<<1)|(unsigned int)1)
+#define UINT_MAX ((unsigned int)~0u)
+#endif
+#ifndef LONG_MAX
+#define LONG_MAX __LONG_MAX__
+#endif
+#ifndef LONG_MIN
+#define LONG_MIN (-LONG_MAX-1)
+#endif
+#ifndef ULONG_MAX
+#define ULONG_MAX ((unsigned long)~0ul)
 #endif
 #ifndef NULL
 #define NULL ((void *)0)
@@ -235,7 +244,7 @@
 #define SCHAR_MAX __SCHAR_MAX__
 #endif
 #ifndef UCHAR_MAX
-#define UCHAR_MAX (((unsigned char)SCHAR_MAX<<1)|(unsigned char)1)
+#define UCHAR_MAX ((unsigned char)~0u)
 #endif
 #ifndef va_list
 #define va_list __builtin_va_list

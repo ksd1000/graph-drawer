@@ -198,7 +198,25 @@ ssize_t expr_converter_d(expr_writer_t writer,intptr_t fd,const union expr_argf 
 		minus=1;
 	}else
 		minus=0;
+#define ADD_C(c) *(--p)=flag->cap?((c)&~32):((c)|32)
 	if(val){
+		if(flag->suffix){
+			if(flag->eq){
+				if(val>(expr_ut)INT32_MAX){
+					ADD_C('l');
+					ADD_C('l');
+				}else if(val>(expr_ut)INT16_MAX){
+					ADD_C('l');
+				}
+			}else {
+				if(sizeof(expr_ut)>sizeof(long)&&val>(expr_ut)LONG_MAX){
+					ADD_C('l');
+					ADD_C('l');
+				}else if(val>(expr_ut)INT_MAX){
+					ADD_C('l');
+				}
+			}
+		}
 		write_val10_to_p(val);
 	}else
 		*(--p)='0';
@@ -289,6 +307,26 @@ static ssize_t converter_xu(expr_writer_t writer,intptr_t fd,const union expr_ar
 	const char *conv_str=flag->cap?conv_btoX:conv_btox;
 	if(val){
 		positive=1;
+// C standard only ensures sizeof(int)>=2&&sizeof(long)>=4
+// use '=' flag if use for generating code.
+		if(flag->suffix){
+			if(flag->eq){
+				if(val>(expr_ut)UINT32_MAX){
+					ADD_C('l');
+					ADD_C('l');
+				}else if(val>(expr_ut)UINT16_MAX){
+					ADD_C('l');
+				}
+			}else {
+				if(sizeof(expr_ut)>sizeof(long)&&val>(expr_ut)ULONG_MAX){
+					ADD_C('l');
+					ADD_C('l');
+				}else if(val>(expr_ut)UINT_MAX){
+					ADD_C('l');
+				}
+			}
+			ADD_C('u');
+		}
 		do {
 			mod=val%base;
 			val/=base;
@@ -296,6 +334,9 @@ static ssize_t converter_xu(expr_writer_t writer,intptr_t fd,const union expr_ar
 		}while(val);
 	}else {
 		positive=0;
+		if(flag->suffix){
+			ADD_C('u');
+		}
 		*(--p)='0';
 	}
 	if(positive&&flag->sharp){
@@ -831,6 +872,8 @@ ssize_t expr_converter_xae(expr_writer_t writer,intptr_t fd,const union expr_arg
 }
 ssize_t expr_converter_xaf(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 }
+ssize_t expr_converter_fe(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+}
 */
 
 static ssize_t log10_floor_inaccurate(double x){
@@ -995,7 +1038,7 @@ ssize_t expr_converter_escape(expr_writer_t writer,intptr_t fd,const union expr_
 }
 ssize_t expr_converter_c(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	ssize_t r,sum,ext,sz;
-#if (!defined(__BIG_ENDIAN__)||!(__BIG_ENDIAN__))
+#if !EXPR_BIG_ENDIAN
 	cwrite_common(arg->cha,(ssize_t)1);
 #else
 	cwrite_common(arg->cha+(sizeof(expr_t)-1),(ssize_t)1);
@@ -1132,6 +1175,7 @@ const struct expr_ftable expr_ftable_default[1]={{
 ['?']=EXPR_FSAVED,
 ['&']=EXPR_FADDR,
 ['!']=EXPR_FCAP,
+['~']=EXPR_FSUFFIX,
 
 [(uint8_t)'\x81']=1,['x']=1,
 [(uint8_t)'\x82']=2,[(uint8_t)'\x92']=2,['b']=2,
@@ -1417,6 +1461,8 @@ reflag:\
 			fmt_setflag(addr);\
 		case EXPR_FCAP:\
 			fmt_setflag(cap);\
+		case EXPR_FSUFFIX:\
+			fmt_setflag(suffix);\
 		default:\
 			break;\
 	}
@@ -1496,7 +1542,7 @@ current_get:
 		case EXPR_FMTC_EXIT:
 			goto end;
 		case EXPR_FMTC_WRITESIZE:
-#if (!defined(__BIG_ENDIAN__)||!(__BIG_ENDIAN__))
+#if !EXPR_BIG_ENDIAN
 #define writesize0_k() memcpy(arg1->addr,&val,(size_t)v)
 #else
 #define writesize0_k() memcpy(arg1->addr,(const void *)&val+((size_t)sizeof(expr_ut)-(size_t)v),(size_t)v)
@@ -1791,7 +1837,7 @@ current_get:
 			dest=(uint8_t)sizeof(expr_t);\
 			break;\
 	}
-#if (!defined(__BIG_ENDIAN__)||!(__BIG_ENDIAN__))
+#if !EXPR_BIG_ENDIAN
 #define bit_copy_k(_d,_s,_bit) memcpy(_d,_s,_bit)
 #else
 #define bit_copy_k(_d,_s,_bit) memcpy((_d)+((uint8_t)sizeof(expr_ut)-(_bit)),_s,_bit);
@@ -1966,7 +2012,7 @@ static const union expr_argf *ap_getarg(ptrdiff_t index,const struct expr_writef
 			break;
 		case EXPR_FLAGTYPE_EXPR_T:
 			a->save->val=va_arg(a->ap,expr_t);
-			debug("value:" EXPR_FMTd,a->save->val);
+			debug("value:%" EXPR_FMTd,a->save->val);
 			break;
 		case EXPR_FLAGTYPE_SIGNED:
 			switch(flag->argsize){

@@ -494,8 +494,8 @@ int expr_extint_cmpsub(uint64_t *restrict buf,size_t size,const uint64_t *restri
 	*outsize=expr_extint_sub2(buf,size,buf1,buf1size);
 	return 1;
 }
-#if defined(__BIG_ENDIAN__)&&(__BIG_ENDIAN__)
-#error "in big endian"
+#if EXPR_BIG_ENDIAN
+#pragma message("some features may work not properly in big endian")
 #endif
 // WARNING: the expr_extint_mul is old
 size_t expr_extint_mul(uint64_t *buf,size_t size,uint32_t factor,uint64_t *workspace){
@@ -2212,7 +2212,7 @@ void expr_internal_memmove(void *dst,const void *src,size_t size){
 	return;
 }
 #define SWAR(w) ({uint64_t _w=(w);~(((_w&UINT64_C(0x7f7f7f7f7f7f7f7f))+UINT64_C(0x7f7f7f7f7f7f7f7f))|_w)&UINT64_C(0x8080808080808080);})
-#if (!defined(__BIG_ENDIAN__)||!(__BIG_ENDIAN__))
+#if !EXPR_BIG_ENDIAN
 #define cz64 ctz64
 #define crz64 clz64
 #else

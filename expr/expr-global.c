@@ -4,7 +4,7 @@
  *******************************************************************************/
 #define _GNU_SOURCE
 
-#define EXPR_VERSION "1.0.19"
+#define EXPR_VERSION "1.0.19-1"
 
 #define EXPR_LIBC_STRING_IMPL 1
 #include <string.h>
@@ -779,13 +779,13 @@ int expr_setup_mtl(int flag){
 	}
 }
 
-void *expr_heapmtl_malloc_nonnull(size_t size,intptr_t arg){
+expr_sizeat(1) void *expr_heapmtl_malloc_nonnull(size_t size,intptr_t arg){
 	void *r=expr_area_malloc((struct expr_area *)arg,size);
 	if(unlikely(!r))
 		r_fail;
 	return r;
 }
-void *expr_heapmtl_realloc_nonnull(void *old,size_t size,intptr_t arg){
+expr_sizeat(2) void *expr_heapmtl_realloc_nonnull(void *old,size_t size,intptr_t arg){
 	void *r=expr_area_realloc((struct expr_area *)arg,old,size);
 	if(unlikely(!r))
 		r_fail;

@@ -98,6 +98,26 @@
 #define EXPR_DEFS_CAT0(a,b) a ## b
 #define EXPR_DEFS_CAT(a,b) EXPR_DEFS_CAT0(a,b)
 
+#ifndef INTMAX_C
+#if defined(__INTMAX_C)
+#define INTMAX_C __INTMAX_C
+#elif defined(__INTMAX_C_SUFFIX__)
+#define INTMAX_C(c) EXPR_DEFS_CAT(c,__INTMAX_C_SUFFIX__)
+#else
+#define INTMAX_C(c) ((intmax_t)EXPR_DEFS_CAT(c,LL))
+#endif
+#endif
+
+#ifndef UINTMAX_C
+#if defined(__UINTMAX_C)
+#define UINTMAX_C __UINTMAX_C
+#elif defined(__UINTMAX_C_SUFFIX__)
+#define UINTMAX_C(c) EXPR_DEFS_CAT(c,__UINTMAX_C_SUFFIX__)
+#else
+#define UINTMAX_C(c) ((uintmax_t)EXPR_DEFS_CAT(c,ULL))
+#endif
+#endif
+
 #ifndef INT64_C
 #if defined(__INT64_C)
 #define INT64_C __INT64_C

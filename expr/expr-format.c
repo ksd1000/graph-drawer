@@ -139,7 +139,7 @@ err:
 #define flag_plus(_f) ((_f)->plus)
 #define flag_space(_f) ((_f)->space)
 #define flag_width(_f,_dflt) ((_f)->width_set?(_f)->width:(_dflt))
-#define flag_digit(_f,_dflt) ((_f)->digit_set?(size_t)(_f)->digit:(_dflt))
+#define flag_digit(_f,_dflt) ((_f)->digit_set?(_f)->digit:(_dflt))
 
 #define cwrite_common0(_s) \
 	ext=(ssize_t)flag_width(flag,0)-sz;\
@@ -183,14 +183,14 @@ ssize_t expr_converter_common(expr_writer_t writer,intptr_t fd,const void *buf,s
 		val/=10;\
 	}while(val)
 #define XUNBUF (sizeof(expr_ut)*8+8)
-static ssize_t converter_d(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+ssize_t expr_converter_d(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	char nbuf[XUNBUF];
 	expr_ut val=(expr_ut)arg->sint;
 	char *endp=nbuf+XUNBUF;
 	char *p=endp;
 	ssize_t ext,sum,r,sz;
 	int minus;
-	debug("width=%zu(%d) digit=%zd(%d)\n",flag->width,(int)flag->width_set,flag->digit,(int)flag->digit_set);
+	debug("width=%zu(%d) digit=%zd(%d)\n",flag->width,(int)flag->width_set,(ssize_t)flag->digit,(int)flag->digit_set);
 	if(!val)
 		minus=2;
 	else if((expr_it)val<0){
@@ -223,7 +223,7 @@ static ssize_t converter_d(expr_writer_t writer,intptr_t fd,const union expr_arg
 	// the C standard forces the formatter to ignore '0' when '-' is set in number conversion.
 	cwrite_common(p,(endp-p));
 }
-static ssize_t converter_size(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+ssize_t expr_converter_size(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	char nbuf[64];
 	char dbuf[32];
 	uint64_t val=(uint64_t)arg->uint;
@@ -238,7 +238,7 @@ static ssize_t converter_size(expr_writer_t writer,intptr_t fd,const union expr_
 		if(dim||flag->sharp)
 			*(--p)=(flag->cap?"BKMGTPE":"bkmgtpe")[dim];
 		dim*=10;
-		dig=(size_t)flag_digit(flag,0);
+		dig=flag_digit(flag,0);
 		if(unlikely(dig>32))
 			dig=32;
 		if(dig){
@@ -333,7 +333,7 @@ static ssize_t converter_xu(expr_writer_t writer,intptr_t fd,const union expr_ar
 	cwrite_common(p,(endp-p));
 }
 #define conv_x(name,base) \
-static ssize_t converter_##name(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){\
+ssize_t expr_converter_##name(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){\
 	return converter_xu(writer,fd,arg,flag,base);\
 }
 conv_x(x81,16);
@@ -406,7 +406,7 @@ static ssize_t converteru_##_name(expr_writer_t writer,intptr_t fd,const union e
 	}\
 	f61=(uint8_t)!!(flag->minus);\
 	f58=(uint8_t)!!(flag->eq);\
-	digit=(size_t)flag_digit(flag,6);\
+	digit=flag_digit(flag,6);\
 	if(digit>(size_t)SSIZE_MAX-1){\
 		digit=(size_t)SSIZE_MAX-1;\
 	}\
@@ -692,7 +692,7 @@ onzero:\
 	debug("set sz=%zd",sz);\
 })
 #define conv_f(_name,_base,_shift,_nsize) \
-static ssize_t converter_##_name(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){\
+ssize_t expr_converter_##_name(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){\
 	struct doubleconverter_workspace *bufst;\
 	ssize_t r;\
 	bufst=xmalloc(offsetof(struct doubleconverter_workspace,n)+(_nsize));\
@@ -703,7 +703,7 @@ static ssize_t converter_##_name(expr_writer_t writer,intptr_t fd,const union ex
 	return r;\
 }
 #define conv_fe(_name,_base,_shift,_nsize) \
-static ssize_t converter_##_name(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){\
+ssize_t expr_converter_##_name(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){\
 	struct doubleconverter_workspace *bufst;\
 	ssize_t r;\
 	bufst=xmalloc(offsetof(struct doubleconverter_workspace,n)+(_nsize));\
@@ -769,6 +769,70 @@ conv_fe(fe,10,0,nbuf_size(308+8));
 #undef iival
 #undef workspace
 
+/*
+ssize_t expr_converter_x81(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+}
+ssize_t expr_converter_x82(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+}
+ssize_t expr_converter_x83(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+}
+ssize_t expr_converter_x84(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+}
+ssize_t expr_converter_x85(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+}
+ssize_t expr_converter_x86(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+}
+ssize_t expr_converter_x87(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+}
+ssize_t expr_converter_x88(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+}
+ssize_t expr_converter_x89(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+}
+ssize_t expr_converter_x8a(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+}
+ssize_t expr_converter_x8b(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+}
+ssize_t expr_converter_x8c(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+}
+ssize_t expr_converter_x8d(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+}
+ssize_t expr_converter_x8e(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+}
+ssize_t expr_converter_x8f(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+}
+
+ssize_t expr_converter_xa1(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+}
+ssize_t expr_converter_xa2(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+}
+ssize_t expr_converter_xa3(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+}
+ssize_t expr_converter_xa4(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+}
+ssize_t expr_converter_xa5(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+}
+ssize_t expr_converter_xa6(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+}
+ssize_t expr_converter_xa7(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+}
+ssize_t expr_converter_xa8(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+}
+ssize_t expr_converter_xa9(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+}
+ssize_t expr_converter_xaa(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+}
+ssize_t expr_converter_xab(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+}
+ssize_t expr_converter_xac(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+}
+ssize_t expr_converter_xad(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+}
+ssize_t expr_converter_xae(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+}
+ssize_t expr_converter_xaf(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+}
+*/
+
 static ssize_t log10_floor_inaccurate(double x){
 	uint64_t ix;
 	ssize_t r;
@@ -785,29 +849,29 @@ static ssize_t log10_floor_inaccurate(double x){
 	check_div(100,2);
 	return ix>=10?r+1:r;
 }
-static ssize_t faction_g(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+ssize_t expr_converter_g(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	double val=fabs(arg->dbl);
 	ssize_t vl;
 	return ((val==0.0||((vl=log10_floor_inaccurate(val))>=-4&&vl<(ssize_t)flag_digit(flag,6)))?
-	converter_xaa:converter_fe)(writer,fd,arg,((void)(flag->eq=1),flag));
+	expr_converter_xaa:expr_converter_fe)(writer,fd,arg,((void)(flag->eq=1),flag));
 }
 #endif
-static ssize_t faction_s(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+ssize_t expr_converter_s(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	size_t len;
 	ssize_t r,sum,ext,sz;
 	if(unlikely(!arg->str)){
-		cwrite_common("(null)",6);
+		cwrite_common(flag->cap?"(NULL)":"(null)",6);
 	}
-	len=flag->digit_set?strnlen(arg->str,(size_t)flag->digit):strlen(arg->str);
+	len=flag->digit_set?strnlen(arg->str,flag->digit):strlen(arg->str);
 	cwrite_common(arg->str,(ssize_t)len);
 }
-static ssize_t faction_S(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
-	size_t len=(size_t)flag->digit;
+ssize_t expr_converter_immbinary(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+	size_t len=flag->digit;
 	ssize_t r,sum,ext,sz;
 	cwrite_common(arg->str,(ssize_t)len);
 }
-static ssize_t faction_hb(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag,uint8_t buf[960]){
-	size_t len=(size_t)flag->digit;
+static ssize_t converter_hb(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag,uint8_t buf[960]){
+	size_t len=flag->digit;
 	ssize_t r,sum,ext;
 	uint8_t *p,*endp,*datap;
 	uint8_t data;
@@ -851,22 +915,22 @@ static ssize_t faction_hb(expr_writer_t writer,intptr_t fd,const union expr_argf
 	}
 	return sum;
 }
-static ssize_t faction_h(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+ssize_t expr_converter_h(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	uint8_t *buf;
 	ssize_t r;
 	buf=xmalloc(960);
 	if(unlikely(!buf))
 		return SSIZE_MIN+1;
-	r=faction_hb(writer,fd,arg,flag,buf);
+	r=converter_hb(writer,fd,arg,flag,buf);
 	xfree(buf);
 	return r;
 }
 expr_static_assert(EXPR_WCBUFSIZE>=4);
-static ssize_t faction_escape(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+ssize_t expr_converter_escape(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	char *buf,*datap;
 	size_t size,index;
 	ssize_t r,sum,ext;
-	size=(size_t)flag->digit;
+	size=flag->digit;
 	sum=0;
 	ext=(ssize_t)flag_width(flag,0);
 	if((ext||flag->plus)&&!flag->minus){
@@ -929,26 +993,23 @@ static ssize_t faction_escape(expr_writer_t writer,intptr_t fd,const union expr_
 	}
 	return sum;
 }
-static ssize_t faction_c(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+ssize_t expr_converter_c(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	ssize_t r,sum,ext,sz;
-	cwrite_common(&arg->ch,(ssize_t)1);
+#if (!defined(__BIG_ENDIAN__)||!(__BIG_ENDIAN__))
+	cwrite_common(arg->cha,(ssize_t)1);
+#else
+	cwrite_common(arg->cha+(sizeof(expr_t)-1),(ssize_t)1);
+#endif
 }
-static ssize_t faction_p(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+ssize_t expr_converter_p(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	if(!arg->addr){
 		ssize_t r,sum,ext,sz;
-		cwrite_common("null",(ssize_t)4);
+		cwrite_common(flag->cap?"NULL":"null",(ssize_t)4);
 	}
-	return converter_x81(writer,fd,arg,((void)(flag->sharp=1),flag));
-}
-static ssize_t faction_P(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
-	if(!arg->addr){
-		ssize_t r,sum,ext,sz;
-		cwrite_common("NULL",(ssize_t)4);
-	}
-	return converter_x81(writer,fd,arg,((void)(flag->sharp=1),flag));
+	return expr_converter_x81(writer,fd,arg,((void)(flag->sharp=1),flag));
 }
 #define fmtc_register(_act,_argc,_type,_op,...) {\
-	.converter=(_act),\
+	.converter=(expr_converter_##_act),\
 	.type=(_type),\
 	.no_arg=(_argc?0:1),\
 	.digit_check=(_argc==2?1:0),\
@@ -960,77 +1021,77 @@ static ssize_t faction_P(expr_writer_t writer,intptr_t fd,const union expr_argf 
 	.op={_op,##__VA_ARGS__},\
 }
 static const struct expr_writefmt expr_writefmts_default[]={
-	fmtc_register(converter_x81,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x81','x'),
-	fmtc_register(converter_x82,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x82',(uint8_t)'\x92','b'),
-	fmtc_register(converter_x83,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x83',(uint8_t)'\x93'),
-	fmtc_register(converter_x84,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x84',(uint8_t)'\x94'),
-	fmtc_register(converter_x85,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x85',(uint8_t)'\x95'),
-	fmtc_register(converter_x86,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x86',(uint8_t)'\x96'),
-	fmtc_register(converter_x87,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x87',(uint8_t)'\x97'),
-	fmtc_register(converter_x88,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x88',(uint8_t)'\x98','o'),
-	fmtc_register(converter_x89,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x89',(uint8_t)'\x99'),
-	fmtc_register(converter_x8a,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x8a',(uint8_t)'\x9a','u'),
-	fmtc_register(converter_x8b,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x8b'),
-	fmtc_register(converter_x8c,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x8c'),
-	fmtc_register(converter_x8d,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x8d'),
-	fmtc_register(converter_x8e,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x8e'),
-	fmtc_register(converter_x8f,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x8f'),
+	fmtc_register(x81,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x81','x'),
+	fmtc_register(x82,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x82',(uint8_t)'\x92','b'),
+	fmtc_register(x83,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x83',(uint8_t)'\x93'),
+	fmtc_register(x84,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x84',(uint8_t)'\x94'),
+	fmtc_register(x85,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x85',(uint8_t)'\x95'),
+	fmtc_register(x86,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x86',(uint8_t)'\x96'),
+	fmtc_register(x87,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x87',(uint8_t)'\x97'),
+	fmtc_register(x88,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x88',(uint8_t)'\x98','o'),
+	fmtc_register(x89,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x89',(uint8_t)'\x99'),
+	fmtc_register(x8a,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x8a',(uint8_t)'\x9a','u'),
+	fmtc_register(x8b,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x8b'),
+	fmtc_register(x8c,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x8c'),
+	fmtc_register(x8d,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x8d'),
+	fmtc_register(x8e,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x8e'),
+	fmtc_register(x8f,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x8f'),
 
-	fmtc_register(converter_x81,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x91','X'),
-	fmtc_register(converter_x8b,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x9b'),
-	fmtc_register(converter_x8c,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x9c'),
-	fmtc_register(converter_x8d,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x9d'),
-	fmtc_register(converter_x8e,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x9e'),
-	fmtc_register(converter_x8f,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x9f'),
+	fmtc_register(x81,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x91','X'),
+	fmtc_register(x8b,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x9b'),
+	fmtc_register(x8c,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x9c'),
+	fmtc_register(x8d,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x9d'),
+	fmtc_register(x8e,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x9e'),
+	fmtc_register(x8f,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x9f'),
 
-	fmtc_register(faction_s,1,EXPR_FLAGTYPE_ADDR,'s'),
-	fmtc_register(faction_S,2,EXPR_FLAGTYPE_ADDR,'S'),
-	fmtc_register(faction_c,1,EXPR_FLAGTYPE_UNSIGNED,'c'),
-	fmtc_register(converter_d,1,EXPR_FLAGTYPE_SIGNED,'d'),
-	fmtc_register(faction_p,1,EXPR_FLAGTYPE_ADDR,'p'),
-	fmtc_register(faction_P,1,EXPR_FLAGTYPE_ADDR,'P'),
-	fmtc_register(faction_h,2,EXPR_FLAGTYPE_ADDR,'h'),
-	fmtc_register(faction_h,2,EXPR_FLAGTYPE_ADDR,'H'),
-	fmtc_register(faction_escape,2,EXPR_FLAGTYPE_ADDR,'E'),
-	fmtc_register(converter_size,1,EXPR_FLAGTYPE_UNSIGNED,'m'),
-	fmtc_register(converter_size,1,EXPR_FLAGTYPE_UNSIGNED,'M'),
+	fmtc_register(s,1,EXPR_FLAGTYPE_ADDR,'s'),
+	fmtc_register(immbinary,2,EXPR_FLAGTYPE_ADDR,'S'),
+	fmtc_register(c,1,EXPR_FLAGTYPE_UNSIGNED,'c'),
+	fmtc_register(d,1,EXPR_FLAGTYPE_SIGNED,'d'),
+	fmtc_register(p,1,EXPR_FLAGTYPE_ADDR,'p'),
+	fmtc_register(p,1,EXPR_FLAGTYPE_ADDR,'P'),
+	fmtc_register(h,2,EXPR_FLAGTYPE_ADDR,'h'),
+	fmtc_register(h,2,EXPR_FLAGTYPE_ADDR,'H'),
+	fmtc_register(escape,2,EXPR_FLAGTYPE_ADDR,'E'),
+	fmtc_register(size,1,EXPR_FLAGTYPE_UNSIGNED,'m'),
+	fmtc_register(size,1,EXPR_FLAGTYPE_UNSIGNED,'M'),
 
 #if !(EXPR_FORMAT_NOFLOAT)
-	fmtc_register(converter_xa1,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xa1','a'),
-	fmtc_register(converter_xa2,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xa2'),
-	fmtc_register(converter_xa3,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xa3'),
-	fmtc_register(converter_xa4,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xa4'),
-	fmtc_register(converter_xa5,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xa5'),
-	fmtc_register(converter_xa6,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xa6'),
-	fmtc_register(converter_xa7,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xa7'),
-	fmtc_register(converter_xa8,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xa8'),
-	fmtc_register(converter_xa9,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xa9'),
-	fmtc_register(converter_xaa,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xaa','f'),
-	fmtc_register(converter_xab,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xab'),
-	fmtc_register(converter_xac,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xac'),
-	fmtc_register(converter_xad,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xad'),
-	fmtc_register(converter_xae,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xae'),
-	fmtc_register(converter_xaf,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xaf'),
+	fmtc_register(xa1,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xa1','a'),
+	fmtc_register(xa2,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xa2'),
+	fmtc_register(xa3,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xa3'),
+	fmtc_register(xa4,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xa4'),
+	fmtc_register(xa5,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xa5'),
+	fmtc_register(xa6,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xa6'),
+	fmtc_register(xa7,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xa7'),
+	fmtc_register(xa8,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xa8'),
+	fmtc_register(xa9,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xa9'),
+	fmtc_register(xaa,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xaa','f'),
+	fmtc_register(xab,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xab'),
+	fmtc_register(xac,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xac'),
+	fmtc_register(xad,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xad'),
+	fmtc_register(xae,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xae'),
+	fmtc_register(xaf,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xaf'),
 
-	fmtc_register(converter_xa1,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xb1','A'),
-	fmtc_register(converter_xa2,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xb2','B'),
-	fmtc_register(converter_xa3,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xb3'),
-	fmtc_register(converter_xa4,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xb4'),
-	fmtc_register(converter_xa5,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xb5'),
-	fmtc_register(converter_xa6,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xb6'),
-	fmtc_register(converter_xa7,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xb7'),
-	fmtc_register(converter_xa8,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xb8','O'),
-	fmtc_register(converter_xa9,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xb9'),
-	fmtc_register(converter_xaa,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xba','F'),
-	fmtc_register(converter_xab,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xbb'),
-	fmtc_register(converter_xac,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xbc'),
-	fmtc_register(converter_xad,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xbd'),
-	fmtc_register(converter_xae,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xbe'),
-	fmtc_register(converter_xaf,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xbf'),
+	fmtc_register(xa1,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xb1','A'),
+	fmtc_register(xa2,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xb2','B'),
+	fmtc_register(xa3,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xb3'),
+	fmtc_register(xa4,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xb4'),
+	fmtc_register(xa5,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xb5'),
+	fmtc_register(xa6,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xb6'),
+	fmtc_register(xa7,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xb7'),
+	fmtc_register(xa8,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xb8','O'),
+	fmtc_register(xa9,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xb9'),
+	fmtc_register(xaa,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xba','F'),
+	fmtc_register(xab,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xbb'),
+	fmtc_register(xac,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xbc'),
+	fmtc_register(xad,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xbd'),
+	fmtc_register(xae,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xbe'),
+	fmtc_register(xaf,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xbf'),
 
-	fmtc_register(converter_fe,1,EXPR_FLAGTYPE_DOUBLE,'e'),
-	fmtc_register(faction_g,1,EXPR_FLAGTYPE_DOUBLE,'g'),
-	fmtc_register(faction_g,1,EXPR_FLAGTYPE_DOUBLE,'G'),
+	fmtc_register(fe,1,EXPR_FLAGTYPE_DOUBLE,'e'),
+	fmtc_register(g,1,EXPR_FLAGTYPE_DOUBLE,'g'),
+	fmtc_register(g,1,EXPR_FLAGTYPE_DOUBLE,'G'),
 #define FLTIDX(n) n
 #else
 #define FLTIDX(n) 0
@@ -1237,7 +1298,7 @@ struct expr_vwritef_workspace {
 		const union expr_argf *_arg_cur;
 		union expr_argf _old;
 		uintptr_t _aps;
-		ssize_t *_ar;
+		size_t *_ar;
 		const char *_d1;
 	};
 	union expr_argf _save;
@@ -1406,7 +1467,7 @@ reflag:\
 	get_next_arg64(flag->width,size_t,flag->width_set=1,EXPR_FLAGTYPE_SIZE,zint,zaddr);
 	if(table->digit_set&&*fmt==table->digit){
 		fmt_inc_check;
-		get_next_arg64(flag->digit,ssize_t,flag->digit_set=1,EXPR_FLAGTYPE_SSIZE,tint,taddr);
+		get_next_arg64(flag->digit,size_t,flag->digit_set=1,EXPR_FLAGTYPE_SIZE,zint,zaddr);
 	}
 	if(table->bitwidth_set&&*fmt==table->bitwidth){
 		fmt_inc_check;
@@ -1468,7 +1529,7 @@ current_get:
 					ar=arg1->addr;\
 					argnext1;\
 					*ar+=flag->digit;\
-					r2=(uint8_t)(flag->zero?*ar<0:(flag->space?*ar>0:!*ar));\
+					r2=(uint8_t)(flag->zero?(ssize_t)*ar<0:(flag->space?(ssize_t)*ar>0:!*ar));\
 					if(flag->sharp)\
 						r2=(uint8_t)!r2;\
 					if(r2){\
@@ -1565,7 +1626,7 @@ current_get:
 			if(flag->width_set)
 				*arg1->uiaddr*=flag->width;
 			if(flag->digit_set)
-				*arg1->uiaddr+=(size_t)flag->digit;
+				*arg1->uiaddr+=flag->digit;
 			else
 				++(*arg1->uiaddr);
 			argnext1;
@@ -1574,7 +1635,7 @@ current_get:
 			if(flag->width_set)
 				*arg1->uiaddr/=flag->width;
 			if(flag->digit_set)
-				*arg1->uiaddr-=(size_t)flag->digit;
+				*arg1->uiaddr-=flag->digit;
 			else
 				--(*arg1->uiaddr);
 			argnext1;
@@ -1593,9 +1654,9 @@ current_get:
 			if(flag->zero){
 				if(flag->digit_set){
 					if(flag->plus)
-						save.sint+=flag->digit;
+						save.uint+=flag->digit;
 					else
-						save.sint=flag->digit;
+						save.uint=flag->digit;
 				}else
 					save.uint=0;
 			}else {
@@ -1713,9 +1774,6 @@ current_get:
 	}
 #define type2wid_k(dest,type) \
 	switch(type){\
-		case EXPR_FLAGTYPE_DOUBLE:\
-			dest=(uint8_t)sizeof(double);\
-			break;\
 		case EXPR_FLAGTYPE_ADDR:\
 			dest=(uint8_t)sizeof(void *);\
 			break;\
@@ -1726,6 +1784,9 @@ current_get:
 			dest=(uint8_t)sizeof(size_t);\
 			break;\
 			FLAGTYPE_[S]SIZE will not appear here*/\
+		case EXPR_FLAGTYPE_DOUBLE:\
+			dest=(uint8_t)sizeof(double);\
+			break;\
 		default:\
 			dest=(uint8_t)sizeof(expr_t);\
 			break;\
@@ -1767,9 +1828,10 @@ current_get:
 		aps+=arrwid;\
 	}
 		default:
-			if(unlikely(r1>(uint8_t)table->fmts_size))
+			--r1;
+			if(unlikely(r1>=(uint8_t)table->fmts_size))
 				goto_argfail1(SSIZE_MIN+3);
-			wfp=table->fmts+(r1-1);//r
+			wfp=table->fmts+r1;//r
 wfp_get:
 			if(unlikely(wfp->digit_check&&!flag->digit_set))
 				goto_argfail1(SSIZE_MIN+4);
@@ -1898,21 +1960,13 @@ static const union expr_argf *ap_getarg(ptrdiff_t index,const struct expr_writef
 	}
 	//a->save->uint=0;
 	switch(type){
-		case EXPR_FLAGTYPE_DOUBLE:
-			a->save->dbl=va_arg(a->ap,double);
-			debug("value:%lf",a->save->dbl);
-			break;
 		case EXPR_FLAGTYPE_ADDR:
 			a->save->addr=va_arg(a->ap,void *);
 			debug("value:%p",a->save->addr);
 			break;
-		case EXPR_FLAGTYPE_SSIZE:
-			a->save->tint=va_arg(a->ap,ssize_t);
-			debug("value:%zd",a->save->tint);
-			break;
-		case EXPR_FLAGTYPE_SIZE:
-			a->save->zint=va_arg(a->ap,size_t);
-			debug("value:%zu",a->save->zint);
+		case EXPR_FLAGTYPE_EXPR_T:
+			a->save->val=va_arg(a->ap,expr_t);
+			debug("value:" EXPR_FMTd,a->save->val);
 			break;
 		case EXPR_FLAGTYPE_SIGNED:
 			switch(flag->argsize){
@@ -1935,6 +1989,18 @@ static const union expr_argf *ap_getarg(ptrdiff_t index,const struct expr_writef
 					break;
 			}
 			debug("value:%lu",a->save->uint);
+			break;
+		case EXPR_FLAGTYPE_SSIZE:
+			a->save->tint=va_arg(a->ap,ssize_t);
+			debug("value:%zd",a->save->tint);
+			break;
+		case EXPR_FLAGTYPE_SIZE:
+			a->save->zint=va_arg(a->ap,size_t);
+			debug("value:%zu",a->save->zint);
+			break;
+		case EXPR_FLAGTYPE_DOUBLE:
+			a->save->dbl=va_arg(a->ap,double);
+			debug("value:%lf",a->save->dbl);
 			break;
 		default:
 			__builtin_unreachable();
@@ -2180,7 +2246,7 @@ next:
 	get_next_arg64(tmp->flag->width,size_t,tmp->flag->width_set=1,EXPR_FLAGTYPE_SIZE,zint,zaddr,width);
 	if(table->digit_set&&*fmt==table->digit){
 		fmt_inc_check;
-		get_next_arg64(tmp->flag->digit,ssize_t,tmp->flag->digit_set=1,EXPR_FLAGTYPE_SSIZE,tint,taddr,digit);
+		get_next_arg64(tmp->flag->digit,size_t,tmp->flag->digit_set=1,EXPR_FLAGTYPE_SIZE,zint,zaddr,digit);
 	}else
 		tmp->read_digit=3;
 	if(table->bitwidth_set&&*fmt==table->bitwidth){
@@ -2219,9 +2285,11 @@ next:
 					break;
 				case EXPR_FMTC_DELIM:
 				case EXPR_FMTC_TAIL:
+					if(unlikely(tmp->read_width))
+						reterr(SSIZE_MIN+3);
 					tmp->imm_str=fmt+1;
-					fmt=tmp->imm_str+tmp->flag->width;
-					if(unlikely(fmt>endp||fmt<tmp->imm_str))
+					fmt=(const char *)((uintptr_t)tmp->imm_str+tmp->flag->width);
+					if(unlikely((uintptr_t)fmt>(uintptr_t)endp||(uintptr_t)fmt<(uintptr_t)tmp->imm_str))
 						reterr(SSIZE_MIN+3);
 					--fmt;
 					break;
@@ -2244,9 +2312,10 @@ next:
 			tmp->fmtc_code=r1;
 			break;
 		default:
-			if(unlikely(r1>(uint8_t)table->fmts_size))
+			--r1;
+			if(unlikely(r1>=(uint8_t)table->fmts_size))
 				reterr(SSIZE_MIN+3);
-			wfp=table->fmts+(r1-1);//r
+			wfp=table->fmts+r1;//r
 			if(unlikely(wfp->digit_check&&!tmp->flag->digit_set))
 				reterr(SSIZE_MIN+4);
 			if(wfp->setcap)
@@ -2402,11 +2471,11 @@ void expr_ifree_r(struct expr_finst *restrict fip,const struct expr_memtool *res
 	flag->bit=fip->flag->bit;\
 	backup;\
 	wdasync(width,size_t,EXPR_FLAGTYPE_SIZE,zint,zaddr);\
-	wdasync(digit,ssize_t,EXPR_FLAGTYPE_SSIZE,tint,taddr);\
+	wdasync(digit,size_t,EXPR_FLAGTYPE_SIZE,zint,zaddr);\
 	wdasync_ig0(argsize,uint64_t,EXPR_FLAGTYPE_SIZE,zint,zaddr)
 #define setdlm(dlm,dsz) \
-					dsz=flag_width(flag,0);\
-					dlm=fip->imm_str
+	dsz=fip->flag->width;\
+	dlm=fip->imm_str
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #pragma GCC diagnostic ignored "-Wconditional-uninitialized"

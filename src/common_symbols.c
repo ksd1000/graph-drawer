@@ -414,8 +414,8 @@ struct expr_symbol *symset_add(struct expr_symset *restrict esp,const char *sym,
 })
 #define setza(c) symset_add(es,#c,EXPR_ZAFUNCTION,EXPR_SUNSAFE,d_##c)
 #define setzau(c) symset_add(es,#c,EXPR_ZAFUNCTION,EXPR_SUNSAFE,d_##c)
-#define setfunc(c) symset_add(es,#c,EXPR_FUNCTION,EXPR_SUNSAFE,d_##c,EXPR_SUNSAFE)
-#define setfunci(c) symset_add(es,#c,EXPR_FUNCTION,EXPR_SUNSAFE,d_##c,EXPR_SPURE)
+#define setfunc(c) symset_add(es,#c,EXPR_FUNCTION,EXPR_SUNSAFE,d_##c)
+#define setfunci(c) symset_add(es,#c,EXPR_FUNCTION,EXPR_SUNSAFE|EXPR_SPURE,d_##c)
 #define setmd(c,dim) symset_add(es,#c,EXPR_MDFUNCTION,EXPR_SUNSAFE,d_##c,(size_t)dim)
 #define setconst(c) symset_add(es,#c,EXPR_CONSTANT,0,(double)(c))
 const struct expr_builtin_symbol systable[];

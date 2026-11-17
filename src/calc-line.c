@@ -9,6 +9,7 @@
 #include <time.h>
 #include <getopt.h>
 #include <errno.h>
+#include <math.h>
 #include "expr.h"
 #include "fake_unix.h"
 struct expr_buffered_file rline[1]={EXPR_BUFFERED_INITIALIZER(read,STDIN_FILENO,NULL,SIZE_MAX)};
@@ -41,6 +42,7 @@ void line_exit(void){
 }
 struct history {
 	expr_list_t node;
+	expr_t val;
 	char str[];
 };
 size_t histmax=128;
@@ -49,13 +51,14 @@ expr_list_t hlist={EXPR_LIST_INITIALIZER};
 #define xmtl expr_defmtl
 #define xmalloc expr_xmalloc
 #define xfree expr_xfree
-struct history *histadd(const char *str){
+struct history *histadd(const char *str,expr_t val){
 	struct history *p;
 	size_t len;
 	len=strlen(str);
 	p=xmalloc(sizeof(struct history)+1+len);
 	if(!p)
 		return NULL;
+	p->val=val;
 	memcpy(p->str,str,len);
 	p->str[len]=0;
 	expr_list_insert_next(hlist,p->node);
@@ -75,6 +78,24 @@ void histwipe(void){
 		xfree(expr_host(p,struct history,node));
 	}
 }
+struct history *histlast(size_t n){
+	if(n>=histcur)
+		return NULL;
+	return expr_host(expr_list_rfind(hlist,n+1,next),struct history,node);
+}
+double getlast(double x){
+	struct history *h;
+	if(!(x>=0.0&&x<=EXPR_IMAXO))
+		return NAN;
+	h=histlast((size_t)x);
+	if(!h)
+		return NAN;
+	return h->val;
+}
+#define symset_add(esp,sym,type,flag,...) ({\
+	if(!(expr_symset_add(esp,sym,type,flag,##__VA_ARGS__)))\
+		errx(EXIT_FAILURE,"cannot add symbol %s",sym);\
+})
 const struct option ops[]={
 	{"no-optimize",0,NULL,'n'},
 	{"no-tty",0,NULL,'b'},
@@ -95,7 +116,7 @@ void show_help(const char *a0){
 	exit(EXIT_SUCCESS);
 }
 int main(int argc,char **argv){
-	double r;
+	expr_t r;
 	const char *p;
 	struct expr_symset *es;
 	int error=0,flag=0;
@@ -132,8 +153,8 @@ break2:
 		err(EXIT_FAILURE,"cannot allocate memory");
 	if(expr_symset_addalls_builtin(es,expr_symbols_errno,expr_symbols_io,expr_symbols_default,NULL)<0)
 		err(EXIT_FAILURE,"cannot allocate memory");
+	symset_add(es,"last",EXPR_FUNCTION,EXPR_SPURE,getlast);
 	for(line_start();(p=readline1(NULL))&&*p;line_start()){
-		histadd(p);
 		if(!p[1])switch(*p){
 			case 'q':
 				goto case_q;
@@ -144,7 +165,8 @@ break2:
 		if(error){
 			warnx("expression error:%s \"%s\"",expr_error(error),errinfo);
 		}
-		expr_printf("%=.-1f\n",r);
+		histadd(p,r);
+		expr_printf("%=.-1" EXPR_FMTd "\n",r);
 		error=0;
 	}
 case_q:

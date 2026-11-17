@@ -144,11 +144,12 @@ void expr_pool_wipe(struct expr_pool *restrict pool){
 	pool->tail=NULL;
 	// pool is provided by the caller, libexpr will not free it or modify its other fields.
 }
-void *expr_poolmtl_malloc(size_t size,intptr_t arg){
+expr_sizeat(1) void *expr_poolmtl_malloc(size_t size,intptr_t arg){
 	return expr_pool_malloc((struct expr_pool *)arg,size);
 }
-void *expr_poolmtl_realloc(void *old,size_t size,intptr_t arg){
-	return expr_pool_realloc((struct expr_pool *)arg,old,size);
+expr_sizeat(2) void *expr_poolmtl_realloc(void *old,size_t size,intptr_t arg){
+	return old?expr_pool_realloc((struct expr_pool *)arg,old,size):
+		expr_pool_malloc((struct expr_pool *)arg,size);
 }
 void expr_poolmtl_dealloc(void *old,intptr_t arg){
 	expr_pool_dealloc((struct expr_pool *)arg,old);
@@ -176,7 +177,7 @@ void expr_explode_r(void (*contractor)(void *,size_t),size_t max,const struct ex
 		}
 		max>>=1;
 	}while(max);
-//the abort() is usually unreachable,should
-//be killed by kernel before sz reaches 0
+// here is usually unreachable,should
+// be killed by kernel before sz reaches 0
 }
 

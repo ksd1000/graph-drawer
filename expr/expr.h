@@ -44,6 +44,15 @@
 #ifndef expr_packed
 #define expr_packed __attribute__((packed))
 #endif
+#ifndef expr_pure
+#define expr_pure __attribute__((pure))
+#endif
+#ifndef expr_const
+#define expr_const __attribute__((const))
+#endif
+#ifndef expr_sizeat
+#define expr_sizeat(...) __attribute__((alloc_size(__VA_ARGS__)))
+#endif
 #define expr_likely(cond) __builtin_expect(!!(cond),1)
 #define expr_unlikely(cond) __builtin_expect(!!(cond),0)
 #define expr_assume(cond) if(cond);else __builtin_unreachable()
@@ -62,6 +71,15 @@
 #endif
 #ifndef expr_packed
 #define expr_packed
+#endif
+#ifndef expr_pure
+#define expr_pure
+#endif
+#ifndef expr_const
+#define expr_const
+#endif
+#ifndef expr_sizeat
+#define expr_sizeat(...)
 #endif
 #define expr_likely(cond) (!!(cond))
 #define expr_unlikely(cond) (!!(cond))
@@ -221,8 +239,8 @@ expr_static_assert(sizeof(expr_ut)==sizeof(expr_t));
 
 typedef ssize_t (*expr_writer_t)(intptr_t fd,const void *buf,size_t size);
 typedef ssize_t (*expr_reader_t)(intptr_t fd,void *buf,size_t size);
-typedef void *(*expr_allocate_t)(size_t,intptr_t);
-typedef void *(*expr_reallocate_t)(void *,size_t,intptr_t);
+typedef void *(*expr_allocate_t)(size_t,intptr_t) expr_sizeat(1);
+typedef void *(*expr_reallocate_t)(void *,size_t,intptr_t) expr_sizeat(2);
 typedef void (*expr_deallocate_t)(void *,intptr_t);
 typedef void *(*expr_test_t)(const void *buf,intptr_t arg,size_t size);
 struct expr_memtool {
@@ -1273,20 +1291,11 @@ expr_struct_mlist(struct expr_symlist,EXPR_SYMNEXT);
 	__r.rd.base&&__r.rd.exp==2047;\
 })
 
-#define expr_xmalloc(size) ({\
-	expr_allocator(size);\
-})
-#define expr_xrealloc(old,size) ({\
-	void *__old=(old);\
-	__old?\
-		expr_reallocator(__old,(size)):\
-		expr_allocator(size);\
-})
-#define expr_xfree(old) ({\
-	expr_deallocator(old);\
-})
-
 #endif /*_GNU_SOURCE*/
+
+#define expr_xmalloc(size) expr_allocator(size)
+#define expr_xrealloc(old,size) expr_reallocator((old),(size))
+#define expr_xfree(old) expr_deallocator(old)
 
 #define expr_allocator(size) ((xmtl)->allocate((size),(xmtl)->arg))
 #define expr_reallocator(old,size) ((xmtl)->reallocate((old),(size),(xmtl)->arg))
@@ -1420,7 +1429,7 @@ expr_struct_mlist(struct expr_symlist,EXPR_SYMNEXT);
 #ifdef _GNU_SOURCE
 expr_static_assert(__builtin_constant_p(expr_mkval(0)));
 #endif /*_GNU_SOURCE*/
-#define expr_internal_memset(buf,val,size) expr_internal_memset64(buf,expr_mkval(val),size)
+#define expr_internal_memset(buf,val,size) expr_internal_memsetp(buf,expr_mkval(val),size)
 
 #ifdef _GNU_SOURCE
 
@@ -1493,6 +1502,71 @@ struct expr_libinfo {
 	const char *time;
 	const char *license;
 };
+
+#define EXPR_FMTC_EXIT 255
+#define EXPR_FMTC_WRITESIZE 254
+#define EXPR_FMTC_NEXTSAVED 253
+#define EXPR_FMTC_JUMP_INDEX 252
+#define EXPR_FMTC_LOOP 251
+#define EXPR_FMTC_LOOP_FORWARD 250
+#define EXPR_FMTC_DELIM 249
+#define EXPR_FMTC_TAIL 248
+#define EXPR_FMTC_SETARR 247
+#define EXPR_FMTC_EXITIF 246
+#define EXPR_FMTC_READ_FMTC 245
+#define EXPR_FMTC_JUMP 244
+#define EXPR_FMTC_READ_CONVERTER 243
+#define EXPR_FMTC_INC 242
+#define EXPR_FMTC_DEC 241
+#define EXPR_FMTC_PUSH 240
+#define EXPR_FMTC_CLEAR 239
+#define EXPR_FMTC_SAVE 238
+#define EXPR_FMTC_EVAL 237
+#define EXPR_FMTC_FLUSH 236
+#define EXPR_FMTC_FPH 235
+
+#define EXPR_FMTC_MAX 255
+#define EXPR_FMTC_MIN 235
+
+#define EXPR_FPLUS 230
+#define EXPR_FSPACE 229
+#define EXPR_FMINUS 228
+#define EXPR_FSHARP 227
+#define EXPR_FZERO 226
+#define EXPR_FEQ 225
+#define EXPR_FSAVED 224
+#define EXPR_FADDR 223
+#define EXPR_FCAP 222
+
+#define EXPR_FLAGTYPE_ADDR 0
+#define EXPR_FLAGTYPE_EXPR_T 1
+#define EXPR_FLAGTYPE_SIGNED 2
+#define EXPR_FLAGTYPE_UNSIGNED 3
+#define EXPR_FLAGTYPE_SSIZE 4
+#define EXPR_FLAGTYPE_SIZE 5
+#define EXPR_FLAGTYPE_DOUBLE 6
+
+union expr_argf {
+	void *addr;
+	expr_t val;
+	expr_it sint;
+	expr_ut uint;
+	expr_t *vaddr;
+	expr_it *siaddr;
+	expr_ut *uiaddr;
+	double dbl;
+	double *daddr;
+	ssize_t tint;
+	size_t zint;
+	uintptr_t upint;
+	intptr_t spint;
+	size_t *zaddr;
+	ssize_t *taddr;
+	const char *str;
+	union expr_argf *aaddr;
+	char cha[sizeof(expr_t)];
+};
+expr_static_assert(sizeof(union expr_argf)==sizeof(expr_t));
 #if (!defined(__BIG_ENDIAN__)||!(__BIG_ENDIAN__))
 #define EXPR_WRITEFLAG_BITFIELDS \
 	uint64_t unused:34,\
@@ -1528,7 +1602,6 @@ struct expr_libinfo {
 		op:8,\
 		unused:34
 #endif
-
 struct expr_writeflag {
 	union {
 		uint64_t bit;
@@ -1537,7 +1610,7 @@ struct expr_writeflag {
 		};
 	};
 	size_t width;
-	ssize_t digit;
+	size_t digit;
 	const struct expr_memtool *restrict mtl;
 };
 struct expr_writeflag_nomtl {
@@ -1548,69 +1621,8 @@ struct expr_writeflag_nomtl {
 		};
 	};
 	size_t width;
-	ssize_t digit;
+	size_t digit;
 };
-#define EXPR_FMTC_EXIT 0
-#define EXPR_FMTC_WRITESIZE 255
-#define EXPR_FMTC_NEXTSAVED 254
-#define EXPR_FMTC_JUMP_INDEX 253
-#define EXPR_FMTC_LOOP 252
-#define EXPR_FMTC_LOOP_FORWARD 251
-#define EXPR_FMTC_DELIM 250
-#define EXPR_FMTC_TAIL 249
-#define EXPR_FMTC_SETARR 248
-#define EXPR_FMTC_EXITIF 247
-#define EXPR_FMTC_READ_FMTC 246
-#define EXPR_FMTC_JUMP 245
-#define EXPR_FMTC_READ_CONVERTER 244
-#define EXPR_FMTC_INC 243
-#define EXPR_FMTC_DEC 242
-#define EXPR_FMTC_PUSH 241
-#define EXPR_FMTC_CLEAR 240
-#define EXPR_FMTC_SAVE 239
-#define EXPR_FMTC_EVAL 238
-#define EXPR_FMTC_FLUSH 237
-#define EXPR_FMTC_FPH 236
-
-#define EXPR_FMTC_MAX 255
-#define EXPR_FMTC_MIN 236
-
-#define EXPR_FPLUS 230
-#define EXPR_FSPACE 229
-#define EXPR_FMINUS 228
-#define EXPR_FSHARP 227
-#define EXPR_FZERO 226
-#define EXPR_FEQ 225
-#define EXPR_FSAVED 224
-#define EXPR_FADDR 223
-#define EXPR_FCAP 222
-
-#define EXPR_FLAGTYPE_ADDR 0
-#define EXPR_FLAGTYPE_SIGNED 1
-#define EXPR_FLAGTYPE_UNSIGNED 2
-#define EXPR_FLAGTYPE_DOUBLE 3
-#define EXPR_FLAGTYPE_SSIZE 4
-#define EXPR_FLAGTYPE_SIZE 5
-
-union expr_argf {
-	void *addr;
-	expr_it sint;
-	expr_ut uint;
-	expr_it *siaddr;
-	expr_ut *uiaddr;
-	double dbl;
-	ssize_t tint;
-	size_t zint;
-	uintptr_t upint;
-	intptr_t spint;
-	double *daddr;
-	size_t *zaddr;
-	ssize_t *taddr;
-	const char *str;
-	union expr_argf *aaddr;
-	char ch;
-};
-expr_static_assert(sizeof(union expr_argf)==sizeof(expr_t));
 typedef const union expr_argf *(*expr_argfetch_t)(ptrdiff_t index,const struct expr_writeflag *flag,intptr_t addr);
 typedef ssize_t (*expr_converter_t)(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
 struct expr_writefmt {
@@ -2563,8 +2575,8 @@ void expr_area_wipe_monotonic(struct expr_area *restrict area);
 void expr_area_reset_monotonic(struct expr_area *restrict area);
 int expr_area_resize(struct expr_area *restrict area,size_t size);
 int expr_area_summary(const struct expr_area *restrict area,struct expr_areainfo *restrict info);
-void *expr_heapmtl_malloc(size_t size,intptr_t arg);
-void *expr_heapmtl_realloc(void *old,size_t size,intptr_t arg);
+expr_sizeat(1) void *expr_heapmtl_malloc(size_t size,intptr_t arg);
+expr_sizeat(2) void *expr_heapmtl_realloc(void *old,size_t size,intptr_t arg);
 void expr_heapmtl_dealloc(void *old,intptr_t arg);
 int expr_setup_heapmtl4(struct expr_memtool *restrict mtl,void *heap,size_t size,int flag);
 //global externs of expr-alloc.c :
@@ -2620,6 +2632,45 @@ extern const struct expr_extarg expr_extarg_default[1];
 //global functions of expr-format.c :
 ssize_t expr_writec_r(expr_writer_t writer,intptr_t fd,size_t count,int c,const struct expr_memtool *restrict mtl);
 ssize_t expr_converter_common(expr_writer_t writer,intptr_t fd,const void *buf,size_t size,const struct expr_writeflag *flag);
+ssize_t expr_converter_d(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+ssize_t expr_converter_size(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+ssize_t expr_converter_x81(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+ssize_t expr_converter_x82(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+ssize_t expr_converter_x83(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+ssize_t expr_converter_x84(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+ssize_t expr_converter_x85(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+ssize_t expr_converter_x86(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+ssize_t expr_converter_x87(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+ssize_t expr_converter_x88(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+ssize_t expr_converter_x89(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+ssize_t expr_converter_x8a(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+ssize_t expr_converter_x8b(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+ssize_t expr_converter_x8c(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+ssize_t expr_converter_x8d(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+ssize_t expr_converter_x8e(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+ssize_t expr_converter_x8f(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+ssize_t expr_converter_xa1(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+ssize_t expr_converter_xa2(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+ssize_t expr_converter_xa3(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+ssize_t expr_converter_xa4(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+ssize_t expr_converter_xa5(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+ssize_t expr_converter_xa6(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+ssize_t expr_converter_xa7(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+ssize_t expr_converter_xa8(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+ssize_t expr_converter_xa9(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+ssize_t expr_converter_xaa(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+ssize_t expr_converter_xab(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+ssize_t expr_converter_xac(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+ssize_t expr_converter_xad(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+ssize_t expr_converter_xae(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+ssize_t expr_converter_xaf(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+ssize_t expr_converter_g(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+ssize_t expr_converter_s(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+ssize_t expr_converter_immbinary(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+ssize_t expr_converter_h(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+ssize_t expr_converter_escape(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+ssize_t expr_converter_c(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+ssize_t expr_converter_p(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
 ssize_t expr_vwriteft_r(expr_writer_t writer,intptr_t fd,const char *restrict fmt,size_t fmtlen,expr_argfetch_t arg,intptr_t addr,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl);
 ssize_t expr_writeft_r(expr_writer_t writer,intptr_t fd,const char *restrict fmt,size_t fmtlen,const union expr_argf *restrict args,size_t arglen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl);
 ssize_t expr_vapwriteft_r(expr_writer_t writer,intptr_t fd,const char *restrict fmt,size_t fmtlen,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl,va_list ap);
@@ -2670,26 +2721,26 @@ expr_ut expr_internal_strtou(const char *restrict nptr,size_t nsize,size_t *rest
 expr_it expr_internal_strtoi(const char *restrict nptr,size_t nsize,size_t *restrict end_index,int base,int flag);
 double expr_internal_strtod4(const char *restrict nptr,size_t nsize,size_t *restrict end_index,struct expr_strtod_workspace *restrict ws);
 double expr_internal_strtod_mtl_force(const char *restrict nptr,size_t nsize,size_t *restrict end_index,const struct expr_memtool *restrict mtl);
-double expr_internal_trunc(double x);
-double expr_internal_fmod(double x,double y);
-double expr_internal_fand(double x,double y);
-double expr_internal_for(double x,double y);
-double expr_internal_fxor(double x,double y);
-double expr_internal_sqrt(double x);
-uint64_t expr_internal_sqrt128(uint64_t low,uint64_t high);
-double expr_internal_pow(double x,double y);
-double expr_internal_fabs(double x);
-void expr_internal_memset64(void *buf,uintptr_t val,size_t size);
+expr_const double expr_internal_trunc(double x);
+expr_const double expr_internal_fmod(double x,double y);
+expr_const double expr_internal_fand(double x,double y);
+expr_const double expr_internal_for(double x,double y);
+expr_const double expr_internal_fxor(double x,double y);
+expr_const double expr_internal_sqrt(double x);
+expr_const uint64_t expr_internal_sqrt128(uint64_t low,uint64_t high);
+expr_const double expr_internal_pow(double x,double y);
+expr_const double expr_internal_fabs(double x);
+void expr_internal_memsetp(void *buf,uintptr_t val,size_t size);
 void expr_internal_memcpy(void *dst,const void *src,size_t size);
 void expr_internal_memswap(void *dst,void *src,size_t size);
 void expr_internal_memmove(void *dst,const void *src,size_t size);
-void *expr_internal_memchr(const void *buf,int c,size_t size);
-void *expr_internal_memrchr(const void *buf,int c,size_t size);
-void *expr_internal_memnchr(const void *buf,int c,size_t size);
-void *expr_internal_memrnchr(const void *buf,int c,size_t size);
-int expr_internal_memtst(const void *buf,size_t size);
-int expr_internal_memcmp(const void *s0,const void *s1,size_t size);
-void *expr_internal_memchr2(const void *buf,int c);
+expr_pure void *expr_internal_memchr(const void *buf,int c,size_t size);
+expr_pure void *expr_internal_memrchr(const void *buf,int c,size_t size);
+expr_pure void *expr_internal_memnchr(const void *buf,int c,size_t size);
+expr_pure void *expr_internal_memrnchr(const void *buf,int c,size_t size);
+expr_pure int expr_internal_memtst(const void *buf,size_t size);
+expr_pure int expr_internal_memcmp(const void *s0,const void *s1,size_t size);
+expr_pure void *expr_internal_memchr2(const void *buf,int c);
 struct expr_symbol *expr_symset_add_builtin(struct expr_symset *restrict esp,const struct expr_builtin_symbol *p);
 ssize_t expr_symset_xaddalls_builtin(struct expr_symset *restrict esp,const struct expr_builtin_symbol **symsp,const struct expr_builtin_symbol *syms,...);
 ssize_t expr_symset_addalls_builtin(struct expr_symset *restrict esp,const struct expr_builtin_symbol *syms,...);
@@ -2740,8 +2791,8 @@ void *expr_pool_malloc(struct expr_pool *restrict pool,size_t size);
 void expr_pool_dealloc(struct expr_pool *restrict pool,void *old);
 void *expr_pool_realloc(struct expr_pool *restrict pool,void *old,size_t size);
 void expr_pool_wipe(struct expr_pool *restrict pool);
-void *expr_poolmtl_malloc(size_t size,intptr_t arg);
-void *expr_poolmtl_realloc(void *old,size_t size,intptr_t arg);
+expr_sizeat(1) void *expr_poolmtl_malloc(size_t size,intptr_t arg);
+expr_sizeat(2) void *expr_poolmtl_realloc(void *old,size_t size,intptr_t arg);
 void expr_poolmtl_dealloc(void *old,intptr_t arg);
 void expr_setup_poolmtl(struct expr_memtool *restrict mtl,struct expr_pool *pool);
 void expr_explode_r(void (*contractor)(void *,size_t),size_t max,const struct expr_memtool *restrict mtl);
@@ -2832,8 +2883,8 @@ intptr_t expr_wrapped_syscall5(int num,intptr_t a0,intptr_t a1,intptr_t a2,intpt
 intptr_t expr_wrapped_syscall6(int num,intptr_t a0,intptr_t a1,intptr_t a2,intptr_t a3,intptr_t a4,intptr_t a5);
 intptr_t expr_wrapped_syscall7(int num,intptr_t a0,intptr_t a1,intptr_t a2,intptr_t a3,intptr_t a4,intptr_t a5,intptr_t a6);
 int expr_setup_mtl(int flag);
-void *expr_heapmtl_malloc_nonnull(size_t size,intptr_t arg);
-void *expr_heapmtl_realloc_nonnull(void *old,size_t size,intptr_t arg);
+expr_sizeat(1) void *expr_heapmtl_malloc_nonnull(size_t size,intptr_t arg);
+expr_sizeat(2) void *expr_heapmtl_realloc_nonnull(void *old,size_t size,intptr_t arg);
 int expr_setup_heapmtl4_nonnull(struct expr_memtool *restrict mtl,void *heap,size_t size,int flag);
 //global externs of expr-global.c :
 extern const struct expr_libinfo expr_libinfo_current[1];

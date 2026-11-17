@@ -431,11 +431,13 @@ int expr_area_summary(const struct expr_area *restrict area,struct expr_areainfo
 	++info->unit_count;
 	return 0;
 }
-void *expr_heapmtl_malloc(size_t size,intptr_t arg){
+expr_sizeat(1) void *expr_heapmtl_malloc(size_t size,intptr_t arg){
 	return expr_area_malloc((struct expr_area *)arg,size);
 }
-void *expr_heapmtl_realloc(void *old,size_t size,intptr_t arg){
+expr_sizeat(2) void *expr_heapmtl_realloc(void *old,size_t size,intptr_t arg){
 	return expr_area_realloc((struct expr_area *)arg,old,size);
+	// the case old==NULL must be checked here
+	// if the behavior changes in future.
 }
 void expr_heapmtl_dealloc(void *old,intptr_t arg){
 	expr_area_dealloc((struct expr_area *)arg,old);

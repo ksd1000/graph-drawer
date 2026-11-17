@@ -1312,7 +1312,7 @@ double expr_internal_strtod_mtl_force(const char *restrict nptr,size_t nsize,siz
 		return 0.0;
 	}
 }
-double expr_internal_trunc(double x){
+expr_const double expr_internal_trunc(double x){
 	union expr_double val;
 	ssize_t index;
 	val.val=x;
@@ -1354,7 +1354,7 @@ double expr_internal_trunc(double x){
 	}\
 })
 #define uzero(u) (!((u)&(UINT64_MAX>>1)))
-double expr_internal_fmod(double x,double y){
+expr_const double expr_internal_fmod(double x,double y){
 	uint64_t mx,my;
 	int ex,ey,off;
 	union expr_double vx,vy;
@@ -1430,7 +1430,7 @@ double expr_internal_fmod(double x,double y){
 #define FAND_SPEC(val) ((vx.rd.sign&&vy.rd.sign)?-(val):(val))
 #define FOR_SPEC(val) ((vx.rd.sign||vy.rd.sign)?-(val):(val))
 #define FXOR_SPEC(val) ((vx.rd.sign!=vy.rd.sign)?-(val):(val))
-double expr_internal_fand(double x,double y){
+expr_const double expr_internal_fand(double x,double y){
 	FBIT_COMMON(
 		FAND_SPEC(vy.rd.exp==2047&&vy.rd.base?NAN:0.0),
 		FAND_SPEC(vx.rd.exp==2047&&vx.rd.base?NAN:0.0),
@@ -1446,7 +1446,7 @@ double expr_internal_fand(double x,double y){
 }
 #define FOR_NEXT(vx,vy) ({if(vx.rd.sign)vy.rd.sign=1;vy.val;})
 #define FXOR_NEXT(vx,vy) ({if(vx.rd.sign)vy.rd.sign^=1;vy.val;})
-double expr_internal_for(double x,double y){
+expr_const double expr_internal_for(double x,double y){
 	FBIT_COMMON(
 		FOR_NEXT(vx,vy),
 		FOR_NEXT(vy,vx),
@@ -1457,7 +1457,7 @@ double expr_internal_for(double x,double y){
 	build_double(vx,mx,ex,vx.rd.sign||vy.rd.sign);
 	return vx.val;
 }
-double expr_internal_fxor(double x,double y){
+expr_const double expr_internal_fxor(double x,double y){
 	FBIT_COMMON(
 		FXOR_NEXT(vx,vy),
 		FXOR_NEXT(vy,vx),
@@ -1471,7 +1471,7 @@ double expr_internal_fxor(double x,double y){
 	build_double(vx,mx,ex,vx.rd.sign!=vy.rd.sign);
 	return vx.val;
 }
-double expr_internal_sqrt(double x){
+expr_const double expr_internal_sqrt(double x){
 	uint64_t mx;	
 	int ex,off;
 	union expr_double vx;
@@ -1499,7 +1499,7 @@ double expr_internal_sqrt(double x){
 	build_double(vx,mx,ex,0);
 	return vx.val;
 }
-uint64_t expr_internal_sqrt128(uint64_t low,uint64_t high){
+expr_const uint64_t expr_internal_sqrt128(uint64_t low,uint64_t high){
 	uint64_t bh,bl,rh,rl,th,tl;
 	if(!high){
 #define bit bl
@@ -1554,7 +1554,7 @@ uint64_t expr_internal_sqrt128(uint64_t low,uint64_t high){
 	return rl;
 }
 //WARNING: the pow is worse than libc pow. for no-libc mode only
-double expr_internal_pow(double x,double y){
+expr_const double expr_internal_pow(double x,double y){
 	double r;
 	union expr_double vx,vy;
 	uint64_t y64;
@@ -1618,7 +1618,7 @@ yinf:
 	}
 	return neg?1.0/r:r;
 }
-double expr_internal_fabs(double x){
+expr_const double expr_internal_fabs(double x){
 	union expr_double val;
 	val.val=x;
 	val.uval&=UINT64_MAX>>1;
@@ -1923,7 +1923,7 @@ double expr_internal_fabs(double x){
 			break;\
 	}\
 })
-void expr_internal_memset64(void *buf,uintptr_t val,size_t size){
+void expr_internal_memsetp(void *buf,uintptr_t val,size_t size){
 	uint8_t *bp;
 	uintptr_t end;
 	size_t tmp_size;
@@ -2223,7 +2223,7 @@ void expr_internal_memmove(void *dst,const void *src,size_t size){
 #define w1 w._w1
 #define w2 w._w2
 #define w3 w._w3
-void *expr_internal_memchr(const void *buf,int c,size_t size){
+expr_pure void *expr_internal_memchr(const void *buf,int c,size_t size){
 	const uint8_t *p=buf;
 	uint64_t val=expr_mkval64(c);
 	struct {
@@ -2262,7 +2262,7 @@ void *expr_internal_memchr(const void *buf,int c,size_t size){
 	}
 	return NULL;
 }
-void *expr_internal_memrchr(const void *buf,int c,size_t size){
+expr_pure void *expr_internal_memrchr(const void *buf,int c,size_t size){
 	const uint8_t *p=buf+size;
 	uint64_t val=expr_mkval64(c);
 	struct {
@@ -2301,7 +2301,7 @@ void *expr_internal_memrchr(const void *buf,int c,size_t size){
 	}
 	return NULL;
 }
-void *expr_internal_memnchr(const void *buf,int c,size_t size){
+expr_pure void *expr_internal_memnchr(const void *buf,int c,size_t size){
 	const uint8_t *p=buf;
 	uint64_t val=expr_mkval64(c);
 	struct {
@@ -2340,7 +2340,7 @@ void *expr_internal_memnchr(const void *buf,int c,size_t size){
 	}
 	return NULL;
 }
-void *expr_internal_memrnchr(const void *buf,int c,size_t size){
+expr_pure void *expr_internal_memrnchr(const void *buf,int c,size_t size){
 	const uint8_t *p=buf+size;
 	uint64_t val=expr_mkval64(c);
 	struct {
@@ -2379,7 +2379,7 @@ void *expr_internal_memrnchr(const void *buf,int c,size_t size){
 	}
 	return NULL;
 }
-int expr_internal_memtst(const void *buf,size_t size){
+expr_pure int expr_internal_memtst(const void *buf,size_t size){
 	const uint8_t *p=buf;
 	struct {
 		uint64_t _w0,_w1,_w2,_w3;
@@ -2410,7 +2410,7 @@ int expr_internal_memtst(const void *buf,size_t size){
 #define w11 w_1._w1
 #define w21 w_1._w2
 #define w31 w_1._w3
-int expr_internal_memcmp(const void *s0,const void *s1,size_t size){
+expr_pure int expr_internal_memcmp(const void *s0,const void *s1,size_t size){
 	const uint8_t *p=s0;
 	const uint8_t *p1=s1;
 	uint64_t d;
@@ -2452,7 +2452,7 @@ int expr_internal_memcmp(const void *s0,const void *s1,size_t size){
 	}
 	return 0;
 }
-void *expr_internal_memchr2(const void *buf,int c){
+expr_pure void *expr_internal_memchr2(const void *buf,int c){
 	const uint8_t *p=buf,*s=buf,*q;
 	size_t ava;
 	ava=PAGE_SIZE-((uintptr_t)p&(PAGE_SIZE-1));

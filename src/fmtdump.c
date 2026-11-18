@@ -126,6 +126,19 @@ const char *strccode(int fmtccode){
 			abort();
 	}
 }
+const char *strtype(int type){
+	switch(type){
+		CCODE(EXPR_FLAGTYPE_ADDR);
+		CCODE(EXPR_FLAGTYPE_EXPR_T);
+		CCODE(EXPR_FLAGTYPE_SIGNED);
+		CCODE(EXPR_FLAGTYPE_UNSIGNED);
+		CCODE(EXPR_FLAGTYPE_SSIZE);
+		CCODE(EXPR_FLAGTYPE_SIZE);
+		CCODE(EXPR_FLAGTYPE_DOUBLE);
+		default:
+			abort();
+	}
+}
 #define REGCONV(C) if(conv==C)return #C
 const char *strconv(expr_converter_t conv){
 	REGCONV(expr_converter_d);
@@ -170,115 +183,138 @@ const char *strconv(expr_converter_t conv){
 	REGCONV(expr_converter_p);
 	abort();
 }
-const char *varname;
+int plain=0,add_index=0;
 #define TEMPLATE_IMM \
-"\t{\n"\
+(!plain?\
 "\t\t.op=EXPR_FIMM,\n"\
 "\t\t.imm_str=%#.*E,\n"\
-"\t\t.imm_len=%~=:zu\n"\
-"\t},\n"
-#define TEMPLATE_CON \
-"\t{\n"\
-"\t\t.op=%s,\n"\
-"\t\t.flag={{\n"\
-"\t\t\t.bit=%#~=:8x,\n"\
-"\t\t\t.width=%~=:zu,\n"\
-"\t\t\t.digit=%~=:zu,\n"\
-"\t\t}},\n"\
-"\t\t.converter=%s,\n"\
-"\t\t.read_width=%:iu,\n"\
-"\t\t.read_digit=%:iu,\n"\
-"\t\t.read_argsize=%:iu,\n"\
-"\t},\n"
-#define ARG_CON(OP) \
-(#OP)\
-,fip->flag->bit\
-,fip->flag->width\
-,fip->flag->digit\
-,strconv(fip->converter)\
-,(unsigned int)fip->read_width\
-,(unsigned int)fip->read_digit\
-,(unsigned int)fip->read_argsize
-#define TEMPLATE_CTL(...) \
-"\t{\n"\
-"\t\t.op=%s,\n"\
-"\t\t.flag={{\n"\
-"\t\t\t.bit=%#~=:8x,\n"\
-"\t\t\t.width=%~=:zu,\n"\
-"\t\t\t.digit=%~=:zu,\n"\
-"\t\t}},\n"\
-"\t\t.fmtc_code=%s,\n"\
-__VA_ARGS__\
-"\t\t.read_width=%:iu,\n"\
-"\t\t.read_digit=%:iu,\n"\
-"\t\t.read_argsize=%:iu\n"\
-"\t},\n"
-#define TEMPLATE_DT \
-"\t\t.imm_str=%#.*E,\n"
-#define TEMPLATE_FPH \
-"\t\t.fph=\'%.1E\',\n"
-#define ARG_CTL(...) \
-"EXPR_FCTL"\
-,fip->flag->bit\
-,fip->flag->width\
-,fip->flag->digit\
-,strccode(fip->fmtc_code)\
-,##__VA_ARGS__\
-,(unsigned int)fip->read_width\
-,(unsigned int)fip->read_digit\
-,(unsigned int)fip->read_argsize
+"\t\t.imm_len=%=:zu,\n":\
+"{"\
+".op=EXPR_FIMM,"\
+".imm_str=%#.*E,"\
+".imm_len=%=:zu,"\
+"},")
+#define plain0(s) (plain?s:"" s "\n")
+#define plain1(s) (plain?s:"\t" s "\n")
+#define plain2(s) (plain?s:"\t\t" s "\n")
+#define plain3(s) (plain?s:"\t\t\t" s "\n")
+#define DUMPF(fl) if(flag->fl)expr_printf(plain3("." #fl "=%:zu,"),(size_t)flag->fl)
+#define type_check(type,T) \
+	if(expr_ftable_default->bitwidth_##type##_set&&flag->asop==expr_ftable_default->bitwidth_##type){\
+		expr_printf(plain3(".argsize=sizeof(" #T "),"));\
+	}
+#define DUMPM(m) if(fip->m)expr_printf(plain2("." #m "=%:iu,"),(unsigned int)fip->m)
+const char *varname;
+void dumpflag(const struct expr_writeflag_nomtl *flagp){
+	struct expr_writeflag_nomtl flag[1];
+	memcpy(flag,flagp,sizeof(struct expr_writeflag_nomtl));
+	flag->op=0;
+	if(!expr_internal_memtst(flag,sizeof(struct expr_writeflag_nomtl)))
+		return;
+	expr_printf(plain2(".flag={{"));
+	if(flag->type)
+		expr_printf(plain3(".type=%s,"),strtype((int)flag->type));
+	DUMPF(plus);
+	DUMPF(space);
+	DUMPF(zero);
+	DUMPF(minus);
+	DUMPF(sharp);
+	DUMPF(eq);
+	DUMPF(cap);
+	DUMPF(saved);
+	DUMPF(digit_set);
+	DUMPF(width_set);
+	DUMPF(addr);
+	DUMPF(suffix);
+	DUMPF(width);
+	DUMPF(digit);
+	type_check(addr,void *)
+	else type_check(size,size_t)
+	else type_check(char,char)
+	else type_check(short,short)
+	else type_check(int,int)
+	else type_check(long,long)
+	else type_check(llong,long long)
+	else {
+		DUMPF(argsize);
+	}
+	expr_printf(plain2("}},"));
+}
+void dumpcon(const struct expr_finst *restrict fip,const char *op){
+	expr_printf(plain2(".op=%s,"),op);
+	expr_printf(plain2(".converter=%s,"),strconv(fip->converter));
+	dumpflag(fip->flag);
+	DUMPM(read_width);
+	DUMPM(read_digit);
+	DUMPM(read_argsize);
+}
+void dumpctl(const struct expr_finst *restrict fip){
+	expr_printf(plain2(".op=EXPR_FCTL,"));
+	expr_printf(plain2(".fmtc_code=%s,"),strccode(fip->fmtc_code));
+	switch(fip->fmtc_code){
+		case EXPR_FMTC_DELIM:
+		case EXPR_FMTC_TAIL:
+			expr_printf(plain2(".imm_str=%#.*E,"),fip->flag->width,fip->imm_str);
+			break;
+		case EXPR_FMTC_FPH:
+			expr_printf(plain2(".fph=\'%.1E\',"),&fip->fph);
+			break;
+		default:
+			break;
+	}
+	dumpflag(fip->flag);
+	DUMPM(read_width);
+	DUMPM(read_digit);
+	DUMPM(read_argsize);
+}
 void dump_c(const struct expr_finst *restrict fip){
+	const struct expr_finst *fip0=fip;
 	if(varname)
-		expr_printf("const struct expr_finst %s[]={\n",varname);
+		expr_printf(plain0("const struct expr_finst %s[]={"),varname);
 	else
-		expr_printf("%s","{\n");
+		expr_printf("%s",plain0("{"));
 	for(;;++fip){
+		if(add_index)
+			expr_printf(plain1("[%=:zd]={"),(ssize_t)(fip-fip0));
+		else
+			expr_printf(plain1("{"));
 		switch(fip->op){
 			case EXPR_FIMM:
 				expr_printf(TEMPLATE_IMM,fip->imm_len,fip->imm_str,fip->imm_len);
 				break;
 			case EXPR_FCON:
-				expr_printf(TEMPLATE_CON,ARG_CON(EXPR_FCON));
+				dumpcon(fip,"EXPR_FCON");
 				break;
 			case EXPR_FCOL:
-				expr_printf(TEMPLATE_CON,ARG_CON(EXPR_FCOL));
+				dumpcon(fip,"EXPR_FCOL");
 				break;
 			case EXPR_FCOA:
-				expr_printf(TEMPLATE_CON,ARG_CON(EXPR_FCOA));
+				dumpcon(fip,"EXPR_FCOA");
 				break;
 			case EXPR_FCOZ:
-				expr_printf(TEMPLATE_CON,ARG_CON(EXPR_FCOZ));
+				dumpcon(fip,"EXPR_FCOZ");
 				break;
 			case EXPR_FCTL:
-				switch(fip->fmtc_code){
-					case EXPR_FMTC_DELIM:
-					case EXPR_FMTC_TAIL:
-						expr_printf(TEMPLATE_CTL(TEMPLATE_DT),ARG_CTL(fip->flag->width,fip->imm_str));
-						break;
-					case EXPR_FMTC_FPH:
-						expr_printf(TEMPLATE_CTL(TEMPLATE_FPH),ARG_CTL(&fip->fph));
-						break;
-					default:
-						expr_printf(TEMPLATE_CTL(),ARG_CTL());
-						break;
-				}
+				dumpctl(fip);
 				break;
 			case EXPR_FEND:
-				expr_printf("%s",
-					"\t{\n"
+				expr_printf("%s",!plain?
 					"\t\t.op=EXPR_FEND,\n"
-					"\t}\n");
+					"\t}\n":
+					".op=EXPR_FEND,"
+					"}");
 				expr_printf("%s",varname?"};\n":"}\n");
 				return;
 			default:
 				abort();
-				// not necessary to use __builtin_unreachable()
-				// for here is not in libexpr.
 		}
+		expr_printf(plain1("},"));
 	}
 }
 const struct option ops[]={
+	{"index",0,NULL,'i'},
 	{"no-optimize",0,NULL,'n'},
+	{"plain",0,NULL,'p'},
 	{"style-c",0,NULL,'c'},
 	{"varname",0,NULL,'v'},
 	{"help",0,NULL,'h'},
@@ -286,7 +322,9 @@ const struct option ops[]={
 };
 void show_help(const char *a0){
 	fprintf(stdout,"usage: %s [options] format\n"
+			"\t--index, -i\tadd index to each instruments in --style-c\n"
 			"\t--no-optimize, -n\tdo not optimize\n"
+			"\t--plain, -p\tremove the tab and nextline in --style-c\n"
 			"\t--style-c, -c\tdump in C style\n"
 			"\t--help, -h\tshow this help\n"
 			"version: %s\n"
@@ -303,7 +341,7 @@ int main(int argc,char **argv){
 		show_help(*argv);
 	opterr=1;
 	for(;;){
-		switch(getopt_long(argc,argv,"nchv:",ops,NULL)){
+		switch(getopt_long(argc,argv,"nchv:pi",ops,NULL)){
 			case 'n':
 				flag|=EXPR_INOOPTIMIZE;
 				break;
@@ -312,6 +350,12 @@ int main(int argc,char **argv){
 				break;
 			case 'v':
 				varname=optarg;
+				break;
+			case 'p':
+				plain=1;
+				break;
+			case 'i':
+				add_index=1;
 				break;
 			case 'h':
 				show_help(*argv);

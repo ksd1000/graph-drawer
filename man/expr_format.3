@@ -127,7 +127,9 @@ Left justification.
 Append a whitespace to the start of a positive number if '+' not set.
 .TQ
 .B =
-Stop if no more effective digits.
+Stop if no more effective digits for type double and human-readable value. Append suffix to ensure the output value can be used in code without truncating and sign-conversion warning when the value cannot be
+.B int
+on some platforms for type signed integer and unsigned integer.
 .TQ
 .B ?
 Use the saved value instead read from arguments.
@@ -137,6 +139,15 @@ Read the value from the pointer provided by argument.
 .TQ
 .B !
 Set cap explicitly.
+.TQ
+.B ~
+Append
+.B l,ll,u,ul,ull
+suffix to signed integers and unsigned integers, the suffix depends on the value. If
+.B =
+is set for unsigned integers, the length suffix will equal to the only
+.B =
+case and the unsigned suffix will always be appended.
 .SS ARGSIZE
 .TP
 .B number
@@ -206,7 +217,7 @@ double.
 .RB "unsigned integer(" expr_ut "), in binary."
 .TQ 
 .BR m , M
-.RB "unsigned integer(" expr_ut "), in human readable format."
+.RB "unsigned integer(" expr_ut "), in human-readable format."
 .TQ
 .B c
 Character.

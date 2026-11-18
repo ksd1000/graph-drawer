@@ -200,21 +200,19 @@ ssize_t expr_converter_d(expr_writer_t writer,intptr_t fd,const union expr_argf 
 		minus=0;
 #define ADD_C(c) *(--p)=flag->cap?((c)&~32):((c)|32)
 	if(val){
-		if(flag->suffix){
-			if(flag->eq){
-				if(val>(expr_ut)INT32_MAX){
-					ADD_C('l');
-					ADD_C('l');
-				}else if(val>(expr_ut)INT16_MAX){
-					ADD_C('l');
-				}
-			}else {
-				if(sizeof(expr_ut)>sizeof(long)&&val>(expr_ut)LONG_MAX){
-					ADD_C('l');
-					ADD_C('l');
-				}else if(val>(expr_ut)INT_MAX){
-					ADD_C('l');
-				}
+		if(flag->eq){
+			if(val>(expr_ut)INT32_MAX){
+				ADD_C('l');
+				ADD_C('l');
+			}else if(val>(expr_ut)INT16_MAX){
+				ADD_C('l');
+			}
+		}else if(flag->suffix){
+			if(sizeof(expr_ut)>sizeof(long)&&val>(expr_ut)LONG_MAX){
+				ADD_C('l');
+				ADD_C('l');
+			}else if(val>(expr_ut)INT_MAX){
+				ADD_C('l');
 			}
 		}
 		write_val10_to_p(val);
@@ -326,6 +324,19 @@ static ssize_t converter_xu(expr_writer_t writer,intptr_t fd,const union expr_ar
 				}
 			}
 			ADD_C('u');
+		}else if(flag->eq){
+				if(val>(expr_ut)UINT32_MAX){
+					ADD_C('l');
+					ADD_C('l');
+					ADD_C('u');
+				}else if(val>(expr_ut)INT32_MAX){
+					ADD_C('l');
+					ADD_C('u');
+				}else if(val>(expr_ut)UINT16_MAX){
+					ADD_C('l');
+				}else if(val>(expr_ut)INT16_MAX){
+					ADD_C('u');
+				}
 		}
 		do {
 			mod=val%base;
@@ -1519,7 +1530,8 @@ reflag:\
 		fmt_inc_check;
 #define type_check(type,T) \
 		if(table->bitwidth_##type##_set&&*fmt==table->bitwidth_##type){\
-			flag->argsize=(uint64_t)sizeof(T);\
+			flag->argsize=(uint8_t)sizeof(T);\
+			flag->asop=(uint8_t)table->bitwidth_##type;\
 			fmt_inc_check;\
 		}
 		type_check(addr,void *)
@@ -1532,7 +1544,7 @@ reflag:\
 		else type_check(llong,long long)
 #endif
 		else {
-			get_next_arg64(flag->argsize,uint64_t,,EXPR_FLAGTYPE_SIZE,zint,zaddr);
+			get_next_arg64(flag->argsize,uint8_t,,EXPR_FLAGTYPE_SIZE,zint,zaddr);
 		}
 	}
 	current=*(const uint8_t *)fmt;
@@ -1849,7 +1861,7 @@ current_get:
 	if(!arrwid){\
 		type2wid_k(arrwid,type);\
 	}\
-	flag->argsize=sizeof(void *);\
+	flag->argsize=(uint8_t)sizeof(void *);\
 	aps=arg1->upint;\
 	mask=(EXPR_UMAX>>((int)sizeof(expr_ut)*8-(int)arrwid*8));\
 	argnext1;\
@@ -2269,6 +2281,7 @@ next:
 #define get_next_arg64(dest,dtype,_after,_type,_field,_afield,_read) \
 	if(table->readarg_set&&*fmt==table->readarg){\
 		fmt_inc_check;\
+		dest=(dtype)0;\
 		if(table->readarg2_set&&*fmt==table->readarg2){\
 			tmp->read_##_read=2;\
 			fmt_inc_check;\
@@ -2286,8 +2299,10 @@ next:
 				--psize;\
 				goto end;\
 			}\
-		}else\
+		}else{\
+			dest=(dtype)0;\
 			tmp->read_##_read=3;\
+		}\
 	}
 	get_next_arg64(tmp->flag->width,size_t,tmp->flag->width_set=1,EXPR_FLAGTYPE_SIZE,zint,zaddr,width);
 	if(table->digit_set&&*fmt==table->digit){
@@ -2299,7 +2314,8 @@ next:
 		fmt_inc_check;
 #define type_check(type,T) \
 		if(table->bitwidth_##type##_set&&*fmt==table->bitwidth_##type){\
-			tmp->flag->argsize=(uint64_t)sizeof(T);\
+			tmp->flag->argsize=(uint8_t)sizeof(T);\
+			tmp->flag->asop=(uint8_t)table->bitwidth_##type;\
 			/*tmp->read_argsize=0;*/\
 			fmt_inc_check;\
 		}
@@ -2313,7 +2329,7 @@ next:
 		else type_check(llong,long long)
 #endif
 		else {
-			get_next_arg64(tmp->flag->argsize,uint64_t,,EXPR_FLAGTYPE_SIZE,zint,zaddr,argsize);
+			get_next_arg64(tmp->flag->argsize,uint8_t,,EXPR_FLAGTYPE_SIZE,zint,zaddr,argsize);
 		}
 	}/*else
 		tmp->read_argsize=0;*/

@@ -4665,7 +4665,7 @@ static int expr_constexpr(const struct expr *restrict ep,expr_t *except){
 			CALSUM(EXPR_XORN,sum=likely(inited)?xor2(sum,y):(inited=1,y),inited=0,sum,dest);\
 			CALSUM(EXPR_GCDN,sum=likely(inited)?gcd2(sum,y):(inited=1,y),inited=0,sum,dest);\
 			CALSUM(EXPR_LCMN,sum=likely(inited)?lcm2(sum,y):(inited=1,y),inited=0,sum,dest);\
-			CALSUM(EXPR_FOR,,,sum,dest)
+			CALSUM(EXPR_FOR,sum=EXPR_ZERO,,sum,dest)
 #define CALMD_INSWITCH(dest) case EXPR_MD:\
 				ap1=ip->un.em->args;\
 				endp=ap1+ip->un.em->dim;\

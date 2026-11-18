@@ -1540,13 +1540,14 @@ struct expr_libinfo {
 #define EXPR_FCAP 222
 #define EXPR_FSUFFIX 221
 
-#define EXPR_FLAGTYPE_ADDR 0
-#define EXPR_FLAGTYPE_EXPR_T 1
-#define EXPR_FLAGTYPE_SIGNED 2
-#define EXPR_FLAGTYPE_UNSIGNED 3
-#define EXPR_FLAGTYPE_SSIZE 4
-#define EXPR_FLAGTYPE_SIZE 5
-#define EXPR_FLAGTYPE_DOUBLE 6
+#define EXPR_FLAGTYPE_VOID 0
+#define EXPR_FLAGTYPE_ADDR 1
+#define EXPR_FLAGTYPE_EXPR_T 2
+#define EXPR_FLAGTYPE_SIGNED 3
+#define EXPR_FLAGTYPE_UNSIGNED 4
+#define EXPR_FLAGTYPE_SSIZE 5
+#define EXPR_FLAGTYPE_SIZE 6
+#define EXPR_FLAGTYPE_DOUBLE 7
 
 union expr_argf {
 	void *addr;
@@ -1571,11 +1572,12 @@ union expr_argf {
 expr_static_assert(sizeof(union expr_argf)==sizeof(expr_t));
 #if !EXPR_BIG_ENDIAN
 #define EXPR_WRITEFLAG_BITFIELDS \
-	uint64_t unused:33,\
-		suffix:1,\
+	uint64_t unused:25,\
+		asop:8,\
 		op:8,\
 		argsize:8,\
 		type:3,\
+		suffix:1,\
 		addr:1,\
 		width_set:1,\
 		digit_set:1,\
@@ -1600,11 +1602,12 @@ expr_static_assert(sizeof(union expr_argf)==sizeof(expr_t));
 		digit_set:1,\
 		width_set:1,\
 		addr:1,\
+		suffix:1,\
 		type:3,\
 		argsize:8,\
 		op:8,\
-		suffix:1,\
-		unused:33
+		asop:8,\
+		unused:25
 #endif
 struct expr_writeflag {
 	union {

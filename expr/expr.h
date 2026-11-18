@@ -2862,6 +2862,8 @@ struct expr_global_file *const *expr_stdin_get(void);
 struct expr_global_file *const *expr_stdout_get(void);
 struct expr_global_file *const *expr_stderr_get(void);
 int expr_setvbuf(struct expr_global_file *fp,void *buf,int mode,size_t size);
+ssize_t expr_fflush(struct expr_global_file *fp);
+expr_writer_t expr_fhook(struct expr_global_file *fp,expr_writer_t new);
 ssize_t expr_vfprintf(struct expr_global_file *fp,const char *format,va_list ap);
 ssize_t expr_fprintf(struct expr_global_file *fp,const char *format,...);
 ssize_t expr_farrprintf(struct expr_global_file *fp,const char *format,const union expr_argf *restrict args,size_t arglen);

@@ -189,11 +189,10 @@ int plain=0,add_index=0;
 "\t\t.op=EXPR_FIMM,\n"\
 "\t\t.imm_str=%#.*E,\n"\
 "\t\t.imm_len=%=:zu,\n":\
-"{"\
 ".op=EXPR_FIMM,"\
 ".imm_str=%#.*E,"\
 ".imm_len=%=:zu,"\
-"},")
+)
 #define plain0(s) (plain?s:"" s "\n")
 #define plain1(s) (plain?s:"\t" s "\n")
 #define plain2(s) (plain?s:"\t\t" s "\n")

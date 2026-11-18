@@ -4,7 +4,7 @@
  *******************************************************************************/
 #define _GNU_SOURCE
 
-#define EXPR_VERSION "1.0.19-3"
+#define EXPR_VERSION "1.0.19-4"
 
 #define EXPR_LIBC_STRING_IMPL 1
 #include <string.h>
@@ -367,6 +367,31 @@ int expr_setvbuf(struct expr_global_file *fp,void *buf,int mode,size_t size){
 	// when the other has not completed.
 	expr_mutex_unlock(fp->mutex);
 	return r0|r1;
+}
+ssize_t expr_fflush(struct expr_global_file *fp){
+	ssize_t r;
+	if(unlikely(!fp))
+		return (ssize_t)-EBADF;
+	expr_mutex_lock(fp->mutex);
+	if(fp->write){
+		r=expr_buffered_flush(fp->buf);
+	}else
+		r=(ssize_t)-EBADF;
+	expr_mutex_unlock(fp->mutex);
+	return r;
+}
+expr_writer_t expr_fhook(struct expr_global_file *fp,expr_writer_t new){
+	expr_writer_t old;
+	if(unlikely(!fp))
+		return NULL;
+	expr_mutex_lock(fp->mutex);
+	if(fp->write){
+		old=fp->buf->writer;
+		fp->buf->writer=new;
+	}else
+		old=NULL;
+	expr_mutex_unlock(fp->mutex);
+	return old;
 }
 ssize_t expr_vfprintf(struct expr_global_file *fp,const char *format,va_list ap){
 	ssize_t r;

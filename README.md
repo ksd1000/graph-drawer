@@ -116,7 +116,7 @@ generate a 1s 440Hz sound .wav file:
 ./wave 'sin(440*2*pi*t)' -c 1 -o 1.wav
 ```
 
-An example of API of graph-drawer expr:
+An example of API of graph-drawer/expr:
 ```C
 #define _GNU_SOURCE
 #include <stdio.h>
@@ -244,7 +244,7 @@ Tested by test/speedtest.c
 
 ## Compare with other expr libs
 
-||zserge expr|tinyexpr|graph-drawer expr|
+||zserge expr|tinyexpr|graph-drawer/expr|
 |:---:|:---:|:---:|:---:|
 |Support data type|float|double|double|
 |Expression object type|struct expr|te\_expr|struct expr|

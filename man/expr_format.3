@@ -121,7 +121,12 @@ Append a + to the start of a positive number.
 Pad with zeros instead of whitespaces.
 .TQ
 .B -
-Left justification.
+Left justification. For escape/base64 conversion with
+.B ~
+, append an
+.B ESCAPE
+character before each
+.BR LF .
 .TQ
 .B ' '
 Append a whitespace to the start of a positive number if '+' not set.
@@ -147,7 +152,8 @@ suffix to signed integers and unsigned integers, the suffix depends on the value
 .B =
 is set for unsigned integers, the length suffix will equal to the only
 .B =
-case and the unsigned suffix will always be appended.
+case and the unsigned suffix will always be appended. For escape/base64 conversion, the maximal count of input/output bytes of each line will be set to
+.IR width .
 .SS ARGSIZE
 .TP
 .B number

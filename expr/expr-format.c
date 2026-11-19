@@ -979,6 +979,7 @@ ssize_t expr_converter_h(expr_writer_t writer,intptr_t fd,const union expr_argf 
 	xfree(buf);
 	return r;
 }
+#define ESC_ADDLINE(start,end) ({if(flag->minus){c_trywrite3(start "\\\n" end,sizeof(start "\\\n" end)-1,xfree(buf);return r);}else {c_trywrite3(start "\n" end,sizeof(start "\n" end)-1,xfree(buf);return r);}});
 expr_static_assert(EXPR_WCBUFSIZE>=4);
 ssize_t expr_converter_escape(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	char *buf,*datap;
@@ -986,6 +987,41 @@ ssize_t expr_converter_escape(expr_writer_t writer,intptr_t fd,const union expr_
 	ssize_t r,sum,ext;
 	size=flag->digit;
 	sum=0;
+	if(flag->suffix){
+		index=flag_width(flag,0);
+		if(index-1>(size_t)SSIZE_MAX/4-1)
+			index=20;
+		flag->width=index;
+		flag->digit=index*4;
+		buf=xmalloc(flag->digit);
+		if(unlikely(!buf))
+			return SSIZE_MIN+1;
+		datap=arg->addr;
+		if(flag->sharp){
+			c_trywrite3("\"",1,xfree(buf);return r);
+		}
+		while(size>flag->width){
+			r=(ssize_t)expr_strwrite(datap,flag->width,buf,flag->digit,&index);
+			size-=index;
+			datap+=index;
+			index=(size_t)r;
+			c_trywrite3(buf,r,xfree(buf);return r);
+			if(flag->sharp){
+				ESC_ADDLINE("\"","\"");
+			}else {
+				ESC_ADDLINE(,);
+			}
+		}
+		if(size){
+			r=(ssize_t)expr_strwrite(datap,size,buf,flag->digit,&index);
+			c_trywrite3(buf,r,xfree(buf);return r);
+		}
+		if(flag->sharp){
+			c_trywrite3("\"",1,xfree(buf);return r);
+		}
+		xfree(buf);
+		return sum;
+	}
 	ext=(ssize_t)flag_width(flag,0);
 	if((ext||flag->plus)&&!flag->minus){
 		if(unlikely(size>(size_t)SSIZE_MAX/4))
@@ -1069,12 +1105,65 @@ ssize_t expr_converter_base64(expr_writer_t writer,intptr_t fd,const union expr_
 	if(unlikely(size>(size_t)(SSIZE_MAX/4)*3-2))
 		return SSIZE_MIN+2;
 	index=base64_size(size);
+	sum=0;
+	if(flag->suffix){
+		char *p;
+		index=flag_width(flag,0);
+		if(index-1>(size_t)SSIZE_MAX-4)
+			index=76;
+		flag->width=index;
+		flag->digit=index+3;
+		buf=xmalloc(flag->digit);
+		if(unlikely(!buf))
+			return SSIZE_MIN+1;
+		datap=arg->addr;
+		ext=0;
+		for(;;){
+			r=(ssize_t)expr_strwrite64(datap,size,buf,flag->digit,&index);
+			size-=index;
+			datap+=index;
+			index=(size_t)r;
+			p=buf;
+			if(ext){
+				if((size_t)ext==flag->width){
+					ESC_ADDLINE(,);
+					//ext=0;
+				}else if(index+(size_t)ext<=flag->width){
+					c_trywrite3(buf,index,xfree(buf);return r);
+					ext+=(ssize_t)index;
+					goto no_loop;
+				}else {
+					r=(ssize_t)(flag->width-(size_t)ext);
+					index-=(size_t)r;
+					p+=r;
+					c_trywrite3(buf,r,xfree(buf);return r);
+					ESC_ADDLINE(,);
+					//ext=0;
+				}
+			}
+			while(index>flag->width){
+				c_trywrite3(p,flag->width,xfree(buf);return r);
+				ESC_ADDLINE(,);
+				p+=flag->width;
+				index-=flag->width;
+			}
+			if(index){
+				c_trywrite3(p,index,xfree(buf);return r);
+				ext=(ssize_t)index;
+			}else
+				ext=0;
+no_loop:
+			if(unlikely(!size))
+				break;
+		}
+		xfree(buf);
+		return sum;
+	}
 	ext=(ssize_t)flag_width(flag,0);
 	if(ext>(ssize_t)index)
 		ext-=(ssize_t)index;
 	else
 		ext=0;
-	sum=0;
 	if(!flag->minus){
 		if(ext>0){
 			c_trywriteext((flag->zero)?'0':' ',ext);

@@ -2077,7 +2077,9 @@ use_byte:
 					return NULL;
 				for(un.vv1=sym.vv;*un.vv1;++un.vv1);
 				dim=(size_t)(un.vv1-sym.vv);
-				sv.i=(size_t)consteval(sym.vv[0],strlenv(sym.vv[0]),asym,asymlen,ep->sset,ep);
+				un.v=consteval(sym.vv[0],strlenv(sym.vv[0]),asym,asymlen,ep->sset,ep);
+				cknp(ep,un.v>=EXPR_ZERO&&un.v<=EXPR_IMAXO,goto c_fail);
+				sv.i=(size_t)(ssize_t)un.v;
 				if(unlikely(ep->error))
 					goto c_fail;
 				v0=expr_newvar(ep);
@@ -2088,6 +2090,7 @@ use_byte:
 				cknp(ep,p4,xfree(un.uaddr);goto c_fail);
 				((struct expr_resource *)(uintptr_t)p4)->un.uaddr=un.uaddr;
 				cknp(ep,expr_addconst(ep,v0,un.v),goto c_fail);
+				memset(un.uaddr,0,(size_t)type*sv.i);
 				if(--dim){
 					if(dim>sv.i)
 						dim=sv.i;

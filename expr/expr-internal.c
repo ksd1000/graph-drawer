@@ -265,11 +265,8 @@ size_t expr_strwrite64(const char *restrict s,size_t sz,char *restrict buf,size_
 	outsz/=4;
 	if(rem){
 		if(unlikely(n+1>outsz)){
-			if(!outsz){
-				*end_index=0;
-				goto end;
-			}
-			n=outsz-1;
+			n=outsz;
+			rem=0;
 		}
 	}else {
 		if(unlikely(n>outsz))
@@ -313,7 +310,6 @@ size_t expr_strwrite64(const char *restrict s,size_t sz,char *restrict buf,size_
 		default:
 			__builtin_unreachable();
 	}
-end:
 	if(buf<oend)
 		*buf=0;
 	return (size_t)(buf-buf0);

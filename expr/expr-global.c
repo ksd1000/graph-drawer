@@ -4,7 +4,7 @@
  *******************************************************************************/
 #define _GNU_SOURCE
 
-#define EXPR_VERSION "1.0.19-5"
+#define EXPR_VERSION "1.0.19-6"
 
 #define EXPR_LIBC_STRING_IMPL 1
 #include <string.h>
@@ -90,7 +90,6 @@ static int expr_setuped=0;
 static struct expr_global_file *expr_stdin_var=NULL;
 static struct expr_global_file *expr_stdout_var=NULL;
 static struct expr_global_file *expr_stderr_var=NULL;
-static uint32_t global_mutex[1]={EXPR_MUTEX_INITIALIZER};
 // mutex lock/unlock will be void operation on non-unix platform, the man page keeps MT-UnSafe.
 #define GLOBAL_MUTEX_START ({debug("GLOBAL_MUTEX_START");expr_mutex_lock(global_mutex);})
 #define GLOBAL_MUTEX_END ({debug("GLOBAL_MUTEX_END");expr_mutex_unlock(global_mutex);})
@@ -135,11 +134,40 @@ static int global_close(intptr_t fd){
 	fclose((FILE *)fd);
 	return -errno;
 }
+#define xmtl expr_globalmtl
 static struct expr_list global_head[1]={EXPR_LIST_INITIALIZER};
+static uint32_t global_mutex[1]={EXPR_MUTEX_INITIALIZER};
+static struct expr_list gc_head[1]={EXPR_LIST_INITIALIZER};
+static uint32_t gc_mutex[1]={EXPR_MUTEX_INITIALIZER};
+struct expr_gc_object {
+	struct expr_list node[1];
+	void *gcaddr;
+};
+void expr_gcadd(void *addr){
+	struct expr_gc_object *p;
+	p=xmalloc(sizeof(struct expr_gc_object));
+	if(unlikely(!p))
+		warn_abort("expr-lc/gc","cannot allocate memory of size=%zu",sizeof(struct expr_gc_object));
+	p->gcaddr=addr;
+	expr_mutex_lock(gc_mutex);
+	expr_list_insert_next(gc_head,p->node);
+	expr_mutex_unlock(gc_mutex);
+}
+void expr_gcfree(void *addr){
+	expr_mutex_lock(gc_mutex);
+	expr_list_foreach_rw(v,gc_head,next){
+		if(expr_host(v,struct expr_gc_object,node)->gcaddr==addr){
+			xfree(addr);
+			expr_list_detach(v);
+			xfree(expr_host(v,struct expr_gc_object,node));
+			break;
+		}
+	}
+	expr_mutex_unlock(gc_mutex);
+}
 #ifndef EBADF
 #define EBADF 9
 #endif
-#define xmtl expr_globalmtl
 int expr_close(struct expr_global_file *fp){
 	int r=0;
 	if(unlikely(!fp))
@@ -149,6 +177,7 @@ int expr_close(struct expr_global_file *fp){
 		if(v==fp->node)
 			goto found;
 	}
+	expr_mutex_unlock(fp->mutex);
 	return -EBADF;
 found:
 	if(fp->write){
@@ -180,6 +209,13 @@ static void expr_global_atexit(void){
 	}
 	//GLOBAL_MUTEX_END;
 	// dead lock
+	expr_mutex_lock(gc_mutex);
+	expr_list_foreach_rw(v,gc_head,next){
+		expr_list_detach(v);
+		xfree(expr_host(v,struct expr_gc_object,node)->gcaddr);
+		xfree(expr_host(v,struct expr_gc_object,node));
+	}
+	expr_mutex_unlock(gc_mutex);
 }
 __attribute__((constructor))
 static void expr_global_setup(void){
@@ -956,8 +992,31 @@ static double d_close(double *args,size_t n){
 	fp=expr_cast(*args,struct expr_global_file *);
 	return (double)expr_close(fp);
 }
+static double d_falloc(double *args,size_t n){
+	struct expr_global_file *fp;
+	ssize_t r;
+	void *p;
+	fp=expr_open(cast(args[0],const char *),"rb");
+	if(!fp)
+		return 0.0;
+	r=expr_file_readfd_r(global_read,fp->rbuf->fd,1,&p,expr_globalmtl);
+	expr_close(fp);
+	if(unlikely(r<0)){
+		return 0.0;
+	}
+	expr_gcadd(p);
+	if(n>1){
+		*cast(args[1],double *)=(double)r;
+	}
+	return cast(p,double);
+}
+static double d_gcfree(double x){
+	expr_gcfree(cast(x,void *));
+	return 0.0;
+}
 const struct expr_builtin_symbol expr_symbols_io[]={
 	REGMDSYM2_NIU("open",d_open,2),
+	REGMDSYM2_NIU("falloc",d_falloc,0),
 	REGMDSYM2_NIU("close",d_close,1),
 	REGMDSYM2_NIU("printf",d_printf,0),
 	REGMDSYM2_NIU("fprintf",d_fprintf,0),
@@ -968,6 +1027,7 @@ const struct expr_builtin_symbol expr_symbols_io[]={
 	REGMDSYM2_NIU("fread",d_fread,3),
 	REGMDSYM2_NIU("fwrite",d_fwrite,3),
 	REGMDSYM2_NIU("setvbuf",d_setvbuf,4),
+	REGFSYM2_NI("gcfree",d_gcfree),
 	REGZASYM2_U("getstdin",d_stdin),
 	REGZASYM2_U("getstdout",d_stdout),
 	REGZASYM2_U("getstderr",d_stderr),

@@ -2866,6 +2866,8 @@ extern const struct expr_builtin_symbol expr_symbols_symset[];
 extern const struct expr_builtin_symbol expr_symbols_string[];
 extern const struct expr_builtin_symbol expr_symbols_errno[];
 //global functions of expr-global.c :
+void expr_gcadd(void *addr);
+void expr_gcfree(void *addr);
 int expr_close(struct expr_global_file *fp);
 struct expr_global_file *const *expr_stdin_get(void);
 struct expr_global_file *const *expr_stdout_get(void);

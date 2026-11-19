@@ -862,16 +862,18 @@ expr_static_assert(!(NULL));
 #define memset expr_internal_memset
 #define memcpy expr_internal_memcpy
 #define memmove expr_internal_memmove
-#define memrchr expr_internal_memrchr
 #define memcmp expr_internal_memcmp
 #define strend(s) expr_internal_memchr2(s,0)
 #define strlen expr_internal_strlen
 #define strnlen(s,n) ({const char *_s=(s);size_t _n=(n);const char *_p=expr_internal_memchr(_s,0,_n);_p?(size_t)(_p-_s):_n;})
-#define memmem expr_fake_memmem
-#define memrmem expr_fake_memrmem
 #else
 #define strend(s) ({const char *_s=(s);_s+strlen(_s);})
 #endif
+
+#define memrchr expr_internal_memrchr
+#define memmem expr_fake_memmem
+#define memrmem expr_fake_memrmem
+// not in C standard
 
 #undef warn
 #define warn(fmt,...) fprintf(stderr,fmt "\n",##__VA_ARGS__)

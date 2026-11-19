@@ -89,7 +89,6 @@ static const struct proj {
 	{"alias(x,defined_symbol);x",2304.0},
 	{"alias(x,\"5+6\");x=4;x+2",6},
 	{NULL,0.0}
-
 };
 static const struct eproj {
 	const char *e;

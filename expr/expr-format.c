@@ -924,7 +924,8 @@ ssize_t expr_converter_immbinary(expr_writer_t writer,intptr_t fd,const union ex
 	ssize_t r,sum,ext,sz;
 	cwrite_common(arg->str,(ssize_t)len);
 }
-static ssize_t converter_hb(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag,uint8_t buf[960]){
+#define ESC_ADDLINE(start,end) ({if(flag->minus){c_trywrite3(start "\\\n" end,sizeof(start "\\\n" end)-1,xfree(buf);return r);}else {c_trywrite3(start "\n" end,sizeof(start "\n" end)-1,xfree(buf);return r);}});
+static ssize_t converter_hb(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag,uint8_t *buf,size_t n){
 	size_t len=flag->digit;
 	ssize_t r,sum,ext;
 	uint8_t *p,*endp,*datap;
@@ -940,7 +941,7 @@ static ssize_t converter_hb(expr_writer_t writer,intptr_t fd,const union expr_ar
 	}
 	if(len){
 		p=buf;
-		endp=buf+960;
+		endp=buf+n;
 		for(datap=arg->addr;;){
 			data=*datap;
 			if(f60){
@@ -954,8 +955,11 @@ static ssize_t converter_hb(expr_writer_t writer,intptr_t fd,const union expr_ar
 			if(unlikely(!--len))
 				break;
 			if(unlikely(p>=endp)){
-				c_trywrite(buf,960);
+				c_trywrite(buf,n);
 				p=buf;
+				if(flag->suffix){
+					ESC_ADDLINE(,);
+				}
 			}
 			++datap;
 		}
@@ -969,17 +973,30 @@ static ssize_t converter_hb(expr_writer_t writer,intptr_t fd,const union expr_ar
 	}
 	return sum;
 }
+// lcm(3,4,5)==60
 ssize_t expr_converter_h(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	uint8_t *buf;
 	ssize_t r;
-	buf=xmalloc(960);
+	if(flag->suffix){
+		if(unlikely(flag->width>(size_t)SSIZE_MAX/60))
+			return SSIZE_MIN+2;
+		if(flag->width)
+			r=(ssize_t)(flag->width*60);
+		else
+			r=960;
+		flag->width=0;
+		flag->width_set=1;
+		buf=xmalloc((size_t)r);
+	}else {
+		r=960;
+		buf=xmalloc(960);
+	}
 	if(unlikely(!buf))
 		return SSIZE_MIN+1;
-	r=converter_hb(writer,fd,arg,flag,buf);
+	r=converter_hb(writer,fd,arg,flag,buf,(size_t)r);
 	xfree(buf);
 	return r;
 }
-#define ESC_ADDLINE(start,end) ({if(flag->minus){c_trywrite3(start "\\\n" end,sizeof(start "\\\n" end)-1,xfree(buf);return r);}else {c_trywrite3(start "\n" end,sizeof(start "\n" end)-1,xfree(buf);return r);}});
 expr_static_assert(EXPR_WCBUFSIZE>=4);
 ssize_t expr_converter_escape(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	char *buf,*datap;
@@ -990,7 +1007,7 @@ ssize_t expr_converter_escape(expr_writer_t writer,intptr_t fd,const union expr_
 	if(flag->suffix){
 		index=flag_width(flag,0);
 		if(index-1>(size_t)SSIZE_MAX/4-1)
-			index=20;
+			index=32;
 		flag->width=index;
 		flag->digit=index*4;
 		buf=xmalloc(flag->digit);

@@ -1429,8 +1429,14 @@ expr_struct_mlist(struct expr_symlist,EXPR_SYMNEXT);
 #define expr_mkval64(c) ((uint64_t)(uint8_t)(c))*UINT64_C(0x0101010101010101)
 #ifdef _GNU_SOURCE
 expr_static_assert(__builtin_constant_p(expr_mkval(0)));
+expr_static_assert(__builtin_constant_p(expr_mkval64(0)));
 #endif /*_GNU_SOURCE*/
-#define expr_internal_memset(buf,val,size) expr_internal_memsetp(buf,expr_mkval(val),size)
+#define expr_internal_memset(buf,c,size) expr_internal_memsetp(buf,expr_mkval(c),size)
+#define expr_internal_memchr(buf,c,size) expr_internal_memchr64(buf,expr_mkval64(c),size)
+#define expr_internal_memrchr(buf,c,size) expr_internal_memrchr64(buf,expr_mkval64(c),size)
+#define expr_internal_memnchr(buf,c,size) expr_internal_memnchr64(buf,expr_mkval64(c),size)
+#define expr_internal_memrnchr(buf,c,size) expr_internal_memrnchr64(buf,expr_mkval64(c),size)
+#define expr_internal_memchr2(buf,c) expr_internal_rawmemchr64(buf,expr_mkval64(c))
 
 #ifdef _GNU_SOURCE
 
@@ -1938,7 +1944,7 @@ struct expr_symbol_infile {
 #define expr_le(x,N) ((uint##N##_t)(x))
 	uint16_t strlen:6,type:3,flag:6,unused:1;
 #else
-#define expr_le(x,N) expr_bswap(x,N)
+#define expr_le(x,N) expr_bswap((uint##N##_t)(x),N)
 	uint16_t unused:1,flag:6,type:3,strlen:6;
 #endif
 	char str[];
@@ -2580,7 +2586,7 @@ void *expr_area_realloc4(struct expr_area *restrict area,void *old,size_t size,i
 void expr_area_wipe(struct expr_area *restrict area);
 void expr_area_wipe_monotonic(struct expr_area *restrict area);
 void expr_area_reset_monotonic(struct expr_area *restrict area);
-int expr_area_resize(struct expr_area *restrict area,size_t size);
+int expr_area_truncate(struct expr_area *restrict area,size_t size);
 int expr_area_summary(const struct expr_area *restrict area,struct expr_areainfo *restrict info);
 expr_sizeat(1) void *expr_heapmtl_malloc(size_t size,intptr_t arg);
 expr_sizeat(2) void *expr_heapmtl_realloc(void *old,size_t size,intptr_t arg);
@@ -2677,6 +2683,8 @@ ssize_t expr_converter_s(expr_writer_t writer,intptr_t fd,const union expr_argf 
 ssize_t expr_converter_immbinary(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
 ssize_t expr_converter_h(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
 ssize_t expr_converter_escape(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+ssize_t expr_converter_base64_auto(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
+ssize_t expr_converter_base64(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
 ssize_t expr_converter_c(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
 ssize_t expr_converter_p(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
 ssize_t expr_vwriteft_r(expr_writer_t writer,intptr_t fd,const char *restrict fmt,size_t fmtlen,expr_argfetch_t arg,intptr_t addr,const struct expr_ftable *restrict table,const struct expr_memtool *restrict mtl);
@@ -2703,6 +2711,7 @@ extern const struct expr_ftable expr_ftable_default[1];
 //global functions of expr-internal.c :
 size_t expr_strscan(const char *restrict s,size_t sz,char *restrict buf,size_t outsz);
 size_t expr_strwrite(const char *restrict s,size_t sz,char *restrict buf,size_t outsz,size_t *restrict end_index);
+size_t expr_strwrite64(const char *restrict s,size_t sz,char *restrict buf,size_t outsz,size_t *restrict end_index);
 void expr_memcontract(void *buf,size_t size);
 size_t expr_extint_left(uint64_t *buf,size_t size,uint64_t bits);
 size_t expr_extint_right(uint64_t *buf,size_t size,uint64_t bits);
@@ -2742,13 +2751,13 @@ void expr_internal_memsetp(void *buf,uintptr_t val,size_t size);
 void expr_internal_memcpy(void *dst,const void *src,size_t size);
 void expr_internal_memswap(void *dst,void *src,size_t size);
 void expr_internal_memmove(void *dst,const void *src,size_t size);
-expr_pure void *expr_internal_memchr(const void *buf,int c,size_t size);
-expr_pure void *expr_internal_memrchr(const void *buf,int c,size_t size);
-expr_pure void *expr_internal_memnchr(const void *buf,int c,size_t size);
-expr_pure void *expr_internal_memrnchr(const void *buf,int c,size_t size);
+expr_pure void *expr_internal_memchr64(const void *buf,uint64_t val,size_t size);
+expr_pure void *expr_internal_memrchr64(const void *buf,uint64_t val,size_t size);
+expr_pure void *expr_internal_memnchr64(const void *buf,uint64_t val,size_t size);
+expr_pure void *expr_internal_memrnchr64(const void *buf,uint64_t val,size_t size);
 expr_pure int expr_internal_memtst(const void *buf,size_t size);
 expr_pure int expr_internal_memcmp(const void *s0,const void *s1,size_t size);
-expr_pure void *expr_internal_memchr2(const void *buf,int c);
+expr_pure void *expr_internal_rawmemchr64(const void *buf,uint64_t val);
 struct expr_symbol *expr_symset_add_builtin(struct expr_symset *restrict esp,const struct expr_builtin_symbol *p);
 ssize_t expr_symset_xaddalls_builtin(struct expr_symset *restrict esp,const struct expr_builtin_symbol **symsp,const struct expr_builtin_symbol *syms,...);
 ssize_t expr_symset_addalls_builtin(struct expr_symset *restrict esp,const struct expr_builtin_symbol *syms,...);

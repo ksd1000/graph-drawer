@@ -368,7 +368,7 @@ void expr_area_reset_monotonic(struct expr_area *restrict area){
 	zero_fromto_field(area,struct expr_area,monotonic_allocate,flag);
 }
 #endif
-int expr_area_resize(struct expr_area *restrict area,size_t size){
+int expr_area_truncate(struct expr_area *restrict area,size_t size){
 	size_t old_size;
 	if(unlikely(size>(size_t)SSIZE_MAX)){
 		return -1;

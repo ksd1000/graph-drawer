@@ -989,15 +989,18 @@ ssize_t expr_converter_escape(expr_writer_t writer,intptr_t fd,const union expr_
 	ext=(ssize_t)flag_width(flag,0);
 	if((ext||flag->plus)&&!flag->minus){
 		if(unlikely(size>(size_t)SSIZE_MAX/4))
-			return SSIZE_MIN+1;
+			return SSIZE_MIN+2;
 		index=size*4;
 		// the C standard forces the formatter to pad with spaces or zeros before the conversion in output content, which the number of cannot be predicted here. assuming the worst case.
-		buf=xmalloc(index);
+		buf=xmalloc(index+1);
 		// '\1' ->'\\001'
 		if(unlikely(!buf))
 			return SSIZE_MIN+1;
 		index=expr_strwrite(arg->addr,size,buf,index,&index);
-		ext-=(ssize_t)index;
+		if(ext>(ssize_t)index)
+			ext-=(ssize_t)index;
+		else
+			ext=0;
 		if(flag->sharp){
 			ext-=2;
 		}
@@ -1019,7 +1022,7 @@ ssize_t expr_converter_escape(expr_writer_t writer,intptr_t fd,const union expr_
 	}
 	if(likely(size)){
 		if(size<(EXPR_WCBUFSIZE+3)/4)
-			buf=xmalloc(size*4);
+			buf=xmalloc(size*4+1);
 		else
 			buf=xmalloc(EXPR_WCBUFSIZE);
 		if(unlikely(!buf))
@@ -1040,7 +1043,63 @@ ssize_t expr_converter_escape(expr_writer_t writer,intptr_t fd,const union expr_
 		c_trywrite("\"",1);
 	}
 	if(flag->minus){
-		ext-=sum;
+		if(ext>sum){
+			ext-=sum;
+			c_trywriteext((flag->zero)?'0':' ',ext);
+		}
+	}
+	return sum;
+}
+ssize_t expr_converter_base64_auto(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+	ssize_t r,sum,ext,sz;
+	if(unlikely(!arg->str)){
+		cwrite_common(flag->cap?"(NULL)":"(null)",6);
+	}
+	flag->digit=flag->digit_set?strnlen(arg->str,flag->digit):strlen(arg->str);
+	flag->digit_set=1;
+	return expr_converter_base64(writer,fd,arg,flag);
+}
+#define WCBUFSIZE_UP4 (((EXPR_WCBUFSIZE+3)/4)*4)
+#define base64_size(x) ((((x)+2)/3)<<2)
+ssize_t expr_converter_base64(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+	char *buf,*datap;
+	size_t size,index;
+	ssize_t r,sum,ext;
+	size=flag->digit;
+	if(unlikely(size>(size_t)(SSIZE_MAX/4)*3-2))
+		return SSIZE_MIN+2;
+	index=base64_size(size);
+	ext=(ssize_t)flag_width(flag,0);
+	if(ext>(ssize_t)index)
+		ext-=(ssize_t)index;
+	else
+		ext=0;
+	sum=0;
+	if(!flag->minus){
+		if(ext>0){
+			c_trywriteext((flag->zero)?'0':' ',ext);
+		}
+	}
+	if(likely(size)){
+		if(index<WCBUFSIZE_UP4)
+			buf=xmalloc(index+1);
+		else
+			buf=xmalloc(WCBUFSIZE_UP4);
+		if(unlikely(!buf))
+			return SSIZE_MIN+1;
+		datap=arg->addr;
+		for(;;){
+			r=(ssize_t)expr_strwrite64(datap,size,buf,WCBUFSIZE_UP4,&index);
+			// if buf has the size of initial_index, the redzone will never be used by expr_strwrite64(). it is safe.
+			c_trywrite3(buf,r,xfree(buf);return r);
+			size-=index;
+			if(unlikely(!size))
+				break;
+			datap+=index;
+		}
+		xfree(buf);
+	}
+	if(flag->minus){
 		if(ext>0){
 			c_trywriteext((flag->zero)?'0':' ',ext);
 		}
@@ -1070,13 +1129,13 @@ ssize_t expr_converter_p(expr_writer_t writer,intptr_t fd,const union expr_argf 
 	.setcap=(\
 			((_op)>=(uint8_t)'\x91'&&(_op)<=(uint8_t)'\x9f')||\
 			((_op)>=(uint8_t)'\xb1'&&(_op)<=(uint8_t)'\xbf')||\
-			((_op)>='A'&&(_op)<='Z')\
+			((_op)>='A'&&(_op)<='Z'&&(_op)!='S'&&(_op)!='I'&&(_op)!='E')\
 			?1:0),\
 	.op={_op,##__VA_ARGS__},\
 }
 static const struct expr_writefmt expr_writefmts_default[]={
 	fmtc_register(x81,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x81','x'),
-	fmtc_register(x82,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x82',(uint8_t)'\x92','b'),
+	fmtc_register(x82,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x82','b'),
 	fmtc_register(x83,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x83',(uint8_t)'\x93'),
 	fmtc_register(x84,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x84',(uint8_t)'\x94'),
 	fmtc_register(x85,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x85',(uint8_t)'\x95'),
@@ -1092,6 +1151,7 @@ static const struct expr_writefmt expr_writefmts_default[]={
 	fmtc_register(x8f,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x8f'),
 
 	fmtc_register(x81,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x91','X'),
+	fmtc_register(x82,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x92','B'),
 	fmtc_register(x8b,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x9b'),
 	fmtc_register(x8c,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x9c'),
 	fmtc_register(x8d,1,EXPR_FLAGTYPE_UNSIGNED,(uint8_t)'\x9d'),
@@ -1106,6 +1166,8 @@ static const struct expr_writefmt expr_writefmts_default[]={
 	fmtc_register(p,1,EXPR_FLAGTYPE_ADDR,'P'),
 	fmtc_register(h,2,EXPR_FLAGTYPE_ADDR,'h'),
 	fmtc_register(h,2,EXPR_FLAGTYPE_ADDR,'H'),
+	fmtc_register(base64_auto,1,EXPR_FLAGTYPE_ADDR,'i'),
+	fmtc_register(base64,2,EXPR_FLAGTYPE_ADDR,'I'),
 	fmtc_register(escape,2,EXPR_FLAGTYPE_ADDR,'E'),
 	fmtc_register(size,1,EXPR_FLAGTYPE_UNSIGNED,'m'),
 	fmtc_register(size,1,EXPR_FLAGTYPE_UNSIGNED,'M'),
@@ -1128,7 +1190,7 @@ static const struct expr_writefmt expr_writefmts_default[]={
 	fmtc_register(xaf,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xaf'),
 
 	fmtc_register(xa1,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xb1','A'),
-	fmtc_register(xa2,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xb2','B'),
+	fmtc_register(xa2,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xb2'),
 	fmtc_register(xa3,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xb3'),
 	fmtc_register(xa4,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xb4'),
 	fmtc_register(xa5,1,EXPR_FLAGTYPE_DOUBLE,(uint8_t)'\xb5'),
@@ -1168,7 +1230,7 @@ const struct expr_ftable expr_ftable_default[1]={{
 ['@']=EXPR_FMTC_READ_FMTC,
 ['j']=EXPR_FMTC_JUMP,
 ['C']=EXPR_FMTC_READ_CONVERTER,
-['I']=EXPR_FMTC_INC,
+['J']=EXPR_FMTC_INC,
 ['D']=EXPR_FMTC_DEC,
 ['w']=EXPR_FMTC_PUSH,
 ['W']=EXPR_FMTC_CLEAR,
@@ -1189,7 +1251,7 @@ const struct expr_ftable expr_ftable_default[1]={{
 ['~']=EXPR_FSUFFIX,
 
 [(uint8_t)'\x81']=1,['x']=1,
-[(uint8_t)'\x82']=2,[(uint8_t)'\x92']=2,['b']=2,
+[(uint8_t)'\x82']=2,['b']=2,
 [(uint8_t)'\x83']=3,[(uint8_t)'\x93']=3,
 [(uint8_t)'\x84']=4,[(uint8_t)'\x94']=4,
 [(uint8_t)'\x85']=5,[(uint8_t)'\x95']=5,
@@ -1204,55 +1266,58 @@ const struct expr_ftable expr_ftable_default[1]={{
 [(uint8_t)'\x8e']=14,
 [(uint8_t)'\x8f']=15,
 [(uint8_t)'\x91']=16,['X']=16,
-[(uint8_t)'\x9b']=17,
-[(uint8_t)'\x9c']=18,
-[(uint8_t)'\x9d']=19,
-[(uint8_t)'\x9e']=20,
-[(uint8_t)'\x9f']=21,
-['s']=22,
-['S']=23,
-['c']=24,
-['d']=25,
-['p']=26,
-['P']=27,
-['h']=28,
-['H']=29,
-['E']=30,
-['m']=31,
-['M']=32,
-[(uint8_t)'\xa1']=FLTIDX(33),['a']=FLTIDX(33),
-[(uint8_t)'\xa2']=FLTIDX(34),
-[(uint8_t)'\xa3']=FLTIDX(35),
-[(uint8_t)'\xa4']=FLTIDX(36),
-[(uint8_t)'\xa5']=FLTIDX(37),
-[(uint8_t)'\xa6']=FLTIDX(38),
-[(uint8_t)'\xa7']=FLTIDX(39),
-[(uint8_t)'\xa8']=FLTIDX(40),
-[(uint8_t)'\xa9']=FLTIDX(41),
-[(uint8_t)'\xaa']=FLTIDX(42),['f']=FLTIDX(42),
-[(uint8_t)'\xab']=FLTIDX(43),
-[(uint8_t)'\xac']=FLTIDX(44),
-[(uint8_t)'\xad']=FLTIDX(45),
-[(uint8_t)'\xae']=FLTIDX(46),
-[(uint8_t)'\xaf']=FLTIDX(47),
-[(uint8_t)'\xb1']=FLTIDX(48),['A']=FLTIDX(48),
-[(uint8_t)'\xb2']=FLTIDX(49),['B']=FLTIDX(49),
-[(uint8_t)'\xb3']=FLTIDX(50),
-[(uint8_t)'\xb4']=FLTIDX(51),
-[(uint8_t)'\xb5']=FLTIDX(52),
-[(uint8_t)'\xb6']=FLTIDX(53),
-[(uint8_t)'\xb7']=FLTIDX(54),
-[(uint8_t)'\xb8']=FLTIDX(55),['O']=FLTIDX(55),
-[(uint8_t)'\xb9']=FLTIDX(56),
-[(uint8_t)'\xba']=FLTIDX(57),['F']=FLTIDX(57),
-[(uint8_t)'\xbb']=FLTIDX(58),
-[(uint8_t)'\xbc']=FLTIDX(59),
-[(uint8_t)'\xbd']=FLTIDX(60),
-[(uint8_t)'\xbe']=FLTIDX(61),
-[(uint8_t)'\xbf']=FLTIDX(62),
-['e']=FLTIDX(63),
-['g']=FLTIDX(64),
-['G']=FLTIDX(65),
+[(uint8_t)'\x92']=17,['B']=17,
+[(uint8_t)'\x9b']=18,
+[(uint8_t)'\x9c']=19,
+[(uint8_t)'\x9d']=20,
+[(uint8_t)'\x9e']=21,
+[(uint8_t)'\x9f']=22,
+['s']=23,
+['S']=24,
+['c']=25,
+['d']=26,
+['p']=27,
+['P']=28,
+['h']=29,
+['H']=30,
+['i']=31,
+['I']=32,
+['E']=33,
+['m']=34,
+['M']=35,
+[(uint8_t)'\xa1']=FLTIDX(36),['a']=FLTIDX(36),
+[(uint8_t)'\xa2']=FLTIDX(37),
+[(uint8_t)'\xa3']=FLTIDX(38),
+[(uint8_t)'\xa4']=FLTIDX(39),
+[(uint8_t)'\xa5']=FLTIDX(40),
+[(uint8_t)'\xa6']=FLTIDX(41),
+[(uint8_t)'\xa7']=FLTIDX(42),
+[(uint8_t)'\xa8']=FLTIDX(43),
+[(uint8_t)'\xa9']=FLTIDX(44),
+[(uint8_t)'\xaa']=FLTIDX(45),['f']=FLTIDX(45),
+[(uint8_t)'\xab']=FLTIDX(46),
+[(uint8_t)'\xac']=FLTIDX(47),
+[(uint8_t)'\xad']=FLTIDX(48),
+[(uint8_t)'\xae']=FLTIDX(49),
+[(uint8_t)'\xaf']=FLTIDX(50),
+[(uint8_t)'\xb1']=FLTIDX(51),['A']=FLTIDX(51),
+[(uint8_t)'\xb2']=FLTIDX(52),
+[(uint8_t)'\xb3']=FLTIDX(53),
+[(uint8_t)'\xb4']=FLTIDX(54),
+[(uint8_t)'\xb5']=FLTIDX(55),
+[(uint8_t)'\xb6']=FLTIDX(56),
+[(uint8_t)'\xb7']=FLTIDX(57),
+[(uint8_t)'\xb8']=FLTIDX(58),['O']=FLTIDX(58),
+[(uint8_t)'\xb9']=FLTIDX(59),
+[(uint8_t)'\xba']=FLTIDX(60),['F']=FLTIDX(60),
+[(uint8_t)'\xbb']=FLTIDX(61),
+[(uint8_t)'\xbc']=FLTIDX(62),
+[(uint8_t)'\xbd']=FLTIDX(63),
+[(uint8_t)'\xbe']=FLTIDX(64),
+[(uint8_t)'\xbf']=FLTIDX(65),
+['e']=FLTIDX(66),
+['g']=FLTIDX(67),
+['G']=FLTIDX(68),
 	},
 	.fph='%',
 	.digit='.',

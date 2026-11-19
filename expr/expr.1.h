@@ -1429,8 +1429,14 @@ expr_struct_mlist(struct expr_symlist,EXPR_SYMNEXT);
 #define expr_mkval64(c) ((uint64_t)(uint8_t)(c))*UINT64_C(0x0101010101010101)
 #ifdef _GNU_SOURCE
 expr_static_assert(__builtin_constant_p(expr_mkval(0)));
+expr_static_assert(__builtin_constant_p(expr_mkval64(0)));
 #endif /*_GNU_SOURCE*/
-#define expr_internal_memset(buf,val,size) expr_internal_memsetp(buf,expr_mkval(val),size)
+#define expr_internal_memset(buf,c,size) expr_internal_memsetp(buf,expr_mkval(c),size)
+#define expr_internal_memchr(buf,c,size) expr_internal_memchr64(buf,expr_mkval64(c),size)
+#define expr_internal_memrchr(buf,c,size) expr_internal_memrchr64(buf,expr_mkval64(c),size)
+#define expr_internal_memnchr(buf,c,size) expr_internal_memnchr64(buf,expr_mkval64(c),size)
+#define expr_internal_memrnchr(buf,c,size) expr_internal_memrnchr64(buf,expr_mkval64(c),size)
+#define expr_internal_memchr2(buf,c) expr_internal_rawmemchr64(buf,expr_mkval64(c))
 
 #ifdef _GNU_SOURCE
 
@@ -1938,7 +1944,7 @@ struct expr_symbol_infile {
 #define expr_le(x,N) ((uint##N##_t)(x))
 	uint16_t strlen:6,type:3,flag:6,unused:1;
 #else
-#define expr_le(x,N) expr_bswap(x,N)
+#define expr_le(x,N) expr_bswap((uint##N##_t)(x),N)
 	uint16_t unused:1,flag:6,type:3,strlen:6;
 #endif
 	char str[];

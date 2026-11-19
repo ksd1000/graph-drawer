@@ -13,7 +13,7 @@ Graph Drawer Expression Evaluator Library
 .BI "void expr_area_wipe(struct expr_area *restrict " area ");"
 .BI "void expr_area_wipe_monotonic(struct expr_area *restrict " area ");"
 .BI "void expr_area_reset_monotonic(struct expr_area *restrict " area ");"
-.BI "int expr_area_resize(struct expr_area *restrict " area ",size_t " size ");"
+.BI "int expr_area_truncate(struct expr_area *restrict " area ",size_t " size ");"
 .BI "void *expr_area_malloc(struct expr_area *restrict " area ",size_t " size ");"
 .BI "void *expr_area_malloc3(struct expr_area *restrict " area ",size_t " size ",int " flag ");"
 .BI "void expr_area_dealloc(struct expr_area *restrict " area ",void *" old ");"
@@ -44,7 +44,7 @@ The
 resets the counter without wiping the area.
 .P
 The
-.BR expr_area_resize()
+.BR expr_area_truncate()
 modifies the size of
 .IR zone .
 .P
@@ -83,7 +83,7 @@ and write the summary to
 .IR info .
 .SH RETURN VALUE
 The
-.BR expr_area_init[4]() , expr_area_resize() , expr_area_summary()
+.BR expr_area_init[4]() , expr_area_truncate() , expr_area_summary()
 return 0 on success and negative value on fail.
 .P
 The

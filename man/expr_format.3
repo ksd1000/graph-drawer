@@ -183,8 +183,7 @@ long long
 % .
 .TQ
 .B s
-Standard string.
-The length will be get by
+Standard string. The length will be get by
 .B strlen()
 if
 .I digit
@@ -228,6 +227,21 @@ Hexdump from the pointer provided by argument the with length
 .TQ
 .BR E
 Escaped string from the pointer provided by argument the with length
+.IR digit .
+.TQ
+.B i
+Standard string encoded as base64. The length will be get by
+.B strlen()
+if
+.I digit
+is not set, or
+.B strnlen()
+if
+.I digit
+is set.
+.TQ
+.BR I
+String encoded as base64 with length
 .IR digit .
 .TQ
 .B p , P

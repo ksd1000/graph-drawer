@@ -17,6 +17,7 @@
 #define expr_memfd_write_warped expr_memfd_write_wrapped
 #define expr_dmemfd_write_warped expr_dmemfd_write_wrapped
 #define expr_internal_memset64 expr_internal_memsetp
+#define expr_area_resize expr_area_truncate
 
 #define expr_warped_syscall0 expr_wrapped_syscall0
 #define expr_warped_syscall1 expr_wrapped_syscall1

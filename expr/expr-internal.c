@@ -250,6 +250,74 @@ end:
 	*end_index=(size_t)(s-(endp-sz));
 	return (size_t)(buf-buf0);
 }
+static const char base64_table[]={
+	"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	"abcdefghijklmnopqrstuvwxyz"
+	"0123456789+/"
+};
+size_t expr_strwrite64(const char *restrict s,size_t sz,char *restrict buf,size_t outsz,size_t *restrict end_index){
+	char *buf0=(char *)buf;
+	char *oend=buf0+outsz;
+	size_t n;
+	uint32_t val,rem;
+	n=sz/3;
+	rem=(uint32_t)(sz%3);
+	outsz/=4;
+	if(rem){
+		if(unlikely(n+1>outsz)){
+			if(!outsz){
+				*end_index=0;
+				goto end;
+			}
+			n=outsz-1;
+		}
+	}else {
+		if(unlikely(n>outsz))
+			n=outsz;
+	}
+	*end_index=n*3+(size_t)rem;
+	while(n){
+		val=((uint32_t)(uint8_t)*s<<16)|
+			((uint32_t)(uint8_t)s[1]<<8)|
+			(uint32_t)(uint8_t)s[2];
+		*buf=base64_table[(val>>18)];
+		buf[1]=base64_table[(val>>12)&(uint32_t)0x3f];
+		buf[2]=base64_table[(val>>6)&(uint32_t)0x3f];
+		buf[3]=base64_table[(val)&(uint32_t)0x3f];
+		--n;
+		s+=3;
+		buf+=4;
+	}
+	switch(rem){
+		case 0:
+			break;
+		case 1:
+			val=(uint32_t)(uint8_t)*s<<16;
+			*buf=base64_table[(val>>18)];
+			buf[1]=base64_table[(val>>12)&(uint32_t)0x3f];
+			buf[2]='=';
+			buf[3]='=';
+			s+=1;
+			buf+=4;
+			break;
+		case 2:
+			val=((uint32_t)(uint8_t)*s<<16)|
+				((uint32_t)(uint8_t)s[1]<<8);
+			*buf=base64_table[(val>>18)];
+			buf[1]=base64_table[(val>>12)&(uint32_t)0x3f];
+			buf[2]=base64_table[(val>>6)&(uint32_t)0x3f];
+			buf[3]='=';
+			s+=2;
+			buf+=4;
+			break;
+		default:
+			__builtin_unreachable();
+	}
+end:
+	if(buf<oend)
+		*buf=0;
+	return (size_t)(buf-buf0);
+}
 
 #ifndef PAGE_SIZE
 #define PAGE_SIZE 4096
@@ -2223,9 +2291,8 @@ void expr_internal_memmove(void *dst,const void *src,size_t size){
 #define w1 w._w1
 #define w2 w._w2
 #define w3 w._w3
-expr_pure void *expr_internal_memchr(const void *buf,int c,size_t size){
+expr_pure void *expr_internal_memchr64(const void *buf,uint64_t val,size_t size){
 	const uint8_t *p=buf;
-	uint64_t val=expr_mkval64(c);
 	struct {
 		uint64_t _w0,_w1,_w2,_w3;
 	} w;
@@ -2256,15 +2323,14 @@ expr_pure void *expr_internal_memchr(const void *buf,int c,size_t size){
 		size-=8;
 	}
 	while(size--){
-		if(*p==(uint8_t)c)
+		if(*p==(uint8_t)val)
 			return (void *)(uintptr_t)p;
 		++p;
 	}
 	return NULL;
 }
-expr_pure void *expr_internal_memrchr(const void *buf,int c,size_t size){
+expr_pure void *expr_internal_memrchr64(const void *buf,uint64_t val,size_t size){
 	const uint8_t *p=buf+size;
-	uint64_t val=expr_mkval64(c);
 	struct {
 		uint64_t _w0,_w1,_w2,_w3;
 	} w;
@@ -2296,14 +2362,13 @@ expr_pure void *expr_internal_memrchr(const void *buf,int c,size_t size){
 	}
 	while(size--){
 		--p;
-		if(*p==(uint8_t)c)
+		if(*p==(uint8_t)val)
 			return (void *)(uintptr_t)p;
 	}
 	return NULL;
 }
-expr_pure void *expr_internal_memnchr(const void *buf,int c,size_t size){
+expr_pure void *expr_internal_memnchr64(const void *buf,uint64_t val,size_t size){
 	const uint8_t *p=buf;
-	uint64_t val=expr_mkval64(c);
 	struct {
 		uint64_t _w0,_w1,_w2,_w3;
 	} w;
@@ -2334,15 +2399,14 @@ expr_pure void *expr_internal_memnchr(const void *buf,int c,size_t size){
 		size-=8;
 	}
 	while(size--){
-		if(*p!=(uint8_t)c)
+		if(*p!=(uint8_t)val)
 			return (void *)(uintptr_t)p;
 		++p;
 	}
 	return NULL;
 }
-expr_pure void *expr_internal_memrnchr(const void *buf,int c,size_t size){
+expr_pure void *expr_internal_memrnchr64(const void *buf,uint64_t val,size_t size){
 	const uint8_t *p=buf+size;
-	uint64_t val=expr_mkval64(c);
 	struct {
 		uint64_t _w0,_w1,_w2,_w3;
 	} w;
@@ -2374,7 +2438,7 @@ expr_pure void *expr_internal_memrnchr(const void *buf,int c,size_t size){
 	}
 	while(size--){
 		--p;
-		if(*p!=(uint8_t)c)
+		if(*p!=(uint8_t)val)
 			return (void *)(uintptr_t)p;
 	}
 	return NULL;
@@ -2452,18 +2516,18 @@ expr_pure int expr_internal_memcmp(const void *s0,const void *s1,size_t size){
 	}
 	return 0;
 }
-expr_pure void *expr_internal_memchr2(const void *buf,int c){
+expr_pure void *expr_internal_rawmemchr64(const void *buf,uint64_t val){
 	const uint8_t *p=buf,*s=buf,*q;
 	size_t ava;
-	ava=PAGE_SIZE-((uintptr_t)p&(PAGE_SIZE-1));
+	ava=(uintptr_t)PAGE_SIZE-((uintptr_t)p&(PAGE_SIZE-1));
 	if(ava){
-		q=expr_internal_memchr(p,c,ava);
+		q=expr_internal_memchr64(p,val,ava);
 		if(q)
 			return (void *)(uintptr_t)q;
 		p+=ava;
 	}
 	for(;;){
-		q=expr_internal_memchr(p,c,PAGE_SIZE);
+		q=expr_internal_memchr64(p,val,PAGE_SIZE);
 		if(q)
 			return (void *)(uintptr_t)q;
 		p+=PAGE_SIZE;

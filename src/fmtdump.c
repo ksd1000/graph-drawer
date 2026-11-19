@@ -179,6 +179,8 @@ const char *strconv(expr_converter_t conv){
 	REGCONV(expr_converter_immbinary);
 	REGCONV(expr_converter_h);
 	REGCONV(expr_converter_escape);
+	REGCONV(expr_converter_base64);
+	REGCONV(expr_converter_base64_auto);
 	REGCONV(expr_converter_c);
 	REGCONV(expr_converter_p);
 	abort();

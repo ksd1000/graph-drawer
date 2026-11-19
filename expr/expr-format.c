@@ -534,9 +534,9 @@ static ssize_t converteru_##_name(expr_writer_t writer,intptr_t fd,const union e
 			r=(ssize_t)expr_extint_mulnp(ival,(size_t)r,baseodd,(uint32_t)ext,workspace);\
 		}\
 		if(shouldleft>0){\
-			r=(ssize_t)expr_extint_left(ival,(size_t)r,(uint64_t)shouldleft);\
+			r=(ssize_t)expr_extint_left(ival,(size_t)r,(uint32_t)ext*(uint64_t)shouldleft);\
 		}else if(shouldleft<0){\
-			r=(ssize_t)expr_extint_right(ival,(size_t)r,(uint64_t)-shouldleft);\
+			r=(ssize_t)expr_extint_right(ival,(size_t)r,(uint32_t)ext*(uint64_t)-shouldleft);\
 		}\
 		fsz=(ssize_t)extint_ascii_rev(ival,(size_t)r,_conv_str,p,base);\
 		p-=fsz;\

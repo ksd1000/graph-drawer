@@ -1,7 +1,7 @@
-/*******************************************************************************
- *License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>*
- *This is free software: you are free to change and redistribute it.           *
- *******************************************************************************/
+/******************************************************************************
+*License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>*
+*This is free software: you are free to change and redistribute it.           *
+******************************************************************************/
 
 /*
  * History: 2024-02 expr.h
@@ -21,7 +21,7 @@
 #ifndef _GNU_SOURCE
 #if defined(EXPR_ENFORCE_GNU_SOURCE)&&(EXPR_ENFORCE_GNU_SOURCE)
 #error "_GNU_SOURCE is not defined, when EXPR_ENFORCE_GNU_SOURCE=1."
-#elif !(defined(EXPR_NOCHECK_GNU_SOURCE)&&(EXPR_NOCHECK_GNU_SOURCE))
+#elif defined(__GNUC__)&&!(defined(EXPR_NOCHECK_GNU_SOURCE)&&(EXPR_NOCHECK_GNU_SOURCE))
 #pragma message("_GNU_SOURCE is not defined. define it or set EXPR_NOCHECK_GNU_SOURCE=1 to silence this warning.")
 #endif
 #endif

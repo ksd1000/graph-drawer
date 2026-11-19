@@ -1,7 +1,7 @@
-/*******************************************************************************
- *License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>*
- *This is free software: you are free to change and redistribute it.           *
- *******************************************************************************/
+/******************************************************************************
+*License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>*
+*This is free software: you are free to change and redistribute it.           *
+******************************************************************************/
 // compile command: gcc -I ../graph-drawer/src -I ../graph-drawer/graph ../graph-drawer/logo/logo.c graph/libgraph.a -lm -o logo -Wall -Wextra
 #define _GNU_SOURCE
 #include <stdlib.h>

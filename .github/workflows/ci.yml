@@ -19,6 +19,7 @@ on:
       - 'fun/**'
       - 'bugs/**'
       - 'logo/**'
+      - 'template/**'
   pull_request:
   workflow_dispatch:
 jobs:

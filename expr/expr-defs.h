@@ -1,7 +1,7 @@
-/*******************************************************************************
- *License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>*
- *This is free software: you are free to change and redistribute it.           *
- *******************************************************************************/
+/******************************************************************************
+*License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>*
+*This is free software: you are free to change and redistribute it.           *
+******************************************************************************/
 // for the -stdinc option of expr-core.c expr-internal.c expr-format.c expr-buffered.c expr-alloc.c expr-symext.c
 
 #ifndef _EXPR_DEFS_H_

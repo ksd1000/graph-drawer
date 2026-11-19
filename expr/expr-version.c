@@ -1,7 +1,7 @@
-/*******************************************************************************
- *License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>*
- *This is free software: you are free to change and redistribute it.           *
- *******************************************************************************/
+/******************************************************************************
+*License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>*
+*This is free software: you are free to change and redistribute it.           *
+******************************************************************************/
 #define _GNU_SOURCE
 #define EXPR_BLOCKWARNING 1
 #include "expr.h"

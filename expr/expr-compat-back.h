@@ -1,3 +1,7 @@
+/******************************************************************************
+*License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>*
+*This is free software: you are free to change and redistribute it.           *
+******************************************************************************/
 #ifndef _EXPR_COMPAT_BACK_H_
 #define _EXPR_COMPAT_BACK_H_
 // the header is used for some programs that uses old APIs of libexpr and libexpr-lc that were removed or changed name on newer versions.

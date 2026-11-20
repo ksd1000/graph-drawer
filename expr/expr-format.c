@@ -45,7 +45,7 @@
 /*
 	SSIZE_MIN+1: allocate fail
 	SSIZE_MIN+2: no enough bufsize
-	SSIZE_MIN+3: arg fail
+	SSIZE_MIN+3: arg format error
 	SSIZE_MIN+4: digit not set
 	SSIZE_MIN+5: operation is unsupported
 	SSIZE_MIN+128: truncate
@@ -190,7 +190,7 @@ ssize_t expr_converter_d(expr_writer_t writer,intptr_t fd,const union expr_argf 
 	char *p=endp;
 	ssize_t ext,sum,r,sz;
 	int minus;
-	debug("width=%zu(%d) digit=%zd(%d)\n",flag->width,(int)flag->width_set,(ssize_t)flag->digit,(int)flag->digit_set);
+	debug("width=%zu(%d) digit=%zd(%d)",flag->width,(int)flag->width_set,(ssize_t)flag->digit,(int)flag->digit_set);
 	if(!val)
 		minus=2;
 	else if((expr_it)val<0){
@@ -924,20 +924,40 @@ ssize_t expr_converter_immbinary(expr_writer_t writer,intptr_t fd,const union ex
 	ssize_t r,sum,ext,sz;
 	cwrite_common(arg->str,(ssize_t)len);
 }
-#define ESC_ADDLINE(start,end) ({if(flag->minus){c_trywrite3(start "\\\n" end,sizeof(start "\\\n" end)-1,xfree(buf);return r);}else {c_trywrite3(start "\n" end,sizeof(start "\n" end)-1,xfree(buf);return r);}});
+
 static ssize_t converter_hb(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag,uint8_t *buf,size_t n){
 	size_t len=flag->digit;
 	ssize_t r,sum,ext;
 	uint8_t *p,*endp,*datap;
 	uint8_t data;
-	int fminus=!!(flag->minus),fsharp=!!(flag->sharp),fplus=!!(flag->plus);
+	uint8_t fminus=(uint8_t)!!(flag->minus),
+	    fsharp=(uint8_t)!!(flag->sharp),
+	    fplus=!!(uint8_t)(flag->plus);
 	const char *conv_str=flag->cap?conv_btoX:conv_btox;
-	ext=(ssize_t)flag_width(flag,0)-(fsharp?4:2)*(ssize_t)len;
-	if(fplus&&len>1)
-		ext-=(ssize_t)(len-1);
+	uint8_t fsuffix;
+	uint8_t newline[3];
 	sum=0;
-	if(!fminus&&ext>0){
-		c_trywriteext((flag->zero)?'0':' ',ext);
+	if(flag->suffix||flag->eq){
+		ext=0;
+		p=newline;
+		if(flag->minus){
+			*(p++)='\\';
+		}
+		if(flag->eq){
+			*(p++)='\r';
+		}
+		if(flag->suffix){
+			*(p++)='\n';
+		}
+		fsuffix=(uint8_t)(p-newline);
+	}else{
+		ext=(ssize_t)flag_width(flag,0)-(fsharp?4:2)*(ssize_t)len;
+		if(fplus&&len>1)
+			ext-=(ssize_t)(len-1);
+		if(!fminus&&ext>0){
+			c_trywriteext((flag->zero)?'0':' ',ext);
+		}
+		fsuffix=0;
 	}
 	if(len){
 		p=buf;
@@ -957,8 +977,8 @@ static ssize_t converter_hb(expr_writer_t writer,intptr_t fd,const union expr_ar
 			if(unlikely(p>=endp)){
 				c_trywrite(buf,n);
 				p=buf;
-				if(flag->suffix){
-					ESC_ADDLINE(,);
+				if(fsuffix){
+					c_trywrite3(newline,(size_t)fsuffix,xfree(buf);return r);
 				}
 			}
 			++datap;
@@ -977,20 +997,18 @@ static ssize_t converter_hb(expr_writer_t writer,intptr_t fd,const union expr_ar
 ssize_t expr_converter_h(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	uint8_t *buf;
 	ssize_t r;
-	if(flag->suffix){
+	if(flag->suffix||flag->eq){
 		r=2;
 		if(flag->sharp)
 			r+=2;
 		if(flag->plus)
 			++r;
-		if(flag->width){
+		if(flag->width_set&&flag->width){
 			if(unlikely(mulo3(flag->width,(size_t)r,(size_t *)&r)))
 				return SSIZE_MIN+2;
 		}else {
 			r<<=4;
 		}
-		flag->width=0;
-		flag->width_set=1;
 	}else {
 		r=960;
 	}
@@ -1004,37 +1022,50 @@ ssize_t expr_converter_h(expr_writer_t writer,intptr_t fd,const union expr_argf 
 expr_static_assert(EXPR_WCBUFSIZE>=4);
 ssize_t expr_converter_escape(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	char *buf,*datap;
-	size_t size,index;
+	size_t size,index,width;
 	ssize_t r,sum,ext;
 	size=flag->digit;
 	sum=0;
-	if(flag->suffix){
-		index=flag_width(flag,0);
-		if(index-1>(size_t)SSIZE_MAX/4-1)
-			index=32;
-		flag->width=index;
-		flag->digit=index*4;
-		buf=xmalloc(flag->digit);
+	if(flag->suffix||flag->eq){
+		uint8_t fsuffix;
+		char newline[5];
+		buf=newline;
+		if(flag->sharp){
+			*(buf++)='\"';
+		}
+		if(flag->minus){
+			*(buf++)='\\';
+		}
+		if(flag->eq){
+			*(buf++)='\r';
+		}
+		if(flag->suffix){
+			*(buf++)='\n';
+		}
+		if(flag->sharp){
+			*(buf++)='\"';
+		}
+		fsuffix=(uint8_t)(buf-newline);
+		width=flag_width(flag,0);
+		if(width-1>(size_t)SSIZE_MAX/4-1)
+			width=32;
+		buf=xmalloc(width<<2);
 		if(unlikely(!buf))
 			return SSIZE_MIN+1;
 		datap=arg->addr;
 		if(flag->sharp){
 			c_trywrite3("\"",1,xfree(buf);return r);
 		}
-		while(size>flag->width){
-			r=(ssize_t)expr_strwrite(datap,flag->width,buf,flag->digit,&index);
+		while(size>width){
+			r=(ssize_t)expr_strwrite(datap,width,buf,width<<2,&index);
 			size-=index;
 			datap+=index;
 			index=(size_t)r;
 			c_trywrite3(buf,r,xfree(buf);return r);
-			if(flag->sharp){
-				ESC_ADDLINE("\"","\"");
-			}else {
-				ESC_ADDLINE(,);
-			}
+			c_trywrite3(newline,(size_t)fsuffix,xfree(buf);return r);
 		}
 		if(size){
-			r=(ssize_t)expr_strwrite(datap,size,buf,flag->digit,&index);
+			r=(ssize_t)expr_strwrite(datap,size,buf,width<<2,&index);
 			c_trywrite3(buf,r,xfree(buf);return r);
 		}
 		if(flag->sharp){
@@ -1120,53 +1151,64 @@ ssize_t expr_converter_base64_auto(expr_writer_t writer,intptr_t fd,const union 
 #define base64_size(x) ((((x)+2)/3)<<2)
 ssize_t expr_converter_base64(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	char *buf,*datap;
-	size_t size,index;
+	size_t size,index,width;
 	ssize_t r,sum,ext;
 	size=flag->digit;
 	if(unlikely(size>(size_t)(SSIZE_MAX/4)*3-2))
 		return SSIZE_MIN+2;
 	index=base64_size(size);
 	sum=0;
-	if(flag->suffix){
+	if(flag->suffix||flag->eq){
 		char *p;
-		index=flag_width(flag,0);
-		if(index-1>(size_t)SSIZE_MAX-4)
-			index=76;
-		flag->width=index;
-		flag->digit=index+3;
-		buf=xmalloc(flag->digit);
+		uint8_t fsuffix;
+		char newline[3];
+		p=newline;
+		if(flag->minus){
+			*(p++)='\\';
+		}
+		if(flag->eq){
+			*(p++)='\r';
+		}
+		if(flag->suffix){
+			*(p++)='\n';
+		}
+		fsuffix=(uint8_t)(p-newline);
+		width=flag_width(flag,0);
+		if(width-1>(size_t)SSIZE_MAX-4)
+			width=76;
+		buf=xmalloc(width+3);
 		if(unlikely(!buf))
 			return SSIZE_MIN+1;
 		datap=arg->addr;
 		ext=0;
 		for(;;){
-			r=(ssize_t)expr_strwrite64(datap,size,buf,flag->digit,&index);
+			r=(ssize_t)expr_strwrite64(datap,size,buf,width+3,&index);
 			size-=index;
 			datap+=index;
 			index=(size_t)r;
 			p=buf;
 			if(ext){
-				if((size_t)ext==flag->width){
-					ESC_ADDLINE(,);
+				if((size_t)ext==width){
+					c_trywrite3(newline,(size_t)fsuffix,xfree(buf);return r);
 					//ext=0;
-				}else if(index+(size_t)ext<=flag->width){
+				}else if(index+(size_t)ext<=width){
 					c_trywrite3(buf,index,xfree(buf);return r);
 					ext+=(ssize_t)index;
 					goto no_loop;
 				}else {
-					r=(ssize_t)(flag->width-(size_t)ext);
+					r=(ssize_t)(width-(size_t)ext);
 					index-=(size_t)r;
 					p+=r;
 					c_trywrite3(buf,r,xfree(buf);return r);
-					ESC_ADDLINE(,);
+					c_trywrite3(newline,(size_t)fsuffix,xfree(buf);return r);
 					//ext=0;
 				}
 			}
-			while(index>flag->width){
-				c_trywrite3(p,flag->width,xfree(buf);return r);
-				ESC_ADDLINE(,);
-				p+=flag->width;
-				index-=flag->width;
+			while(index>width){
+				c_trywrite3(p,width,xfree(buf);return r);
+				c_trywrite3(newline,(size_t)fsuffix,xfree(buf);return r);
+				p+=width;
+				index-=width;
 			}
 			if(index){
 				c_trywrite3(p,index,xfree(buf);return r);
@@ -2538,7 +2580,7 @@ next:
 				case EXPR_FMTC_FPH:
 					tmp->fph=table->fph;
 					shouldoptimize=1;
-					debug("fph:%d\n",(int)tmp->fph);
+					debug("fph:%d",(int)tmp->fph);
 					break;
 				default:
 					debug("opcode %d is not supported now",(int)r1);

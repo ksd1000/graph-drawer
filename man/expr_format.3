@@ -121,8 +121,10 @@ Append a + to the start of a positive number.
 Pad with zeros instead of whitespaces.
 .TQ
 .B -
-Left justification. For escape/base64 conversion with
+Left justification. For hexdump/escape/base64 conversion with
 .B ~
+or
+.B =
 , append an
 .B ESCAPE
 character before each
@@ -134,7 +136,10 @@ Append a whitespace to the start of a positive number if '+' not set.
 .B =
 Stop if no more effective digits for type double and human-readable value. Append suffix to ensure the output value can be used in code without truncating and sign-conversion warning when the value cannot be
 .B int
-on some platforms for type signed integer and unsigned integer.
+on some platforms for type signed integer and unsigned integer. For hexdump/escape/base64 conversion, it works like
+.B ~
+but use the character
+.BR CR .
 .TQ
 .B ?
 Use the saved value instead read from arguments.
@@ -335,6 +340,18 @@ The
 return the number of elements in
 .IR *fip .
 .RI "On fail, negative value will rerurn(and " *fip " will be undefined)."
+.SS Error code
+SSIZE_MIN+1: allocate fail
+.P
+SSIZE_MIN+2: no enough bufsize
+.P
+SSIZE_MIN+3: arg format error
+.P
+SSIZE_MIN+4: digit not set
+.P
+SSIZE_MIN+5: operation is unsupported
+.P
+SSIZE_MIN+128: truncate
 .SH WARNING
 The
 .IR fmt [ fmtlen ]

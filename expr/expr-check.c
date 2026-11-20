@@ -485,3 +485,4 @@ int main(int argc,char **argv){
 	assert(areap->monotonic_deallocate==areap->monotonic_allocate+areap->monotonic_expand_move);
 	return 0;
 }
+EXPR_LICENSE("GPL-3.0-or-later");

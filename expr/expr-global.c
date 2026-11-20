@@ -4,7 +4,7 @@
 ******************************************************************************/
 #define _GNU_SOURCE
 
-#define EXPR_VERSION "1.0.19-10"
+#define EXPR_VERSION "1.0.19-11"
 
 #define EXPR_LIBC_STRING_IMPL 1
 #include <string.h>
@@ -1039,3 +1039,4 @@ const struct expr_builtin_symbol expr_symbols_io[]={
 	REGCSYM(_IOFBF),
 	{.str=NULL}
 };
+EXPR_LICENSE("GPL-3.0-or-later");

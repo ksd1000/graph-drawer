@@ -33,6 +33,18 @@
 #include <limits.h>
 #endif
 
+#define EXPR_CAT0(A,B) A##B
+#define EXPR_CAT(A,B) EXPR_CAT0(A,B)
+#define EXPR_CAT3(A,B,C) EXPR_CAT(EXPR_CAT(A,B),C)
+#define EXPR_CAT4(A,B,C) EXPR_CAT(EXPR_CAT(A,B),EXPR_CAT(C,D))
+#define EXPR_M2S0(X) #X
+#define EXPR_M2S(X) EXPR_M2S0(X)
+
+#define expr_static_assert(cond) _Static_assert((cond),"static assertion " #cond " failed")
+#define expr_static_castable(value,T) ((void)sizeof(((int (*)(T))0)(value)))
+#define expr_static_diffable(val1,val0) ((void)sizeof((val1)-(val0)))
+#define expr_sizeofa(arr) (sizeof(arr)/sizeof(*(arr)))
+
 #ifdef _GNU_SOURCE
 
 #ifndef expr_noinline
@@ -61,6 +73,8 @@
 #define expr_estmt_end })
 // can only use for estmt with return type void
 
+#define EXPR_LICENSE(name) __attribute__((unused,used)) static const char EXPR_CAT(expr_license,__LINE__)[]={"license=" name}
+
 #else
 
 #ifndef expr_noinline
@@ -88,12 +102,9 @@
 #define expr_estmt do
 #define expr_estmt_end while(0)
 
-#endif /*_GNU_SOURCE*/
+#define EXPR_LICENSE(name) expr_static_assert(sizeof("license=" name))
 
-#define expr_static_assert(cond) _Static_assert((cond),"static assertion " #cond " failed")
-#define expr_static_castable(value,T) ((void)sizeof(((int (*)(T))0)(value)))
-#define expr_static_diffable(val1,val0) ((void)sizeof((val1)-(val0)))
-#define expr_sizeofa(arr) (sizeof(arr)/sizeof(*(arr)))
+#endif /*_GNU_SOURCE*/
 
 #if (defined(__BIG_ENDIAN__)&&(__BIG_ENDIAN__))||(defined(__BYTE_ORDER__)&&defined(__ORDER_BIG_ENDIAN__)&&(__BYTE_ORDER__==__ORDER_BIG_ENDIAN__))
 #define EXPR_BIG_ENDIAN 1
@@ -1185,10 +1196,6 @@ expr_struct_mlist(struct expr_symlist,EXPR_SYMNEXT);
 #define EXPR_PUSH(_sp) (*(--(_sp)))
 #define EXPR_POP(_sp) (*((_sp)++))
 
-#define expr_combine0(A,B) A##B
-#define expr_combine(A,B) expr_combine0(A,B)
-#define expr_mstring(X) #X
-
 #define EXPR_BLANKS \
 		'\t':\
 		case '\r':\
@@ -1385,18 +1392,18 @@ expr_struct_mlist(struct expr_symlist,EXPR_SYMNEXT);
 #define expr_symbol_dim(_esp) ({const struct expr_symbol *__esp=(_esp);(size_t *)(uintptr_t)(__esp->str+expr_align(expr_align(__esp->strlen+1)+sizeof(union expr_symvalue)));})
 
 #define expr_symbol_foreach5(_sp,_esp,_stack,_atindex,_label) \
-	for(unsigned int __inloop_index=0;;({goto expr_combine(expr_symset_foreach_label_,_label);}))if(0){\
+	for(unsigned int __inloop_index=0;;({goto EXPR_CAT(expr_symset_foreach_label_,_label);}))if(0){\
 		expr_static_assert(__builtin_constant_p((_atindex)));\
 		expr_static_assert(__builtin_constant_p((_atindex)<EXPR_SYMNEXT));\
 		expr_static_assert(__builtin_constant_p((_atindex)>=EXPR_SYMNEXT));\
 		expr_static_castable((_stack),void *);\
 		expr_static_castable((_esp),const struct expr_symbol *);\
-	expr_combine(expr_symset_foreach_label_,_label):break;}else\
-	for(struct expr_symbol *_sp=(struct expr_symbol *)(_esp);expr_likely(_sp);({goto expr_combine(expr_symset_foreach_label_,_label);}))\
+	EXPR_CAT(expr_symset_foreach_label_,_label):break;}else\
+	for(struct expr_symbol *_sp=(struct expr_symbol *)(_esp);expr_likely(_sp);({goto EXPR_CAT(expr_symset_foreach_label_,_label);}))\
 	for(struct expr_symbol **__inloop_stack=(struct expr_symbol **)(_stack),**__inloop_sp=__inloop_stack;;({\
 		if(expr_unlikely(__inloop_index>=EXPR_SYMNEXT)){\
 			if(expr_unlikely(__inloop_sp==__inloop_stack)){\
-				goto expr_combine(expr_symset_foreach_label_,_label);\
+				goto EXPR_CAT(expr_symset_foreach_label_,_label);\
 			}\
 			_sp=EXPR_RPOP(__inloop_sp);\
 			__inloop_index=(unsigned int)(uintptr_t)EXPR_RPOP(__inloop_sp);\
@@ -2234,7 +2241,7 @@ struct expr_strtod_workspace {
 //#undef __unix__
 //#undef __linux__
 
-#define expr_internal_regvarr(_name) register intptr_t expr_combine(__r_,_name) __asm__(#_name)
+#define expr_internal_regvarr(_name) register intptr_t EXPR_CAT(__r_,_name) __asm__(#_name)
 #define expr_internal_regvar(_name) register intptr_t _name __asm__(#_name)
 #ifndef EXPR_SYSIN
 
@@ -2344,10 +2351,10 @@ struct expr_strtod_workspace {
 		E7;\
 		__asm__ volatile(\
 		EXPR_SYSIN \
-		:"=r"(expr_combine(__r_,RE))\
-		:"r"(expr_combine(__r_,A0)),"r"(expr_combine(__r_,A1)),"r"(expr_combine(__r_,A2)),"r"(expr_combine(__r_,A3)),"r"(expr_combine(__r_,A4)),"r"(expr_combine(__r_,A5)),"r"(expr_combine(__r_,A6)),"r"(expr_combine(__r_,ID))\
+		:"=r"(EXPR_CAT(__r_,RE))\
+		:"r"(EXPR_CAT(__r_,A0)),"r"(EXPR_CAT(__r_,A1)),"r"(EXPR_CAT(__r_,A2)),"r"(EXPR_CAT(__r_,A3)),"r"(EXPR_CAT(__r_,A4)),"r"(EXPR_CAT(__r_,A5)),"r"(EXPR_CAT(__r_,A6)),"r"(EXPR_CAT(__r_,ID))\
 		:EXPR_CLOB7);\
-		expr_combine(__r_,RE);\
+		EXPR_CAT(__r_,RE);\
 })
 #define expr_internal_syscall_reg6(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ({\
 		expr_internal_regvarr(ID)=(intptr_t)(num);\
@@ -2360,10 +2367,10 @@ struct expr_strtod_workspace {
 		E6;\
 		__asm__ volatile(\
 		EXPR_SYSIN \
-		:"=r"(expr_combine(__r_,RE))\
-		:"r"(expr_combine(__r_,A0)),"r"(expr_combine(__r_,A1)),"r"(expr_combine(__r_,A2)),"r"(expr_combine(__r_,A3)),"r"(expr_combine(__r_,A4)),"r"(expr_combine(__r_,A5)),"r"(expr_combine(__r_,ID))\
+		:"=r"(EXPR_CAT(__r_,RE))\
+		:"r"(EXPR_CAT(__r_,A0)),"r"(EXPR_CAT(__r_,A1)),"r"(EXPR_CAT(__r_,A2)),"r"(EXPR_CAT(__r_,A3)),"r"(EXPR_CAT(__r_,A4)),"r"(EXPR_CAT(__r_,A5)),"r"(EXPR_CAT(__r_,ID))\
 		:EXPR_CLOB6);\
-		expr_combine(__r_,RE);\
+		EXPR_CAT(__r_,RE);\
 })
 #define expr_internal_syscall_reg5(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ({\
 		expr_internal_regvarr(ID)=(intptr_t)(num);\
@@ -2375,10 +2382,10 @@ struct expr_strtod_workspace {
 		E5;\
 		__asm__ volatile(\
 		EXPR_SYSIN \
-		:"=r"(expr_combine(__r_,RE))\
-		:"r"(expr_combine(__r_,A0)),"r"(expr_combine(__r_,A1)),"r"(expr_combine(__r_,A2)),"r"(expr_combine(__r_,A3)),"r"(expr_combine(__r_,A4)),"r"(expr_combine(__r_,ID))\
+		:"=r"(EXPR_CAT(__r_,RE))\
+		:"r"(EXPR_CAT(__r_,A0)),"r"(EXPR_CAT(__r_,A1)),"r"(EXPR_CAT(__r_,A2)),"r"(EXPR_CAT(__r_,A3)),"r"(EXPR_CAT(__r_,A4)),"r"(EXPR_CAT(__r_,ID))\
 		:EXPR_CLOB5);\
-		expr_combine(__r_,RE);\
+		EXPR_CAT(__r_,RE);\
 })
 #define expr_internal_syscall_reg4(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ({\
 		expr_internal_regvarr(ID)=(intptr_t)(num);\
@@ -2389,10 +2396,10 @@ struct expr_strtod_workspace {
 		E4;\
 		__asm__ volatile(\
 		EXPR_SYSIN \
-		:"=r"(expr_combine(__r_,RE))\
-		:"r"(expr_combine(__r_,A0)),"r"(expr_combine(__r_,A1)),"r"(expr_combine(__r_,A2)),"r"(expr_combine(__r_,A3)),"r"(expr_combine(__r_,ID))\
+		:"=r"(EXPR_CAT(__r_,RE))\
+		:"r"(EXPR_CAT(__r_,A0)),"r"(EXPR_CAT(__r_,A1)),"r"(EXPR_CAT(__r_,A2)),"r"(EXPR_CAT(__r_,A3)),"r"(EXPR_CAT(__r_,ID))\
 		:EXPR_CLOB4);\
-		expr_combine(__r_,RE);\
+		EXPR_CAT(__r_,RE);\
 })
 #define expr_internal_syscall_reg3(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ({\
 		expr_internal_regvarr(ID)=(intptr_t)(num);\
@@ -2402,10 +2409,10 @@ struct expr_strtod_workspace {
 		E3;\
 		__asm__ volatile(\
 		EXPR_SYSIN \
-		:"=r"(expr_combine(__r_,RE))\
-		:"r"(expr_combine(__r_,A0)),"r"(expr_combine(__r_,A1)),"r"(expr_combine(__r_,A2)),"r"(expr_combine(__r_,ID))\
+		:"=r"(EXPR_CAT(__r_,RE))\
+		:"r"(EXPR_CAT(__r_,A0)),"r"(EXPR_CAT(__r_,A1)),"r"(EXPR_CAT(__r_,A2)),"r"(EXPR_CAT(__r_,ID))\
 		:EXPR_CLOB3);\
-		expr_combine(__r_,RE);\
+		EXPR_CAT(__r_,RE);\
 })
 #define expr_internal_syscall_reg2(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ({\
 		expr_internal_regvarr(ID)=(intptr_t)(num);\
@@ -2414,10 +2421,10 @@ struct expr_strtod_workspace {
 		E2;\
 		__asm__ volatile(\
 		EXPR_SYSIN \
-		:"=r"(expr_combine(__r_,RE))\
-		:"r"(expr_combine(__r_,A0)),"r"(expr_combine(__r_,A1)),"r"(expr_combine(__r_,ID))\
+		:"=r"(EXPR_CAT(__r_,RE))\
+		:"r"(EXPR_CAT(__r_,A0)),"r"(EXPR_CAT(__r_,A1)),"r"(EXPR_CAT(__r_,ID))\
 		:EXPR_CLOB2);\
-		expr_combine(__r_,RE);\
+		EXPR_CAT(__r_,RE);\
 })
 #define expr_internal_syscall_reg1(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ({\
 		expr_internal_regvarr(ID)=(intptr_t)(num);\
@@ -2425,20 +2432,20 @@ struct expr_strtod_workspace {
 		E1;\
 		__asm__ volatile(\
 		EXPR_SYSIN \
-		:"=r"(expr_combine(__r_,RE))\
-		:"r"(expr_combine(__r_,A0)),"r"(expr_combine(__r_,ID))\
+		:"=r"(EXPR_CAT(__r_,RE))\
+		:"r"(EXPR_CAT(__r_,A0)),"r"(EXPR_CAT(__r_,ID))\
 		:EXPR_CLOB1);\
-		expr_combine(__r_,RE);\
+		EXPR_CAT(__r_,RE);\
 })
 #define expr_internal_syscall_reg0(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ({\
 		expr_internal_regvarr(ID)=(intptr_t)(num);\
 		E0;\
 		__asm__ volatile(\
 		EXPR_SYSIN \
-		:"=r"(expr_combine(__r_,RE))\
-		:"r"(expr_combine(__r_,ID))\
+		:"=r"(EXPR_CAT(__r_,RE))\
+		:"r"(EXPR_CAT(__r_,ID))\
 		:EXPR_CLOB0);\
-		expr_combine(__r_,RE);\
+		EXPR_CAT(__r_,RE);\
 })
 
 #define expr_internal_syscall_eval(dest,cast,N,num,a0,a1,a2,a3,a4,a5,a6) ({\

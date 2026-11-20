@@ -91,3 +91,4 @@ const struct expr_builtin_symbol expr_symbols_default[]={
 	REGFSYM(y1),
 	{.str=NULL}
 };
+EXPR_LICENSE("GPL-3.0-or-later");

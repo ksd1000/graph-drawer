@@ -409,3 +409,4 @@ errr:
 //WARNING: the symbol value of variables or functions
 //cannot be reused after a PIE-program restarted.
 }
+EXPR_LICENSE("GPL-3.0-or-later");

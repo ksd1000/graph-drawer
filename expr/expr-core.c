@@ -13,6 +13,7 @@
  */
 
 #define _GNU_SOURCE
+
 #ifndef _EXPR_DEFS_H_
 #include <math.h>
 #include <float.h>
@@ -6309,3 +6310,4 @@ end:
 #undef inited
 
 #pragma GCC diagnostic pop
+EXPR_LICENSE("GPL-3.0-or-later");

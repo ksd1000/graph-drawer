@@ -610,3 +610,4 @@ ssize_t expr_buffered_write_iolbf_wrapped(intptr_t fd,const void *buf,size_t siz
 	debug("iolbf size=%zu",size);
 	return expr_buffered_write_iolbf((struct expr_buffered_file *)fd,buf,size,'\n');
 }
+EXPR_LICENSE("GPL-3.0-or-later");

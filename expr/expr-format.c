@@ -444,7 +444,7 @@ static ssize_t converteru_##_name(expr_writer_t writer,intptr_t fd,const union e
 	size_t digit,width,ds;\
 	const char *_conv_str=flag->cap?conv_btoX:conv_btox;\
 	uint32_t baseodd;\
-	uint8_t positive,nonzero,f61,f58;\
+	uint8_t positive,nonzero,fminus,feq;\
 	_start;\
 	disable_zero_with_minus();\
 	if(unlikely(!expr_isfinite(val))){\
@@ -456,8 +456,8 @@ static ssize_t converteru_##_name(expr_writer_t writer,intptr_t fd,const union e
 			memcpy(p,(expr_isinf(val)?"inf":"nan"),4);\
 		cwrite_common(nbuf,(ssize_t)(p==nbuf?3:4));\
 	}\
-	f61=(uint8_t)!!(flag->minus);\
-	f58=(uint8_t)!!(flag->eq);\
+	fminus=(uint8_t)!!(flag->minus);\
+	feq=(uint8_t)!!(flag->eq);\
 	digit=flag_digit(flag,6);\
 	if(digit>(size_t)SSIZE_MAX-1){\
 		digit=(size_t)SSIZE_MAX-1;\
@@ -554,11 +554,11 @@ static ssize_t converteru_##_name(expr_writer_t writer,intptr_t fd,const union e
 		fsz=0;\
 	{\
 		_before_how;\
-		if(!f61){\
+		if(!fminus){\
 			writeext_f;\
 		}\
 		_how;\
-		if(f61){\
+		if(fminus){\
 			writeext_f;\
 		}\
 	}\
@@ -573,7 +573,7 @@ static ssize_t converteru_##_name(expr_writer_t writer,intptr_t fd,const union e
 	if(fsz){\
 		c_trywrite(p,fsz);\
 	}\
-	if(!f58&&(size_t)fsz<=digit){\
+	if(!feq&&(size_t)fsz<=digit){\
 		if(!fsz){\
 			if(digit){\
 				c_trywrite(".",1);\
@@ -593,7 +593,7 @@ static ssize_t converteru_##_name(expr_writer_t writer,intptr_t fd,const union e
 	}\
 	if(fsz==1)\
 		fsz=0;\
-	sz=(ssize_t)ds+(f58?fsz:ext);\
+	sz=(ssize_t)ds+(feq?fsz:ext);\
 	debug("set sz=%zd",sz);\
 )
 
@@ -634,7 +634,7 @@ static ssize_t converteru_##_name(expr_writer_t writer,intptr_t fd,const union e
 		}\
 		fsz=r1+ext;\
 	}\
-	if(!f58&&(size_t)fsz<digit){\
+	if(!feq&&(size_t)fsz<digit){\
 		c_trywriteext('0',(ssize_t)digit-fsz);\
 	}\
 	c_trywrite(ebuf,esz);\
@@ -725,7 +725,7 @@ onzero:\
 	};\
 	esz=sz;\
 	debug("set sz=%zd",sz);\
-	sz+=(ssize_t)ds+(f58?fsz+!!digit:(ssize_t)digit+!!digit);\
+	sz+=(ssize_t)ds+(feq?fsz+!!digit:(ssize_t)digit+!!digit);\
 	if(!fsz)\
 		++sz;\
 	debug("set sz=%zd",sz);\
@@ -930,13 +930,13 @@ static ssize_t converter_hb(expr_writer_t writer,intptr_t fd,const union expr_ar
 	ssize_t r,sum,ext;
 	uint8_t *p,*endp,*datap;
 	uint8_t data;
-	int f61=!!(flag->minus),f60=!!(flag->sharp),f63=!!(flag->plus);
+	int fminus=!!(flag->minus),fsharp=!!(flag->sharp),fplus=!!(flag->plus);
 	const char *conv_str=flag->cap?conv_btoX:conv_btox;
-	ext=(ssize_t)flag_width(flag,0)-(f60?4:2)*(ssize_t)len;
-	if(f63&&len>1)
+	ext=(ssize_t)flag_width(flag,0)-(fsharp?4:2)*(ssize_t)len;
+	if(fplus&&len>1)
 		ext-=(ssize_t)(len-1);
 	sum=0;
-	if(!f61&&ext>0){
+	if(!fminus&&ext>0){
 		c_trywriteext((flag->zero)?'0':' ',ext);
 	}
 	if(len){
@@ -944,13 +944,13 @@ static ssize_t converter_hb(expr_writer_t writer,intptr_t fd,const union expr_ar
 		endp=buf+n;
 		for(datap=arg->addr;;){
 			data=*datap;
-			if(f60){
+			if(fsharp){
 				*(p++)='0';
 				*(p++)=(uint8_t)conv_str[16];
 			}
 			*(p++)=(uint8_t)conv_str[data>>4];
 			*(p++)=(uint8_t)conv_str[data&15];
-			if(f63&&likely(len>1))
+			if(fplus&&likely(len>1))
 				*(p++)=',';
 			if(unlikely(!--len))
 				break;
@@ -968,29 +968,33 @@ static ssize_t converter_hb(expr_writer_t writer,intptr_t fd,const union expr_ar
 			c_trywrite(buf,len);
 		}
 	}
-	if(f61&&ext>0){
+	if(fminus&&ext>0){
 		c_trywriteext((flag->zero)?'0':' ',ext);
 	}
 	return sum;
 }
-// lcm(3,4,5)==60
+// lcm(2,3,4,5)==60
 ssize_t expr_converter_h(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	uint8_t *buf;
 	ssize_t r;
 	if(flag->suffix){
-		if(unlikely(flag->width>(size_t)SSIZE_MAX/60))
-			return SSIZE_MIN+2;
-		if(flag->width)
-			r=(ssize_t)(flag->width*60);
-		else
-			r=960;
+		r=2;
+		if(flag->sharp)
+			r+=2;
+		if(flag->plus)
+			++r;
+		if(flag->width){
+			if(unlikely(mulo3(flag->width,(size_t)r,(size_t *)&r)))
+				return SSIZE_MIN+2;
+		}else {
+			r<<=4;
+		}
 		flag->width=0;
 		flag->width_set=1;
-		buf=xmalloc((size_t)r);
 	}else {
 		r=960;
-		buf=xmalloc(960);
 	}
+	buf=xmalloc((size_t)r);
 	if(unlikely(!buf))
 		return SSIZE_MIN+1;
 	r=converter_hb(writer,fd,arg,flag,buf,(size_t)r);
@@ -3162,3 +3166,4 @@ next:
 			return n;
 	}
 }
+EXPR_LICENSE("GPL-3.0-or-later");

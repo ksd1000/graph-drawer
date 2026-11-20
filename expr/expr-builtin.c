@@ -1438,3 +1438,4 @@ const struct expr_builtin_symbol expr_symbols_errno[]={
 	REGMACRO("errno","geterrno()"),
 	{.str=NULL}
 };
+EXPR_LICENSE("GPL-3.0-or-later");

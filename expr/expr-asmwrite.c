@@ -76,3 +76,4 @@ ssize_t expr_asmwrite(const struct expr *restrict ep,void *outbuf,size_t size){
 	}
 }
 #endif
+EXPR_LICENSE("GPL-3.0-or-later");

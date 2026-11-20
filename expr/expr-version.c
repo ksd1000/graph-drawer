@@ -187,4 +187,4 @@ break2:
 bu:
 	__builtin_unreachable();
 }
-
+EXPR_LICENSE("GPL-3.0-or-later");

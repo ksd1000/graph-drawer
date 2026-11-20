@@ -3184,3 +3184,4 @@ void *expr_xautoadd(void **restrict old,size_t *restrict size,size_t *restrict l
 	++(*size);
 	return (void *)((char *)r+old_size*n);
 }
+EXPR_LICENSE("GPL-3.0-or-later");

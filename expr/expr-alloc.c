@@ -467,3 +467,4 @@ int expr_setup_heapmtl4(struct expr_memtool *restrict mtl,void *heap,size_t size
 }
 
 #endif
+EXPR_LICENSE("GPL-3.0-or-later");

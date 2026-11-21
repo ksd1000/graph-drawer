@@ -1473,19 +1473,22 @@ void expr_internal_gcvt_round(struct expr_gcvt_workspace *restrict ws,size_t dig
 	p=ws->v+ws->vidx;
 	endp=p+ws->vlen;
 	p+=digit;
-	--hbase;
 	if((uint8_t)*p<hbase){
 		return;
 	}else if((uint8_t)*p==hbase){
-		for(p1=p;p1<endp;++p1){
-			if((uint8_t)*p1<hbase){
+		for(p1=p+1;p1<endp;++p1){
+			if(*p1)
+				goto do_round;
+		}
+		if(digit){
+			if(!((uint8_t)p[-1]&1))
 				return;
-			}else if((uint8_t)*p1==hbase)
-				continue;
-			else
-				break;
+		}else {
+			if(!((uint8_t)ws->n[ws->idx+ws->len-1]&1))
+				return;
 		}
 	}
+do_round:
 	if(digit){
 		--p;
 		p1=ws->v+ws->vidx;

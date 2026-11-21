@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <float.h>
 
-//#define EXPR_LIBC_STRING_IMPL 0
+#define EXPR_LIBC_STRING_IMPL 1
 #include <string.h>
 
 #include <stdlib.h>
@@ -1133,6 +1133,47 @@ const struct expr_builtin_symbol expr_symbols_packages[]={
 	REGPACK(io),
 	{.str=NULL}
 };
+static double d_expr_new(double *args,size_t n){
+	const char *e;
+	size_t len;
+	const char *asym=NULL;
+	size_t asymlen=0;
+	struct expr_symset *esp=NULL;
+	int flag=EXPR_IDEFAULT,err;
+	double *error=NULL;
+	char *errinfo=NULL;
+	struct expr *ep;
+	switch(n){
+		default:
+			return 0.0;
+		case 6:
+			errinfo=expr_cast(args[5],char *);
+		case 5:
+			error=expr_cast(args[4],double *);
+		case 4:
+			flag=(int)args[3];
+		case 3:
+			esp=expr_cast(args[2],struct expr_symset *);
+		case 2:
+			asym=expr_cast(args[1],const char *);
+			asymlen=strlen(asym);
+		case 1:
+			e=expr_cast(*args,const char *);
+			len=strlen(e);
+			break;
+	}
+	ep=expr_new9_r(e,len,asym,asymlen,esp,flag,&err,errinfo,expr_extarg_default,expr_defmtl);
+	if(unlikely(!ep)){
+		if(error)
+			*error=(double)err;
+		return 0.0;
+	}
+	return expr_cast(ep,double);
+}
+static double d_expr_free(double x){
+	expr_free(expr_cast(x,struct expr *));
+	return 0.0;
+}
 const struct expr_builtin_symbol expr_symbols_expr[]={
 	REGCSYM_E(INOOPTIMIZE),
 	REGCSYM_E(IINSTANT_FREE),
@@ -1178,6 +1219,9 @@ const struct expr_builtin_symbol expr_symbols_expr[]={
 	REGCSYM2("IPP_OFF",(double)offsetof(struct expr,ipp)),
 	REGCSYM2("SIZE_OFF",(double)offsetof(struct expr,size)),
 	REGCSYM(__SIZEOF_POINTER__),
+
+	REGMDSYM2_NIU("expr_new",d_expr_new,0),
+	REGFSYM2_NI("expr_free",d_expr_free),
 	{.str=NULL}
 };
 //#define REGVSYM(s) {.strlen=sizeof(#s)-1,.str=#s,.un={.addr=(double *)&(s)},.type=EXPR_CONSTANT}

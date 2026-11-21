@@ -1,4 +1,4 @@
-#! calc -f
+#! calc -qf
 import(systable);
 import(memory);
 import(common);

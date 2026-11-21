@@ -1,0 +1,82 @@
+#! calc -qf
+# SPDX-License-Identifier: GPL-3.0-or-later
+import(expr);
+smoke=(e,expect){
+	printf("[%3u]: \"%s\" should be %g ...",index,e,expect);
+	(index#1)->index;
+	expr_new(e)-->p;
+	if(p){
+		eval(p,0)-->v;
+		expr_free(p);
+#		use bitwise equal
+		if(v=expect){
+			(success#1)->success;
+			printf(" ok\n");
+		}{
+			(fail#1)->fail;
+			printf(" fail(result=%g)\n",v);
+		};
+	}{
+		printf(" fail(on init)\n");
+		(fail#1)->fail;
+	};
+};
+0-->success;
+0-->fail;
+0-->index;
+#smoking start
+smoke("1+2",3);
+smoke("+7",7);
+smoke("-7",-7);
+smoke("1+5",6);
+smoke("5+3*8",29);
+smoke("(5+3)*8",64);
+smoke("134|45.5&7.5",135.5);
+smoke("134|(45.5&7.5)",135.5);
+smoke("(134|45.5)&7.5",7.5);
+smoke("6**3",216);
+smoke("6^3",5);
+smoke("0&&1",0);
+smoke("1&&0",0);
+smoke("0&&0",0);
+smoke("1&&1",1);
+smoke("0||1",1);
+smoke("1||0",1);
+smoke("0||0",0);
+smoke("1||1",1);
+smoke("0^^1",1);
+smoke("1^^0",1);
+smoke("0^^0",0);
+smoke("1^^1",0);
+smoke("5-7+6",4);
+smoke("5-(7+6)",-8);
+smoke("5<<3>>2",10);
+smoke("5<<(3>>2)",5);
+smoke("(5<<3)>>2",10);
+smoke("5+3>>2",2);
+smoke("5>>3+2",5.0/32);
+smoke("!(5-2)",0);
+smoke("!(5-5)",1);
+smoke("!!(5-2)",1);
+smoke("!!(5-5)",0);
+smoke("sum(n,1,100,1,n)",5050);
+smoke("if(3,5,7)",5);
+smoke("if(0,5,7)",7);
+smoke("0-->m,while(m<7626){(1+m)->m,0};m",7626);
+smoke("0-->m,while(m<=7626){(1+m)->m,0};m",7627);
+smoke("-!3",-0.0);
+smoke("!-3",0);
+smoke("!-~3",0);
+smoke("!~-3",0);
+smoke("-!~3",-0.0);
+smoke("!!3",1);
+smoke("!!!3",0);
+smoke("!!0",0);
+smoke("!!!0",1);
+smoke("!~!-!!0",0);
+smoke("!!~!-!!0",1);
+smoke("(129+127)&~127",256);
+smoke("(128+127)&~127",128);
+smoke("(127+127)&~127",128);
+#smoking end
+printf("smoke completed: success=%u fail=%u\n",success,fail);

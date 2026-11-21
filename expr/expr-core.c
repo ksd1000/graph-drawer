@@ -764,16 +764,22 @@ static char *expr_tok(char *restrict str,char *endp,char **restrict saveptr,size
 				++(*saveptr);
 				return str;
 			case '(':
+				if(instr)
+					break;
 				*saveptr=(char *)(uintptr_t)findpair(*saveptr,endp);
 				if(unlikely(!*saveptr))
 					return NULL;
 				break;
 			case '[':
+				if(instr)
+					break;
 				*saveptr=(char *)(uintptr_t)findpair_bracket(*saveptr,endp);
 				if(unlikely(!*saveptr))
 					return NULL;
 				break;
 			case '{':
+				if(instr)
+					break;
 				*saveptr=(char *)(uintptr_t)findpair_brace(*saveptr,endp);
 				if(unlikely(!*saveptr))
 					return NULL;

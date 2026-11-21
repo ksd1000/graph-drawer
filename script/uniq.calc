@@ -1,4 +1,4 @@
-#! calc -f
+#! calc -qf
 import(common);
 import(memory);
 import(string);
@@ -15,4 +15,3 @@ while(readline1(&p)-->r,andl(orl(r>=0,r=-0),p)){
 symset_free(set);
 endline1();
 expr_setup_mtl(0);
-0->calc_show_result;

@@ -2221,6 +2221,18 @@ struct expr_strtod_workspace {
 	};
 };
 
+struct expr_gcvt_workspace {
+	uint64_t w[69];
+	uint64_t i[69];
+	size_t idx;
+	size_t len;
+	size_t vidx;
+	size_t vlen;
+	char e[8];
+	char v[1096];
+	char n[/* 1024 */];
+};
+
 #define expr_symbols_all \
 	expr_symbols_default,\
 	expr_symbols_expr,\

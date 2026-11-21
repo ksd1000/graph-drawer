@@ -1361,6 +1361,175 @@ e2inf:
 	return val.val;//completed ?
 }
 
+#undef trunc
+#undef frsize
+#undef np1
+#undef u
+#undef np
+#undef kd
+#undef endp
+#undef wsize
+#undef extra2
+#undef point
+#undef e2
+
+#define uzero(u) (!((u)&(UINT64_MAX>>1)))
+#define endp un._endp
+#define req un._req
+#define r un._r
+void expr_internal_gcvt(double val,uint32_t base,size_t nlen,struct expr_gcvt_workspace *restrict ws){
+	union expr_double nv;
+	union {
+		char *_endp;
+		struct {
+			unsigned short _req;
+			unsigned short _r;
+		};
+	} un;
+	int off;
+	static const char chars[]={"\0\1\2\3\4\5\6\7\10\11\12\13\14\15\16\17"};
+	nv.val=expr_internal_trunc(val);
+	if(unlikely(nv.rd.sign)){
+		nv.rd.sign=0;
+		val=-val;
+	}
+	// ignore the negative/nan/inf cases, treated in the formatter.
+	// assert(nlen<=65535&&base<=16);
+	endp=ws->n+nlen;
+	if(nv.uval){
+		*ws->i=(uint64_t)nv.rd.base|((uint64_t)1<<52);
+		off=(int)nv.rd.exp-(1023+52);
+		if(off>0){
+			if(off<=11){
+				*ws->i<<=off;
+				goto trivial;
+			}
+			// uint128_t is not provided by C standard.
+			ws->len=expr_extint_ascii_rev(ws->i,expr_extint_left(ws->i,1,(uint64_t)off),chars,endp,base);
+			ws->idx=nlen-ws->len;
+		}else {
+			*ws->i>>=-off;
+trivial:
+			while(*ws->i){
+				*(--endp)=(char)(*ws->i%base);
+				*ws->i/=base;
+			}
+			ws->idx=(size_t)(endp-ws->n);
+			ws->len=(nlen-(size_t)(endp-ws->n));
+		}
+	}else {
+		ws->idx=(nlen-1);
+		endp[-1]=0;
+		ws->len=1;
+	}
+	nv.val=val-nv.val;
+	if(nv.uval){
+		req=(unsigned short)ctz32(base);
+		base>>=req;
+		off=(1023+52)-(int)nv.rd.exp;
+		if(nv.rd.exp){
+			*ws->i=(uint64_t)nv.rd.base|((uint64_t)1<<52);
+		}else {
+			*ws->i=(uint64_t)nv.rd.base<<1;
+		}
+		// now ws->i is d*2**off
+		if(base>1){
+			r=(unsigned short)expr_extint_mulnp(ws->i,1,base,(uint32_t)off,ws->w);
+		}else
+			r=1;
+		// now ws->i is d*(base*2/(req+1))**off
+		// base=oddbase*(req+1)
+		if(!req){
+			r=(unsigned short)expr_extint_right(ws->i,(size_t)r,(uint64_t)off);
+		}else if(req>1){
+			r=(unsigned short)expr_extint_left(ws->i,(size_t)r,(uint64_t)((unsigned short)(req-(unsigned short)1)*(unsigned short)off));
+		}
+		r=(unsigned short)expr_extint_ascii_rev(ws->i,(size_t)r,chars,ws->v+1096,base<<req);
+		// now ws->i is d*base**off with r digits.
+		// d == ws->i/base**off
+		// required zeros: off-r
+		ws->vidx=(size_t)(1096-off);
+		ws->vlen=(size_t)off;
+		if(off>(int)r){
+			nlen=(size_t)(off-(int)r);
+			endp=ws->v+ws->vidx;
+			memset(endp,0,nlen);
+		}else
+			endp=ws->v+ws->vidx;
+		ws->vlen=(size_t)((char *)expr_internal_memrnchr(endp,0,ws->vlen)-endp)+1;
+		// nonzero means nonnullable
+	}else {
+		ws->vidx=0;
+		ws->vlen=0;
+	}
+}
+#undef endp
+#undef req
+#undef r
+void expr_internal_gcvt_round(struct expr_gcvt_workspace *restrict ws,size_t digit,uint32_t base){
+	char *p,*p1,*endp;
+	uint8_t hbase,carry,c;
+	hbase=(uint8_t)(base>>1);
+	p=ws->v+ws->vidx;
+	endp=p+ws->vlen;
+	p+=digit;
+	--hbase;
+	if((uint8_t)*p<hbase){
+		return;
+	}else if((uint8_t)*p==hbase){
+		for(p1=p;p1<endp;++p1){
+			if((uint8_t)*p1<hbase){
+				return;
+			}else if((uint8_t)*p1==hbase)
+				continue;
+			else
+				break;
+		}
+	}
+	if(digit){
+		--p;
+		p1=ws->v+ws->vidx;
+		for(;p>=p1;--p){
+			c=(uint8_t)*p+1;
+			if(c>=(uint8_t)base){
+				--digit;
+			}else {
+				*p=(char)c;
+				break;
+			}
+		}
+		ws->vlen=digit;
+		if(digit)
+			return;
+	}else
+		ws->vlen=0;
+	p1=ws->n+ws->idx;
+	p=p1+ws->len-1;
+	for(;p>=p1;--p){
+		c=(uint8_t)*p+1;
+		if(c>=(uint8_t)base){
+			*p=0;
+		}else {
+			*p=(char)c;
+			return;
+		}
+	}
+	*p=1;
+	++ws->len;
+	--ws->idx;
+}
+void expr_internal_gcvt_draw(struct expr_gcvt_workspace *restrict ws,const char *chars){
+	char *p,*endp;
+	p=ws->n+ws->idx;
+	endp=p+ws->len;
+	for(;p<endp;++p)
+		*p=chars[(uint8_t)*p];
+	p=ws->v+ws->vidx;
+	endp=p+ws->vlen;
+	for(;p<endp;++p)
+		*p=chars[(uint8_t)*p];
+}
+
 #define xmtl mtl
 
 double expr_internal_strtod_mtl_force(const char *restrict nptr,size_t nsize,size_t *restrict end_index,const struct expr_memtool *restrict mtl){
@@ -1417,7 +1586,6 @@ expr_const double expr_internal_trunc(double x){
 			|((mx>>off)&(UINT64_MAX>>12));\
 	}\
 })
-#define uzero(u) (!((u)&(UINT64_MAX>>1)))
 expr_const double expr_internal_fmod(double x,double y){
 	uint64_t mx,my;
 	int ex,ey,off;

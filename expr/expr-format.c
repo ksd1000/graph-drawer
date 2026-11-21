@@ -144,7 +144,6 @@ err:
 #define cwrite_common0(_s) \
 	ext=(ssize_t)flag_width(flag,0)-sz;\
 	if(ext>0){\
-		sum=0;\
 		if(flag->minus){\
 			c_trywrite((_s),sz);\
 			c_trywriteext((flag->zero)?'0':' ',ext);\
@@ -162,6 +161,7 @@ err:
 
 ssize_t expr_converter_common(expr_writer_t writer,intptr_t fd,const void *buf,size_t size,const struct expr_writeflag *flag){
 	ssize_t ext,r,sum;
+	sum=0;
 #define sz ((ssize_t)size)
 	cwrite_common0(buf);
 #undef sz
@@ -187,7 +187,7 @@ ssize_t expr_converter_d(expr_writer_t writer,intptr_t fd,const union expr_argf 
 	char nbuf[XUNBUF];
 	expr_ut val=(expr_ut)arg->sint;
 	char *endp=nbuf+XUNBUF;
-	char *p=endp;
+	char *p=endp,*p0;
 	ssize_t ext,sum,r,sz;
 	int minus;
 	debug("width=%zu(%d) digit=%zd(%d)",flag->width,(int)flag->width_set,(ssize_t)flag->digit,(int)flag->digit_set);
@@ -218,6 +218,7 @@ ssize_t expr_converter_d(expr_writer_t writer,intptr_t fd,const union expr_argf 
 		write_val10_to_p(val);
 	}else
 		*(--p)='0';
+	p0=p;
 	switch(minus){
 		case 0:
 			if(flag_plus(flag))
@@ -237,6 +238,12 @@ ssize_t expr_converter_d(expr_writer_t writer,intptr_t fd,const union expr_argf 
 	}
 	disable_zero_with_minus();
 	// the C standard forces the formatter to ignore '0' when '-' is set in number conversion.
+	sum=0;
+	if(flag->zero&&p<p0){
+		sz=(ssize_t)(p0-p);
+		c_trywrite(p,sz);
+		p=p0;
+	}
 	cwrite_common(p,(endp-p));
 }
 ssize_t expr_converter_size(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
@@ -291,6 +298,7 @@ no_digit:
 	else if(flag_space(flag))
 		*(--p)=' ';
 	disable_zero_with_minus();
+	sum=0;
 	cwrite_common(p,(endp-p));
 }
 static const char conv_btox[]={"0123456789abcdefx"};
@@ -299,7 +307,7 @@ static ssize_t converter_xu(expr_writer_t writer,intptr_t fd,const union expr_ar
 	char nbuf[XUNBUF];
 	expr_ut val=arg->uint,mod;
 	char *endp=nbuf+XUNBUF;
-	char *p=endp;
+	char *p=endp,*p0;
 	ssize_t ext,sum,r,sz;
 	int positive;
 	const char *conv_str=flag->cap?conv_btoX:conv_btox;
@@ -350,6 +358,7 @@ static ssize_t converter_xu(expr_writer_t writer,intptr_t fd,const union expr_ar
 		}
 		*(--p)='0';
 	}
+	p0=p;
 	if(positive&&flag->sharp){
 		switch(base){
 			case 2:
@@ -382,6 +391,12 @@ static ssize_t converter_xu(expr_writer_t writer,intptr_t fd,const union expr_ar
 			__builtin_unreachable();
 	}
 	disable_zero_with_minus();
+	sum=0;
+	if(flag->zero&&p<p0){
+		sz=(ssize_t)(p0-p);
+		c_trywrite(p,sz);
+		p=p0;
+	}
 	cwrite_common(p,(endp-p));
 }
 #define conv_x(name,base) \
@@ -404,6 +419,12 @@ conv_x(x8d,13);
 conv_x(x8e,14);
 conv_x(x8f,15);
 
+#ifndef EXPR_FORMAT_NOFLOAT
+#define EXPR_FORMAT_NOFLOAT 0
+#endif
+
+#if !(EXPR_FORMAT_NOFLOAT)
+
 #define extint_left(i,l,b) expr_extint_left(i,(size_t)(l),(uint64_t)(b))
 //#define extint_right(i,l,b) expr_extint_right(i,(size_t)(l),(uint64_t)(b))
 //#define extint_mul(i,l,m,w) expr_extint_mul(i,(size_t)(l),m,w)
@@ -421,350 +442,6 @@ conv_x(x8f,15);
 	}\
 })
 // warning on gcc 13.3.0 if no volatile
-struct doubleconverter_workspace {
-	uint64_t w[69];
-	uint64_t i[69-16];
-	uint64_t ii[16];
-	char v[1096];
-	char n[];
-};
-
-#ifndef EXPR_FORMAT_NOFLOAT
-#define EXPR_FORMAT_NOFLOAT 0
-#endif
-
-#if !(EXPR_FORMAT_NOFLOAT)
-// the libc printf for double rounds to the closer one. but the code is too difficult to write, so this keeps truncate, round by the caller.
-#define conv_fu(_start,_name,_how,_before_how) \
-static ssize_t converteru_##_name(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag,uint32_t base,int64_t shouldleft,struct doubleconverter_workspace *bufst,uint32_t nsize){\
-	double val=arg->dbl;\
-	char *endp;\
-	char *p,*np;\
-	ssize_t ext,sum,r,sz,fsz;\
-	size_t digit,width,ds;\
-	const char *_conv_str=flag->cap?conv_btoX:conv_btox;\
-	uint32_t baseodd;\
-	uint8_t positive,nonzero,fminus,feq;\
-	_start;\
-	disable_zero_with_minus();\
-	if(unlikely(!expr_isfinite(val))){\
-		p=nbuf;\
-		write_sign_to_p(EXPR_EDSIGN(&val));\
-		if(flag->cap)\
-			memcpy(p,(expr_isinf(val)?"INF":"NAN"),4);\
-		else\
-			memcpy(p,(expr_isinf(val)?"inf":"nan"),4);\
-		cwrite_common(nbuf,(ssize_t)(p==nbuf?3:4));\
-	}\
-	fminus=(uint8_t)!!(flag->minus);\
-	feq=(uint8_t)!!(flag->eq);\
-	digit=flag_digit(flag,6);\
-	if(digit>(size_t)SSIZE_MAX-1){\
-		digit=(size_t)SSIZE_MAX-1;\
-	}\
-	width=flag_width(flag,0);\
-	endp=nbuf+(size_t)nsize;\
-	if(EXPR_EDSIGN(&val)){\
-		EXPR_EDSIGN(&val)=0;\
-		positive=0;\
-	}else {\
-		positive=1;\
-	}\
-	if(EXPR_EDUVAL(&val)){\
-		nonzero=1;\
-	}else {\
-		nonzero=0;\
-	}\
-	np=endp;\
-	sum=0;\
-	sz=(ssize_t)EXPR_EDEXP(&val)-1023;\
-	if(sz>=0){\
-		double fval;\
-		fval=expr_internal_trunc(val);\
-		val-=fval;\
-		*iival=EXPR_EDBASE(&fval)|(UINT64_C(1)<<52);\
-		sz-=52;\
-		if(sz){\
-			if(sz>0){\
-				r=(ssize_t)extint_left(iival,1,(size_t)sz);\
-			}else {\
-				*iival>>=-sz;\
-				r=1;\
-			}\
-		}else\
-			r=1;\
-		np-=extint_ascii_rev(iival,(size_t)r,conv_btox,np,base);\
-	}else {\
-		*(--np)='0';\
-	}\
-	if(nonzero){\
-		if(flag->sharp){\
-			switch(base){\
-				case 2:\
-					*(--np)=flag->cap?'B':'b';\
-					*(--np)='0';\
-					break;\
-				case 8:\
-					*(--np)='0';\
-					break;\
-				case 16:\
-					*(--np)=flag->cap?'X':'x';\
-					*(--np)='0';\
-					break;\
-				default:\
-					break;\
-			}\
-		}\
-	}\
-	if(nonzero||!positive){\
-		write_sign_to_np(!positive);\
-	}\
-	ds=(size_t)(endp-np);\
-	p=vbuf+1096;\
-	if(digit){\
-		fsz=(ssize_t)EXPR_EDEXP(&val);\
-		if(fsz)\
-			*ival=EXPR_EDBASE(&val)|(UINT64_C(1)<<52);\
-		else\
-			*ival=EXPR_EDBASE(&val)<<1;\
-		ext=1075-fsz;\
-		r=1;\
-		baseodd=base>>(uint32_t)ctz32(base);\
-		if(baseodd>1&&ext){\
-			r=(ssize_t)expr_extint_mulnp(ival,(size_t)r,baseodd,(uint32_t)ext,workspace);\
-		}\
-		if(shouldleft>0){\
-			r=(ssize_t)expr_extint_left(ival,(size_t)r,(uint32_t)ext*(uint64_t)shouldleft);\
-		}else if(shouldleft<0){\
-			r=(ssize_t)expr_extint_right(ival,(size_t)r,(uint32_t)ext*(uint64_t)-shouldleft);\
-		}\
-		fsz=(ssize_t)extint_ascii_rev(ival,(size_t)r,_conv_str,p,base);\
-		p-=fsz;\
-		ext-=fsz;\
-		if(ext>0){\
-			p-=ext;\
-			fsz+=ext;\
-			memset(p,'0',(size_t)ext);\
-		}\
-		if(fsz){\
-			*(--p)='.';\
-			++fsz;\
-		}\
-	}else\
-		fsz=0;\
-	{\
-		_before_how;\
-		if(!fminus){\
-			writeext_f;\
-		}\
-		_how;\
-		if(fminus){\
-			writeext_f;\
-		}\
-	}\
-	return sum;\
-}
-
-
-
-
-#define conv_fu0(_name) conv_fu(,_name,{\
-	c_trywrite(np,ds);\
-	if(fsz){\
-		c_trywrite(p,fsz);\
-	}\
-	if(!feq&&(size_t)fsz<=digit){\
-		if(!fsz){\
-			if(digit){\
-				c_trywrite(".",1);\
-				c_trywriteext('0',digit);\
-			}\
-		}else\
-			c_trywriteext('0',digit-(size_t)fsz+(size_t)1);\
-	}\
-},\
-	ext=(ssize_t)(digit+1);\
-	if(fsz>ext){\
-		fsz=ext;\
-	}\
-	for(endp=p+fsz-1;endp>=p&&*endp=='0';){\
-		--fsz;\
-		--endp;\
-	}\
-	if(fsz==1)\
-		fsz=0;\
-	sz=(ssize_t)ds+(feq?fsz:ext);\
-	debug("set sz=%zd",sz);\
-)
-
-#define conv_fue(_name) conv_fu(,_name,\
-	if(r1<0){\
-		if(fsz){\
-			c_trywrite(p,1);\
-			c_trywrite(".",1);\
-			if(fsz>2){\
-				c_trywrite(p+1,fsz-1);\
-			}else {\
-				c_trywrite("0",1);\
-			}\
-		}\
-	}else {\
-		size_t wsz;\
-		++firp;\
-		wsz=(size_t)(firp-np);\
-		c_trywrite(np,wsz);\
-		if(digit)\
-			c_trywrite(".",1);\
-		r1=(np+ds)-firp-iz;\
-		if((size_t)r1>=digit){\
-			ext=0;\
-			r1=(ssize_t)digit;\
-		}else {\
-			ext=(ssize_t)digit-r1;\
-		}\
-		c_trywrite(firp,r1);\
-		if(ext){\
-			if(fsz){\
-				ext=fsz>ext?ext:fsz;\
-				c_trywrite(p,ext);\
-			}else {\
-				ext=1;\
-				c_trywrite("0",1);\
-			}\
-		}\
-		fsz=r1+ext;\
-	}\
-	if(!feq&&(size_t)fsz<digit){\
-		c_trywriteext('0',(ssize_t)digit-fsz);\
-	}\
-	c_trywrite(ebuf,esz);\
-,\
-	char ebuf[8];\
-	char *firp;\
-	ssize_t r1;\
-	ssize_t r2;\
-	ssize_t esz;\
-	ssize_t iz;\
-	{\
-	r1=(ssize_t)ds-1;\
-	sz=0;\
-	if(!fsz){\
-		goto nofsz;\
-	}\
-	++p;\
-	--fsz;\
-	switch(ds){\
-		case 1:\
-			firp=np;\
-			if(*np=='0')\
-				goto onzero;\
-			break;\
-		case 2:\
-			switch(*np){\
-				case '+':\
-				case '-':\
-					--r1;\
-					firp=np+1;\
-					if(np[1]=='0')\
-						goto onzero;\
-					break;\
-				default:\
-					firp=np;\
-					break;\
-			}\
-			break;\
-		default:\
-nofsz:\
-			switch(*np){\
-				case '+':\
-				case '-':\
-					firp=np+1;\
-					break;\
-				default:\
-					firp=np;\
-					break;\
-			}\
-			break;\
-onzero:\
-		endp=p+fsz;\
-		for(--r1;p<endp;){\
-			if(*p=='0'){\
-				--r1;\
-				++p;\
-				--fsz;\
-				continue;\
-			}\
-			break;\
-		}\
-	}\
-	if((size_t)fsz>digit){\
-		fsz=(ssize_t)digit;\
-	}\
-	for(endp=p+fsz-1;endp>=p&&*endp=='0';){\
-		--fsz;\
-		--endp;\
-	}\
-	*ebuf=(flag->cap?'E':'e');\
-	r2=r1;\
-	if(r2<0){\
-		ebuf[1]='-';\
-		r2=-r2;\
-	}else {\
-		ebuf[1]='+';\
-	}\
-	sz+=2;\
-	endp=ebuf+1;\
-	do {\
-		*(++endp)=_conv_str[r2%10];\
-		++sz;\
-	}while((r2/=10));\
-	if(ebuf+2<endp){\
-		r2=endp-(ebuf+1);\
-		assume(r2<=6);\
-		extint_mirror(ebuf+2,r2);\
-	};\
-	esz=sz;\
-	debug("set sz=%zd",sz);\
-	sz+=(ssize_t)ds+(feq?fsz+!!digit:(ssize_t)digit+!!digit);\
-	if(!fsz)\
-		++sz;\
-	debug("set sz=%zd",sz);\
-	for(iz=0,endp=np+ds;--endp>np;){\
-		if(*endp=='0')\
-			++iz;\
-		else\
-			break;\
-	}\
-	debug("set sz=%zd",sz);\
-	sz-=iz;\
-	if(!digit)\
-		--sz;\
-	if(sz<0)\
-		sz=SSIZE_MAX;\
-	debug("set sz=%zd",sz);\
-})
-#define conv_f(_name,_base,_shift,_nsize) \
-ssize_t expr_converter_##_name(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){\
-	struct doubleconverter_workspace *bufst;\
-	ssize_t r;\
-	bufst=xmalloc(offsetof(struct doubleconverter_workspace,n)+(_nsize));\
-	if(unlikely(!bufst))\
-		return SSIZE_MIN+1;\
-	r=converteru_plain(writer,fd,arg,flag,_base,_shift,bufst,_nsize);\
-	xfree(bufst);\
-	return r;\
-}
-#define conv_fe(_name,_base,_shift,_nsize) \
-ssize_t expr_converter_##_name(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){\
-	struct doubleconverter_workspace *bufst;\
-	ssize_t r;\
-	bufst=xmalloc(offsetof(struct doubleconverter_workspace,n)+(_nsize));\
-	if(unlikely(!bufst))\
-		return SSIZE_MIN+1;\
-	r=converteru_expo(writer,fd,arg,flag,_base,_shift,bufst,_nsize);\
-	xfree(bufst);\
-	return r;\
-}
 #define writeext_f \
 	debug("width=%zu,sz=%zd",width,sz);\
 	ext=(ssize_t)width-sz;\
@@ -789,37 +466,256 @@ ssize_t expr_converter_##_name(expr_writer_t writer,intptr_t fd,const union expr
 			else if(flag_space(flag))\
 				*(--np)=' ';\
 		}
-#define vbuf (bufst->v)
-#define nbuf (bufst->n)
-#define ival (bufst->i)
-#define iival (bufst->ii)
-#define workspace (bufst->w)
+static ssize_t converteru_plain(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag,uint32_t base,struct expr_gcvt_workspace *ws,size_t nsize,int expo){
+	union {
+		double val;
+		char *p1;
+	} un;
+	char *endp;
+	char *p,*np;
+	ssize_t ext,sum,r,sz;
+	size_t digit;
+	const char *_conv_str=flag->cap?conv_btoX:conv_btox;
+	int16_t v;
+	uint8_t positive,nonzero,fminus,feq;
+	disable_zero_with_minus();
+	sum=0;
+	un.val=arg->dbl;
+	if(unlikely(!expr_isfinite(un.val))){
+		p=ws->n;
+		write_sign_to_p(EXPR_EDSIGN(&un.val));
+		if(flag->cap)
+			memcpy(p,(expr_isinf(un.val)?"INF":"NAN"),4);
+		else
+			memcpy(p,(expr_isinf(un.val)?"inf":"nan"),4);
+		cwrite_common(ws->n,(ssize_t)(p==ws->n?3:4));
+	}
+	fminus=(uint8_t)!!(flag->minus);
+	feq=(uint8_t)!!(flag->eq);
+	digit=flag_digit(flag,6);
+	if(digit>(size_t)SSIZE_MAX-1){
+		digit=(size_t)SSIZE_MAX-1;
+	}
+	if(EXPR_EDSIGN(&un.val)){
+		EXPR_EDSIGN(&un.val)=0;
+		positive=0;
+	}else {
+		positive=1;
+	}
+	if(EXPR_EDUVAL(&un.val)){
+		nonzero=1;
+	}else {
+		nonzero=0;
+	}
+	expr_internal_gcvt(un.val,base,nsize,ws);
+	if(!flag->suffix&&digit<ws->vlen){
+		if(!expo||ws->len>1||*(un.p1=ws->n+ws->idx)){
+			expr_internal_gcvt_round(ws,digit,base);
+		}else {
+			un.p1=ws->v+ws->vidx;
+			v=(int16_t)((char *)expr_internal_memnchr(un.p1,0,ws->vlen)-un.p1)+1;
+			ext=(ssize_t)(digit+(size_t)v);
+			if((size_t)ext<ws->vlen){
+				expr_internal_gcvt_round(ws,(size_t)ext,base);
+			}
+		}
+	}
+	expr_internal_gcvt_draw(ws,_conv_str);
+	if(feq&&digit>ws->vlen)
+		digit=ws->vlen;
+	np=ws->n+ws->idx;
+	p=np;
+	endp=np+ws->len;
+	v=(int16_t)ws->len;
+	if(nonzero){
+		if(flag->sharp){
+			switch(base){
+				case 2:
+					*(--np)=flag->cap?'B':'b';
+					*(--np)='0';
+					break;
+				case 8:
+					*(--np)='0';
+					break;
+				case 16:
+					*(--np)=flag->cap?'X':'x';
+					*(--np)='0';
+					break;
+				default:
+					break;
+			}
+		}
+	}
+	write_sign_to_np(!positive);
+	ws->len=(size_t)(endp-np);
+	if(!expo){
+		ext=(ssize_t)(flag_width(flag,0)-ws->len);
+	}else {
+		ext=(ssize_t)(flag_width(flag,0)-(ws->len-(size_t)v)-1);
+	}
+	if(ext>0&&digit){
+		ext-=(ssize_t)(digit+1);
+	}
+	if(expo){
+		*ws->e=flag->cap?'E':'e';
+		if(v>1){
+			v=(int16_t)(v-(int16_t)1);
+		}else {
+			endp=ws->n+ws->idx;
+			if(*endp!='0')
+				v=0;
+			else {
+				if(ws->vlen){
+					un.p1=ws->v+ws->vidx;
+					v=(int16_t)-((char *)expr_internal_memnchr(un.p1,'0',ws->vlen)-un.p1+1);
+					// it must be nonnull for ws->vlen>0
+				}else {
+					v=0;
+				}
+			}
+		}
+		if(v<0){
+			ws->e[1]='-';
+			v=-v;
+		}else {
+			ws->e[1]='+';
+		}
+		if(v>=100){
+			ws->e[2]=v/100+'0';
+			ws->e[3]=(v%100)/10+'0';
+			ws->e[4]=v%10+'0';
+			ext-=5;
+			feq=5;
+		}else {
+			ws->e[2]=v/10+'0';
+			ws->e[3]=v%10+'0';
+			ext-=4;
+			feq=4;
+		}
+	}
+	if(!fminus&&ext>0){
+		if(flag->zero){
+			if(np<p){
+				sz=(ssize_t)(p-np);
+				c_trywrite(np,sz);
+				np=p;
+				ws->len-=(size_t)sz;
+			}
+			c_trywriteext('0',ext);
+		}else {
+			c_trywriteext(' ',ext);
+		}
+	}
+	if(!expo){
+		c_trywrite(np,ws->len);
+		if(digit){
+			c_trywrite(".",1);
+			if(digit<=ws->vlen){
+				c_trywrite(ws->v+ws->vidx,digit);
+			}else {
+				c_trywrite(ws->v+ws->vidx,ws->vlen);
+				digit-=ws->vlen;
+				c_trywriteext('0',digit);
+			}
+		}
+	}else {
+		if(ws->e[1]!='-'){
+			// np<p+1
+			sz=(ssize_t)(p-np+1);
+			c_trywrite(np,sz);
+			np=p+1;
+			ws->len-=(size_t)sz;
+			if(digit){
+				c_trywrite(".",1);
+				if(ws->len){
+					if(ws->len>=digit){
+						c_trywrite(np,digit);
+						digit=0;
+					}else {
+						c_trywrite(np,ws->len);
+						digit-=ws->len;
+					}
+				}
+				if(digit){
+					if(digit<=ws->vlen){
+						c_trywrite(ws->v+ws->vidx,digit);
+					}else {
+						c_trywrite(ws->v+ws->vidx,ws->vlen);
+						digit-=ws->vlen;
+						c_trywriteext('0',digit);
+					}
+				}
+			}
+		}else {
+			sz=(ssize_t)(p-np);
+			if(sz){
+				c_trywrite(np,sz);
+			}
+			un.p1=(ws->v+ws->vidx)+(v-1);
+			c_trywrite(un.p1,1);
+			if(digit){
+				c_trywrite(".",1);
+				--ws->vlen;
+				++un.p1;
+				if(digit<=ws->vlen){
+					c_trywrite(un.p1,digit);
+				}else {
+					if(ws->vlen){
+						c_trywrite(un.p1,ws->vlen);
+					}
+					digit-=ws->vlen;
+					c_trywriteext('0',digit);
+				}
+			}
+		}
+		c_trywrite(ws->e,(size_t)feq);
+	}
+	if(fminus&&ext>0){
+		c_trywriteext((flag->zero)?'0':' ',ext);
+	}
+	return sum;
+}
+#define conv_f(_name,_base,_nsize) \
+ssize_t expr_converter_##_name(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){\
+	struct expr_gcvt_workspace *bufst;\
+	ssize_t r;\
+	bufst=xmalloc(offsetof(struct expr_gcvt_workspace,n)+(_nsize));\
+	if(unlikely(!bufst))\
+		return SSIZE_MIN+1;\
+	r=converteru_plain(writer,fd,arg,flag,_base,bufst,_nsize,0);\
+	xfree(bufst);\
+	return r;\
+}
+#define conv_fe(_name,_base,_nsize) \
+ssize_t expr_converter_##_name(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){\
+	struct expr_gcvt_workspace *bufst;\
+	ssize_t r;\
+	bufst=xmalloc(offsetof(struct expr_gcvt_workspace,n)+(_nsize));\
+	if(unlikely(!bufst))\
+		return SSIZE_MIN+1;\
+	r=converteru_plain(writer,fd,arg,flag,_base,bufst,_nsize,1);\
+	xfree(bufst);\
+	return r;\
+}
 #define nbuf_size(x) (((x)+23u)&~7u)
-conv_fu0(plain);
-conv_fue(expo);
-conv_f(xa1,16,+3,nbuf_size(256));
-conv_f(xa2,2,0,nbuf_size(1024));
-conv_f(xa3,3,-1,nbuf_size(646));
-conv_f(xa4,4,+1,nbuf_size(512));
-conv_f(xa5,5,-1,nbuf_size(441));
-conv_f(xa6,6,0,nbuf_size(396));
-conv_f(xa7,7,-1,nbuf_size(364));
-conv_f(xa8,8,+2,nbuf_size(342));
-conv_f(xa9,9,-1,nbuf_size(323));
-conv_f(xaa,10,0,nbuf_size(308));
-conv_f(xab,11,-1,nbuf_size(296));
-conv_f(xac,12,+2,nbuf_size(285));
-conv_f(xad,13,-1,nbuf_size(276));
-conv_f(xae,14,0,nbuf_size(268));
-conv_f(xaf,15,-1,nbuf_size(262));
+conv_f(xa1,16,nbuf_size(256));
+conv_f(xa2,2,nbuf_size(1024));
+conv_f(xa3,3,nbuf_size(646));
+conv_f(xa4,4,nbuf_size(512));
+conv_f(xa5,5,nbuf_size(441));
+conv_f(xa6,6,nbuf_size(396));
+conv_f(xa7,7,nbuf_size(364));
+conv_f(xa8,8,nbuf_size(342));
+conv_f(xa9,9,nbuf_size(323));
+conv_f(xaa,10,nbuf_size(308));
+conv_f(xab,11,nbuf_size(296));
+conv_f(xac,12,nbuf_size(285));
+conv_f(xad,13,nbuf_size(276));
+conv_f(xae,14,nbuf_size(268));
+conv_f(xaf,15,nbuf_size(262));
 
-conv_fe(fe,10,0,nbuf_size(308+8));
+conv_fe(fe,10,nbuf_size(308));
 //256,1024,646,512,441,396,364,342,323,308,296,285,276,268,262;
-#undef nbuf
-#undef vbuf
-#undef ival
-#undef iival
-#undef workspace
 
 /*
 ssize_t expr_converter_x81(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
@@ -913,6 +809,7 @@ ssize_t expr_converter_g(expr_writer_t writer,intptr_t fd,const union expr_argf 
 ssize_t expr_converter_s(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	size_t len;
 	ssize_t r,sum,ext,sz;
+	sum=0;
 	if(unlikely(!arg->str)){
 		cwrite_common(flag->cap?"(NULL)":"(null)",6);
 	}
@@ -922,6 +819,7 @@ ssize_t expr_converter_s(expr_writer_t writer,intptr_t fd,const union expr_argf 
 ssize_t expr_converter_immbinary(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	size_t len=flag->digit;
 	ssize_t r,sum,ext,sz;
+	sum=0;
 	cwrite_common(arg->str,(ssize_t)len);
 }
 
@@ -1140,6 +1038,7 @@ ssize_t expr_converter_escape(expr_writer_t writer,intptr_t fd,const union expr_
 }
 ssize_t expr_converter_base64_auto(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	ssize_t r,sum,ext,sz;
+	sum=0;
 	if(unlikely(!arg->str)){
 		cwrite_common(flag->cap?"(NULL)":"(null)",6);
 	}
@@ -1260,6 +1159,7 @@ no_loop:
 }
 ssize_t expr_converter_c(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
 	ssize_t r,sum,ext,sz;
+	sum=0;
 #if !EXPR_BIG_ENDIAN
 	cwrite_common(arg->cha,(ssize_t)1);
 #else
@@ -1267,8 +1167,9 @@ ssize_t expr_converter_c(expr_writer_t writer,intptr_t fd,const union expr_argf 
 #endif
 }
 ssize_t expr_converter_p(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag){
+	ssize_t r,sum,ext,sz;
+	sum=0;
 	if(!arg->addr){
-		ssize_t r,sum,ext,sz;
 		cwrite_common(flag->cap?"NULL":"null",(ssize_t)4);
 	}
 	return expr_converter_x81(writer,fd,arg,((void)(flag->sharp=1),flag));

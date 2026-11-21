@@ -73,7 +73,7 @@
 #define expr_estmt_end })
 // can only use for estmt with return type void
 
-#define EXPR_LICENSE(name) __attribute__((unused,used)) static const char EXPR_CAT(license,__LINE__)[]={"license=" name}
+#define EXPR_LICENSE(name) __attribute__((unused,used)) static const char EXPR_CAT(expr_license,__LINE__)[]={"license=" name}
 
 #else
 
@@ -2221,6 +2221,18 @@ struct expr_strtod_workspace {
 	};
 };
 
+struct expr_gcvt_workspace {
+	uint64_t w[69];
+	uint64_t i[69];
+	size_t idx;
+	size_t len;
+	size_t vidx;
+	size_t vlen;
+	char e[8];
+	char v[1096];
+	char n[/* 1024 */];
+};
+
 #define expr_symbols_all \
 	expr_symbols_default,\
 	expr_symbols_expr,\
@@ -2746,6 +2758,9 @@ size_t expr_extint_ascii_convert(uint64_t *buf,const char *inbuf,size_t inbuf_si
 expr_ut expr_internal_strtou(const char *restrict nptr,size_t nsize,size_t *restrict end_index,int base,int flag);
 expr_it expr_internal_strtoi(const char *restrict nptr,size_t nsize,size_t *restrict end_index,int base,int flag);
 double expr_internal_strtod4(const char *restrict nptr,size_t nsize,size_t *restrict end_index,struct expr_strtod_workspace *restrict ws);
+void expr_internal_gcvt(double val,uint32_t base,size_t nlen,struct expr_gcvt_workspace *restrict ws);
+void expr_internal_gcvt_round(struct expr_gcvt_workspace *restrict ws,size_t digit,uint32_t base);
+void expr_internal_gcvt_draw(struct expr_gcvt_workspace *restrict ws,const char *chars);
 double expr_internal_strtod_mtl_force(const char *restrict nptr,size_t nsize,size_t *restrict end_index,const struct expr_memtool *restrict mtl);
 expr_const double expr_internal_trunc(double x);
 expr_const double expr_internal_fmod(double x,double y);

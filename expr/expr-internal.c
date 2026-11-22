@@ -1468,14 +1468,40 @@ trivial:
 #undef r
 void expr_internal_gcvt_round(struct expr_gcvt_workspace *restrict ws,size_t digit,uint32_t base){
 	char *p,*p1,*endp;
-	uint8_t hbase,carry,c;
-	hbase=(uint8_t)(base>>1);
+	uint8_t c;
+	if((ssize_t)digit<0){
+		digit=~digit;
+		p=ws->n+ws->idx;
+		endp=p+ws->len;
+		p+=digit+1;
+		if(unlikely(p>=endp))
+			return;
+		c=((uint8_t)*p<<1);
+		if(c<base){
+			return;
+		}else if(c==base){
+			for(p1=p+1;p1<endp;++p1){
+				if(*p1)
+					goto round_n;
+			}
+			if(!ws->vlen&&!((uint8_t)*(--p)&1))
+				return;
+			goto round_n_pdec;
+		}
+round_n:
+		--p;
+round_n_pdec:
+		ws->vlen=0;
+		p1=ws->n+ws->idx;
+		goto no_digit;
+	}
 	p=ws->v+ws->vidx;
 	endp=p+ws->vlen;
 	p+=digit;
-	if((uint8_t)*p<hbase){
+	c=((uint8_t)*p<<1);
+	if(c<base){
 		return;
-	}else if((uint8_t)*p==hbase){
+	}else if(c==base){
 		for(p1=p+1;p1<endp;++p1){
 			if(*p1)
 				goto do_round;
@@ -1484,8 +1510,12 @@ void expr_internal_gcvt_round(struct expr_gcvt_workspace *restrict ws,size_t dig
 			if(!((uint8_t)p[-1]&1))
 				return;
 		}else {
+			p1=ws->n+ws->idx;
+			p=p1+ws->len-1;
 			if(!((uint8_t)ws->n[ws->idx+ws->len-1]&1))
 				return;
+			ws->vlen=0;
+			goto no_digit;
 		}
 	}
 do_round:
@@ -1493,23 +1523,25 @@ do_round:
 		--p;
 		p1=ws->v+ws->vidx;
 		for(;p>=p1;--p){
-			c=(uint8_t)*p+1;
-			if(c>=(uint8_t)base){
-				--digit;
-			}else {
+			c=(uint8_t)*p+(uint8_t)1;
+			if(c<(uint8_t)base){
 				*p=(char)c;
 				break;
 			}
 		}
-		ws->vlen=digit;
-		if(digit)
+		if(p<p1)
+			ws->vlen=0;
+		else {
+			ws->vlen=(size_t)(p-p1)+1;
 			return;
+		}
 	}else
 		ws->vlen=0;
 	p1=ws->n+ws->idx;
 	p=p1+ws->len-1;
+no_digit:
 	for(;p>=p1;--p){
-		c=(uint8_t)*p+1;
+		c=(uint8_t)*p+(uint8_t)1;
 		if(c>=(uint8_t)base){
 			*p=0;
 		}else {

@@ -508,15 +508,23 @@ static ssize_t converteru_plain(expr_writer_t writer,intptr_t fd,const union exp
 		nonzero=0;
 	}
 	expr_internal_gcvt(un.val,base,nsize,ws);
-	if(!flag->suffix&&digit<ws->vlen){
-		if(!expo||ws->len>1||*(un.p1=ws->n+ws->idx)){
-			expr_internal_gcvt_round(ws,digit,base);
+	if(!flag->suffix){
+		if(!expo){
+			if(digit<ws->vlen)
+				expr_internal_gcvt_round(ws,digit,base);
 		}else {
-			un.p1=ws->v+ws->vidx;
-			v=(int16_t)((char *)expr_internal_memnchr(un.p1,0,ws->vlen)-un.p1)+1;
-			ext=(ssize_t)(digit+(size_t)v);
-			if((size_t)ext<ws->vlen){
-				expr_internal_gcvt_round(ws,(size_t)ext,base);
+			ext=(ssize_t)(ws->len-1);
+			if(digit<(size_t)ext){
+				expr_internal_gcvt_round(ws,~digit,base);
+			}else if(ext||*(ws->n+ws->idx)){
+				expr_internal_gcvt_round(ws,digit-(size_t)ext,base);
+			}else {
+				un.p1=ws->v+ws->vidx;
+				v=(int16_t)((char *)expr_internal_memnchr(un.p1,0,ws->vlen)-un.p1)+1;
+				ext=(ssize_t)(digit+(size_t)v);
+				if((size_t)ext<ws->vlen){
+					expr_internal_gcvt_round(ws,(size_t)ext,base);
+				}
 			}
 		}
 	}
@@ -655,7 +663,7 @@ static ssize_t converteru_plain(expr_writer_t writer,intptr_t fd,const union exp
 			c_trywrite(un.p1,1);
 			if(digit){
 				c_trywrite(".",1);
-				--ws->vlen;
+				ws->vlen-=(size_t)v;
 				++un.p1;
 				if(digit<=ws->vlen){
 					c_trywrite(un.p1,digit);
@@ -2459,6 +2467,10 @@ next:
 				case EXPR_FMTC_EXIT:
 				case EXPR_FMTC_WRITESIZE:
 					break;
+				case EXPR_FMTC_JUMP_INDEX:
+					if(unlikely(tmp->flag->eq))
+						reterr(SSIZE_MIN+5);
+					break;
 				case EXPR_FMTC_LOOP:
 				case EXPR_FMTC_LOOP_FORWARD:
 					lptype=1;
@@ -2719,6 +2731,13 @@ ssize_t expr_vwritei_r(expr_writer_t writer,intptr_t fd,const struct expr_finst 
 					wf_return(ret);
 				case EXPR_FMTC_WRITESIZE:
 					writesize_k();
+					break;
+				case EXPR_FMTC_JUMP_INDEX:
+					if(flag->minus){
+						index-=(ptrdiff_t)flag_width(flag,1);
+					}else {
+						index+=(ptrdiff_t)flag_width(flag,1);
+					}
 					break;
 				case EXPR_FMTC_LOOP:
 					loop=flag_width(flag,0);

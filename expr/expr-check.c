@@ -271,6 +271,18 @@ static void checkfmts(void){
 	checkfmt2("aa\\1b\\0021\\2\\68\\n","%.10E","aa\1b\2\61\2\68\n");
 	checkfmt2("1","%.0f",(expr_t)1.0);
 	checkfmt2("1.0","%.1f",(expr_t)1.0);
+	checkfmt2("1.000e-03","%.3e",(expr_t)0.000999999);
+	checkfmt2("1.234568e+08","%e",(expr_t)123456789.0);
+	checkfmt2("0 5e-01","%.0f %-r%.0e",(expr_t)0.5);
+	checkfmt2("2 2e+00","%.0f %-r%.0e",(expr_t)1.5);
+	checkfmt2("2 2e+00","%.0f %-r%.0e",(expr_t)2.5);
+	checkfmt2("4 4e+00","%.0f %-r%.0e",(expr_t)3.5);
+	checkfmt2("4 4e+00","%.0f %-r%.0e",(expr_t)4.5);
+	checkfmt2("6 6e+00","%.0f %-r%.0e",(expr_t)5.5);
+	checkfmt2("0.12 1.2e-01","%.2f %-r%.1e",(expr_t)0.125);
+	checkfmt2("0.2 2.5e-01","%.1f %-r%.1e",(expr_t)0.25);
+	checkfmt2("0.62 6.25e-01","%.2f %-r%.2e",(expr_t)0.625);
+	checkfmt2("0.8 7.5e-01","%.1f %-r%.1e",(expr_t)0.75);
 	printf("fotmat check ok\n");
 }
 static int keyword_diff(const char *str,size_t len,const struct expr_builtin_keyword *restrict s){

@@ -2337,12 +2337,25 @@ void expr_internal_memswap(void *dst,void *src,size_t size){
 	uintptr_t end;
 	size_t tmp_size;
 	uint8_t swapbuf[8*PALIGN];
+	if(unlikely(!size))
+		return;
 	bp=dst;
 	sbp=src;
 	end=(uintptr_t)(4*PALIGN)-((uintptr_t)bp&(4*PALIGN-1));
 	if(end!=4*PALIGN){
-		size-=end;
 		tmp=swapbuf;
+		if(size<=end){
+			BYTE_COPY_4PM1(size,tmp,bp);
+			bp=dst;
+			size=(size_t)(tmp-swapbuf);
+			BYTE_COPY_4PM1(size,bp,sbp);
+			sbp=src;
+			size=(size_t)(tmp-swapbuf);
+			tmp=swapbuf;
+			BYTE_COPY_4PM1(size,sbp,tmp);
+			return;
+		}
+		size-=end;
 		BYTE_COPY_4PM1(end,tmp,bp);
 		bp=dst;
 		end=(size_t)(tmp-swapbuf);

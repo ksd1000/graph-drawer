@@ -425,10 +425,10 @@ conv_x(x8f,15);
 
 #if !(EXPR_FORMAT_NOFLOAT)
 
-#define extint_left(i,l,b) expr_extint_left(i,(size_t)(l),(uint64_t)(b))
+//#define extint_left(i,l,b) expr_extint_left(i,(size_t)(l),(uint64_t)(b))
 //#define extint_right(i,l,b) expr_extint_right(i,(size_t)(l),(uint64_t)(b))
 //#define extint_mul(i,l,m,w) expr_extint_mul(i,(size_t)(l),m,w)
-#define extint_ascii_rev expr_extint_ascii_rev
+/*
 #define extint_mirror(buf,size) ({\
 	volatile char *_buf=(buf);\
 	volatile char *_out=_buf+(size)-1;\
@@ -441,6 +441,7 @@ conv_x(x8f,15);
 		++_buf;\
 	}\
 })
+*/
 // warning on gcc 13.3.0 if no volatile
 #define writeext_f \
 	debug("width=%zu,sz=%zd",width,sz);\
@@ -515,11 +516,12 @@ static ssize_t converteru_plain(expr_writer_t writer,intptr_t fd,const union exp
 		}else {
 			ext=(ssize_t)(ws->len-1);
 			if(digit<(size_t)ext){
-				expr_internal_gcvt_round(ws,~digit,base);
+				expr_internal_gcvt_round(ws,~(digit+1),base);
 			}else if(ext||*(ws->n+ws->idx)){
-				expr_internal_gcvt_round(ws,digit-(size_t)ext,base);
+				if(digit<(size_t)ext+ws->vlen)
+					expr_internal_gcvt_round(ws,~(digit+1),base);
 			}else {
-				un.p1=ws->v+ws->vidx;
+				un.p1=ws->n+ws->vidx;
 				v=(int16_t)((char *)expr_internal_memnchr(un.p1,0,ws->vlen)-un.p1)+1;
 				ext=(ssize_t)(digit+(size_t)v);
 				if((size_t)ext<ws->vlen){
@@ -574,7 +576,7 @@ static ssize_t converteru_plain(expr_writer_t writer,intptr_t fd,const union exp
 				v=0;
 			else {
 				if(ws->vlen){
-					un.p1=ws->v+ws->vidx;
+					un.p1=ws->n+ws->vidx;
 					v=(int16_t)-((char *)expr_internal_memnchr(un.p1,'0',ws->vlen)-un.p1+1);
 					// it must be nonnull for ws->vlen>0
 				}else {
@@ -619,9 +621,9 @@ static ssize_t converteru_plain(expr_writer_t writer,intptr_t fd,const union exp
 		if(digit){
 			c_trywrite(".",1);
 			if(digit<=ws->vlen){
-				c_trywrite(ws->v+ws->vidx,digit);
+				c_trywrite(ws->n+ws->vidx,digit);
 			}else {
-				c_trywrite(ws->v+ws->vidx,ws->vlen);
+				c_trywrite(ws->n+ws->vidx,ws->vlen);
 				digit-=ws->vlen;
 				c_trywriteext('0',digit);
 			}
@@ -646,9 +648,9 @@ static ssize_t converteru_plain(expr_writer_t writer,intptr_t fd,const union exp
 				}
 				if(digit){
 					if(digit<=ws->vlen){
-						c_trywrite(ws->v+ws->vidx,digit);
+						c_trywrite(ws->n+ws->vidx,digit);
 					}else {
-						c_trywrite(ws->v+ws->vidx,ws->vlen);
+						c_trywrite(ws->n+ws->vidx,ws->vlen);
 						digit-=ws->vlen;
 						c_trywriteext('0',digit);
 					}
@@ -659,7 +661,7 @@ static ssize_t converteru_plain(expr_writer_t writer,intptr_t fd,const union exp
 			if(sz){
 				c_trywrite(np,sz);
 			}
-			un.p1=(ws->v+ws->vidx)+(v-1);
+			un.p1=(ws->n+ws->vidx)+(v-1);
 			c_trywrite(un.p1,1);
 			if(digit){
 				c_trywrite(".",1);
@@ -705,7 +707,7 @@ ssize_t expr_converter_##_name(expr_writer_t writer,intptr_t fd,const union expr
 	xfree(bufst);\
 	return r;\
 }
-#define nbuf_size(x) (((x)+23u)&~7u)
+#define nbuf_size(x) (((x)+1076u+23u)&~7u)
 conv_f(xa1,16,nbuf_size(256));
 conv_f(xa2,2,nbuf_size(1024));
 conv_f(xa3,3,nbuf_size(646));

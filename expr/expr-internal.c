@@ -752,7 +752,7 @@ size_t expr_extint_mulnp(uint64_t *buf,size_t size,uint32_t factor,uint32_t powe
 	}
 	return expr_extint_left(buf,size,(uint64_t)expo2*power);
 }
-#define write_ascii(_op,_sz) \
+#define write_ascii(_op,_sz,chget) \
 	uint32_t mod,ds=base,dsn,n;\
 	char *out=outbuf;\
 	n=oldsuppow32(base,0,&ds);\
@@ -760,25 +760,27 @@ size_t expr_extint_mulnp(uint64_t *buf,size_t size,uint32_t factor,uint32_t powe
 		size=expr_extint_div(buf,size,ds,&mod);\
 		if(size){\
 			for(dsn=n;dsn;--dsn){\
-				*(_op)=chars[mod%base];\
+				*(_op)=chget(mod%base);\
 				mod/=base;\
 			}\
 		}else {\
 			while(mod){\
-				*(_op)=chars[mod%base];\
+				*(_op)=chget(mod%base);\
 				mod/=base;\
 			}\
 			break;\
 		}\
 	}\
 	if(out==outbuf)\
-		*(_op)=chars[0];\
+		*(_op)=chget(0);\
 	return (_sz)
-size_t expr_extint_ascii(uint64_t *buf,size_t size,const char *chars,char *outbuf,uint32_t base){
-	write_ascii(out++,(size_t)(out-outbuf));
-}
+#define chget_arr(x) chars[x]
+#define chget_raw(x) ((char)(x))
 size_t expr_extint_ascii_rev(uint64_t *buf,size_t size,const char *chars,char *outbuf,uint32_t base){
-	write_ascii(--out,(size_t)(outbuf-out));
+	write_ascii(--out,(size_t)(outbuf-out),chget_arr);
+}
+size_t expr_extint_raw_rev(uint64_t *buf,size_t size,char *outbuf,uint32_t base){
+	write_ascii(--out,(size_t)(outbuf-out),chget_raw);
 }
 size_t expr_extint_ascii_convert(uint64_t *buf,const char *inbuf,size_t inbuf_size,uint32_t base,uint64_t *workspace){
 	uint32_t ds=base,n;
@@ -1374,55 +1376,30 @@ e2inf:
 #undef e2
 
 #define uzero(u) (!((u)&(UINT64_MAX>>1)))
-#define endp un._endp
 #define req un._req
 #define r un._r
 void expr_internal_gcvt(double val,uint32_t base,size_t nlen,struct expr_gcvt_workspace *restrict ws){
 	union expr_double nv;
+	char *endp;
 	union {
-		char *_endp;
 		struct {
 			unsigned short _req;
 			unsigned short _r;
 		};
+		double tmpval;
 	} un;
 	int off;
-	static const char chars[]={"\0\1\2\3\4\5\6\7\10\11\12\13\14\15\16\17"};
 	nv.val=expr_internal_trunc(val);
 	if(unlikely(nv.rd.sign)){
 		nv.rd.sign=0;
 		val=-val;
 	}
+	un.tmpval=val;
+	val=nv.val;
+	nv.val=un.tmpval-val;
 	// ignore the negative/nan/inf cases, treated in the formatter.
 	// assert(nlen<=65535&&base<=16);
 	endp=ws->n+nlen;
-	if(nv.uval){
-		*ws->i=(uint64_t)nv.rd.base|((uint64_t)1<<52);
-		off=(int)nv.rd.exp-(1023+52);
-		if(off>0){
-			if(off<=11){
-				*ws->i<<=off;
-				goto trivial;
-			}
-			// uint128_t is not provided by C standard.
-			ws->len=expr_extint_ascii_rev(ws->i,expr_extint_left(ws->i,1,(uint64_t)off),chars,endp,base);
-			ws->idx=nlen-ws->len;
-		}else {
-			*ws->i>>=-off;
-trivial:
-			while(*ws->i){
-				*(--endp)=(char)(*ws->i%base);
-				*ws->i/=base;
-			}
-			ws->idx=(size_t)(endp-ws->n);
-			ws->len=(nlen-(size_t)(endp-ws->n));
-		}
-	}else {
-		ws->idx=(nlen-1);
-		endp[-1]=0;
-		ws->len=1;
-	}
-	nv.val=val-nv.val;
 	if(nv.uval){
 		req=(unsigned short)ctz32(base);
 		base>>=req;
@@ -1444,103 +1421,112 @@ trivial:
 		}else if(req>1){
 			r=(unsigned short)expr_extint_left(ws->i,(size_t)r,(uint64_t)((unsigned short)(req-(unsigned short)1)*(unsigned short)off));
 		}
-		r=(unsigned short)expr_extint_ascii_rev(ws->i,(size_t)r,chars,ws->v+1096,base<<req);
+		base<<=req;
+		r=(unsigned short)expr_extint_raw_rev(ws->i,(size_t)r,endp,base);
 		// now ws->i is d*base**off with r digits.
 		// d == ws->i/base**off
 		// required zeros: off-r
-		ws->vidx=(size_t)(1096-off);
+		endp-=(size_t)off;
+		ws->vidx=(size_t)(endp-ws->n);
 		ws->vlen=(size_t)off;
 		if(off>(int)r){
-			nlen=(size_t)(off-(int)r);
-			endp=ws->v+ws->vidx;
-			memset(endp,0,nlen);
-		}else
-			endp=ws->v+ws->vidx;
+			memset(endp,0,(size_t)(off-(int)r));
+		}
 		ws->vlen=(size_t)((char *)expr_internal_memrnchr(endp,0,ws->vlen)-endp)+1;
 		// nonzero means nonnullable
 	}else {
-		ws->vidx=0;
+		ws->vidx=nlen;
 		ws->vlen=0;
 	}
+	nv.val=val;
+	if(nv.uval){
+		*ws->i=(uint64_t)nv.rd.base|((uint64_t)1<<52);
+		off=(int)nv.rd.exp-(1023+52);
+		if(off>0){
+			if(off<=11){
+				*ws->i<<=off;
+				goto trivial;
+			}
+			// uint128_t is not provided by C standard.
+			ws->len=expr_extint_raw_rev(ws->i,expr_extint_left(ws->i,1,(uint64_t)off),endp,base);
+			ws->idx=ws->vidx-ws->len;
+		}else {
+			*ws->i>>=-off;
+trivial:
+			while(*ws->i){
+				*(--endp)=(char)(*ws->i%base);
+				*ws->i/=base;
+			}
+			ws->idx=(size_t)(endp-ws->n);
+			ws->len=ws->vidx-ws->idx;
+		}
+	}else {
+		--endp;
+		ws->idx=(size_t)(endp-ws->n);
+		*endp=0;
+		ws->len=1;
+	}
 }
-#undef endp
 #undef req
 #undef r
 void expr_internal_gcvt_round(struct expr_gcvt_workspace *restrict ws,size_t digit,uint32_t base){
-	char *p,*p1,*endp;
+	char *p,*p0,*p1,*endp;
 	uint8_t c;
 	if((ssize_t)digit<0){
 		digit=~digit;
-		p=ws->n+ws->idx;
-		endp=p+ws->len;
-		p+=digit+1;
-		if(unlikely(p>=endp))
-			return;
-		c=((uint8_t)*p<<1);
-		if(c<base){
-			return;
-		}else if(c==base){
-			for(p1=p+1;p1<endp;++p1){
-				if(*p1)
-					goto round_n;
-			}
-			if(!ws->vlen&&!((uint8_t)*(--p)&1))
-				return;
-			goto round_n_pdec;
-		}
-round_n:
-		--p;
-round_n_pdec:
-		ws->vlen=0;
-		p1=ws->n+ws->idx;
-		goto no_digit;
+	}else {
+		digit+=ws->len;
 	}
-	p=ws->v+ws->vidx;
-	endp=p+ws->vlen;
-	p+=digit;
-	c=((uint8_t)*p<<1);
-	if(c<base){
+	if(unlikely(!digit))
 		return;
-	}else if(c==base){
-		for(p1=p+1;p1<endp;++p1){
-			if(*p1)
-				goto do_round;
-		}
-		if(digit){
-			if(!((uint8_t)p[-1]&1))
-				return;
-		}else {
-			p1=ws->n+ws->idx;
-			p=p1+ws->len-1;
-			if(!((uint8_t)ws->n[ws->idx+ws->len-1]&1))
-				return;
-			ws->vlen=0;
-			goto no_digit;
-		}
+	p0=ws->n+ws->idx;
+	endp=p0+ws->len+ws->vlen;
+	p=p0+digit;
+	c=((uint8_t)*p<<1);
+	if(c<(uint8_t)base){
+		return;
+	}else if(c==(uint8_t)base){
+		p1=p+1;
+		if(p1<endp&&expr_internal_memtst(p1,(size_t)(endp-p1)))
+			goto do_round;
+		if(!((uint8_t)p[-1]&1))
+			return;
 	}
 do_round:
-	if(digit){
-		--p;
-		p1=ws->v+ws->vidx;
-		for(;p>=p1;--p){
-			c=(uint8_t)*p+(uint8_t)1;
-			if(c<(uint8_t)base){
-				*p=(char)c;
-				break;
-			}
+	--base;
+	p1=ws->n+ws->vidx;
+	endp=expr_internal_memrnchr(p0,(int)base,(size_t)(p-p0));
+	if(endp){
+		if(endp>=p1){
+			ws->vlen=(size_t)(endp-p1)+1;
+			++(*endp);
+			return;
 		}
-		if(p<p1)
-			ws->vlen=0;
-		else {
+		ws->vlen=0;
+		++(*endp);
+		++endp;
+		memset(endp,0,(size_t)(p1-endp));
+		return;
+	}
+	ws->vlen=0;
+	memset(p0,0,ws->len);
+	//debug_assert(p0>ws->n);
+	//debug_assert(ws->idx>0);
+	//debug_assert(ws->idx+ws->len==ws->vidx);
+	p0[-1]=1;
+	++ws->len;
+	--ws->idx;
+	/*
+	for(--p;p>=p1;--p){
+		c=(uint8_t)*p+(uint8_t)1;
+		if(c<(uint8_t)base){
+			*p=(char)c;
 			ws->vlen=(size_t)(p-p1)+1;
 			return;
 		}
-	}else
-		ws->vlen=0;
-	p1=ws->n+ws->idx;
-	p=p1+ws->len-1;
-no_digit:
-	for(;p>=p1;--p){
+	}
+	ws->vlen=0;
+	for(;p>=p0;--p){
 		c=(uint8_t)*p+(uint8_t)1;
 		if(c>=(uint8_t)base){
 			*p=0;
@@ -1552,15 +1538,12 @@ no_digit:
 	*p=1;
 	++ws->len;
 	--ws->idx;
+	*/
 }
 void expr_internal_gcvt_draw(struct expr_gcvt_workspace *restrict ws,const char *chars){
 	char *p,*endp;
 	p=ws->n+ws->idx;
-	endp=p+ws->len;
-	for(;p<endp;++p)
-		*p=chars[(uint8_t)*p];
-	p=ws->v+ws->vidx;
-	endp=p+ws->vlen;
+	endp=p+ws->len+ws->vlen;
 	for(;p<endp;++p)
 		*p=chars[(uint8_t)*p];
 }

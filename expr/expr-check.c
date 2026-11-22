@@ -273,6 +273,10 @@ static void checkfmts(void){
 	checkfmt2("1.0","%.1f",(expr_t)1.0);
 	checkfmt2("1.000e-03","%.3e",(expr_t)0.000999999);
 	checkfmt2("1.234568e+08","%e",(expr_t)123456789.0);
+	checkfmt2("2e+01","%.0e",(expr_t)15.0);
+	checkfmt2("2e+01","%.0e",(expr_t)15.999);
+	checkfmt2("1e+02","%.0e",(expr_t)99.999);
+	checkfmt2("1.000000e+21","%.e",(expr_t)9.9999999e20);
 	checkfmt2("0 5e-01","%.0f %-r%.0e",(expr_t)0.5);
 	checkfmt2("2 2e+00","%.0f %-r%.0e",(expr_t)1.5);
 	checkfmt2("2 2e+00","%.0f %-r%.0e",(expr_t)2.5);

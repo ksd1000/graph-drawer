@@ -281,7 +281,7 @@ Tested by test/speedtest.c
 |JIT support|Yes|No|No|
 |Big-endian support|Yes|Yes|No|
 |Compile speed of source code(.c)|Fast|Fast|Slow|
-|Library size(-O3)|18k|20k|372k(202k+170k)|
+|Library size(-O3)|18k|20k|397k(221k+176k)|
 |Library size(-Os)|17k|18k|335k(167k+168k)|
 |Project type|standalone library|standalone library|backend library of graph-drawer|
 |Allow pass size of expression|Yes|No|Yes|

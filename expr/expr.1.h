@@ -825,6 +825,8 @@ expr_static_assert(!(NULL));
 #define debug(fmt,...) ((void)0)
 #endif
 
+#define debug_assert(x) ({if(unlikely(!(x)))__builtin_trap();})
+
 #define etozu0(E) ((E)>=EXPR_IMAXO?(size_t)EXPR_IMAXO:((E)<=0.0?(size_t)0:(size_t)(E)))
 #define etoi0(E) ((E)>=(expr_t)INT_MAX?INT_MAX:((E)<=(expr_t)INT_MIN?INT_MIN:(int)(E)))
 #define etoi(E) ({expr_t _E=(E);etoi0(_E);})
@@ -2229,7 +2231,6 @@ struct expr_gcvt_workspace {
 	size_t vidx;
 	size_t vlen;
 	char e[8];
-	char v[1096];
 	char n[/* 1024 */];
 };
 

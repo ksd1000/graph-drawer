@@ -825,6 +825,8 @@ expr_static_assert(!(NULL));
 #define debug(fmt,...) ((void)0)
 #endif
 
+#define debug_assert(x) ({if(unlikely(!(x)))__builtin_trap();})
+
 #define etozu0(E) ((E)>=EXPR_IMAXO?(size_t)EXPR_IMAXO:((E)<=0.0?(size_t)0:(size_t)(E)))
 #define etoi0(E) ((E)>=(expr_t)INT_MAX?INT_MAX:((E)<=(expr_t)INT_MIN?INT_MIN:(int)(E)))
 #define etoi(E) ({expr_t _E=(E);etoi0(_E);})
@@ -2229,7 +2231,6 @@ struct expr_gcvt_workspace {
 	size_t vidx;
 	size_t vlen;
 	char e[8];
-	char v[1096];
 	char n[/* 1024 */];
 };
 
@@ -2752,8 +2753,8 @@ size_t expr_extint_mul2(uint64_t *buf,size_t bufsize,const uint64_t *factor_buf,
 size_t expr_extint_div(uint64_t *buf,size_t size,uint32_t divisor,uint32_t *mod);
 size_t expr_extint_div2(uint64_t *buf,size_t size,uint64_t *divisor_buf,size_t divisor_size,uint64_t *out,size_t *outsize);
 size_t expr_extint_mulnp(uint64_t *buf,size_t size,uint32_t factor,uint32_t power,uint64_t *workspace);
-size_t expr_extint_ascii(uint64_t *buf,size_t size,const char *chars,char *outbuf,uint32_t base);
 size_t expr_extint_ascii_rev(uint64_t *buf,size_t size,const char *chars,char *outbuf,uint32_t base);
+size_t expr_extint_raw_rev(uint64_t *buf,size_t size,char *outbuf,uint32_t base);
 size_t expr_extint_ascii_convert(uint64_t *buf,const char *inbuf,size_t inbuf_size,uint32_t base,uint64_t *workspace);
 expr_ut expr_internal_strtou(const char *restrict nptr,size_t nsize,size_t *restrict end_index,int base,int flag);
 expr_it expr_internal_strtoi(const char *restrict nptr,size_t nsize,size_t *restrict end_index,int base,int flag);

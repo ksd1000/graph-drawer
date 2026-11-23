@@ -289,7 +289,7 @@ static void checkfmts(void){
 	checkfmt2("0.8 7.5e-01","%.1f %-r%.1e",(expr_t)0.75);
 	checkfmt2("|5678","%,:id|%:id",1234,5678);
 	checkfmt2("|5678","%1L%,:id|%:id",1234,5678);
-	checkfmt2("|1477","%8L%,:id|%:id",57,367,593,710,801,1192,1335,1393,1477,1603);
+	checkfmt2("|1477","%7L%,:id|%:id",-300,300,593,710,801,1192,1336,1477,1603);
 	checkfmt2("{}","{%4k%1T,%,:id}",(int []){1,2,3,1});
 	printf("fotmat check ok\n");
 }

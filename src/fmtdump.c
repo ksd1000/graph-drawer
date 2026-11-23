@@ -248,7 +248,8 @@ void dumpflag(const struct expr_writeflag_nomtl *flagp){
 }
 void dumpcon(const struct expr_finst *restrict fip,const char *op){
 	expr_printf(plain2(".op=%s,"),op);
-	expr_printf(plain2(".converter=%s,"),strconv(fip->converter));
+	if(fip->converter)
+		expr_printf(plain2(".converter=%s,"),strconv(fip->converter));
 	dumpflag(fip->flag);
 	DUMPM(read_width);
 	DUMPM(read_digit);

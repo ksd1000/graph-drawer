@@ -2526,11 +2526,14 @@ next:
 				reterr(SSIZE_MIN+4);
 			if(wfp->setcap)
 				tmp->flag->cap=1;
+			tmp->flag->type=(uint64_t)wfp->type;
 			if(wfp->no_arg){
 				tmp->op=EXPR_FCOZ;
+				tmp->converter=wfp->converter;
 			}else if(tmp->flag->comma){
 				tmp->op=EXPR_FCMA;
 				tmp->flag->comma=0;
+				tmp->converter=NULL;
 			}else{
 				switch(lptype){
 					case 0:
@@ -2547,9 +2550,8 @@ next:
 					default:
 						__builtin_unreachable();
 				}
+				tmp->converter=wfp->converter;
 			}
-			tmp->flag->type=(uint64_t)wfp->type;
-			tmp->converter=wfp->converter;
 			break;
 	}
 	fmt_inc_check;

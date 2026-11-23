@@ -1562,6 +1562,7 @@ struct expr_libinfo {
 #define EXPR_FADDR 223
 #define EXPR_FCAP 222
 #define EXPR_FSUFFIX 221
+#define EXPR_FCOMMA 220
 
 #define EXPR_FLAGTYPE_VOID 0
 #define EXPR_FLAGTYPE_ADDR 1
@@ -1595,11 +1596,12 @@ union expr_argf {
 expr_static_assert(sizeof(union expr_argf)==sizeof(expr_t));
 #if !EXPR_BIG_ENDIAN
 #define EXPR_WRITEFLAG_BITFIELDS \
-	uint64_t unused:25,\
+	uint64_t unused:24,\
 		asop:8,\
 		op:8,\
 		argsize:8,\
 		type:3,\
+		comma:1,\
 		suffix:1,\
 		addr:1,\
 		width_set:1,\
@@ -1626,11 +1628,12 @@ expr_static_assert(sizeof(union expr_argf)==sizeof(expr_t));
 		width_set:1,\
 		addr:1,\
 		suffix:1,\
+		comma:1,\
 		type:3,\
 		argsize:8,\
 		op:8,\
 		asop:8,\
-		unused:25
+		unused:24
 #endif
 struct expr_writeflag {
 	union {
@@ -1710,6 +1713,7 @@ enum expr_fop {
 	EXPR_FCOL,
 	EXPR_FCOA,
 	EXPR_FCOZ,
+	EXPR_FCMA,
 	EXPR_FCTL,
 	EXPR_FEND
 };

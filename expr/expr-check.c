@@ -287,6 +287,7 @@ static void checkfmts(void){
 	checkfmt2("0.2 2.5e-01","%.1f %-r%.1e",(expr_t)0.25);
 	checkfmt2("0.62 6.25e-01","%.2f %-r%.2e",(expr_t)0.625);
 	checkfmt2("0.8 7.5e-01","%.1f %-r%.1e",(expr_t)0.75);
+	checkfmt2("|5678","%,:id|%:id",1234,5678);
 	printf("fotmat check ok\n");
 }
 static int keyword_diff(const char *str,size_t len,const struct expr_builtin_keyword *restrict s){

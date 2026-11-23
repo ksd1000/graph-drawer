@@ -1312,6 +1312,7 @@ const struct expr_ftable expr_ftable_default[1]={{
 ['&']=EXPR_FADDR,
 ['!']=EXPR_FCAP,
 ['~']=EXPR_FSUFFIX,
+[',']=EXPR_FCOMMA,
 
 [(uint8_t)'\x81']=1,['x']=1,
 [(uint8_t)'\x82']=2,['b']=2,
@@ -1602,6 +1603,8 @@ reflag:\
 			fmt_setflag(cap);\
 		case EXPR_FSUFFIX:\
 			fmt_setflag(suffix);\
+		case EXPR_FCOMMA:\
+			fmt_setflag(comma);\
 		default:\
 			break;\
 	}
@@ -2025,6 +2028,10 @@ wfp_get:
 				flag->cap=1;
 			if(wfp->no_arg){
 				fmt_dorepeat(NULL);
+			}else if(flag->comma){
+				if(unlikely(!argt(wfp->type)))
+					goto_argfail;
+				argnext1;
 			}else if(flag->saved){
 				fmt_dorepeat((const union expr_argf *)&save);
 			}else if(arrwid){
@@ -2516,7 +2523,10 @@ next:
 				tmp->flag->cap=1;
 			if(wfp->no_arg){
 				tmp->op=EXPR_FCOZ;
-			}else {
+			}else if(tmp->flag->comma){
+				tmp->op=EXPR_FCMA;
+				tmp->flag->comma=0;
+			}else{
 				switch(lptype){
 					case 0:
 						tmp->op=EXPR_FCON;
@@ -2725,6 +2735,11 @@ ssize_t expr_vwritei_r(expr_writer_t writer,intptr_t fd,const struct expr_finst 
 		case EXPR_FCOZ:
 			wdasync_all();
 			fmt_dorepeat(NULL);
+			break;
+		case EXPR_FCMA:
+			wdasync_all(type=(uint8_t)flag->type);
+			argt(type);
+			argnext1;
 			break;
 		case EXPR_FCTL:
 			wdasync_all();

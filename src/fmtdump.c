@@ -82,6 +82,11 @@ void dump(const struct expr_finst *restrict fip){
 				wdaprint(fip);
 				printf(" %c\n",(int)fip->flag->op);
 				break;
+			case EXPR_FCMA:
+				printf("coma: %%");
+				wdaprint(fip);
+				printf(" %c\n",(int)fip->flag->op);
+				break;
 			case EXPR_FCTL:
 				printf("control: %%");
 				wdaprint(fip);
@@ -294,6 +299,9 @@ void dump_c(const struct expr_finst *restrict fip){
 				break;
 			case EXPR_FCOZ:
 				dumpcon(fip,"EXPR_FCOZ");
+				break;
+			case EXPR_FCMA:
+				dumpcon(fip,"EXPR_FCMA");
 				break;
 			case EXPR_FCTL:
 				dumpctl(fip);

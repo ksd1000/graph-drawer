@@ -2029,9 +2029,16 @@ wfp_get:
 			if(wfp->no_arg){
 				fmt_dorepeat(NULL);
 			}else if(flag->comma){
-				if(unlikely(!argt(wfp->type)))
-					goto_argfail;
-				argnext1;
+				if(forward){
+					fmt_repeat{
+						argt(wfp->type);
+						argnext1;
+					}
+					forward=0;
+				}else {
+					argt(wfp->type);
+					argnext1;
+				}
 			}else if(flag->saved){
 				fmt_dorepeat((const union expr_argf *)&save);
 			}else if(arrwid){
@@ -2045,8 +2052,6 @@ wfp_get:
 					forward=0;
 				}else {
 					arg_cur=argt(wfp->type);
-					if(unlikely(!arg_cur))
-						goto_argfail;
 					fmt_dorepeat(arg_cur);
 					argnext1;
 				}
@@ -2673,7 +2678,7 @@ void expr_ifree_r(struct expr_finst *restrict fip,const struct expr_memtool *res
 }
 #define wdasync_all(backup) \
 	flag->bit=fip->flag->bit;\
-	backup;\
+	backup\
 	wdasync(width,size_t,EXPR_FLAGTYPE_SIZE,zint,zaddr);\
 	wdasync(digit,size_t,EXPR_FLAGTYPE_SIZE,zint,zaddr);\
 	wdasync_ig0(argsize,uint64_t,EXPR_FLAGTYPE_SIZE,zint,zaddr)
@@ -2712,14 +2717,14 @@ ssize_t expr_vwritei_r(expr_writer_t writer,intptr_t fd,const struct expr_finst 
 			wf_trywrite(fip->imm_str,fip->imm_len);
 			break;
 		case EXPR_FCON:
-			wdasync_all(type=(uint8_t)flag->type);
+			wdasync_all(type=(uint8_t)flag->type;);
 			arg_cur=argt(type);
 			fmt_once(arg_cur);
 			argnext1;
 			break;
 		case EXPR_FCOL:
-			wdasync_all(type=(uint8_t)flag->type);
-			if(unlikely(forward)){
+			wdasync_all(type=(uint8_t)flag->type;);
+			if(forward){
 				fmt_dorepeat_fwd(argt(type));
 				forward=0;
 			}else {
@@ -2729,7 +2734,7 @@ ssize_t expr_vwritei_r(expr_writer_t writer,intptr_t fd,const struct expr_finst 
 			}
 			break;
 		case EXPR_FCOA:
-			wdasync_all(type=(uint8_t)flag->type);
+			wdasync_all(type=(uint8_t)flag->type;);
 			arrcase_k(type);
 			break;
 		case EXPR_FCOZ:
@@ -2737,9 +2742,17 @@ ssize_t expr_vwritei_r(expr_writer_t writer,intptr_t fd,const struct expr_finst 
 			fmt_dorepeat(NULL);
 			break;
 		case EXPR_FCMA:
-			wdasync_all(type=(uint8_t)flag->type);
-			argt(type);
-			argnext1;
+			wdasync_all(type=(uint8_t)flag->type;);
+			if(forward){
+				fmt_repeat{
+					argt(type);
+					argnext1;
+				}
+				forward=0;
+			}else {
+				argt(type);
+				argnext1;
+			}
 			break;
 		case EXPR_FCTL:
 			wdasync_all();

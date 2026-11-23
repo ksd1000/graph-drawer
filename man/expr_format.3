@@ -270,12 +270,16 @@ Write the number of written bytes to the address of the pointer provided by argu
 .B l
 Repeat the next conversion for
 .I width
-times.
+times. The behavior with
+.I width
+zero is undefined.
 .TQ
 .B L
 Like
 .B l
-but fetchs the next argument before each times.
+but fetchs the next argument before each times, able to work with
+.B ,
+flag.
 .TQ
 .B T
 Set the delim between two looped conversions or array elements.

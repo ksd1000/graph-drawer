@@ -2224,13 +2224,13 @@ struct expr_strtod_workspace {
 };
 
 struct expr_gcvt_workspace {
-	uint64_t w[69];
-	uint64_t i[69];
 	size_t idx;
 	size_t len;
 	size_t vidx;
 	size_t vlen;
 	char e[8];
+	uint64_t i[69];
+	uint64_t w[69];
 	char n[/* 1024 */];
 };
 

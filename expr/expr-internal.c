@@ -1469,6 +1469,8 @@ trivial:
 }
 #undef req
 #undef r
+
+#define ROUND_CBC_OPEN 18
 void expr_internal_gcvt_round(struct expr_gcvt_workspace *restrict ws,size_t digit,uint32_t base){
 	char *p,*p0,*p1,*endp;
 	uint8_t c;
@@ -1493,30 +1495,33 @@ void expr_internal_gcvt_round(struct expr_gcvt_workspace *restrict ws,size_t dig
 			return;
 	}
 do_round:
-	--base;
 	p1=ws->n+ws->vidx;
-	endp=expr_internal_memrnchr(p0,(int)base,(size_t)(p-p0));
-	if(endp){
-		if(endp>=p1){
-			ws->vlen=(size_t)(endp-p1)+1;
+	digit=(size_t)(p-p0);
+	if(digit>=ROUND_CBC_OPEN){
+		--base;
+		endp=expr_internal_memrnchr(p0,(int)base,digit);
+		if(endp){
+			if(endp>=p1){
+				ws->vlen=(size_t)(endp-p1)+1;
+				++(*endp);
+				return;
+			}
+			ws->vlen=0;
 			++(*endp);
+			++endp;
+			memset(endp,0,(size_t)(p1-endp));
 			return;
 		}
 		ws->vlen=0;
-		++(*endp);
-		++endp;
-		memset(endp,0,(size_t)(p1-endp));
+		memset(p0,0,ws->len);
+		//debug_assert(p0>ws->n);
+		//debug_assert(ws->idx>0);
+		//debug_assert(ws->idx+ws->len==ws->vidx);
+		p0[-1]=1;
+		++ws->len;
+		--ws->idx;
 		return;
 	}
-	ws->vlen=0;
-	memset(p0,0,ws->len);
-	//debug_assert(p0>ws->n);
-	//debug_assert(ws->idx>0);
-	//debug_assert(ws->idx+ws->len==ws->vidx);
-	p0[-1]=1;
-	++ws->len;
-	--ws->idx;
-	/*
 	for(--p;p>=p1;--p){
 		c=(uint8_t)*p+(uint8_t)1;
 		if(c<(uint8_t)base){
@@ -1538,7 +1543,6 @@ do_round:
 	*p=1;
 	++ws->len;
 	--ws->idx;
-	*/
 }
 void expr_internal_gcvt_draw(struct expr_gcvt_workspace *restrict ws,const char *chars){
 	char *p,*endp;

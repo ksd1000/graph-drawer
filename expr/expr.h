@@ -21,8 +21,14 @@
 #ifndef _GNU_SOURCE
 #if defined(EXPR_ENFORCE_GNU_SOURCE)&&(EXPR_ENFORCE_GNU_SOURCE)
 #error "_GNU_SOURCE is not defined, when EXPR_ENFORCE_GNU_SOURCE=1."
-#elif defined(__GNUC__)&&!(defined(EXPR_NOCHECK_GNU_SOURCE)&&(EXPR_NOCHECK_GNU_SOURCE))
-#pragma message("_GNU_SOURCE is not defined. define it or set EXPR_NOCHECK_GNU_SOURCE=1 to silence this warning.")
+#endif
+#endif
+
+#ifndef EXPR_GNUC
+#ifdef __GNUC__
+#define EXPR_GNUC 1
+#else
+#define EXPR_GNUC 0
 #endif
 #endif
 
@@ -45,7 +51,7 @@
 #define expr_static_diffable(val1,val0) ((void)sizeof((val1)-(val0)))
 #define expr_sizeofa(arr) (sizeof(arr)/sizeof(*(arr)))
 
-#ifdef _GNU_SOURCE
+#if EXPR_GNUC
 
 #ifndef expr_noinline
 #define expr_noinline __attribute__((noinline))
@@ -104,7 +110,7 @@
 
 #define EXPR_LICENSE(name) expr_static_assert(sizeof("license=" name))
 
-#endif /*_GNU_SOURCE*/
+#endif /*EXPR_GNUC*/
 
 #if (defined(__BIG_ENDIAN__)&&(__BIG_ENDIAN__))||(defined(__BYTE_ORDER__)&&defined(__ORDER_BIG_ENDIAN__)&&(__BYTE_ORDER__==__ORDER_BIG_ENDIAN__))
 #define EXPR_BIG_ENDIAN 1
@@ -226,7 +232,7 @@ expr_static_assert((size_t)SSIZE_MIN==(size_t)SSIZE_MAX+1);
 #define expr_tpow(__a,__b) pow(__a,__b)
 #define expr_tmod(__a,__b) fmod(__a,__b)
 #define expr_tscan(_str,_size,_outsize,_mtl) expr_internal_strtod_mtl_force(_str,_size,_outsize,_mtl)
-#ifdef _GNU_SOURCE
+#if EXPR_GNUC
 #define expr_tequal(_a,_b) ({\
 	double a,b,absa,absb,absamb;\
 	int _r;\
@@ -248,7 +254,7 @@ expr_static_assert((size_t)SSIZE_MIN==(size_t)SSIZE_MAX+1);
 	}\
 	_r;\
 })
-#endif /*_GNU_SOURCE*/
+#endif /*EXPR_GNUC*/
 #endif
 
 expr_static_assert(sizeof(expr_it)==sizeof(expr_t));
@@ -461,7 +467,7 @@ typedef struct expr_list expr_list_t[1];
 #define expr_list_rinsert_prev(list,node) expr_list_rinsert(list,node,prev,next)
 #define expr_list_rinsert_next(list,node) expr_list_rinsert(list,node,next,prev)
 
-#ifdef _GNU_SOURCE
+#if EXPR_GNUC
 
 // assuming node is not in list before call
 #define expr_list_isempty(node) ({\
@@ -619,7 +625,7 @@ typedef struct expr_list expr_list_t[1];
 #define expr_list_uforeach_ro(var,list,mode) for(__typeof__(*(list)) *__inloop_start=(list),*var=__inloop_start->mode;var&&var!=__inloop_start;var=var->mode)
 #define expr_list_uforeach_rw(var,list,mode) for(__typeof__(*(list)) *__inloop_start=(list),*var=__inloop_start->mode,*__inloop_cache=(expr_likely(var)?var->mode:NULL);var&&var!=__inloop_start;var=__inloop_cache,({if(__inloop_cache)__inloop_cache=__inloop_cache->mode;}))
 
-#endif /*_GNU_SOURCE*/
+#endif /*EXPR_GNUC*/
 
 #define expr_struct_mlist(struct_name,N) \
 struct_name {\
@@ -641,7 +647,7 @@ struct_name {\
 }
 // tail-multi-list
 
-#ifdef _GNU_SOURCE
+#if EXPR_GNUC
 
 #define expr_mlist_next(T) expr_sizeofa(((__typeof__(T) *)0)->next)
 #define expr_mlist_zero(list) memset((list),0,sizeof(*(list)))
@@ -665,11 +671,11 @@ struct_name {\
 	}\
 	_list;\
 })
-#endif /*_GNU_SOURCE*/
+#endif /*EXPR_GNUC*/
 expr_struct_mlist(struct expr_vmlist,);
 // variable multi-list (do not use expr_mlist_*() for this type)
 
-#ifdef _GNU_SOURCE
+#if EXPR_GNUC
 
 #define expr_headcheck(T,field) expr_static_assert(!offsetof(__typeof__(T),field))
 // avoid the compiler pads before the head field.
@@ -689,7 +695,7 @@ expr_struct_mlist(struct expr_vmlist,);
 #define expr_host0(addr,T) (expr_static_castable(addr,const struct expr_list *),((T *)(uintptr_t)(addr)))
 #define expr_host(addr,T,field) (expr_static_castable(addr,const struct expr_list *),((T *)((uintptr_t)(addr)-offsetof(T,field))))
 
-#endif /*_GNU_SOURCE*/
+#endif /*EXPR_GNUC*/
 
 #ifndef EXPR_EXPAND_SIZE
 #define EXPR_EXPAND_SIZE 16
@@ -722,11 +728,11 @@ struct expr_memtool expr_globalmtl[1]={{\
 	.arg=0,\
 }}
 
-#ifdef _GNU_SOURCE
+#if EXPR_GNUC
 
 #define expr_internal_strlen(s) ({const char *_s=(s);(size_t)((const char *)expr_internal_memchr2(_s,0)-_s);})
 
-#endif /*_GNU_SOURCE*/
+#endif /*EXPR_GNUC*/
 
 #if (defined(EXPR_SETJMP_IMPL)&&(EXPR_SETJMP_IMPL))
 #include <setjmp.h>
@@ -959,7 +965,7 @@ expr_static_assert(!(NULL));
 
 #endif /*EXPR_INLIB*/
 
-#ifdef _GNU_SOURCE
+#if EXPR_GNUC
 
 #define expr_bswap(x,N) __builtin_bswap##N((uint##N##_t)(x))
 #define expr_bswap16(x) __builtin_bswap16(x)
@@ -1016,7 +1022,7 @@ expr_static_assert(!(NULL));
 #define expr_ffsz __builtin_ffsg
 #endif
 
-#endif /*_GNU_SOURCE*/
+#endif /*EXPR_GNUC*/
 
 enum expr_op {
 	EXPR_COPY=0,
@@ -1228,7 +1234,7 @@ expr_struct_mlist(struct expr_symlist,EXPR_SYMNEXT);
 		case ']':\
 		case '{':\
 		case '}'
-#ifdef _GNU_SOURCE
+#if EXPR_GNUC
 #define expr_blank(c) ({\
 	int _r;\
 	switch(c){\
@@ -1303,7 +1309,7 @@ expr_struct_mlist(struct expr_symlist,EXPR_SYMNEXT);
 	__r.rd.base&&__r.rd.exp==2047;\
 })
 
-#endif /*_GNU_SOURCE*/
+#endif /*EXPR_GNUC*/
 
 #define expr_xmalloc(size) expr_allocator(size)
 #define expr_xrealloc(old,size) expr_reallocator((old),(size))
@@ -1320,7 +1326,7 @@ expr_struct_mlist(struct expr_symlist,EXPR_SYMNEXT);
 #define EXPR_MAGIC48_B UINT64_C(0xb)
 #define EXPR_SYMSET_DEPTHUNIT (2*sizeof(void *))
 
-#ifdef _GNU_SOURCE
+#if EXPR_GNUC
 
 #define expr_ltod48(_l) (expr_cast((((_l)&INT64_C(0xffffffffffff))<<4)|INT64_C(0x3ff0000000000000),double)-1.0)
 #define expr_ltol48(_l) ((int32_t)(((_l)&INT64_C(0xffffffff0000))>>17))
@@ -1423,7 +1429,7 @@ expr_struct_mlist(struct expr_symlist,EXPR_SYMNEXT);
 #define expr_symset_foreach4(_sp,_esp,_stack,_atindex) expr_symbol_foreach4(_sp,(_esp)->syms,_stack,_atindex)
 #define expr_symset_foreach(_sp,_esp,_stack) expr_symset_foreach4(_sp,_esp,_stack,0)
 
-#endif /*_GNU_SOURCE*/
+#endif /*EXPR_GNUC*/
 
 #if (UINTPTR_MAX==UINT64_MAX)
 #define expr_mkval(c) ((uintptr_t)expr_mkval64(c))
@@ -1438,10 +1444,10 @@ expr_struct_mlist(struct expr_symlist,EXPR_SYMNEXT);
 #define expr_mkval16(c) ((uint16_t)(uint8_t)(c))*UINT16_C(0x0101)
 #define expr_mkval32(c) ((uint32_t)(uint8_t)(c))*UINT32_C(0x01010101)
 #define expr_mkval64(c) ((uint64_t)(uint8_t)(c))*UINT64_C(0x0101010101010101)
-#ifdef _GNU_SOURCE
+#if EXPR_GNUC
 expr_static_assert(__builtin_constant_p(expr_mkval(0)));
 expr_static_assert(__builtin_constant_p(expr_mkval64(0)));
-#endif /*_GNU_SOURCE*/
+#endif /*EXPR_GNUC*/
 #define expr_internal_memset(buf,c,size) expr_internal_memsetp(buf,expr_mkval(c),size)
 #define expr_internal_memchr(buf,c,size) expr_internal_memchr64(buf,expr_mkval64(c),size)
 #define expr_internal_memrchr(buf,c,size) expr_internal_memrchr64(buf,expr_mkval64(c),size)
@@ -1449,7 +1455,7 @@ expr_static_assert(__builtin_constant_p(expr_mkval64(0)));
 #define expr_internal_memrnchr(buf,c,size) expr_internal_memrnchr64(buf,expr_mkval64(c),size)
 #define expr_internal_memchr2(buf,c) expr_internal_rawmemchr64(buf,expr_mkval64(c))
 
-#ifdef _GNU_SOURCE
+#if EXPR_GNUC
 
 #define expr_fake_memrmem(buf,size,c,c_size) ({\
 	const char *___buf=(buf);\
@@ -1510,7 +1516,7 @@ expr_static_assert(__builtin_constant_p(expr_mkval64(0)));
 	___c;\
 })
 
-#endif /*_GNU_SOURCE*/
+#endif /*EXPR_GNUC*/
 
 struct expr_libinfo {
 	const char *version;
@@ -1790,7 +1796,7 @@ struct expr_buffered_file {
 	___fp->written=0;\
 }expr_estmt_end
 
-#ifdef _GNU_SOURCE
+#if EXPR_GNUC
 #define expr_buffered_ainit_r(fp,_len,_mtl) ({\
 	struct expr_buffered_file *___fp=(fp);\
 	___fp->mtl=(_mtl);\
@@ -1806,7 +1812,7 @@ struct expr_buffered_file {
 	}\
 	___fp->buf?0:-1;\
 })
-#endif /*_GNU_SOURCE*/
+#endif /*EXPR_GNUC*/
 
 struct expr_global_file {
 	struct expr_buffered_file buf[1];
@@ -1947,7 +1953,7 @@ struct expr_symbol {
 	char str[];
 };
 
-#ifdef _GNU_SOURCE
+#if EXPR_GNUC
 
 struct expr_symbol_infile {
 	uint32_t length;
@@ -1967,7 +1973,7 @@ struct expr_symset_infile {
 }expr_packed;
 #define EXPR_SYMBOL_EXTRA (sizeof(struct expr_symbol)-sizeof(struct expr_symbol_infile))
 
-#endif /*_GNU_SOURCE*/
+#endif /*EXPR_GNUC*/
 
 struct expr_builtin_symbol {
 	union expr_symvalue un;
@@ -2161,9 +2167,9 @@ struct expr_areainfo {
 // (flag>>EXPR_AALIGN_SHIFT) must be nonzero, or the undefined behaviour(divide by 0) will occur.
 // if (flag>>EXPR_AALIGN_SHIFT) cannot be divided by sizeof(struct expr_zoneunit), the align of memory may be broken.
 #define expr_zoneof(heap) ((void *)((uintptr_t)(heap)+sizeof(struct expr_area)))
-#ifdef _GNU_SOURCE
+#if EXPR_GNUC
 #define expr_memlen(p) ({expr_static_castable((p),const void *);((const struct expr_zoneunit *)((uintptr_t)(p)-sizeof(struct expr_zoneunit)))->size;})
-#endif /*_GNU_SOURCE*/
+#endif /*EXPR_GNUC*/
 
 #define EXPR_HEAPMTL_INITIALIZER(heap) {\
 	.allocate=expr_heapmtl_malloc,\
@@ -2185,7 +2191,7 @@ struct expr_pool {
 	size_t allocate_size;
 	int flag,unused;
 };
-#ifdef _GNU_SOURCE
+#if EXPR_GNUC
 #define expr_pool_init(pool,allocate,deallocate,arg,area_size,area_flag) expr_estmt{\
 	struct expr_pool *_pool=(pool);\
 	_pool->head=NULL;\
@@ -2196,7 +2202,7 @@ struct expr_pool {
 	_pool->allocate_size=(area_size);\
 	_pool->flag=(area_flag);\
 }expr_estmt_end
-#endif /*_GNU_SOURCE*/
+#endif /*EXPR_GNUC*/
 
 #define EXPR_POOL_INITIALIZER(pool,allocate,deallocate,arg,area_size,area_flag) {\
 	.head=NULL,\
@@ -2350,7 +2356,7 @@ struct expr_gcvt_workspace {
 #define expr_internal_syscall6(num,a0,a1,a2,a3,a4,a5) expr_internal_syscalln(6,num,a0,a1,a2,a3,a4,a5,)
 #define expr_internal_syscall7(num,a0,a1,a2,a3,a4,a5,a6) expr_internal_syscalln(7,num,a0,a1,a2,a3,a4,a5,a6,)
 
-#ifdef _GNU_SOURCE
+#if EXPR_GNUC
 
 #define expr_internal_syscall_reg7(num,a0,a1,a2,a3,a4,a5,a6,ID,A0,A1,A2,A3,A4,A5,A6,RE,E0,E1,E2,E3,E4,E5,E6,E7) ({\
 		expr_internal_regvarr(ID)=(intptr_t)(num);\
@@ -2468,7 +2474,7 @@ struct expr_gcvt_workspace {
 			__builtin_unreachable();\
 	}\
 })
-#endif /*_GNU_SOURCE*/
+#endif /*EXPR_GNUC*/
 
 #define expr_internal_syscall_ncase_inswitch0(dest,cast,num,a0,a1,a2,a3,a4,a5,a6) case 0:(dest)=(cast)expr_internal_syscall0(num);break
 #define expr_internal_syscall_ncase_inswitch1(dest,cast,num,a0,a1,a2,a3,a4,a5,a6) case 1:(dest)=(cast)expr_internal_syscall1(num,a0);break

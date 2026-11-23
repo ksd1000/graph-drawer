@@ -1,5 +1,5 @@
 #undef _GNU_SOURCE
-#define EXPR_NOCHECK_GNU_SOURCE 1
+#undef __GNUC__
 #define EXPR_NOSYSCALL 1
 #define restrict
 #include "expr.h"

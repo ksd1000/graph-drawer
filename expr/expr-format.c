@@ -1491,6 +1491,7 @@ struct expr_vwritef_workspace {
 		union expr_argf _old;
 		uintptr_t _aps;
 		size_t *_ar;
+		size_t _dlsz;
 		const char *_d1;
 	};
 	union expr_argf _save;
@@ -1531,6 +1532,7 @@ ssize_t expr_vwriteft_r(expr_writer_t writer,intptr_t fd,const char *restrict fm
 #define mask wsp->_mask
 #define next_saved wsp->_next_saved
 #define ar wsp->_ar
+#define dlsz wsp->_dlsz
 	wsp=xmalloc(sizeof(struct expr_vwritef_workspace));
 	if(unlikely(!wsp)){
 		return SSIZE_MIN+1;
@@ -1766,7 +1768,29 @@ current_get:
 					goto_argfail;\
 				fmt+=dsz;\
 			}
-			if(flag->eq){
+#define write_dlm_k(_delim,_dlsz) ({\
+	if(likely(_dlsz)){\
+		if(flag->width_set&&likely(flag->width<=_dlsz)){\
+			wf_trywrite(_delim,flag->width);\
+		}else {\
+			wf_trywrite(_delim,_dlsz);\
+		}\
+	}\
+})
+#define dlm_plus_k() ({\
+	if(flag->digit_set){\
+		dlsz=delimsz-flag->digit;\
+		if(unlikely((ssize_t)dlsz<0))\
+			dlsz=0;\
+		aps=(uintptr_t)delim+(uintptr_t)flag->digit;\
+		write_dlm_k((const char *)aps,dlsz);\
+	}else {\
+		write_dlm_k(delim,delimsz);\
+	}\
+})
+			if(flag->plus){
+				dlm_plus_k();
+			}else if(flag->eq){
 				delim=arg1->addr;
 				argnext1;
 				delimsz=flag_width(flag,flag->digit_set?strnlen(delim,flag->digit):strlen(delim));
@@ -2097,6 +2121,7 @@ end:
 #undef mask
 #undef next_saved
 #undef ar
+#undef dlsz
 }
 #undef arg1
 #undef argt
@@ -2493,7 +2518,7 @@ next:
 					lptype=1;
 					break;
 				case EXPR_FMTC_DELIM:
-					if(tmp->flag->eq)
+					if(tmp->flag->eq||tmp->flag->plus)
 						break;
 					if(unlikely(tmp->read_width))
 						reterr(SSIZE_MIN+3);
@@ -2697,13 +2722,19 @@ ssize_t expr_vwritei_r(expr_writer_t writer,intptr_t fd,const struct expr_finst 
 		const union expr_argf *_arg_cur;
 		uintptr_t _aps;
 	} un;
+	union {
+		expr_ut _mask;
+		size_t _dlsz;
+	} un1;
 #define arg_cur un._arg_cur
 #define aps un._aps
+#define mask un1._mask
+#define dlsz un1._dlsz
 	ptrdiff_t index;
 	const char *delim;
 	size_t delimsz;
 	struct expr_writeflag flag[1];
-	expr_ut val,mask;
+	expr_ut val;
 	uint8_t type,arrwid,forward;
 	ret=0;
 	loop=0;
@@ -2781,7 +2812,9 @@ ssize_t expr_vwritei_r(expr_writer_t writer,intptr_t fd,const struct expr_finst 
 					forward=1;
 					break;
 				case EXPR_FMTC_DELIM:
-					if(flag->eq){
+					if(flag->plus){
+						dlm_plus_k();
+					}else if(flag->eq){
 						delim=arg1->addr;
 						delimsz=flag_width(flag,flag->digit_set?strnlen(delim,flag->digit):strlen(delim));
 						argnext1;

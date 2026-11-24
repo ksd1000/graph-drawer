@@ -198,7 +198,7 @@ long long
 % .
 .TQ
 .B s
-Standard string. The length will be get by
+Standard string. The length will be gotten by
 .B strlen()
 if
 .I digit
@@ -245,7 +245,7 @@ Escaped string from the pointer provided by argument the with length
 .IR digit .
 .TQ
 .B i
-Standard string encoded as base64. The length will be get by
+Standard string encoded as base64. The length will be gotten by
 .B strlen()
 if
 .I digit
@@ -286,12 +286,22 @@ Set the delim between two looped conversions or array elements.
 Use
 .RI p[ width ]
 as the content, when p points to the next character of 'T'.
-.TQ
-.B t
-Set the tail of each looped conversion or array elements.
-Use
-.RI p[ width ]
-as the content, when p points to the next character of 't'.
+If
+.B =
+is set, use the argument as the content, if
+.I width
+is not set, the length will be gotten by
+.B strlen()
+if
+.I digit
+is not set, or
+.B strnlen()
+if
+.I digit
+is set.
+If
+.B +
+is set, the content in [digit(default: 0),width) will be written once.
 .TQ
 .B k
 Delcare the next conversion is for an array
@@ -299,7 +309,7 @@ Delcare the next conversion is for an array
 when the
 .I argment
 points to the first element of the array.
-The size of each elements will be get from the
+The size of each elements will be gotten from the
 .I argsize
 of the conversion.
 .TQ

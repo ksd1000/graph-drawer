@@ -233,6 +233,7 @@ expr_static_assert((size_t)SSIZE_MIN==(size_t)SSIZE_MAX+1);
 #define expr_tmod(__a,__b) fmod(__a,__b)
 #define expr_tscan(_str,_size,_outsize,_mtl) expr_internal_strtod_mtl_force(_str,_size,_outsize,_mtl)
 #if EXPR_GNUC
+#define EXPR_SIZEOF_EXPR_T __SIZEOF_DOUBLE__
 #define expr_tequal(_a,_b) ({\
 	double a,b,absa,absb,absamb;\
 	int _r;\
@@ -2109,17 +2110,17 @@ typedef int (*expr_recursive_callback)(struct expr *restrict ep,void *arg);
 #endif
 
 #if !EXPR_BIG_ENDIAN
-#define expr_areaunit_bitfield(master,minor) struct {size_t master:sizeof(size_t)*8-1,minor:1;}
+#define expr_zoneunit_bitfield(master,minor) struct {size_t master:sizeof(size_t)*8-1,minor:1;}
 #else
-#define expr_areaunit_bitfield(master,minor) struct {size_t minor:1,master:sizeof(size_t)*8-1;}
+#define expr_zoneunit_bitfield(master,minor) struct {size_t minor:1,master:sizeof(size_t)*8-1;}
 #endif
 struct expr_zoneunit {
 	union {
-		expr_areaunit_bitfield(prev,tail);
+		expr_zoneunit_bitfield(prev,tail);
 		size_t unprev;
 	};
 	union {
-		expr_areaunit_bitfield(size,deallocated);
+		expr_zoneunit_bitfield(size,deallocated);
 		size_t unsize;
 	};
 };

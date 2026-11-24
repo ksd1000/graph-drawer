@@ -2207,7 +2207,10 @@ static const union expr_argf *ap_getarg(ptrdiff_t index,const struct expr_writef
 			break;
 		case EXPR_FLAGTYPE_UNSIGNED:
 			switch(flag->argsize){
-				case 1 ... sizeof(int):
+				case 1 ... sizeof(int)-1:
+					a->save->uint=(expr_ut)(unsigned int)va_arg(a->ap,int);
+					break;
+				case sizeof(int):
 					a->save->uint=(expr_ut)va_arg(a->ap,unsigned int);
 					break;
 				default:

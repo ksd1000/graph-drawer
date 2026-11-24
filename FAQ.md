@@ -34,5 +34,5 @@ The syscall number and the register order may agree not with Linux. A correct sy
 ## Why the version of Graph Drawer does not follow the law of SemVer?
 
 The author had never heard of the law of SemVer (until 2026-11-06).
-It may be followed in version after 2.0.0 in future.
+It may be followed in version after 2.0.0 or later in future, for avoiding the major version increases to hundred.
 

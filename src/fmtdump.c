@@ -113,7 +113,7 @@ const char *strccode(int fmtccode){
 		CCODE(EXPR_FMTC_LOOP);
 		CCODE(EXPR_FMTC_LOOP_FORWARD);
 		CCODE(EXPR_FMTC_DELIM);
-		CCODE(EXPR_FMTC_TAIL);
+		//CCODE(EXPR_FMTC_TAIL);
 		CCODE(EXPR_FMTC_SETARR);
 		CCODE(EXPR_FMTC_EXITIF);
 		CCODE(EXPR_FMTC_READ_FMTC);
@@ -260,8 +260,9 @@ void dumpctl(const struct expr_finst *restrict fip){
 	expr_printf(plain2(".fmtc_code=%s,"),strccode(fip->fmtc_code));
 	switch(fip->fmtc_code){
 		case EXPR_FMTC_DELIM:
-		case EXPR_FMTC_TAIL:
-			expr_printf(plain2(".imm_str=%#.*E,"),fip->flag->width,fip->imm_str);
+		//case EXPR_FMTC_TAIL:
+			if(!fip->flag->addr)
+				expr_printf(plain2(".imm_str=%#.*E,"),fip->flag->width,fip->imm_str);
 			break;
 		case EXPR_FMTC_FPH:
 			expr_printf(plain2(".fph=\'%.1E\',"),&fip->fph);

@@ -261,8 +261,9 @@ static void checkfmts(void){
 	checkfmt2("76b3e4","%.3h","\x76\xb3\xe4");
 	checkfmt2("k","%c",expr_mkval64('k'));
 	checkfmt2("100%+200%=k=300%","100%%+200%%=%c=300%%",expr_mkval64('k'));
-	checkfmt2("372u,372u,372u","%3l%1T,%1tu%u",(expr_ut)372);
+	checkfmt2("372u,372u,372u","%3l%2Tu,%uu",(expr_ut)372);
 	checkfmt2("{5459,-833,-9999,67}","{%4k%1T,%:id}",(int []){5459,-833,-9999,67});
+	checkfmt2("{111u,222u,333u,444u}","{%4k%=.2T%:iu%.1s}","u,",(unsigned int []){111u,222u,333u,444u},"u");
 	checkfmt2("{\"asd\",\"fhl\",\"HELLO\"}","{%3k%3T\",\"\"%.5s\"}",(const char *[]){"asd\0aa","fhl\0aaa","HELLO","NOPRINT"});
 	checkfmt2("null","%p",NULL);
 	checkfmt2("NULL","%P",NULL);

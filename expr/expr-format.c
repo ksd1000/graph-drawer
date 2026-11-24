@@ -140,7 +140,15 @@ err:
 #define flag_space(_f) ((_f)->space)
 #define flag_width(_f,_dflt) ((_f)->width_set?(_f)->width:(_dflt))
 #define flag_digit(_f,_dflt) ((_f)->digit_set?(_f)->digit:(_dflt))
-
+/*
+#define flag_widthdigitmin(_f,_dflt) (\
+	(_f)->width_set?(\
+		((_f)->digit_set&&(_f)->digit<(_f)->width)?(_f)->digit:(_f)->width\
+	):(\
+		(_f)->digit_set?(_f)->digit:(_dflt)\
+	)\
+\)
+*/
 #define cwrite_common0(_s) \
 	ext=(ssize_t)flag_width(flag,0)-sz;\
 	if(ext>0){\
@@ -1287,7 +1295,7 @@ const struct expr_ftable expr_ftable_default[1]={{
 ['l']=EXPR_FMTC_LOOP,
 ['L']=EXPR_FMTC_LOOP_FORWARD,
 ['T']=EXPR_FMTC_DELIM,
-['t']=EXPR_FMTC_TAIL,
+//['t']=EXPR_FMTC_TAIL,
 ['k']=EXPR_FMTC_SETARR,
 ['Q']=EXPR_FMTC_EXITIF,
 ['@']=EXPR_FMTC_READ_FMTC,
@@ -1471,8 +1479,8 @@ struct expr_vwritef_workspace {
 		size_t _uv;
 	};
 	const struct expr_writefmt *_wfp;
-	const char *_delim,*_tail;
-	size_t _delimsz,_tailsz;
+	const char *_delim;
+	size_t _delimsz;
 	size_t _loop;
 	const char *_fmt_save[8];
 	const char **_fmt_save_current;
@@ -1504,10 +1512,8 @@ ssize_t expr_vwriteft_r(expr_writer_t writer,intptr_t fd,const char *restrict fm
 #define wfp wsp->_wfp
 #define flag wsp->_flag
 #define delim wsp->_delim
-#define tail wsp->_tail
 #define d1 wsp->_d1
 #define delimsz wsp->_delimsz
-#define tailsz wsp->_tailsz
 #define loop wsp->_loop
 #define index wsp->_index
 #define forward wsp->_forward
@@ -1535,7 +1541,7 @@ ssize_t expr_vwriteft_r(expr_writer_t writer,intptr_t fd,const char *restrict fm
 	//delim=NULL;
 	//tail=NULL;
 	delimsz=0;
-	tailsz=0;
+	//tailsz=0;
 	loop=0;
 	index=0;
 	forward=0;
@@ -1629,7 +1635,7 @@ reflag:\
 			goto_argfail;\
 		}\
 	}\
-	__arg;\
+	flag->addr?__arg->aaddr:__arg;\
 })
 #define arg1 argt(EXPR_FLAGTYPE_ADDR)
 #define get_next_arg64(dest,dtype,_after,_type,_field,_afield) \
@@ -1760,11 +1766,17 @@ current_get:
 					goto_argfail;\
 				fmt+=dsz;\
 			}
-			setdlm(delim,delimsz);
+			if(flag->eq){
+				delim=arg1->addr;
+				argnext1;
+				delimsz=flag_width(flag,flag->digit_set?strnlen(delim,flag->digit):strlen(delim));
+			}else {
+				setdlm(delim,delimsz);
+			}
 			break;
-		case EXPR_FMTC_TAIL:
-			setdlm(tail,tailsz);
-			break;
+		//case EXPR_FMTC_TAIL:
+		//	wf_return(SSIZE_MIN+5);
+		//	break;
 		case EXPR_FMTC_SETARR:
 			arrwid=1;
 			loop=flag_width(flag,0);
@@ -1940,9 +1952,6 @@ current_get:
 #define fmt_dorepeat(_arg) \
 	fmt_repeat {\
 		fmt_once(_arg);\
-		if(tailsz){\
-			wf_trywrite(tail,tailsz);\
-		}\
 		if(delimsz&&loop>1){\
 			wf_trywrite(delim,delimsz);\
 		}\
@@ -1953,9 +1962,6 @@ current_get:
 		if(unlikely(!arg_cur))\
 			goto_argfail;\
 		fmt_once(arg_cur);\
-		if(tailsz){\
-			wf_trywrite(tail,tailsz);\
-		}\
 		if(delimsz&&loop>1){\
 			wf_trywrite(delim,delimsz);\
 		}\
@@ -2006,9 +2012,6 @@ current_get:
 				val&=mask;\
 		}\
 		fmt_once((const union expr_argf *)&val);\
-		if(tailsz){\
-			wf_trywrite(tail,tailsz);\
-		}\
 		if(delimsz&&loop>1){\
 			wf_trywrite(delim,delimsz);\
 		}\
@@ -2073,10 +2076,10 @@ end:
 #undef wfp
 #undef flag
 #undef delim
-#undef tail
+//#undef tail
 #undef d1
 #undef delimsz
-#undef tailsz
+//#undef tailsz
 #undef loop
 #undef index
 #undef forward
@@ -2128,7 +2131,7 @@ static const union expr_argf *arr_arg(ptrdiff_t index,const struct expr_writefla
 		goto err;
 	r=wa->base+index;
 	debug("getting arg[%zd] (base=%p,len=%zu)=%p",(ssize_t)index,(void *)(uintptr_t)wa->base,wa->arglen,(void *)(uintptr_t)r);
-	return flag->addr?r->aaddr:r;
+	return r;
 err:
 	debug("getting arg[%zd] (base=%p,len=%zu)=NULL",index,(void *)(uintptr_t)wa->base,wa->arglen);
 	return NULL;
@@ -2146,14 +2149,14 @@ struct fmtarg {
 };
 static const union expr_argf *ap_getarg(ptrdiff_t index,const struct expr_writeflag *flag,intptr_t addr){
 	struct fmtarg *restrict a=(struct fmtarg *)addr;
-	int type=(int)flag->type,useaddr=!!flag->addr;
+	int type=(int)flag->type;
 	if(index==a->index_old){
 		goto end;
 	}
 	if(unlikely(index!=a->index_old+1)){
 		return NULL;
 	}
-	if(useaddr){
+	if(flag->addr){
 		type=EXPR_FLAGTYPE_ADDR;
 	}
 	//a->save->uint=0;
@@ -2205,7 +2208,7 @@ static const union expr_argf *ap_getarg(ptrdiff_t index,const struct expr_writef
 	}
 	++a->index_old;
 end:
-	return useaddr?a->save->aaddr:a->save;
+	return a->save;
 }
 #define ap_common(_start,_end,_table) \
 	ssize_t r;\
@@ -2490,7 +2493,8 @@ next:
 					lptype=1;
 					break;
 				case EXPR_FMTC_DELIM:
-				case EXPR_FMTC_TAIL:
+					if(tmp->flag->eq)
+						break;
 					if(unlikely(tmp->read_width))
 						reterr(SSIZE_MIN+3);
 					tmp->imm_str=fmt+1;
@@ -2499,6 +2503,8 @@ next:
 						reterr(SSIZE_MIN+3);
 					--fmt;
 					break;
+				//case EXPR_FMTC_TAIL:
+				//	break;
 				case EXPR_FMTC_SETARR:
 					lptype=2;
 					break;
@@ -2603,9 +2609,6 @@ void expr_ifree_r(struct expr_finst *restrict fip,const struct expr_memtool *res
 #define fmt_dorepeat(_arg) \
 	fmt_repeat {\
 		fmt_once(_arg);\
-		if(tailsz){\
-			wf_trywrite(tail,tailsz);\
-		}\
 		if(delimsz&&loop>1){\
 			wf_trywrite(delim,delimsz);\
 		}\
@@ -2616,9 +2619,6 @@ void expr_ifree_r(struct expr_finst *restrict fip,const struct expr_memtool *res
 		if(unlikely(!arg_cur))\
 			goto_argfail;\
 		fmt_once(arg_cur);\
-		if(tailsz){\
-			wf_trywrite(tail,tailsz);\
-		}\
 		if(delimsz&&loop>1){\
 			wf_trywrite(delim,delimsz);\
 		}\
@@ -2642,7 +2642,7 @@ void expr_ifree_r(struct expr_finst *restrict fip,const struct expr_memtool *res
 			goto_argfail;\
 		}\
 	}\
-	__arg;\
+	flag->addr?__arg->aaddr:__arg;\
 })
 #define arg1 argt(EXPR_FLAGTYPE_ADDR)
 #define wdasync(field,dtype,type,ufield,uafield) switch(fip->read_##field){\
@@ -2700,8 +2700,8 @@ ssize_t expr_vwritei_r(expr_writer_t writer,intptr_t fd,const struct expr_finst 
 #define arg_cur un._arg_cur
 #define aps un._aps
 	ptrdiff_t index;
-	const char *delim,*tail;
-	size_t delimsz,tailsz;
+	const char *delim;
+	size_t delimsz;
 	struct expr_writeflag flag[1];
 	expr_ut val,mask;
 	uint8_t type,arrwid,forward;
@@ -2711,7 +2711,7 @@ ssize_t expr_vwritei_r(expr_writer_t writer,intptr_t fd,const struct expr_finst 
 	//delim=NULL;
 	//tail=NULL;
 	delimsz=0;
-	tailsz=0;
+	//tailsz=0;
 	forward=0;
 	flag->mtl=mtl;
 	for(;;++fip)switch(fip->op){
@@ -2781,11 +2781,17 @@ ssize_t expr_vwritei_r(expr_writer_t writer,intptr_t fd,const struct expr_finst 
 					forward=1;
 					break;
 				case EXPR_FMTC_DELIM:
-					setdlm(delim,delimsz);
+					if(flag->eq){
+						delim=arg1->addr;
+						delimsz=flag_width(flag,flag->digit_set?strnlen(delim,flag->digit):strlen(delim));
+						argnext1;
+					}else {
+						setdlm(delim,delimsz);
+					}
 					break;
-				case EXPR_FMTC_TAIL:
-					setdlm(tail,tailsz);
-					break;
+				//case EXPR_FMTC_TAIL:
+				//	setdlm(tail,tailsz);
+				//	break;
 				case EXPR_FMTC_SETARR:
 					arrwid=1;
 					loop=flag_width(flag,0);

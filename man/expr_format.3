@@ -301,7 +301,7 @@ if
 is set.
 If
 .B +
-is set, the content in [0,width) or [digit,width-digit) will be written once
+is set, the content in [0,width) or [digit,digit+width) will be written once
 .TQ
 .B k
 Delcare the next conversion is for an array
@@ -387,7 +387,7 @@ should never be passed to
 .P
 The content for
 .B %=T
-should not be changed or freed before the call completes, or the behavior will be undefined.
+should not be changed or freed before the call returns, or the behavior will be undefined.
 .SH ATTRIBUTES
 .TS
 allbox;

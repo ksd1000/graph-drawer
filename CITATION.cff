@@ -5,7 +5,7 @@ authors:
   - family-names: "k"
     given-names: "sd1000"
 version: 1.0.20
-date-released: "2026-10-20"
+date-released: "2026-11-24"
 license: GPL-3.0-or-later
 repository-code: "https://github.com/ksd1000/graph-drawer"
 identifiers:

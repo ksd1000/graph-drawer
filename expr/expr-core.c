@@ -511,7 +511,7 @@ static void setunsafe(struct expr *restrict ep){
 #define EXPAND_SIZE EXPR_EXPAND_SIZE
 #define expr_addop(ep,dst,src,op,flag) expr_addop_i(ep,dst,(expr_ut)(uintptr_t)(src),op,flag)
 #define expr_addop_d(ep,dst,src,op,flag) expr_addop_i(ep,dst,(expr_ut)(src),op,flag)
-static struct expr_inst *expr_addop_i(struct expr *restrict ep,void *dst,expr_ut src,enum expr_op op,int flag){
+static struct expr_inst *expr_addop_i(struct expr *restrict ep,void *dst,expr_ut src,int op,int flag){
 	struct expr_inst *ip;
 	ip=xautoadd((void **)&ep->data,&ep->size,&ep->length,sizeof(struct expr_inst),EXPAND_SIZE,ep->mtl);
 	if(unlikely(!ip))
@@ -3261,12 +3261,12 @@ struct vnode {
 	struct expr_list node[1];
 	expr_t *v;
 	uint64_t unary;
-	enum expr_op op;
+	int op;
 };
 expr_headcheck(struct vnode,node);
 #define vnhost(p) expr_host0((p),struct vnode)
 #define vnnext(p) vnhost((p)->node->next)
-static struct vnode *vnadd(struct expr *restrict ep,struct vnode *vp,expr_t *v,enum expr_op op,uint64_t unary){
+static struct vnode *vnadd(struct expr *restrict ep,struct vnode *vp,expr_t *v,int op,uint64_t unary){
 	struct vnode *p;
 	if(unlikely(!vp)){
 		p=xmalloc(sizeof(struct vnode));
@@ -3344,7 +3344,7 @@ static void vnfree(struct expr *restrict ep,struct vnode *vp){
 static expr_t *scan(struct expr *restrict ep,const char *e,const char *endp,const char *asym,size_t asymlen){
 	expr_t *v1;
 	const char /*e0=e,*/*e1;
-	enum expr_op op=EXPR_COPY,op0;
+	int op=EXPR_COPY,op0;
 	uint64_t unary;
 	struct vnode *ev=NULL,*p;
 	do {
@@ -3855,7 +3855,7 @@ err1:
 #define xmtl mtl
 
 
-static int expr_usesrc(enum expr_op op);
+static int expr_usesrc(int op);
 static int expr_constexpr(const struct expr *restrict ep,expr_t *except);
 int expr_isconst(const struct expr *restrict ep){
 	return ep->isconst||expr_constexpr(ep,NULL);
@@ -4252,7 +4252,7 @@ static int expr_optimize_contsh(struct expr *restrict ep){
 	}
 	optimize_end;
 }
-static int expr_optimize_contmul(struct expr *restrict ep,enum expr_op op){
+static int expr_optimize_contmul(struct expr *restrict ep,int op){
 	expr_t sum;
 	struct expr_inst *rip;
 	int r=0;
@@ -4443,7 +4443,7 @@ static int expr_optimize_contmul(struct expr *restrict ep,enum expr_op op){
 	}
 	optimize_end;
 }
-static expr_t expr_zero_element(enum expr_op op){
+static expr_t expr_zero_element(int op){
 	switch(op){
 		case EXPR_ADD:
 		case EXPR_SUB:
@@ -4512,7 +4512,7 @@ static int expr_optimize_const(struct expr *restrict ep){
 	}
 	optimize_end;
 }
-static int expr_side(enum expr_op op){
+static int expr_side(int op){
 	switch(op){
 		case SRCCASES:
 		case EXPR_INPUT:
@@ -4530,7 +4530,7 @@ static int expr_side(enum expr_op op){
 			return 1;
 	}
 }
-static int expr_override(enum expr_op op){
+static int expr_override(int op){
 	switch(op){
 		case EXPR_COPY:
 		case EXPR_INPUT:
@@ -4550,7 +4550,7 @@ static int expr_override(enum expr_op op){
 			return 0;
 	}
 }
-static int expr_usesrc(enum expr_op op){
+static int expr_usesrc(int op){
 	switch(op){
 		case SRCCASES:
 		case EXPR_READ:
@@ -5198,7 +5198,7 @@ static int expr_optimize_constneg(struct expr *restrict ep){
 	optimize_end;
 }
 
-static int expr_pure_optype(enum expr_op op){
+static int expr_pure_optype(int op){
 	switch(op){
 		case EXPR_BL:
 		case EXPR_ZA:

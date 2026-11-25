@@ -803,7 +803,7 @@ struct expr_internal_jmpbuf {
 #pragma GCC diagnostic ignored "-Wfloat-equal"
 #pragma GCC diagnostic ignored "-Wpadded"
 #pragma GCC diagnostic ignored "-Wc++-keyword"
-#pragma GCC diagnostic ignored "-Wswitch-enum"
+//#pragma GCC diagnostic ignored "-Wswitch-enum"
 #pragma GCC diagnostic ignored "-Wcovered-switch-default"
 //#pragma GCC diagnostic ignored "-Wflexible-array-extensions"
 
@@ -1727,7 +1727,7 @@ struct expr_finst {
 		expr_converter_t converter;
 		const char *imm_str;
 	};
-	enum expr_fop op;
+	int op;
 	char fph;
 	uint8_t fmtc_code;
 	union {
@@ -1927,7 +1927,7 @@ struct expr_inst {
 		struct expr_vmdinfo *ev;
 		struct expr_hmdinfo *eh;
 	} un;
-	enum expr_op op;
+	int op;
 	int flag;
 };
 struct expr_builtin_symbol;
@@ -1988,7 +1988,7 @@ struct expr_builtin_symbol {
 };
 struct expr_builtin_keyword {
 	const char *str;
-	enum expr_op op;
+	int op;
 	unsigned short flag;
 	unsigned short strlen;
 	const char *desc;

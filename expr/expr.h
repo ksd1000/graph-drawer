@@ -1544,7 +1544,7 @@ struct expr_libinfo {
 #define EXPR_FMTC_INC 242
 #define EXPR_FMTC_DEC 241
 #define EXPR_FMTC_PUSH 240
-#define EXPR_FMTC_CLEAR 239
+#define EXPR_FMTC_POP 239
 #define EXPR_FMTC_SAVE 238
 #define EXPR_FMTC_EVAL 237
 #define EXPR_FMTC_FLUSH 236
@@ -1657,7 +1657,7 @@ struct expr_writeflag_nomtl {
 	size_t width;
 	size_t digit;
 };
-typedef const union expr_argf *(*expr_argfetch_t)(ptrdiff_t index,const struct expr_writeflag *flag,intptr_t addr);
+typedef const union expr_argf *(*expr_argfetch_t)(ssize_t index,const struct expr_writeflag *flag,intptr_t addr);
 typedef ssize_t (*expr_converter_t)(expr_writer_t writer,intptr_t fd,const union expr_argf *arg,struct expr_writeflag *flag);
 struct expr_writefmt {
 	expr_converter_t converter;

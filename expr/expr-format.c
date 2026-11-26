@@ -1303,8 +1303,8 @@ const struct expr_ftable expr_ftable_default[1]={{
 ['C']=EXPR_FMTC_READ_CONVERTER,
 ['J']=EXPR_FMTC_INC,
 ['D']=EXPR_FMTC_DEC,
-['w']=EXPR_FMTC_PUSH,
-['W']=EXPR_FMTC_CLEAR,
+['{']=EXPR_FMTC_PUSH,
+['}']=EXPR_FMTC_POP,
 ['V']=EXPR_FMTC_SAVE,
 ['v']=EXPR_FMTC_EVAL,
 ['z']=EXPR_FMTC_FLUSH,
@@ -1480,11 +1480,10 @@ struct expr_vwritef_workspace {
 	};
 	const struct expr_writefmt *_wfp;
 	const char *_delim;
+	const char *_savefmt;
 	size_t _delimsz;
 	size_t _loop;
-	const char *_fmt_save[8];
-	const char **_fmt_save_current;
-	ptrdiff_t _index;
+	size_t _index;
 	struct expr_writeflag _flag[1];
 	union {
 		const union expr_argf *_arg_cur;
@@ -1514,6 +1513,7 @@ ssize_t expr_vwriteft_r(expr_writer_t writer,intptr_t fd,const char *restrict fm
 #define flag wsp->_flag
 #define delim wsp->_delim
 #define d1 wsp->_d1
+#define savefmt wsp->_savefmt
 #define delimsz wsp->_delimsz
 #define loop wsp->_loop
 #define index wsp->_index
@@ -1522,8 +1522,6 @@ ssize_t expr_vwriteft_r(expr_writer_t writer,intptr_t fd,const char *restrict fm
 #define current wsp->_current
 #define r1 wsp->_r1
 #define r2 wsp->_r2
-#define fmt_save wsp->_fmt_save
-#define fmt_save_current wsp->_fmt_save_current
 #define save wsp->_save
 #define arg_cur wsp->_arg_cur
 #define aps wsp->_aps
@@ -1549,6 +1547,7 @@ ssize_t expr_vwriteft_r(expr_writer_t writer,intptr_t fd,const char *restrict fm
 	forward=0;
 	arrwid=0;
 	next_saved=0;
+	savefmt=NULL;
 #define wf_return(retval) {fmtlen=(size_t)(retval);xfree(wsp);return (ssize_t)fmtlen;}
 #define wf_returnc(retval) {xfree(wsp);return (ssize_t)(retval);}
 #define wf_trywrite(buf,sz) {\
@@ -1564,7 +1563,6 @@ ssize_t expr_vwriteft_r(expr_writer_t writer,intptr_t fd,const char *restrict fm
 		wf_trywrite(fmt,fmtlen);
 		goto end;
 	}
-	fmt_save_current=fmt_save;
 	flag->mtl=mtl;
 next:
 	fmt_old=fmt;
@@ -1620,8 +1618,8 @@ reflag:\
 //#define t_copy(_d,_s,T) *(T *)(_d)=*(T *)(_s)
 //#define t_ocopy(_d,_s,T,_off) *(T *)((uintptr_t)(_d)+(_off))=*(T *)((uintptr_t)(_s)+(_off))
 #define argnext1 ++index;debug("arg index to %zd",index)
-#define argnext(N) index+=(ptrdiff_t)(N);debug("arg index to %zd",index)
-#define argback(N) index-=(ptrdiff_t)(N);debug("arg index back to %zd",index)
+#define argnext(N) index+=(size_t)(N);debug("arg index to %zd",index)
+#define argback(N) index-=(size_t)(N);debug("arg index back to %zd",index)
 #define goto_argfail {debug("arg failed");wf_return(SSIZE_MIN+3);}
 #define goto_argfail1(e) {debug("arg failed");wf_return(e);}
 #define argt(_type) ({\
@@ -1631,7 +1629,7 @@ reflag:\
 		--next_saved;\
 	}else {\
 		flag->type=(_type);\
-		__arg=arg(index,flag,addr);\
+		__arg=arg((ssize_t)index,flag,addr);\
 		if(unlikely(!__arg)){\
 			debug("cannot get arg[%zd]",index);\
 			goto_argfail;\
@@ -1720,34 +1718,23 @@ current_get:
 			}
 			break;
 		case EXPR_FMTC_JUMP_INDEX:
-#define fmt_op_cond(onexit) \
-			if(flag->eq){\
+#define nojump_if_zero_k(feq) \
+			if(feq){\
+				arg_cur=arg1;\
+				argnext1;\
 				if(flag->digit_set){\
-					ar=arg1->addr;\
-					argnext1;\
-					*ar+=flag->digit;\
-					r2=(uint8_t)(flag->zero?(ssize_t)*ar<0:(flag->space?(ssize_t)*ar>0:!*ar));\
-					if(flag->sharp)\
-						r2=(uint8_t)!r2;\
-					if(r2){\
-						onexit;\
+					if(!(*arg_cur->uiaddr+=flag->digit))\
 						break;\
-					}\
 				}else {\
-					ar=arg1->addr;\
-					argnext1;\
-					if(!ar){\
-						onexit;\
+					if(!*arg_cur->uiaddr)\
 						break;\
-					}\
 				}\
 			}
-			fmt_op_cond();
-			uv=flag_width(flag,1);
+			nojump_if_zero_k(flag->eq);
 			if(flag->minus){
-				index-=(ptrdiff_t)uv;
+				index-=flag_width(flag,1);
 			}else {
-				index+=(ptrdiff_t)uv;
+				index+=flag_width(flag,1);
 			}
 			debug("jumpto args[%zd]",index);
 			break;
@@ -1821,58 +1808,54 @@ current_get:
 			goto current_get;
 #define fmt_jumpto(target) range_checkn(fmt=(target),fmt0,fmtlen,goto_argfail)
 		case EXPR_FMTC_JUMP:
-			fmt_op_cond(
-				if(flag->plus){
-					if(fmt_save_current<=fmt_save)
-						goto_argfail;
-					--fmt_save_current;
-				}
-				loop=0);
-			uv=flag_width(flag,0);
-			if(flag->plus){
-				if(fmt_save_current<=fmt_save)
-					goto_argfail;
-				range_checkn(fmt_save_current-1,fmt_save,8,goto_argfail);
-				d1=(const char *)((uintptr_t)fmt_save_current[-1]+1);
-			}else if(flag->minus)
-				d1=(const char *)((uintptr_t)fmt-(uintptr_t)uv+1);
+			nojump_if_zero_k(flag->eq);
+			if(flag->minus)
+				d1=(const char *)((uintptr_t)fmt-(uintptr_t)flag_width(flag,0)+1);
 			else
-				d1=(const char *)((uintptr_t)fmt+(uintptr_t)uv+1);
+				d1=(const char *)((uintptr_t)fmt+(uintptr_t)flag_width(flag,0)+1);
 			debug("jumpto fmt[%td]",d1-fmt0);
 			fmt_jumpto(d1);
-			argback(loop);
-			loop=0;
 			goto continue_keepfmt;
 		case EXPR_FMTC_READ_CONVERTER:
 			wfp=(const struct expr_writefmt *)arg1->addr;
 			argnext1;
 			goto wfp_get;
 		case EXPR_FMTC_INC:
+			arg_cur=arg1;
 			if(flag->width_set)
-				*arg1->uiaddr*=flag->width;
+				*arg_cur->uiaddr*=flag->width;
 			if(flag->digit_set)
-				*arg1->uiaddr+=flag->digit;
+				*arg_cur->uiaddr+=flag->digit;
 			else
-				++(*arg1->uiaddr);
+				++(*arg_cur->uiaddr);
 			argnext1;
 			break;
 		case EXPR_FMTC_DEC:
+			arg_cur=arg1;
 			if(flag->width_set)
-				*arg1->uiaddr/=flag->width;
+				*arg_cur->uiaddr/=flag->width;
 			if(flag->digit_set)
-				*arg1->uiaddr-=flag->digit;
+				*arg_cur->uiaddr-=flag->digit;
 			else
-				--(*arg1->uiaddr);
+				--(*arg_cur->uiaddr);
 			argnext1;
 			break;
 		case EXPR_FMTC_PUSH:
-			debug("push fmt[%zd]",fmt-fmt0);
-			range_checkn(fmt_save_current,fmt_save,8,goto_argfail);
-			EXPR_RPUSH(fmt_save_current)=fmt;
+			if(unlikely(fmt>=endp))
+				goto_argfail;
+			savefmt=fmt+1;
 			break;
-		case EXPR_FMTC_CLEAR:
-			fmt_save_current=fmt_save;
-			break;
+		case EXPR_FMTC_POP:
+			nojump_if_zero_k(flag->eq);
+			if(unlikely(!savefmt))
+				goto_argfail;
+			if(flag->minus){
+				index-=flag_width(flag,1);
+			}else {
+				index+=flag_width(flag,1);
+			}
+			fmt=savefmt;
+			goto continue_keepfmt;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 		case EXPR_FMTC_SAVE:
@@ -1927,7 +1910,7 @@ current_get:
 						old.uint>>=save.uint;
 						break;
 					case 11:
-						old.uint=((uintmax_t (*)(const union expr_argf *,intptr_t))save.addr)(&old,fd);
+						old.uint=((expr_ut (*)(const union expr_argf *,intptr_t))save.addr)(&old,fd);
 						break;
 					case 12:
 						old.uint=~old.uint;
@@ -2102,6 +2085,7 @@ end:
 #undef delim
 //#undef tail
 #undef d1
+#undef savefmt
 #undef delimsz
 //#undef tailsz
 #undef loop
@@ -2111,8 +2095,8 @@ end:
 #undef current
 #undef r1
 #undef r2
-#undef fmt_save
-#undef fmt_save_current
+//#undef fmt_save
+//#undef fmt_save_current
 #undef save
 #undef arg_cur
 #undef aps
@@ -2149,7 +2133,7 @@ struct writef_args {
 	const union expr_argf *base;
 	size_t arglen;
 };
-static const union expr_argf *arr_arg(ptrdiff_t index,const struct expr_writeflag *flag,intptr_t addr){
+static const union expr_argf *arr_arg(ssize_t index,const struct expr_writeflag *flag,intptr_t addr){
 	struct writef_args *wa=(struct writef_args *)addr;
 	const union expr_argf *r;
 	if(unlikely((size_t)index>=wa->arglen))
@@ -2169,10 +2153,10 @@ ssize_t expr_writeft_r(expr_writer_t writer,intptr_t fd,const char *restrict fmt
 }
 struct fmtarg {
 	va_list ap;
-	ptrdiff_t index_old;
+	ssize_t index_old;
 	union expr_argf save[1];
 };
-static const union expr_argf *ap_getarg(ptrdiff_t index,const struct expr_writeflag *flag,intptr_t addr){
+static const union expr_argf *ap_getarg(ssize_t index,const struct expr_writeflag *flag,intptr_t addr){
 	struct fmtarg *restrict a=(struct fmtarg *)addr;
 	int type=(int)flag->type;
 	if(index==a->index_old){
@@ -2513,8 +2497,6 @@ next:
 				case EXPR_FMTC_WRITESIZE:
 					break;
 				case EXPR_FMTC_JUMP_INDEX:
-					if(unlikely(tmp->flag->eq))
-						reterr(SSIZE_MIN+5);
 					break;
 				case EXPR_FMTC_LOOP:
 				case EXPR_FMTC_LOOP_FORWARD:
@@ -2536,6 +2518,9 @@ next:
 				case EXPR_FMTC_SETARR:
 					lptype=2;
 					break;
+				case EXPR_FMTC_JUMP:
+				case EXPR_FMTC_INC:
+				case EXPR_FMTC_DEC:
 				case EXPR_FMTC_FLUSH:
 					break;
 				case EXPR_FMTC_FPH:
@@ -2653,8 +2638,8 @@ void expr_ifree_r(struct expr_finst *restrict fip,const struct expr_memtool *res
 		argnext1;\
 	}
 #define argnext1 ++index;debug("arg index to %zd",index)
-//#define argnext(N) index+=(ptrdiff_t)(N);debug("arg index to %zd",index)
-//#define argback(N) index-=(ptrdiff_t)(N);debug("arg index back to %zd",index)
+//#define argnext(N) index+=(ssize_t)(N);debug("arg index to %zd",index)
+//#define argback(N) index-=(ssize_t)(N);debug("arg index back to %zd",index)
 #define goto_argfail {debug("arg failed");wf_return(SSIZE_MIN+3);}
 #define goto_argfail1(e) {debug("arg failed");wf_return(e);}
 #define argt(_type) ({\
@@ -2664,7 +2649,7 @@ void expr_ifree_r(struct expr_finst *restrict fip,const struct expr_memtool *res
 		--next_saved;\
 	}else*/ {\
 		flag->type=(_type);\
-		__arg=arg(index,flag,addr);\
+		__arg=arg((ssize_t)index,flag,addr);\
 		if(unlikely(!__arg)){\
 			debug("cannot get arg[%zd]",index);\
 			goto_argfail;\
@@ -2733,7 +2718,7 @@ ssize_t expr_vwritei_r(expr_writer_t writer,intptr_t fd,const struct expr_finst 
 #define aps un._aps
 #define mask un1._mask
 #define dlsz un1._dlsz
-	ptrdiff_t index;
+	size_t index;
 	const char *delim;
 	size_t delimsz;
 	struct expr_writeflag flag[1];
@@ -2799,10 +2784,11 @@ ssize_t expr_vwritei_r(expr_writer_t writer,intptr_t fd,const struct expr_finst 
 					writesize_k();
 					break;
 				case EXPR_FMTC_JUMP_INDEX:
+					nojump_if_zero_k(flag->eq);
 					if(flag->minus){
-						index-=(ptrdiff_t)flag_width(flag,1);
+						index-=flag_width(flag,1);
 					}else {
-						index+=(ptrdiff_t)flag_width(flag,1);
+						index+=flag_width(flag,1);
 					}
 					break;
 				case EXPR_FMTC_LOOP:
@@ -2831,6 +2817,33 @@ ssize_t expr_vwritei_r(expr_writer_t writer,intptr_t fd,const struct expr_finst 
 				case EXPR_FMTC_SETARR:
 					arrwid=1;
 					loop=flag_width(flag,0);
+					break;
+				case EXPR_FMTC_JUMP:
+					nojump_if_zero_k(flag->eq);
+					if(flag->minus)
+						fip-=flag_width(flag,0);
+					else
+						fip+=flag_width(flag,0);
+					break;
+				case EXPR_FMTC_INC:
+					arg_cur=arg1;
+					if(flag->width_set)
+						*arg_cur->uiaddr*=flag->width;
+					if(flag->digit_set)
+						*arg_cur->uiaddr+=flag->digit;
+					else
+						++(*arg_cur->uiaddr);
+					argnext1;
+					break;
+				case EXPR_FMTC_DEC:
+					arg_cur=arg1;
+					if(flag->width_set)
+						*arg_cur->uiaddr/=flag->width;
+					if(flag->digit_set)
+						*arg_cur->uiaddr-=flag->digit;
+					else
+						--(*arg_cur->uiaddr);
+					argnext1;
 					break;
 				case EXPR_FMTC_FLUSH:
 					v=writer(fd,NULL,flag->sharp?SIZE_MAX:(size_t)0);

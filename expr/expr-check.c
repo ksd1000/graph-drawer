@@ -292,6 +292,7 @@ static void checkfmts(void){
 	checkfmt2("|5678","%1L%,:id|%:id",1234,5678);
 	checkfmt2("|1477","%7L%,:id|%:id",-300,300,593,710,801,1192,1336,1477,1603);
 	checkfmt2("{}","{%4k%1T,%,:id}",(int []){1,2,3,1});
+	checkfmt("987654321|","%{%&d%-r%=-1.-1}|",(expr_ut []){9});
 	printf("fotmat check ok\n");
 }
 static int keyword_diff(const char *str,size_t len,const struct expr_builtin_keyword *restrict s){

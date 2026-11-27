@@ -2373,6 +2373,50 @@ static ssize_t expr_ioptimize_r(struct expr_finst *restrict fip,void *newfip,con
 		}
 	}
 	r=(ssize_t)(fip-fip0+1);
+	/*
+	fip=xrealloc(fip0,(size_t)r*sizeof(struct expr_finst));
+	if(likely(fip)){
+		*(struct expr_finst **)newfip=(struct expr_finst *)fip;
+	}else {
+		*(struct expr_finst **)newfip=fip0;
+	}
+	*/
+	*(struct expr_finst **)newfip=fip0;
+	return r;
+}
+static ssize_t expr_ifillfields_r(struct expr_finst *restrict fip,void *newfip,const struct expr_memtool *restrict mtl){
+	struct expr_finst *fip0;
+	struct expr_finst *endp;
+	ssize_t r;
+	fip0=(struct expr_finst *)fip;
+	endp=NULL;
+	for(;fip->op!=EXPR_FEND;++fip){
+		if(fip->op!=EXPR_FCTL)
+			continue;
+		switch(fip->fmtc_code){
+			case EXPR_FMTC_PUSH:
+				endp=fip;
+				fip->unused=1;
+				break;
+			case EXPR_FMTC_POP:
+				fip->popn=(size_t)(fip-endp)-1;
+				break;
+			default:
+				break;
+		}
+	}
+	fip=fip0;
+	endp=fip0;
+	for(;;++endp){
+		if(!endp->unused){
+			if(endp>fip)
+				memcpy(fip,endp,sizeof(struct expr_finst));
+			if(unlikely(fip->op==EXPR_FEND))
+				break;
+			++fip;
+		}
+	}
+	r=(ssize_t)(fip-fip0+1);
 	fip=xrealloc(fip0,(size_t)r*sizeof(struct expr_finst));
 	if(likely(fip)){
 		*(struct expr_finst **)newfip=(struct expr_finst *)fip;
@@ -2597,6 +2641,11 @@ end:
 			p=tmp;
 	}
 	*(struct expr_finst **)fip=p;
+	psize=(size_t)expr_ifillfields_r(p,&p,mtl);
+	if(unlikely((ssize_t)psize<0)){
+		expr_ifree_r(p,mtl);
+		return (ssize_t)psize;
+	}
 	debug("end psize=%zu",psize);
 	return (ssize_t)psize;
 }
@@ -2740,7 +2789,9 @@ ssize_t expr_vwritei_r(expr_writer_t writer,intptr_t fd,const struct expr_finst 
 	//tailsz=0;
 	forward=0;
 	flag->mtl=mtl;
-	for(;;++fip)switch(fip->op){
+	for(;;++fip){
+continue_keepfmt:
+		switch(fip->op){
 		case EXPR_FIMM:
 			wf_trywrite(fip->imm_str,fip->imm_len);
 			break;
@@ -2864,10 +2915,9 @@ ssize_t expr_vwritei_r(expr_writer_t writer,intptr_t fd,const struct expr_finst 
 					}else {
 						index+=flag_width(flag,1);
 					}
-					debug("fip=%p",fip);
-					for(--fip;fip->op!=EXPR_FCTL||fip->fmtc_code!=EXPR_FMTC_PUSH;--fip);
-					debug("fip=%p",fip);
-					break;
+					debug("fip-=%zu",fip->popn);
+					fip-=fip->popn;
+					goto continue_keepfmt;
 				case EXPR_FMTC_FLUSH:
 					v=writer(fd,NULL,flag->sharp?SIZE_MAX:(size_t)0);
 					if(unlikely(v<0))
@@ -2887,6 +2937,7 @@ ssize_t expr_vwritei_r(expr_writer_t writer,intptr_t fd,const struct expr_finst 
 			wf_return(ret);
 		default:
 			__builtin_unreachable();
+	}
 	}
 }
 #pragma GCC diagnostic pop

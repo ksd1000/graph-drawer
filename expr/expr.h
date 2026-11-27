@@ -1726,6 +1726,7 @@ struct expr_finst {
 	union {
 		expr_converter_t converter;
 		const char *imm_str;
+		size_t popn;
 	};
 	int op;
 	char fph;

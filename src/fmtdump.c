@@ -204,7 +204,7 @@ int plain=0,add_index=0;
 #define plain1(s) (plain?s:"\t" s "\n")
 #define plain2(s) (plain?s:"\t\t" s "\n")
 #define plain3(s) (plain?s:"\t\t\t" s "\n")
-#define DUMPF(fl) if(flag->fl)expr_printf(plain3("." #fl "=%:zu,"),(size_t)flag->fl)
+#define DUMPF(fl) if(flag->fl)expr_printf(plain3("." #fl "=%=:zu,"),(size_t)flag->fl)
 #define type_check(type,T) \
 	if(expr_ftable_default->bitwidth_##type##_set&&flag->asop==expr_ftable_default->bitwidth_##type){\
 		expr_printf(plain3(".argsize=sizeof(" #T "),"));\
@@ -264,6 +264,9 @@ void dumpctl(const struct expr_finst *restrict fip){
 		//case EXPR_FMTC_TAIL:
 			if(!fip->flag->addr)
 				expr_printf(plain2(".imm_str=%#.*E,"),fip->flag->width,fip->imm_str);
+			break;
+		case EXPR_FMTC_POP:
+			expr_printf(plain2(".popn=%=:zu,"),fip->popn);
 			break;
 		case EXPR_FMTC_FPH:
 			expr_printf(plain2(".fph=\'%.1E\',"),&fip->fph);

@@ -2521,6 +2521,8 @@ next:
 				case EXPR_FMTC_JUMP:
 				case EXPR_FMTC_INC:
 				case EXPR_FMTC_DEC:
+				case EXPR_FMTC_PUSH:
+				case EXPR_FMTC_POP:
 				case EXPR_FMTC_FLUSH:
 					break;
 				case EXPR_FMTC_FPH:
@@ -2844,6 +2846,22 @@ ssize_t expr_vwritei_r(expr_writer_t writer,intptr_t fd,const struct expr_finst 
 					else
 						--(*arg_cur->uiaddr);
 					argnext1;
+					break;
+				case EXPR_FMTC_PUSH:
+					// will not use a variable to save
+					// the pointer, for saving stack
+					// memory.
+					break;
+				case EXPR_FMTC_POP:
+					nojump_if_zero_k(flag->eq);
+					if(flag->minus){
+						index-=flag_width(flag,1);
+					}else {
+						index+=flag_width(flag,1);
+					}
+					debug("fip=%p",fip);
+					for(--fip;fip->op!=EXPR_FCTL||fip->fmtc_code!=EXPR_FMTC_PUSH;--fip);
+					debug("fip=%p",fip);
 					break;
 				case EXPR_FMTC_FLUSH:
 					v=writer(fd,NULL,flag->sharp?SIZE_MAX:(size_t)0);

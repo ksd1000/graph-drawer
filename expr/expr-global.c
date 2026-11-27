@@ -4,7 +4,7 @@
 ******************************************************************************/
 #define _GNU_SOURCE
 
-#define EXPR_VERSION "1.0.20-3"
+#define EXPR_VERSION "1.0.20-4"
 // a.b.c[-d]
 // d: update of bugfix and update without removing
 // APIs in man.

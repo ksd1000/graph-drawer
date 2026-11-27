@@ -2402,7 +2402,7 @@ ssize_t expr_mkinstft_r(void *fip,const char *restrict fmt,size_t fmtlen,const s
 	size_t psize=0,plength=0;
 	const char *endp,*fmt_old;
 	const struct expr_writefmt *wfp;
-	uint8_t r1,current,lptype=0,shouldoptimize=0;
+	uint8_t r1,current,lptype=0,shouldoptimize=0,pushed=0;
 	if(unlikely(!fmtlen))
 		goto end;
 	if(unlikely(!table->fph_set)){
@@ -2522,7 +2522,12 @@ next:
 				case EXPR_FMTC_INC:
 				case EXPR_FMTC_DEC:
 				case EXPR_FMTC_PUSH:
+					pushed=1;
+					break;
 				case EXPR_FMTC_POP:
+					if(unlikely(!pushed))
+						reterr(SSIZE_MIN+3);
+					break;
 				case EXPR_FMTC_FLUSH:
 					break;
 				case EXPR_FMTC_FPH:

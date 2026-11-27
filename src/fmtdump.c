@@ -232,6 +232,7 @@ void dumpflag(const struct expr_writeflag_nomtl *flagp){
 	DUMPF(width_set);
 	DUMPF(addr);
 	DUMPF(suffix);
+	DUMPF(comma);
 	DUMPF(width);
 	DUMPF(digit);
 	type_check(addr,void *)
